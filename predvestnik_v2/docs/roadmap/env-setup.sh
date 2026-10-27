@@ -20,7 +20,12 @@ DSN="postgresql://${DB}@127.0.0.1:${PGPORT}/${DB}"
 
 if [ "${1:-}" = "--fresh-db" ]; then
   NAME="${2:?укажи имя базы, например: --fresh-db pv_test_bot_health_pg}"
-  psql -h 127.0.0.1 -p "$PGPORT" -U "$DB" -d postgres -q -c "DROP DATABASE IF EXISTS \"$NAME\"" -c "CREATE DATABASE \"$NAME\"" 2>&1 | grep -v NOTICE || true
+  PSQL=(psql -h 127.0.0.1 -p "$PGPORT" -U "$DB" -v ON_ERROR_STOP=1 -q)
+  # завершить чужие подключения к этой базе, иначе DROP упадёт; любая ошибка прерывает скрипт (set -e), а не печатает DSN «вхолостую»
+  "${PSQL[@]}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$NAME' AND pid <> pg_backend_pid()" >/dev/null
+  "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS \"$NAME\"" -c "CREATE DATABASE \"$NAME\"" 2>&1 | { grep -v NOTICE || true; }
+  [ "$("${PSQL[@]}" -d "$NAME" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')")" = 0 ] \
+    || { echo "база $NAME не пуста или недоступна" >&2; exit 1; }
   echo "postgresql://${DB}@127.0.0.1:${PGPORT}/${NAME}"
   exit 0
 fi
@@ -49,7 +54,7 @@ psql -h 127.0.0.1 -p "$PGPORT" -U "$DB" -d postgres -tAc "SELECT 1 FROM pg_datab
 
 echo "== 3/4 Схема базы и миграция браков =="
 cd "$REPO/predvestnik_v2"
-DATABASE_URL="$DSN" BOT_TOKEN=1:x PYTHONPATH=. "$VENV/bin/python" - <<'PY' 2>&1 | grep -E "init_db ok|Error|error" || true
+INIT_OUT=$(DATABASE_URL="$DSN" BOT_TOKEN=1:x PYTHONPATH=. "$VENV/bin/python" - <<'PY' 2>&1
 import asyncio
 from infrastructure import database as idb
 from bot.core import database as d
@@ -59,6 +64,9 @@ async def main():
     print("init_db ok")
 asyncio.run(main())
 PY
+) || true
+echo "$INIT_OUT" | grep -q "init_db ok" || { echo "init_db не отработал:" >&2; echo "$INIT_OUT" | tail -15 >&2; exit 1; }
+echo "init_db ok"
 # Колонка marriages.ended_at появляется только этой операторской миграцией; без неё /profile/me на чистой базе падает.
 BOT_TOKEN=1:x PYTHONPATH=. "$VENV/bin/python" tools/migrate_marriage_members_v1.py --dsn "$DSN" --apply
 

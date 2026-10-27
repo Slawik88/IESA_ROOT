@@ -1,3 +1,16 @@
+## ROADMAP-S00 — DOCUMENTATION ONLY, PUSHED TO MASTER
+
+Session pipeline for the owner's 2026-10-27 work plan: `docs/roadmap/` (README protocol, STATUS journal, 25 session prompts S01-S25, findings from the code survey, ENV.md and
+`env-setup.sh`, `seed/nodb-render` skin stand seed, OWNER_REQUEST.md). Also: one pointer row in `AGENTS.md`, a Figma-replaced-by-stand note in `OWNER_WORK_PLAN_2026-10-06.md`, and an
+explicit exception for `docs/roadmap/` in `AUTONOMOUS_AGENT_POLICY.md` section 4. No runtime code, schema, flags or assets changed.
+
+Verified locally (cloud session, Python 3.12, PostgreSQL 16 on :5433): `env-setup.sh` from scratch (75 s) and idempotent re-run; `test_player_copy_contract`, `test_patch_notes_contract`,
+`test_whatsnew_v3_contract` and `node test_guide_navigation.js` pass; `test_avatar_pool_pg`, `test_bot_health_pg` and `test_bot_admin_metrics_pg` (fresh DB) pass; `ui_smoke --only profile
+--widths 390` and `admin_stand --tabs health` pass; two independent cold-start dry runs of the protocol by a context-free read-only agent, findings fixed. Known pre-existing red:
+`tools/test_current_game_docs.py` also fails on the untouched `origin/master`.
+
+Not verified: production deploy health (production URLs are unreachable from the cloud session, HTTP 000). Owner confirms DigitalOcean `Healthy`, `/api/health`, `/api/ready`, Mini App opens.
+
 ## ONLINE-MAFIA-UX-20261025 — RELEASED TO MASTER AND VERIFIED LIVE
 
 Code commit64f4310db87dea5bb2ab5a52eaea11f80e5dc4c2 fast-forward pushed to
