@@ -47,6 +47,8 @@ def database(dsn, operation, room_id=None):
                     state['deadline'] = await repo.now(db) - 1
                     await repo.save(db, state)
                     await phases.advance(db, state, await repo.now(db))
+            elif operation == 'support-reset':
+                await connection.execute("DELETE FROM support_reports WHERE user_id=$1 AND comment='QA support full shell'",PERSONA_ID)
             else:
                 raise AssertionError(operation)
         finally:
@@ -59,6 +61,7 @@ def check(dsn, shots, baseline=False, port=8408):
     shots.mkdir(parents=True, exist_ok=True)
     with Stand(port, dsn, skin='void', tier='SSS', rich=True) as stand, sync_playwright() as pw:
         database(dsn, 'reset')
+        database(dsn, 'support-reset')
         browser = pw.chromium.launch(executable_path=chromium_path())
         context = browser.new_context(viewport={'width': 390, 'height': 640}, is_mobile=True, has_touch=True)
         context.add_init_script(INIT + stand.browser_init)
@@ -81,6 +84,11 @@ def check(dsn, shots, baseline=False, port=8408):
             (shots/'startup-failure.json').write_text(json.dumps({'errors':errors,'body':page.locator('body').inner_text()[:1800]},ensure_ascii=False),encoding='utf-8')
             raise
         page.locator('#preloader').wait_for(state='hidden')
+        if not baseline:
+            page.evaluate("switchPage('more')")
+            page.locator('#pg-more [data-support-open]').click()
+            page.get_by_role('heading',name='Сообщить о проблеме').wait_for()
+            page.locator('.pv-support [data-support-close]').click()
         page.evaluate('openMafiaOnline()')
         page.locator('#mo-quick').wait_for()
         page.screenshot(path=str(shots / '01-hub-390.png'))
@@ -91,6 +99,20 @@ def check(dsn, shots, baseline=False, port=8408):
             page.locator('#mo-quick').click()
         page.wait_for_function('() => MO.data && document.querySelector("#mo-text")', timeout=15000)
         room = page.evaluate('MO.room')
+        if not baseline:
+            page.locator('#mo-text').fill('QA private chat draft')
+            page.locator('.mo-head-actions [data-support-open]').click()
+            assert page.locator('.pv-support select').input_value() == 'mafia'
+            page.locator('.pv-support textarea').fill('QA support full shell')
+            with page.expect_response(lambda r: r.url.endswith('/support/reports') and r.request.method=='POST') as reported:
+                page.locator('.pv-support [data-support-send]').click()
+            assert reported.value.status == 200,reported.value.text()
+            assert 'QA private chat draft' not in reported.value.request.post_data
+            page.get_by_text('Отчёт доставлен',exact=False).wait_for()
+            page.screenshot(path=str(shots/'support-from-mafia-390.png'))
+            page.locator('.pv-support [data-support-close]').click()
+            assert page.locator('#mo-text').is_visible()
+            assert page.locator('#mo-text').input_value() == 'QA private chat draft'
         page.locator('#mo-text').fill('Привет')
         with page.expect_response(lambda r: '/messages' in r.url and r.request.method == 'POST') as sent:
             page.locator('#mo-send').click()
@@ -181,6 +203,7 @@ def check(dsn, shots, baseline=False, port=8408):
         context.close()
         browser.close()
         database(dsn, 'reset')
+        database(dsn, 'support-reset')
     print('PASS reproduced baseline duplicate Content-Type / message422' if baseline else
           'PASS complete production shell: auth, JSON transport, real message, mobile/keyboard geometry, start/night/discussion/reload')
 

@@ -104,6 +104,11 @@ async def maintenance_task(bot: Bot) -> None:
             async with get_pool().acquire() as connection:
                 db = PGAdapter(connection)
                 await _daily_gc(db)
+                try:
+                    from services.support_reports import storage as support_storage
+                    await support_storage.prepare(db)
+                except Exception as support_error:
+                    logger.warning("Support report retention failed: {}",type(support_error).__name__)
                 from services.player_exchange_v1 import (
                     execute_due_emissions, execute_due_liquidity_withdrawals, run_short_risk_maintenance,
                     settle_due_auctions,

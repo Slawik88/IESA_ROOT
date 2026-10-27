@@ -91,6 +91,7 @@ async def require_tg_user_base(
     # из админ-панели (FastAPI.routers.bot_admin.switches.site_gate). Здесь
     # остаётся только аутентификация: иначе переменная окружения могла навсегда
     # перекрыть включение сайта из панели до следующего деплоя.
+    request.state.support_user_id = int(user["id"])
     _fire_and_forget(_capture_signals(int(user["id"]), request, x_client_fp))
     from services import presence_v1
     _fire_and_forget(presence_v1.note_activity(int(user["id"])))   # «был(а) в сети»: одна запись в минуту

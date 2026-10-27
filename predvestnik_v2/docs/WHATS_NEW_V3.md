@@ -93,6 +93,7 @@
 
 | Ключ | Кнопка | Куда | `tab` |
 |---|---|---|---|
+| `support` | Сообщить о проблеме | `window.PVSupport.open()` | — |
 | `games` | Открыть Игры | `switchPage('arena')` | `arena` |
 | `pass` | Открыть Пропуск | `openSeasonPass()` (экран за флагом `season_pass_v1`, `docs/SEASON_PASS_UI.md`) | `arena` |
 | `looks` | Открыть Образы | `openLooksModal()` | `looks` |

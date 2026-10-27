@@ -44,6 +44,9 @@ from FastAPI.routers import bot_admin as bot_admin_router  # новая адми
 from FastAPI.routers import purge_v1 as purge_v1_router
 from FastAPI.routers import league_v1 as league_v1_router  # демо Лиги, только ранний доступ
 from FastAPI import game_shell
+from FastAPI import support_middleware
+from FastAPI.routers import support as support_router
+from infrastructure.repositories.support_reports import ensure_tables as ensure_support_reports
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -225,6 +228,7 @@ async def lifespan(app: FastAPI):
             (ensure_presence_v1,                     "presence_v1"),
             (ensure_player_exchange_v1,              "player_exchange_v1"),
             (ensure_coin_market_v2,                  "coin_market_v2"),
+            (ensure_support_reports,                 "support_reports"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -302,7 +306,9 @@ app.include_router(legacy_combat_retirement_router.router)
 app.include_router(bot_admin_router.router)
 app.include_router(purge_v1_router.router)
 app.include_router(league_v1_router.router)
+app.include_router(support_router.router)
 app.middleware("http")(bot_admin_router.site_gate)   # выключатели сайта из админки
+app.middleware("http")(support_middleware.record_request)
 
 
 @app.middleware("http")
@@ -499,7 +505,7 @@ def _read_static(name: str) -> str:
 _APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
-_SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "mafia-online-v3.css", "fx-tiers-v3.css", "appearance-v3.css",
+_SHELL_V3_CSS = ("support-feedback.css", "admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "mafia-online-v3.css", "fx-tiers-v3.css", "appearance-v3.css",
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "skin-scene-e-v3.css", "skin-scene-f-v3.css", "skin-scene-g-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
                  "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "guide-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css", "desktop-v3.css")
 
@@ -511,12 +517,13 @@ _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v
 # Buildpacks normalize mtimes (1980 on production), so only content identifies
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
 _ASSET_SOURCES = tuple(dict.fromkeys((
-    *_APP_JS_PARTS, "page-transitions.js", "app.css", *_SHELL_V3_CSS,
+    *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", "app.css", *_SHELL_V3_CSS,
     "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html", "game-shell-v3.html",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
     "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
 )))
 _ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
+app.state.asset_version = _ASSET_VER
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
 _ASSET_BASE = os.getenv("ROOT_PATH", "").rstrip("/")
@@ -670,6 +677,7 @@ async def page_transitions_js():
 async def local_games_worker():
     assets = [f"{_ASSET_BASE}/rhythm-v2", f"{_ASSET_BASE}/minesweeper"]
     assets += [f"{_ASSET_BASE}/static/{name}?v={_ASSET_VER}" for name in (
+        "support-diagnostics.js", "support-feedback.js", "support-feedback.css",
         "local-games-v1.js", "rhythm-v2.js", "minesweeper-v2.js", "skin-runtime-v3.js", *_GAME_BOARD_ASSETS)]
     # the look and the shared header of the casual pages come from the League assets: they must play offline too
     assets += [f"{_ASSET_BASE}/static/league-demo/{name}?v={league_v1_router.ASSET_VERSION}" for name in league_v1_router.CASUAL_PAGE_ASSETS]
@@ -695,6 +703,16 @@ def _register_shell_css(name: str) -> None:
 
 for _css_name in _SHELL_V3_CSS:
     _register_shell_css(_css_name)
+
+
+def _register_support_js(name: str) -> None:
+    async def _serve() -> Response:
+        return Response(_read_static(name),media_type="application/javascript; charset=utf-8")
+    app.add_api_route(f"/static/{name}",_serve,methods=["GET"],include_in_schema=False)
+
+
+for _support_js in ("support-diagnostics.js","support-feedback.js"):
+    _register_support_js(_support_js)
 
 
 @app.get("/static/skin-runtime-v3.js")

@@ -19,6 +19,7 @@ from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
 from services.leveling import account_progress
 from services.vip import VIP_BADGES, get_preferences, is_vip_active, get_vip_info
+from services.support_diagnostics import recent as support_diagnostics
 from services.cosmetics import get_active_cosmetics, get_fitting_cosmetics
 from services import marks_v1 as marks_service
 from services import skins_v3 as skins_v3_service
@@ -102,6 +103,7 @@ async def _fetch_tg_avatar(user_id: int) -> str | None:
     картинку проксируем через свой эндпоинт."""
     token = os.getenv("BOT_TOKEN", "")
     if not token:
+        support_diagnostics.record(user_id,"avatar",{"source":"botapi","stage":"photos","outcome":"no_token"})
         logger.warning("avatar uid={} source=botapi result=no_token", user_id)
         return None
     api = f"https://api.telegram.org/bot{token}"
@@ -112,6 +114,7 @@ async def _fetch_tg_avatar(user_id: int) -> str | None:
                             params={"user_id": user_id, "limit": 1})
             data = r.json()
             if not data.get("ok") or data["result"].get("total_count", 0) == 0:
+                support_diagnostics.record(user_id,"avatar",{"source":"botapi","stage":"photos","outcome":"empty","status":r.status_code})
                 logger.info("avatar uid={} source=botapi stage=photos ok={} code={} result=empty",
                             user_id, bool(data.get("ok")), data.get("error_code"))
                 return None
@@ -121,17 +124,21 @@ async def _fetch_tg_avatar(user_id: int) -> str | None:
             r2 = await c.get(f"{api}/getFile", params={"file_id": file_id})
             fdata = r2.json()
             if not fdata.get("ok"):
+                support_diagnostics.record(user_id,"avatar",{"source":"botapi","stage":"file","outcome":"failed","status":r2.status_code})
                 logger.warning("avatar uid={} source=botapi stage=file code={}", user_id, fdata.get("error_code"))
                 return None
             file_path = fdata["result"]["file_path"]
             stage = "download"
             r3 = await c.get(f"https://api.telegram.org/file/bot{token}/{file_path}")
             if r3.status_code != 200 or not r3.content:
+                support_diagnostics.record(user_id,"avatar",{"source":"botapi","stage":"download","outcome":"failed","status":r3.status_code})
                 logger.warning("avatar uid={} source=botapi stage=download status={}", user_id, r3.status_code)
                 return None
             b64 = base64.b64encode(r3.content).decode()
+            support_diagnostics.record(user_id,"avatar",{"source":"botapi","stage":"download","outcome":"photo"})
             return f"data:image/jpeg;base64,{b64}"
     except Exception as error:
+        support_diagnostics.record(user_id,"avatar",{"source":"botapi","stage":stage,"outcome":"error","error_kind":type(error).__name__})
         logger.warning("avatar uid={} source=botapi stage={} error={}", user_id, stage, type(error).__name__)
         return None
 
@@ -164,14 +171,17 @@ async def _essence_balance(db, user_id: int) -> int:
 async def _fetch_and_cache_avatar(user_id: int, photo_url: str | None = None) -> str | None:
     async with _AVATAR_FETCH_GATE:
         avatar = await download_signed_photo(photo_url, user_id) if photo_url else None
+        support_diagnostics.record(user_id,"avatar",{"source":"webapp","photo_available":bool(photo_url),"outcome":("photo" if avatar else "empty") if photo_url else "not_attempted"})
         if not avatar:
             avatar = await _fetch_tg_avatar(user_id)
     previous = _AVATAR_CACHE.get(user_id)
     if not avatar and previous and previous[0]:
+        support_diagnostics.record(user_id,"avatar",{"source":"cache","stage":"final","outcome":"photo","cached":True})
         # Keep the last known photo during a transient Telegram outage, but
         # retry shortly rather than renewing the six-hour success lifetime.
         _AVATAR_CACHE[user_id] = (previous[0], time.time() - _AVATAR_TTL + _AVATAR_MISS_TTL)
         return previous[0]
+    support_diagnostics.record(user_id,"avatar",{"stage":"final","outcome":"photo" if avatar else "empty"})
     _AVATAR_CACHE[user_id] = (avatar, time.time())
     return avatar
 
@@ -208,6 +218,7 @@ async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None, wait:
     cached = _AVATAR_CACHE.get(user_id)
     ttl = _AVATAR_TTL if cached and cached[0] else _AVATAR_MISS_TTL
     if cached and time.time() - cached[1] < ttl:
+        support_diagnostics.record(user_id,"avatar",{"source":"cache","cached":True,"has_avatar":bool(cached[0]),"outcome":"hit" if cached[0] else "miss"})
         return cached[0]
     task = _avatar_download(user_id, photo_url)
     if not wait:

@@ -30,7 +30,7 @@ function boot(extra = {}) {
       createElement: () => ({ style: {}, setAttribute() {}, remove() {} }),
       body: { appendChild: node => appended.push(node) },
     },
-    window: { scrollX: 0, scrollY: 0, innerWidth: 390 },
+    window: { scrollX: 0, scrollY: 0, innerWidth: 390, PVSupport:{open:()=>calls.push(['openSupport'])} },
     console, Date: FixedDate, Math, JSON, Object, Array, Set, Promise, RegExp, String, Number,
     localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
     _sysFlags: {}, _navStack: [], _loaded: new Set(),
@@ -326,6 +326,7 @@ const count = (html, needle) => html.split(needle).length - 1;
   await section('Переходы: каждый ключ ведёт на свой экран', () => {
     const t = boot(), { wn, calls } = t;
     const expected = {
+      support: ['openSupport'],
       games: ['switchPage', 'arena'], pass: ['openSeasonPass'], looks: ['openLooksModal'], quests: ['openQuestsV1'], chests: ['openChestsV1'], pets: ['openPetsV1'], top: ['openTopV3'],
       profile: ['switchPage', 'profile'], family: ['openFamilyTree'], inventory: ['openInventory'], achievements: ['openAchievementsV1'], promo: ['openPromoSheet'],
       zarniki: ['openStoreV3', 'zarniki'], vip: ['openStoreV3', 'vip'], settings: ['openSettingsModal'], chats: ['openChatTracker'], help: ['openGuide'],

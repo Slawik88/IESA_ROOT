@@ -2,7 +2,7 @@
 const _NAV_PRIORITY = Object.freeze({
   groups: Object.freeze({management:100, community:90, collection:80, help:70, shop:60, account:50}),
   items: Object.freeze({purge:110, admin:90, chats:100, top:90, inventory:100, chests:95, looks:90, promo:80,
-    guide:100, news:90, 'community-link':80, 'updates-link':70, refresh:10, wallet:100, zarniki:70, vip:60, settings:100})
+    support:110, guide:100, news:90, 'community-link':80, 'updates-link':70, refresh:10, wallet:100, zarniki:70, vip:60, settings:100})
 });
 function orderNavigation() {
   const sort = (parent, selector, priorities, key) => {
@@ -230,7 +230,7 @@ function connectWS() {
   const auth = INIT_DATA ? `init=${encodeURIComponent(INIT_DATA)}` : `token=${encodeURIComponent(sess())}`;
   let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}?${auth}`); } catch (e) { return; }
   _ws = ws;
-  ws.onopen = () => { _wsTries = 0; };
+  ws.onopen = () => { _wsTries = 0; window.PVDiagnostics?.record('websocket',{state:'open'}); };
   ws.onmessage = ev => {
     let event; try { event = JSON.parse(ev.data); } catch (e) { return; }
     // The server sends this only after its PostgreSQL listener is active. One
@@ -255,12 +255,13 @@ function connectWS() {
     if (event && typeof event.type === 'string') { try { showWsNotif(event); } catch (e) { /* событие не должно ронять соединение */ } }
   };
   ws.onclose = (ev) => {
+    window.PVDiagnostics?.record('websocket',{state:'closed',code:ev?.code||0});
     if (_ws === ws) _ws = null;
     clearTimeout(_wsTimer);
     if (ev && ev.code === 1008) return;   // account/credential not allowed: no reconnect loop; next visibility change retries once
     _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
   };
-  ws.onerror = () => { try { ws.close(); } catch (e) { /* уже закрыт */ } };
+  ws.onerror = () => { window.PVDiagnostics?.record('websocket',{state:'error'}); try { ws.close(); } catch (e) { /* уже закрыт */ } };
 }
 setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !_ws) connectWS(); });

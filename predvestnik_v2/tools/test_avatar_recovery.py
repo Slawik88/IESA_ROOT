@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault('BOT_TOKEN', '1:offline-avatar-test')
 os.environ.setdefault('DATABASE_URL', 'postgresql://offline@127.0.0.1:1/offline')
 from FastAPI.routers import profile
+from services.support_diagnostics import RecentDiagnostics
 
 PHOTO = 'data:image/jpeg;base64,AAAA'
 
@@ -43,6 +44,17 @@ async def main():
         completed.set()
         await task
         assert await profile._vip_avatar(None, 3, vip_active=True) == PHOTO
+    monitor = RecentDiagnostics()
+    with patch.object(profile,'support_diagnostics',monitor):
+        with patch.object(profile,'_fetch_tg_avatar',AsyncMock(return_value=PHOTO)):
+            assert await profile._fetch_and_cache_avatar(10) == PHOTO
+            assert monitor.overview()['totals']['avatar_miss'] == 0, 'absent WebApp URL is not a failed final avatar'
+        with patch.object(profile,'_fetch_tg_avatar',AsyncMock(return_value=None)):
+            assert await profile._fetch_and_cache_avatar(11) is None
+            assert monitor.overview()['totals']['avatar_miss'] == 1
+            profile._AVATAR_CACHE[12] = (PHOTO,time.time()-profile._AVATAR_TTL-1)
+            assert await profile._fetch_and_cache_avatar(12) == PHOTO
+            assert monitor.overview()['totals']['avatar_miss'] == 1, 'retained stale photo still renders'
     print('avatar recovery: stale photo, transient miss, timeout and VIP gate OK')
 
 

@@ -10,7 +10,7 @@ from fastapi import APIRouter
 
 from FastAPI.routers.bot_admin import access, avatars, broadcasts, health, journal, metrics, owner, page, people, promo, reports, settings, switches, patch_notes
 from FastAPI.routers.bot_admin.auth import router as auth_router
-from FastAPI.routers.bot_admin import mafia_online
+from FastAPI.routers.bot_admin import mafia_online, diagnostics
 
 router = APIRouter()
 router.include_router(page.router)
@@ -21,6 +21,7 @@ router.include_router(owner.router)
 router.include_router(access.router)
 router.include_router(reports.router)
 router.include_router(mafia_online.router)
+router.include_router(diagnostics.router)
 router.include_router(metrics.router)
 router.include_router(journal.router)
 router.include_router(broadcasts.router)

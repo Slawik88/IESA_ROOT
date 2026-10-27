@@ -1,4 +1,7 @@
 <script src="{{BASE}}/static/page-transitions.js?v={{VER}}"></script>
+<link rel="stylesheet" href="{{BASE}}/static/support-feedback.css?v={{VER}}"/>
+<script src="{{BASE}}/static/support-diagnostics.js?v={{VER}}"></script>
+<script defer src="{{BASE}}/static/support-feedback.js?v={{VER}}"></script>
 <script>try{var d=sessionStorage.getItem('pv_mode_dir');if(d){document.documentElement.dataset.gm=d;sessionStorage.removeItem('pv_mode_dir');}}catch(e){}</script>
     <header class="lg-hero">
       <svg class="lg-sky" viewBox="0 0 360 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
@@ -10,6 +13,7 @@
       </svg>
       <a class="lg-back" id="lg-back-link" href="{{BASE}}/?startapp=games" aria-label="Назад к играм">‹</a>
       <div class="lg-hero-t"><small id="lg-eyebrow">{{EYEBROW}}</small><h1 id="lg-title">{{TITLE}}</h1></div>
+      <button type="button" class="lg-support" data-support-open data-support-category="games" aria-label="Сообщить о проблеме">Помощь</button>
       <p class="lg-days" id="lg-days" hidden></p>
     </header>
     <div class="gmode-host" id="lg-mode"{{MODE_ATTRS}} hidden></div>

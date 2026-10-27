@@ -16,6 +16,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="{{BASE}}/static/support-diagnostics.js?v={{ASSET_VER}}"></script>
+<script defer src="{{BASE}}/static/support-feedback.js?v={{ASSET_VER}}"></script>
+<link rel="stylesheet" href="{{BASE}}/static/support-feedback.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/admin-legacy.css?v={{ASSET_VER}}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -176,6 +179,7 @@
     <button data-nav-key="promo" type="button" class="v3-row" onclick="openPromoSheet()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5V10a2 2 0 0 0 0 4v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 15.5V14a2 2 0 0 0 0-4zM14 7v10"/></svg><span>Промокоды<small>Ввести код, забрать доступные, история</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
   </section>
   <section class="v3-group" data-nav-group="help"><span class="v3-eyebrow">Помощь и новости</span>
+    <button data-nav-key="support" data-support-open type="button" class="v3-row"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4zM8 8h8M8 12h5"/></svg><span>Сообщить о проблеме<small>Даже если ошибки на экране нет</small></span><span class="v3-end">›</span></button>
     <button data-nav-key="guide" type="button" class="v3-row" onclick="goTo('help')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9.2a2.4 2.4 0 1 1 3.3 2.2c-.8.4-1.1.9-1.1 1.8M12 17h.01"/></svg><span>Путеводитель<small>Темы, словарь и быстрые ответы</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button data-nav-key="news" type="button" class="v3-row" id="whatsnew-btn" data-wn-btn onclick="openWhatsNew()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Что нового<small>Свежие изменения</small></span><span class="v3-end"><span id="whatsnew-dot" class="v3-badge" data-wn-dot hidden>•</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <a data-nav-key="community-link" class="v3-row" href="https://t.me/predvestnik_official" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-5 18-5-7-8-3zM11 14l10-11"/></svg><span>Официальное сообщество<small>Обновления, помощь и обсуждение проекта</small></span><span class="v3-end">›</span></a>

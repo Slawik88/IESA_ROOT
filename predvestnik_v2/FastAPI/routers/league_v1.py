@@ -23,7 +23,8 @@ from services import early_access, league_pass, league_v1 as league
 router = APIRouter(tags=["league-demo"])
 _STATIC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 _JS, _CSS = "application/javascript", "text/css"
-_ASSETS = {"league-demo.css": _CSS, "league-games.css": _CSS, "league-pass.css": _CSS, "casual-games-v3.css": _CSS,
+_ASSETS = {"support-diagnostics.js":_JS,"support-feedback.js":_JS,"support-feedback.css":_CSS,
+           "league-demo.css": _CSS, "league-games.css": _CSS, "league-pass.css": _CSS, "casual-games-v3.css": _CSS,
            "league-art.js": _JS, "league-fx.js": _JS, "league-demo.js": _JS, "league-ladder.js": _JS, "league-result.js": _JS,
            "league-mines.js": _JS, "league-rhythm-fx.js": _JS, "league-rhythm.js": _JS, "league-pass.js": _JS, "league-help.js": _JS, "game-mode-v3.js": _JS,
            "game-shell-v3.js": _JS, "skin-runtime-v3.js": _JS, "game-board-v3.js":_JS, "appearance-v3.css":_CSS}   # палитра надетого образа (--v3-acc), как в играх

@@ -16,6 +16,9 @@ from starlette.responses import RedirectResponse
 
 
 ALLOWED = {
+    "/static/support-diagnostics.js": "application/javascript",
+    "/static/support-feedback.js": "application/javascript",
+    "/static/support-feedback.css": "text/css",
     "/local-games-sw.js": "application/javascript",
     "/static/local-games-v1.js": "application/javascript",
     "/static/nickname-v3.js": "application/javascript",

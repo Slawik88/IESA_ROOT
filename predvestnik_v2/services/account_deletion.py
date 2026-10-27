@@ -260,11 +260,12 @@ async def _mark_deleted_without_market_obligations(db, user_id: int) -> bool:
 
 # Created lazily by the global-skin repository; absent table = nothing to delete.
 # Every other table must exist: a missing one fails the whole finalization.
-_OPTIONAL_FINALIZE_TABLES = frozenset({"global_skin_v1_selection", "global_skin_v1_owned"})
+_OPTIONAL_FINALIZE_TABLES = frozenset({"global_skin_v1_selection", "global_skin_v1_owned", "support_reports"})
 
 _FINALIZE_STEPS = [
     ("pets", "DELETE FROM pets WHERE owner_id = ?"),
     ("inventory", "DELETE FROM inventory WHERE user_id = ?"),
+    ("support_reports", "DELETE FROM support_reports WHERE user_id = ?"),
     ("global_skin_v1_selection", "DELETE FROM global_skin_v1_selection WHERE user_id = ?"),
     ("global_skin_v1_owned", "DELETE FROM global_skin_v1_owned WHERE user_id = ?"),
     ("user_cosmetics", "DELETE FROM user_cosmetics WHERE user_id = ?"),
