@@ -11,6 +11,8 @@ Verified locally (cloud session, Python 3.12, PostgreSQL 16 on :5433): `env-setu
 
 Owner decisions recorded 2026-10-27 (documentation only): "Shipirit" random pair per call and enabled by default, "my article" all topics with the assistant's fixed content boundary, aiogram upgrade as a separate session S23a, admin avatars for everyone and Mini App avatars VIP-only, skin issuing owner-only, env-setup.sh run by the sessions themselves.
 
+No real Telegram and no Telegram Premium for the owner (2026-10-27): bot features are verified on the existing `tools/mafia_sim` Telegram simulator (generalised by S23a) and real-world errors are caught by bot-handler error monitoring (S01); Business (S24) ships enabled with money confirmation only in the player's DM with the bot. START_PROMPT.md added.
+
 Not verified: production deploy health (production URLs are unreachable from the cloud session, HTTP 000). Owner confirms DigitalOcean `Healthy`, `/api/health`, `/api/ready`, Mini App opens.
 
 ## ONLINE-MAFIA-UX-20261025 — RELEASED TO MASTER AND VERIFIED LIVE
