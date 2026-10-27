@@ -2561,4 +2561,13 @@ literal-assert в app.20.js остаётся прежним посторонни
 Read-only reviewer: найденные дефекты исправлены, блокеров больше не обнаружено.
 Доказательства вне Git: C:/Users/makss/.codex/visualizations/2026/10/27/support-feedback/
 (form-*, admin-*, full-app). Патч-нот дня дополнен cover; публикация только владельцем.
-Готово к отправке master; финальная read-only live-сверка после автоматического выпуска.
+Выпущено: 60b6c7b6 отправлен в origin/master, автоматический production-деплой
+подтверждён на iesasport.ch/predvestnik и iesaroot-app-8kuyb.ondigitalocean.app/predvestnik.
+На каждом адресе25/25 read-only проверок PASS: полный bundle,8 CSS/JS assets
+(включая3 support-файла), admin-diagnostics.js, новости/Путеводитель, ручной вход
+в HTML, шапки3 игр, health/ready200, support POST401 без auth, admin list/export401,
+прежние закрытые игровые/профильные API401. Доказательство:
+`C:/Users/makss/.codex/visualizations/2026/10/27/support-feedback/continuation-support.json`.
+Новостной release audit READY. Авторизованные production-обращения от имени
+игроков не создавались; фактическая доставка и права проверены на локальной БД
+через полную production-оболочку. Telegram-публикации не было.
