@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="all.css"><style>body{padding:0 !important;margin:0;max-width:none !important} .cell{width:390px;box-sizing:border-box;padding:70px 22px 20px;position:relative;background:var(--v3-bg)}</style></head>
+<body class="ap-anim"><div id="root"></div>
+<script src="skins.js"></script><script src="nickname-v3.js"></script><script src="bundle.js"></script>
+<script>
+window.render=async function(skin,tier,tokens){
+  const L=window.SKINS_DATA;
+  const s=L[skin];
+  const look={...s,tier};
+  const ap=apFromLook(look);
+  const cell=document.createElement('div');cell.className='cell v3-scope';
+  for(const [k,v] of Object.entries(s.tokens)) cell.style.setProperty(k,v);
+  const identity=`<div class="lk-id"><div class="v3-ring lk-ring">${apHalo(ap)}${_v3Ring(72)}<div class="v3-ava">${_v3Constellation(skin,12,false)}</div>${apFrame(ap)}</div>
+    <div class="v3-name lk-name">${apName(ap,'Предвестник')}</div><div class="pp-title-row">${apTitle(ap)}</div></div>`;
+  cell.innerHTML=`<div class="lk-hero">${apStage(ap,identity)}</div>`;
+  document.getElementById('root').appendChild(cell);
+  const lab=document.createElement('div');lab.textContent=skin+' '+tier;lab.style.cssText='position:absolute;left:6px;top:4px;font:11px monospace;color:#fff;z-index:9';cell.appendChild(lab);
+  return cell;
+};
+</script></body></html>
