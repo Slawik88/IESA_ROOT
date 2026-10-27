@@ -81,6 +81,25 @@ async def main() -> None:
             assert elapsed < 5, f"budget not applied: {elapsed:.1f}s"
             assert calls == 1, f"downloads not shared: {calls}"
 
+            # The new signed-userpic source has the same single-flight and
+            # connection isolation, including an upstream timeout.
+            for task in list(profile._AVATAR_INFLIGHT.values()):
+                task.cancel()
+            await asyncio.sleep(0)
+            profile._AVATAR_CACHE.clear()
+            current["photo_url"] = "https://t.me/i/userpic/320/qa.jpg"
+            async def hanging_signed(url, user_id):
+                return await hanging_telegram(user_id)
+            profile.download_signed_photo = hanging_signed
+            requests = [asyncio.create_task(client.get("/profile/avatar")) for _ in range(6)]
+            await asyncio.sleep(0.3)
+            async with asyncio.timeout(1.0):
+                async with get_pool().acquire() as a, get_pool().acquire() as b:
+                    assert await a.fetchval("SELECT 1") == 1 and await b.fetchval("SELECT 1") == 1
+            responses = await asyncio.gather(*requests)
+            assert all(r.status_code == 200 and r.json() == {"avatar":None,"vip":True} for r in responses)
+            assert calls == 2, f"signed downloads not shared: {calls}"
+
             profile._AVATAR_CACHE[USER_ID] = ("data:image/jpeg;base64,AAAA", time.time())
             public = await client.get("/profile/avatar", params={"profile_ref": ref})
             assert public.json() == {"avatar": "data:image/jpeg;base64,AAAA", "vip": True}

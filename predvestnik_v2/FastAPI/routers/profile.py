@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from FastAPI.deps import assert_account_active, get_db, require_tg_user, require_tg_user_base
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
+from infrastructure.telegram_photo import download_signed_photo
 from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
 from services.leveling import account_progress
@@ -101,28 +102,37 @@ async def _fetch_tg_avatar(user_id: int) -> str | None:
     картинку проксируем через свой эндпоинт."""
     token = os.getenv("BOT_TOKEN", "")
     if not token:
+        logger.warning("avatar uid={} source=botapi result=no_token", user_id)
         return None
     api = f"https://api.telegram.org/bot{token}"
+    stage = "photos"
     try:
         async with httpx.AsyncClient(timeout=6) as c:
             r = await c.get(f"{api}/getUserProfilePhotos",
                             params={"user_id": user_id, "limit": 1})
             data = r.json()
             if not data.get("ok") or data["result"].get("total_count", 0) == 0:
+                logger.info("avatar uid={} source=botapi stage=photos ok={} code={} result=empty",
+                            user_id, bool(data.get("ok")), data.get("error_code"))
                 return None
             # photos[0] — самый свежий снимок (список размеров); берём наименьший
             file_id = data["result"]["photos"][0][0]["file_id"]
+            stage = "file"
             r2 = await c.get(f"{api}/getFile", params={"file_id": file_id})
             fdata = r2.json()
             if not fdata.get("ok"):
+                logger.warning("avatar uid={} source=botapi stage=file code={}", user_id, fdata.get("error_code"))
                 return None
             file_path = fdata["result"]["file_path"]
+            stage = "download"
             r3 = await c.get(f"https://api.telegram.org/file/bot{token}/{file_path}")
             if r3.status_code != 200 or not r3.content:
+                logger.warning("avatar uid={} source=botapi stage=download status={}", user_id, r3.status_code)
                 return None
             b64 = base64.b64encode(r3.content).decode()
             return f"data:image/jpeg;base64,{b64}"
-    except Exception:
+    except Exception as error:
+        logger.warning("avatar uid={} source=botapi stage={} error={}", user_id, stage, type(error).__name__)
         return None
 
 
@@ -151,9 +161,11 @@ async def _essence_balance(db, user_id: int) -> int:
         return 0
 
 
-async def _fetch_and_cache_avatar(user_id: int) -> str | None:
+async def _fetch_and_cache_avatar(user_id: int, photo_url: str | None = None) -> str | None:
     async with _AVATAR_FETCH_GATE:
-        avatar = await _fetch_tg_avatar(user_id)
+        avatar = await download_signed_photo(photo_url, user_id) if photo_url else None
+        if not avatar:
+            avatar = await _fetch_tg_avatar(user_id)
     previous = _AVATAR_CACHE.get(user_id)
     if not avatar and previous and previous[0]:
         # Keep the last known photo during a transient Telegram outage, but
@@ -164,21 +176,28 @@ async def _fetch_and_cache_avatar(user_id: int) -> str | None:
     return avatar
 
 
-def _avatar_download(user_id: int) -> asyncio.Task:
+def _avatar_download(user_id: int, photo_url: str | None = None) -> asyncio.Task:
     """Single-flight Telegram download: concurrent misses share one task."""
     task = _AVATAR_INFLIGHT.get(user_id)
     if task is None:
-        task = asyncio.create_task(_fetch_and_cache_avatar(user_id))
+        task = asyncio.create_task(_fetch_and_cache_avatar(user_id, photo_url))
         _AVATAR_INFLIGHT[user_id] = task
         task.add_done_callback(lambda _t: _AVATAR_INFLIGHT.pop(user_id, None))
     return task
 
 
-async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None, wait: bool = True) -> str | None:
+async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None, wait: bool = True,
+                      photo_url: str | None = None) -> str | None:
     """Data-URI аватарки Telegram, если у игрока АКТИВНЫЙ VIP (перк); иначе None.
     Кэш на процесс (6ч), картинка уже проксирована в data-URI (токен бота наружу
     не уходит). Используется и для своего профиля (/avatar), и для публичной
     карточки чужого VIP-игрока (/u/{id}) — VIP оплатил, аватарку показываем везде.
+
+    photo_url принимается только из проверенного initData самого владельца;
+    публичная карточка использует уже общий кэш или Bot API. Сначала пробуем
+    HTTPS Telegram userpic (ограничение размера, проверка растра), затем Bot API.
+    Без фото: короткий кэш 15с. Логи avatar содержат uid/источник/этап/результат,
+    но никогда URL, токен или текст исключения.
 
     wait=False — для эндпоинтов, держащих соединение БД: при промахе кэша загрузка
     стартует в фоне, а ответ не ждёт Telegram (audit A13)."""
@@ -190,7 +209,7 @@ async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None, wait:
     ttl = _AVATAR_TTL if cached and cached[0] else _AVATAR_MISS_TTL
     if cached and time.time() - cached[1] < ttl:
         return cached[0]
-    task = _avatar_download(user_id)
+    task = _avatar_download(user_id, photo_url)
     if not wait:
         return cached[0] if cached else None
     try:
@@ -216,7 +235,10 @@ async def my_avatar(user=Depends(require_tg_user_base), profile_ref: str | None 
             await assert_account_active(db, target)
             user_id = int(target)
         vip = await is_vip_active(db, user_id)
-    avatar = await _vip_avatar(None, user_id, vip_active=True) if vip else None
+    # Only the authenticated owner's signed Telegram URL can seed their cache.
+    # A public profile request must never apply the viewer's photo to its target.
+    photo_url = user.get("photo_url") if user_id == int(user["id"]) else None
+    avatar = await _vip_avatar(None, user_id, vip_active=True, photo_url=photo_url) if vip else None
     return {"avatar": avatar, "vip": vip}
 
 # Единый источник правды для названий глобальных рангов — services/roles.py
@@ -545,7 +567,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "chats":        chats,
         "pets":         pets,
         "is_vip":       is_vip,
-        "avatar":       await _vip_avatar(db, user_id, vip_active=is_vip, wait=False),
+        "avatar":       await _vip_avatar(db, user_id, vip_active=is_vip, wait=False, photo_url=user.get("photo_url")),
         "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
         "is_developer": bool(_DEVELOPER_ID and user_id == _DEVELOPER_ID),
