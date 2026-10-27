@@ -14,7 +14,7 @@ bash predvestnik_v2/docs/roadmap/env-setup.sh
 
 | Шаг | Детали |
 |---|---|
-| Зависимости | venv вне репозитория (`~/.venvs/predvestnik`, Python 3.12). Полный `requirements.txt` ставить не нужно (на 3.13 `psycopg2-binary==2.9.9` не собирался, а он и Django нужны только сайту IESA). Ставятся версии Предвестника из того же файла (aiogram 3.22.0, asyncpg, fastapi, uvicorn, httpx, loguru, Pillow, matplotlib, av, pymorphy3, aiosqlite, python-dotenv) и `playwright==1.63.0` |
+| Зависимости | venv вне репозитория (`~/.venvs/predvestnik`, Python 3.12). Полный `requirements.txt` ставить не нужно (на 3.13 `psycopg2-binary==2.9.9` не собирался, а он и Django нужны только сайту IESA). Ставятся версии Предвестника из того же файла (aiogram по `requirements.txt` (сейчас 3.22.0, после S23a выше), asyncpg, fastapi, uvicorn, httpx, loguru, Pillow, matplotlib, av, pymorphy3, aiosqlite, python-dotenv) и `playwright==1.63.0` |
 | Playwright | Версия обязана совпадать с Chromium из `/opt/pw-browsers` (1.63 ↔ chromium-1243). **`playwright install` не запускать.** Для Python-скриптов `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`; Node-вариант лежит в `/opt/node-tools/node_modules/playwright` |
 | PostgreSQL | В образе стоит PostgreSQL 16. Репозиторный `tools/preprod_postgres.sh` требует 17 (`--locale-provider=builtin`), поэтому кластер создаётся с libc-локалью `C.UTF-8` в `/var/lib/postgresql/preprod-16`, порт **5433**, роль и база `predvestnik_preprod`, без пароля. Postgres не стартует от root, поэтому через `runuser -u postgres` |
 | Схема | Нужен `create_pool()` + `bot.core.database.init_db()`: тест на пустой базе падает на `relation "users" does not exist` |
@@ -48,12 +48,12 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/u
 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/admin_stand.py --out <папка> --tabs health,metrics
 ```
 
-Остальные команды проверок (`ui_stand.py`, `ui_skin_lab.py`, `ui_smoke.py --perf`, тесты по областям) — в `docs/UI_STAND_AND_SMOKE.md` и в файлах сессий. **Не все 330 тестов проверялись в облаке**:
+Остальные команды проверок (`ui_stand.py`, `ui_skin_lab.py`, `ui_smoke.py --perf`, тесты по областям) — в `docs/UI_STAND_AND_SMOKE.md` и в файлах сессий. **Не все 287 тестов проверялись в облаке**:
 перед тем как считать тест эталоном, запусти его на чистом `origin/master` и запиши результат.
 
 ## Известные ограничения и шум (не считать за ваш дефект)
 
-- **Нет выхода в интернет** для скриптов: диагностика пула печатает `Internet 8.8.8.8:53 TIMEOUT` (безвредно). Внешние ресурсы (Google Fonts, `telegram-web-app.js`) в браузерных прогонах не грузятся:
+- **Нет выхода в интернет, кроме пакетного зеркала PyPI** (установка пакетов работает, остальное нет): диагностика пула печатает `Internet 8.8.8.8:53 TIMEOUT` (безвредно). Внешние ресурсы (Google Fonts, `telegram-web-app.js`) в браузерных прогонах не грузятся:
   вид использует запасные шрифты, а проверки, зависящие от Telegram SDK, ведут себя как «SDK не загрузился».
 - **Чистая база неполна по сравнению с прод.** При смоуке в логе бывает `column "bot_rank" does not exist` (предупреждение `profile: staff check skipped`): колонка создаётся при старте бота, а не `init_db`.
   Смоук при этом проходит. Если тест требует колонку, добавь её в подготовку теста, а не в продуктовый код, и запиши в «Находки по пути».

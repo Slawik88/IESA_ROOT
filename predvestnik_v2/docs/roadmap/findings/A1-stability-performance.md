@@ -54,7 +54,7 @@
 
 ## Тесты и процесс
 
-- ~330 файлов `tools/test_*.py|js`. PG-тесты требуют локальный PostgreSQL (`--dsn`). `tools/ui_smoke.py` — Playwright 320/390/430, админку не проверяет.
+- 287 файлов `tools/test_*` (py, js, cjs). PG-тесты требуют локальный PostgreSQL (`--dsn`). `tools/ui_smoke.py` — Playwright 320/390/430, админку не проверяет.
   `tools/verify_production_http.py` — health, ready, статика, 401, без авторизации.
 - CI: единственный workflow `build-frontend.yml` для старой папки `frontend/`. Тесты на пуш не запускаются, а пуш в master — это деплой.
 - Не покрыто: нагрузка и пул, троттлер, срок initData, многопользовательские сценарии.
