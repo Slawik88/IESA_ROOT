@@ -51,6 +51,10 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/a
 Остальные команды проверок (`ui_stand.py`, `ui_skin_lab.py`, `ui_smoke.py --perf`, тесты по областям) — в `docs/UI_STAND_AND_SMOKE.md` и в файлах сессий. **Не все 287 тестов проверялись в облаке**:
 перед тем как считать тест эталоном, запусти его на чистом `origin/master` и запиши результат.
 
+## Симулятор Telegram
+
+Готовый симулятор для проверки бота без реального Telegram: `tools/mafia_sim/` (`World`, `FakeSession`, `Harness` гоняют настоящий диспетчер с роутерами и middlewares). **Работает только на базе `predvestnik_preprod` (loopback)**, то есть на общей базе из `env-setup.sh`, а не на `--fresh-db ИМЯ`. Запуск образцов: `tools/test_mafia_v1_sim_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod`. Общий набор сценариев для бота создаёт сессия S23a.
+
 ## Известные ограничения и шум (не считать за ваш дефект)
 
 - **Нет выхода в интернет, кроме пакетного зеркала PyPI** (установка пакетов работает, остальное нет): диагностика пула печатает `Internet 8.8.8.8:53 TIMEOUT` (безвредно). Внешние ресурсы (Google Fonts, `telegram-web-app.js`) в браузерных прогонах не грузятся:
