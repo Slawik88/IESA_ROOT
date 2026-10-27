@@ -9,17 +9,7 @@ from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest, TelegramFo
 from loguru import logger
 
 from core.mafia_copy import ALERT_LIMIT
-
-
-def topic_of(message: types.Message | None) -> int | None:
-    """Forum-topic id of a message.
-
-    ``message_thread_id`` is also filled for plain reply chains in ordinary supergroups; using
-    it raw would put a lobby opened by a reply into a phantom "topic" no later message matches.
-    """
-    if message is None or not getattr(message, "is_topic_message", False):
-        return None
-    return getattr(message, "message_thread_id", None)
+from bot.chat.framework import topic_of
 
 
 ANONYMOUS_SENDER_IDS = frozenset({1087968824, 136817688})  # GroupAnonymousBot, Channel_Bot

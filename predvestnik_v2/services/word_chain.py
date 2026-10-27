@@ -4,6 +4,7 @@ import secrets
 
 from core import word_chain as rules
 from infrastructure.repositories import word_chain as repo
+from services import word_chain_lexicon as lexicon
 
 
 class WordChainError(ValueError):
@@ -22,7 +23,10 @@ def _choose(letter: str, used: set[str]) -> str | None:
     common = [w for w in rules.COMMON_WORDS if w.startswith(letter) and w not in used]
     # Prefer a familiar noun that leaves the player at least one legal answer.
     playable = [w for w in common if any(n not in used and n != w for n in rules.BY_LETTER.get(rules.next_letter(w), ()))]
-    candidates = playable or [w for w in available if any(n not in used and n != w for n in rules.BY_LETTER.get(rules.next_letter(w), ()))]
+    if playable and secrets.randbelow(rules.COMMON_REPLY_WEIGHT):
+        candidates = playable
+    else:
+        candidates = [w for w in available if any(n not in used and n != w for n in rules.BY_LETTER.get(rules.next_letter(w), ()))]
     return secrets.choice(candidates) if candidates else None
 
 
@@ -81,9 +85,9 @@ async def play(db, *, chat_id: int, topic_id: int, actor: int, message_id: int, 
     _scope(chat_id,topic_id)
     word = rules.normalize(value)
     if not rules.WORD_RE.fullmatch(word):
-        raise WordChainError("Пришли одно русское существительное: 2–32 буквы, без пробелов, цифр и дефисов.")
-    if word not in rules.WORDS:
-        raise WordChainError("Такого слова нет в словаре игры. Проверь написание или напиши «бот слова, подсказка».")
+        raise WordChainError("Пришли одно русское слово: 2–32 знака, без пробелов и цифр. Дефис внутри слова можно.")
+    if not await asyncio.to_thread(lexicon.is_known, word):
+        raise WordChainError("Не нашёл это слово в русском словаре. Проверь написание или напиши «бот слова, подсказка».")
     await repo.ensure_tables(db)
     async with db.connection.transaction():
         await repo.lock(db,chat_id,topic_id)
@@ -131,7 +135,7 @@ async def spelling_help(db, *, chat_id: int, topic_id: int, value: str) -> dict:
             return {"active":False,"candidates":[]}
         state = await _view(db, row)
         used = await repo.used(db, int(row["id"]))
-    state["candidates"] = await asyncio.to_thread(suggest,value,state["letter"],used)
+    state["candidates"] = [] if await asyncio.to_thread(lexicon.is_known, rules.normalize(value)) else await asyncio.to_thread(suggest,value,state["letter"],used)
     return state
 
 

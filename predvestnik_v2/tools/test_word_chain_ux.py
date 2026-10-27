@@ -13,6 +13,7 @@ from aiogram.types import CallbackQuery, ForceReply, Message
 from bot.chat import word_chain as ui
 from core import word_chain as rules
 from core.word_chain.spelling import suggest
+from services import word_chain_lexicon as lexicon
 
 BOT = SimpleNamespace(id=999,token="123456:local-test",me=AsyncMock(return_value=SimpleNamespace(username="qa_bot")))
 STATE = dict(active=True,created=True,round_id=100,turns=0,last_word="ананас",letter="с",leaders=[])
@@ -20,7 +21,7 @@ RESULT = dict(active=True,round_id=100,turns=1,word="слон",bot_word="нос"
 
 
 def message(*, actor=101, chat=-100, topic=7, text="слон", mid=50, reply=True):
-    data={"message_id":mid,"date":1,"chat":{"id":chat,"type":"supergroup"},"from":{"id":actor,"is_bot":actor==999,"first_name":"QA"},"text":text,"message_thread_id":topic}
+    data={"message_id":mid,"date":1,"chat":{"id":chat,"type":"supergroup"},"from":{"id":actor,"is_bot":actor==999,"first_name":"QA"},"text":text,"message_thread_id":topic,"is_topic_message":bool(topic)}
     if reply:
         data["reply_to_message"]={"message_id":49,"date":1,"chat":data["chat"],"from":{"id":999,"is_bot":True,"first_name":"Bot"},"text":"🔤 Играем"}
     return Message.model_validate(data)
@@ -28,6 +29,19 @@ def message(*, actor=101, chat=-100, topic=7, text="слон", mid=50, reply=Tru
 
 @patch.object(ui.feature_switches,"disabled",AsyncMock(return_value=None))
 async def run():
+    for value in ("наркотик", "наркотики", "работаю", "красивые", "интернет-магазин", "по-русски"):
+        assert await asyncio.to_thread(lexicon.is_known,value),value
+    for value in ("ааббввгг", "слно", "два слова", "-слово", "слово-", "слово--слово", "<script>"):
+        assert not await asyncio.to_thread(lexicon.is_known,value),value
+    pools=[]
+    with patch.object(ui.game.secrets,"choice",lambda values: pools.append(values) or values[0]):
+        with patch.object(ui.game.secrets,"randbelow",return_value=1):
+            ui.game._choose("н",set())
+        with patch.object(ui.game.secrets,"randbelow",return_value=0):
+            full=ui.game._choose("н",set())
+            other=ui.game._choose("н",{full})
+    assert len(pools[1]) > len(pools[0]) and other != full
+    assert all(word in rules.WORDS and word.startswith("н") for pool in pools for word in pool)
     assert "арбуз" in suggest("арбзу","а",set())
     assert "апельсин" in suggest("апилсин","а",set())
     assert "арбуз" not in suggest("арбзу","а",{"арбуз"})
@@ -43,7 +57,7 @@ async def run():
         assert await ui.on_reply(object(),BOT,message())
         assert isinstance(reply.call_args.kwargs["reply_markup"],ForceReply)
         assert reply.call_args.kwargs["reply_markup"].selective
-        assert "бот слово" not in reply.call_args.args[0]
+        assert "бот слово" in reply.call_args.args[0]
     with patch.object(ui.game,"play",AsyncMock(side_effect=ui.game.WordChainError("Нужно одно существительное"))), patch.object(ui.game,"spelling_help",AsyncMock(return_value={**STATE,"candidates":[]})), patch.object(Message,"reply",AsyncMock()) as reply:
         assert await ui.on_reply(object(),BOT,message(text="два слова"))
         assert "Нужно одно" in reply.call_args.args[0]
@@ -74,6 +88,12 @@ async def run():
         with patch.object(ui.feature_switches,"disabled",AsyncMock(return_value=("games","disabled"))):
             await ui.confirm_spelling(cb(),callback,BOT,object())
         assert not play.called, "corrections obey the disabled-game gate"
+    ordinary=message(topic=943).model_copy(update={"is_topic_message":False})
+    ordinary_fix=ui.WordFixCB.unpack(ui.correction_keyboard({**STATE,"candidates":["слон"]},ordinary,BOT).inline_keyboard[0][0].callback_data)
+    query=cb().model_copy(update={"message":message(actor=999,topic=944,reply=False).model_copy(update={"is_topic_message":False})})
+    with patch.object(ui.global_moderation,"is_blocked",AsyncMock(return_value=False)), patch.object(ui.game,"play",AsyncMock(return_value=RESULT)) as play, patch.object(CallbackQuery,"answer",AsyncMock()), patch.object(Message,"answer",AsyncMock()):
+        await ui.confirm_spelling(query,ordinary_fix,BOT,object())
+        assert play.call_args.kwargs["topic_id"] == 0, "ordinary reply chains must share callback scope zero"
     assert len({ui.prompt({**RESULT,"turns":i}) for i in range(1,7)})>1
     print("PASS: automatic addressed replies, ordinary-chat isolation, invalid-input recovery, spelling, signed corrections, stale-user/topic/tampering guards, retry, feature gate and callback64-byte limit")
 

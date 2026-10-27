@@ -3,6 +3,8 @@ import argparse
 import asyncio
 import pathlib
 import sys
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 from urllib.parse import urlparse
 
 import asyncpg
@@ -52,7 +54,7 @@ async def run(dsn):
         sid=first["round_id"]
         assert rules.normalize(" ЁЖ ")=="еж" and rules.next_letter("соловей")=="е" and rules.next_letter("конь")=="н"
         assert len(rules.WORDS)>50000 and rules.COMMON_WORDS
-        await denied(game.play(db,chat_id=cid,topic_id=0,actor=owner,message_id=1,value="<script>"),"существительное")
+        await denied(game.play(db,chat_id=cid,topic_id=0,actor=owner,message_id=1,value="<script>"),"слово")
         await denied(game.play(db,chat_id=cid,topic_id=0,actor=owner,message_id=1,value="ааббввгг"),"словаре")
         hints=await game.status(db,chat_id=cid,topic_id=0,hint=True)
         word=hints["hints"][0]
@@ -86,6 +88,36 @@ async def run(dsn):
         fresh=await game.start(db,chat_id=cid,topic_id=0,actor=owner)
         assert fresh["round_id"]!=sid
         await game.stop(db,chat_id=cid,topic_id=0,actor=owner,can_moderate=False)
+        # Telegram may put a reply-chain id on ordinary supergroup replies.
+        # Reproduce the reported сирень -> Наркотик exchange through the adapter.
+        from aiogram.types import Message
+        from bot.chat import word_chain as ui
+        from tools.test_word_chain_ux import BOT, message
+        resumed = await game.start(db,chat_id=cid,topic_id=0,actor=owner)
+        await db.execute("UPDATE word_chain_rounds SET last_word='сирень',turns=3 WHERE id=?",(resumed["round_id"],))
+        reply_message = message(actor=peer,chat=cid,topic=943,text="Наркотик",mid=940).model_copy(update={"is_topic_message":False})
+        with patch.object(ui.feature_switches,"disabled",AsyncMock(return_value=None)), patch.object(Message,"reply",AsyncMock()) as sent:
+            # A/B: the old raw thread id loses this same real active round.
+            with patch.object(ui,"topic_of",lambda msg: msg.message_thread_id):
+                assert await ui.on_reply(db,BOT,reply_message)
+                assert "Партии нет" in sent.call_args.args[0]
+            assert await ui.on_reply(db,BOT,reply_message)
+            assert "Твоё <b>наркотик</b>" in sent.call_args.args[0],sent.call_args.args
+        assert (await game.status(db,chat_id=cid,topic_id=0))["turns"] == 4
+        assert not (await game.status(db,chat_id=cid,topic_id=943))["active"]
+        # The explicit command uses the same ordinary-chat round too.
+        next_word=(await game.status(db,chat_id=cid,topic_id=0,hint=True))["hints"][0]
+        explicit=reply_message.model_copy(update={"from_user":reply_message.from_user.model_copy(update={"id":owner}),"message_id":941})
+        with patch.object(Message,"reply",AsyncMock()) as sent:
+            await ui.word(SimpleNamespace(db=db,bot=BOT,message=explicit,args=next_word))
+            assert "Твоё <b>" in sent.call_args.args[0]
+        # Dictionary forms outside the old noun list are real accepted turns.
+        for index,value in enumerate(("наркотики","работаю","красивые","интернет-магазин"),950):
+            await db.execute("UPDATE word_chain_rounds SET last_word=?,updated_at=CLOCK_TIMESTAMP() WHERE id=?",("а"+value[0],resumed["round_id"]))
+            await db.execute("UPDATE word_chain_moves SET created_at=CLOCK_TIMESTAMP()-INTERVAL '10 seconds' WHERE round_id=?",(resumed["round_id"],))
+            accepted=await game.play(db,chat_id=cid,topic_id=0,actor=peer,message_id=index,value=value)
+            assert accepted["word"] == value and not accepted["replayed"]
+        assert not (await game.spelling_help(db,chat_id=cid,topic_id=0,value="работаю"))["candidates"]
         # Correction buttons bind the original message to one round and turn.
         correction=await game.start(db,chat_id=cid,topic_id=77,actor=owner)
         choices=(await game.status(db,chat_id=cid,topic_id=77,hint=True))["hints"]
@@ -120,7 +152,7 @@ async def run(dsn):
         assert not any("ALTER TABLE" in sql or "CREATE " in sql for sql in budget.statements)
         assert view["page"]==0 and len(view["items"])==1 and view["counts"]["blocked"]==0
         assert await conns[0].fetchval("SELECT COUNT(*) FROM word_chain_words WHERE round_id=$1",sid)==5
-        print("PASS: word dictionary, single start, idempotency, race, cooldown, scope, expiry, ordinary activity, silent-owner chat discovery and purge pagination")
+        print("PASS: real reply-thread A/B, explicit turns, dictionary forms/hyphens, single start, idempotency, races, real forum scopes, expiry, ordinary activity and purge pagination")
     finally:
         await db.execute("DELETE FROM purge_targets WHERE session_id IN (SELECT id FROM purge_sessions WHERE chat_id=?)",(cid,))
         await db.execute("DELETE FROM purge_sessions WHERE chat_id=?",(cid,))

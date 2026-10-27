@@ -8,8 +8,9 @@ MAX_LENGTH = 32
 MAX_TURNS = 500
 IDLE_HOURS = 24
 TURN_COOLDOWN_SECONDS = 3
+COMMON_REPLY_WEIGHT = 3
 SKIP_ENDINGS = frozenset("ьъый")
-WORD_RE = re.compile(r"[а-яё]{2,32}")
+WORD_RE = re.compile(rf"(?=.{{{MIN_LENGTH},{MAX_LENGTH}}}\Z)[а-яё]+(?:-[а-яё]+)*")
 WORDS = frozenset(Path(__file__).with_name("nouns.txt").read_text(encoding="utf-8").splitlines())
 SORTED_WORDS = tuple(sorted(WORDS))
 SUGGESTION_LIMIT = 3

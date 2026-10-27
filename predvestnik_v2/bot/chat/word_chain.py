@@ -8,7 +8,7 @@ from aiogram import Router
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyParameters
 
-from bot.chat.framework import Ctx, Parsed, Unknown, parse, registry
+from bot.chat.framework import Ctx, Parsed, Unknown, parse, registry, topic_of
 from bot.chat import ranks
 from core import word_chain as rules
 from services import feature_switches, global_moderation
@@ -17,11 +17,12 @@ from services import word_chain as game
 router = Router(name="word_chain")
 HELP = ("🔤 <b>Слова</b> — игра против бота, одному или вместе.\n\n"
         "1. Начни: <code>бот слова</code>.\n"
-        "2. Telegram откроет ответ боту. Напиши только существительное на нужную букву — без команды.\n"
-        "3. После моего хода ответ откроется снова. Остальные могут присоединиться, один раз ответив на сообщение игры.\n\n"
-        "Если ответ закрылся, снова выбери «Ответить» на моём слове. Обычная переписка без ответа игре ходом не считается.\n\n"
+        "2. Ход: <code>бот слово, арбуз</code> — замени «арбуз» словом на нужную букву.\n"
+        "3. Или ответь на моё сообщение одним словом. Играть можно одному и вместе.\n\n"
+        "Обычная переписка без команды или ответа игре ходом не считается.\n\n"
         "Ё = Е. В конце пропускаем Ь, Ъ, Ы и Й. Слова партии не повторяем. Между своими ходами — 3 секунды.\n"
         "При опечатке предложу близкие слова: выбери своё кнопкой.\n\n"
+        "Принимаю настоящие русские слова и их формы.\n\n"
         "Твои сообщения идут в обычную норму; ответы бота и кнопки новых сообщений нормы не дают.\n\n"
         "<code>бот слова, подсказка</code> · <code>бот слова, счёт</code> · <code>бот слова, стоп</code>\n"
         "После суток без ходов можно начать заново. В каждой теме своя партия.")
@@ -41,7 +42,7 @@ def prompt(state: dict) -> str:
     tail = f"В цепочке уже {state['turns']} слов игроков!" if state["turns"] and state["turns"] % 10 == 0 else f"Ходов: {state['turns']}"
     ending = f"\nВ конце «{word[-1].upper()}» пропускаем." if word and word[-1] in rules.SKIP_ENDINGS else ""
     return (f"🔤 {opening}{ending}\nТеперь тебе на <b>{state['letter'].upper()}</b>.\n"
-            f"Напиши одно слово в открытом ответе.\n<i>{tail}</i>")
+            f"Ход: <code>бот слово, СЛОВО</code> или ответ одним словом на это сообщение.\n<i>{tail}</i>")
 
 
 def word_input(state: dict) -> ForceReply | None:
@@ -72,13 +73,13 @@ def correction_keyboard(state: dict, message, bot) -> InlineKeyboardMarkup:
     for word in state["candidates"]:
         fields = dict(r=f"{state['round_id']:x}",t=f"{state['turns']:x}",m=f"{message.message_id:x}",
                       w=f"{bisect_left(rules.SORTED_WORDS,word):x}")
-        signature = _signature(bot,":".join(fields.values()),message.from_user.id,message.chat.id,message.message_thread_id or 0,word)
+        signature = _signature(bot,":".join(fields.values()),message.from_user.id,message.chat.id,topic_of(message) or 0,word)
         buttons.append([InlineKeyboardButton(text=word,callback_data=WordFixCB(**fields,s=signature).pack())])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 async def error_reply(db, message, bot, value: str, error: Exception) -> tuple[str, ForceReply | InlineKeyboardMarkup | None]:
-    state = await game.spelling_help(db,chat_id=message.chat.id,topic_id=message.message_thread_id or 0,value=value)
+    state = await game.spelling_help(db,chat_id=message.chat.id,topic_id=topic_of(message) or 0,value=value)
     text = "🔤 "+html.escape(str(error))
     if state["candidates"]:
         return text+"\n\nВозможно, опечатка? Выбери своё слово ниже. Ход будет от твоего исходного сообщения.",correction_keyboard(state,message,bot)
@@ -89,9 +90,9 @@ async def error_reply(db, message, bot, value: str, error: Exception) -> tuple[s
 
 @registry.command("слова", aliases=("игра в слова",), private=False, section="games",
                   usage="бот слова [правила | счёт | подсказка | стоп]",
-                  summary="Слова против бота: дальше отвечай одним словом, без повторения команды.")
+                  summary="Слова против бота: ход командой «бот слово, арбуз» или ответом на сообщение игры.")
 async def command(ctx: Ctx) -> None:
-    scope = dict(chat_id=ctx.message.chat.id,topic_id=ctx.message.message_thread_id or 0)
+    scope = dict(chat_id=ctx.message.chat.id,topic_id=topic_of(ctx.message) or 0)
     arg = rules.normalize(ctx.args)
     try:
         if arg in {"правила","помощь"}:
@@ -122,7 +123,7 @@ async def command(ctx: Ctx) -> None:
 
 
 @registry.command("слово", private=False, section="games", usage="бот слово, арбуз",
-                  summary="Ход в словах. Удобнее написать одно слово в открытом ответе боту.")
+                  summary="Ход в словах: бот слово, арбуз. Можно и одним словом в ответ на сообщение игры.")
 async def word(ctx: Ctx) -> None:
     await play_message(ctx.db,ctx.bot,ctx.message,ctx.args)
 
@@ -135,7 +136,7 @@ def turn_reply(state: dict) -> tuple[str, ForceReply | None]:
 
 async def play_message(db, bot, message, value: str) -> None:
     try:
-        state = await game.play(db,chat_id=message.chat.id,topic_id=message.message_thread_id or 0,
+        state = await game.play(db,chat_id=message.chat.id,topic_id=topic_of(message) or 0,
                                actor=message.from_user.id,message_id=message.message_id,value=value)
         if state["replayed"]:
             return
@@ -170,7 +171,7 @@ async def confirm_spelling(cb: CallbackQuery, callback_data: WordFixCB, bot, db)
     if not isinstance(cb.message,Message) or cb.message.chat.id >= 0:
         await cb.answer("Открой подсказку в исходном чате.",show_alert=True)
         return
-    cid,topic,actor = cb.message.chat.id,cb.message.message_thread_id or 0,cb.from_user.id
+    cid,topic,actor = cb.message.chat.id,topic_of(cb.message) or 0,cb.from_user.id
     fields = [callback_data.r,callback_data.t,callback_data.m,callback_data.w]
     try:
         rid,turn,mid,index = [int(part,16) for part in fields]

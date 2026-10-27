@@ -34,6 +34,17 @@ def fix_layout(word: str) -> str:
     return word.lower().translate(_LAYOUT)
 
 
+def topic_of(message: Message | None) -> int | None:
+    """Only forum topics scope a game.
+
+    Telegram also fills message_thread_id for plain supergroup reply chains;
+    treating those as topics loses the round when the next reply arrives.
+    """
+    if message is None or not getattr(message, "is_topic_message", False):
+        return None
+    return getattr(message, "message_thread_id", None)
+
+
 class UsageError(Exception):
     """Команда вызвана с неверными значениями; текст — подсказка формата."""
 
