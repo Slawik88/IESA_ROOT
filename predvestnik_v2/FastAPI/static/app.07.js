@@ -14,26 +14,7 @@ function refreshPage() {
   if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('Данные обновлены'); }
 }
 
-// Shared web/Telegram purge. Decisions are server-owned; response loss always refetches the session.
-let _pgWeb = { cid: 0, page: 0, mode: 'pending', seq: 0, state: null, busy: false, timer: null, signature: '', loading: false, denied:false, drafts:{}, completed:{} };
-function purgeWebVisible(host = el('web-purge-host')) { return !!(host?.isConnected && el('modal')?.open); }
-function purgeWebRememberDraft() {
-  if (!_pgWeb.renderedCid || !el('pg-web-norm')) return;
-  _pgWeb.drafts[_pgWeb.renderedCid] = {norm:el('pg-web-norm').value,from:el('pg-web-from').value,to:el('pg-web-to').value};
-}
-el('modal')?.addEventListener('close', () => {
-  purgeWebRememberDraft(); clearTimeout(_pgWeb.timer); ++_pgWeb.seq; _pgWeb.loading = false;
-});
-function purgeWebSchedule() {
-  clearTimeout(_pgWeb.timer);
-  if (!purgeWebVisible() || _pgWeb.denied) return;
-  _pgWeb.timer = setTimeout(() => {
-    if (!purgeWebVisible()) return;
-    if (document.hidden || _pgWeb.busy || el('cf-sheet')) { purgeWebSchedule(); return; }
-    return purgeWebLoad(_pgWeb.page, true);
-  }, 2000);
-}
-document.addEventListener('visibilitychange', () => { if (!document.hidden && purgeWebVisible() && !_pgWeb.busy) purgeWebLoad(_pgWeb.page, true); });
+// Запросы «Чистки»: отказ показывается текстом сервера, потерянный ответ не повторяет действие.
 async function purgeWebApi(path, options = {}) {
   const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 25000);
   try {
@@ -67,144 +48,267 @@ async function loadPurgeEntry() {
     orderNavigation();
   } catch (_) { /* ordinary players have no moderation entry */ }
 }
-async function openPurgeHub(cid = 0, restore = null) {
-  purgeWebRememberDraft();
-  clearTimeout(_pgWeb.timer); _pgWeb.signature = ''; _pgWeb.state = null; _pgWeb.denied = false;
-  OM('Чистка чатов', '<div id="web-purge-host" class="purge-web"><p role="status">Загружаем ваши чаты…</p></div>', [{l:'Закрыть',f:'CM()'}]);
-  const host = el('web-purge-host'), seq = ++_pgWeb.seq;
+
+// ── «Чистка» (S05) ─────────────────────────────────────────────────────────
+// Страница хода чистки. Решения принимает сервер, тот же, что в Telegram: потерянный ответ не повторяет санкцию,
+// экран просто перечитывает ход. Экран подписан на живые события (data_changed{scope:'purge'}, live=1) и раз в
+// PURGE_FALLBACK_MS перечитывает ход на случай обрыва связи; неизменившийся ход сервер отдаёт как 304.
+const PURGE_FALLBACK_MS = 15000;
+const PURGE_LABELS = {forgive:'Оставлен', skip:'Пропущен (бот)', warn:'Варн', mute:'Мут на час', kick:'Исключён', ban:'Бан'};
+const PURGE_ACTIONS = [
+  ['forgive', 'Оставить', 'Оставить участника', 'Ничего не будет: участник остаётся в чате.'],
+  ['warn', 'Варн', 'Выдать варн', 'Предупреждение без срока. Сколько варнов ведут к наказанию, решает настройка чата.'],
+  ['mute', 'Мут на час', 'Мут на час', 'Участник час не сможет писать.'],
+  ['kick', 'Исключить', 'Исключить из чата', 'Участник выйдет из чата, но сможет вернуться по ссылке.'],
+  ['ban', 'Бан', 'Забанить навсегда', 'Участник выйдет из чата и не сможет вернуться. Снять бан можно командой «бот снять бан».'],
+];
+let _purge = {chats: null, cid: 0, mode: 'pending', page: 0, view: null, etag: '', seq: 0, busy: false, loading: false,
+              timer: 0, error: '', denied: false, drafts: {}, lastStart: null, returnTo: null};
+
+function _purgeVisible() { return _activePage === 'purge' && !!el('pg-purge'); }
+function _purgeId(key) {
+  let id; try { id = localStorage.getItem(key); } catch (_) {}
+  id ||= typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `purge-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try { localStorage.setItem(key, id); } catch (_) {}
+  return id;
+}
+function _purgeForget(key) { try { localStorage.removeItem(key); } catch (_) {} }
+// GET хода с ETag: 304 — ничего не изменилось. Отдельно от purgeWebApi, потому что нужен заголовок ответа.
+async function _purgeFetch(path) {
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 25000);
+  try {
+    const headers = {...hdrs(), ...(_purge.etag ? {'If-None-Match': _purge.etag} : {})};
+    const response = await fetch(BASE + path, {headers, signal: controller.signal});
+    if (response.status === 304) return {status: 304};
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401) handleAuthRefusal(response.headers.get('x-auth-reason') || '');
+      const error = new Error(typeof data.detail === 'string' ? data.detail : 'Не удалось загрузить чистку.');
+      error.status = response.status; throw error;
+    }
+    return {status: response.status, data, etag: response.headers.get('etag') || ''};
+  } catch (e) {
+    if (e?.name === 'AbortError') throw new Error('Нет ответа. Проверь связь.');
+    throw e;
+  } finally { clearTimeout(timeout); }
+}
+
+async function openPurgeHub(cid = 0) {
+  switchPage('purge');
+  _purgeRememberDraft();
+  if (cid) _purge.cid = Number(cid);
+  _purge.error = ''; _purge.denied = false; _purge.etag = '';
+  const seq = ++_purge.seq;
+  _purgeRender();
   try {
     const d = await purgeWebApi('/purge-v1/chats');
     while (d.next_offset !== null && d.next_offset !== undefined) { const next = await purgeWebApi(`/purge-v1/chats?offset=${d.next_offset}`); d.items.push(...next.items); d.next_offset = next.next_offset; }
-    if (!purgeWebVisible(host) || seq !== _pgWeb.seq) return;
-    _pgWeb.chats = d.items || []; _pgWeb.cid = _pgWeb.chats.some(c => c.id === Number(cid)) ? Number(cid) : (_pgWeb.chats[0]?.id || 0);
-    _pgWeb.page = restore?.page || 0; _pgWeb.mode = restore?.mode || 'pending';
-    if (!_pgWeb.cid) { host.innerHTML = '<p class="v3-empty">Нет чатов с правом проводить чистку. Права определяются вашим текущим рангом в каждом чате.</p>'; return; }
-    await purgeWebLoad();
-    if (restore && el('mb')) el('mb').scrollTop = restore.scroll || 0;
-  } catch (e) { if (host?.isConnected) host.innerHTML = `<p class="v3-err" role="alert">${esc(String(e))}</p><button class="v3-link" onclick="openPurgeHub()">Повторить</button>`; }
-}
-function purgeWebPick(cid) { if (_pgWeb.busy) return; purgeWebRememberDraft(); _pgWeb.cid = Number(cid); _pgWeb.page = 0; _pgWeb.signature = ''; purgeWebLoad(); }
-function purgeWebFilter(mode) { if (_pgWeb.busy) return; _pgWeb.mode = mode; _pgWeb.page = 0; _pgWeb.signature = ''; purgeWebLoad(); }
-async function purgeWebLoad(page = _pgWeb.page, quiet = false) {
-  if (_pgWeb.busy || (quiet && _pgWeb.loading)) { purgeWebSchedule(); return; }
-  if (!purgeWebVisible()) return;
-  purgeWebRememberDraft(); _pgWeb.loading = true; _pgWeb.denied = false;
-  const host = el('web-purge-host'), cid = _pgWeb.cid, mode = _pgWeb.mode, seq = ++_pgWeb.seq;
-  if (!host) return;
-  try {
-    const d = await purgeWebApi(`/purge-v1/chats/${cid}?page=${page}&mode=${mode}`);
-    if (seq !== _pgWeb.seq || !purgeWebVisible(host)) return;
-    page = d.page;
-    _pgWeb.state = d; _pgWeb.page = page;
-    const signature = JSON.stringify([cid, mode, d]);
-    const sync = el('pg-web-sync');
-    if (sync) { sync.textContent = 'Решения обновляются автоматически'; sync.className = 'tr-note'; }
-    if (quiet && (signature === _pgWeb.signature || el('cf-sheet'))) return;
-    _pgWeb.signature = signature;
-    const focused = host.contains(document.activeElement) ? document.activeElement : null;
-    const focusId = focused?.id, focusAction = focused?.getAttribute('onclick');
-    const scroll = el('mb')?.scrollTop || 0;
-    const anchor = quiet ? [...host.querySelectorAll('[data-purge-user]')].find(row => row.getBoundingClientRect().bottom > el('mb').getBoundingClientRect().top) : null;
-    const anchorId = anchor?.dataset.purgeUser, anchorTop = anchor?.getBoundingClientRect().top;
-    const labels = {forgive:'Оставлен',skip:'Пропущен',warn:'Варн',mute:'Мут на час',kick:'Кик',ban:'Бан'};
-    const choose = `<p id="pg-web-sync" class="tr-note" role="status">Решения обновляются автоматически</p><label for="pg-web-chat" class="tr-note">Чат</label><select id="pg-web-chat" class="v3-field" onchange="purgeWebPick(this.value)">${(_pgWeb.chats || []).map(c => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${esc(c.title)}</option>`).join('')}</select>`;
-    if (!d.active) {
-      const local = new Date(), day = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-      const end = new Date(local); end.setDate(end.getDate()-1); const start = new Date(end); start.setDate(start.getDate()-6);
-      host.innerHTML = `${choose}<p class="tr-note">Чистка не идёт. При запуске чат перейдёт в режим чистки, текущая Мафия встанет на паузу. Решения принимаются отдельно по каждому человеку. Даты учитываются по часовому поясу бота.</p><label for="pg-web-norm">Норма сообщений</label><input id="pg-web-norm" class="v3-field" type="number" inputmode="numeric" min="1" max="100000" value="100"><label for="pg-web-from">Начало периода</label><input id="pg-web-from" class="v3-field" type="date" value="${d.defaults?.date_from || day(start)}" max="${d.defaults?.today || day(local)}"><label for="pg-web-to">Конец периода включительно</label><input id="pg-web-to" class="v3-field" type="date" value="${d.defaults?.date_to || day(end)}" max="${d.defaults?.today || day(local)}"><button class="v3-pill v3-pill--full" onclick="purgeWebStart(this)">Начать чистку</button>`;
-      _pgWeb.renderedCid = cid;
-      const draft = _pgWeb.drafts[cid];
-      if (draft) { el('pg-web-norm').value = draft.norm; el('pg-web-from').value = draft.from; el('pg-web-to').value = draft.to; }
-      const result = d.completed?.counts || _pgWeb.completed[cid];
-      if (result) host.insertAdjacentHTML('afterbegin', `<section class="tr-grp"><h3>Чистка завершена</h3><p>Решено ${result.decided} из ${result.total}. Оставлено: ${result.skipped}. Варнов: ${result.warned}. Мутов: ${result.muted}. Киков: ${result.kicked}. Банов: ${result.banned}.</p><p class="tr-note">Без решения: ${result.total-result.decided}. Санкции им не назначены.</p></section>`);
-      if (el('mb')) el('mb').scrollTop = quiet ? scroll : 0;
-      return;
-    }
-    const s = d.session, c = d.counts;
-    const rows = d.items.map(t => {
-      const waiting = ['sending','unknown'].includes(t.decision_state), name = t.member_tag || (t.username ? '@'+t.username : 'Участник '+t.user_id);
-      return `<li class="tr-grp" data-purge-user="${t.user_id}"><h3><a href="tg://user?id=${t.user_id}">${esc(name)}</a></h3><p>Сообщений за период: <b>${t.msg_count}</b> · индивидуальная норма: <b>${t.required_norm ?? s.norm}</b></p><p class="tr-note">Дней в чате: ${t.days_in_chat} · варнов на начало чистки: ${t.warns}. Норма учитывает дату входа и время в муте.</p>${t.verdict ? `<p class="tr-ok">Решение: ${labels[t.verdict] || esc(t.verdict)}${t.verdict_by ? ' · ' + esc(t.verdict_by_name || t.verdict_by_username || 'администратор ' + t.verdict_by) : ''}</p>` : waiting ? `<p class="tr-err" role="status">${esc(t.decision_error || 'Операция отправлена. Не повторяйте санкцию до проверки результата.')}</p>${t.reconcile_ready ? `<button class="v3-link" onclick="purgeWebReconcile(${t.user_id})">Сверить результат вручную</button>` : '<p class="tr-note">Решение ещё выполняется. Если ответа не будет, сверка станет доступна через две минуты.</p>'}` : `<div class="tr-chips">${['forgive','warn','mute','kick','ban'].map(a => `<button class="v3-pill v3-pill--sm${a==='ban'||a==='kick'?' v3-pill--ghost':''}" onclick="purgeWebDecide(${t.user_id},'${a}',this)">${a==='forgive'?'Оставить':labels[a]}</button>`).join('')}</div>${t.decision_error ? `<p class="tr-note">${esc(t.decision_error)}</p>` : ''}`}</li>`;
-    }).join('');
-    host.innerHTML = `${choose}<p class="v3-stat-line">${esc(s.date_from)} — ${esc(s.date_to)} · норма ${s.norm}</p><p role="status">Решено ${c.decided} из ${c.total}. Без решения: ${c.total-c.decided}.</p><div class="tr-chips" role="group" aria-label="Фильтр досье">${[['pending','Ждут решения'],['decided','Решённые'],['all','Все']].map(([key,title]) => `<button class="tr-chip" aria-pressed="${mode===key}" onclick="purgeWebFilter('${key}')">${title}</button>`).join('')}</div><button class="v3-link" onclick="purgeWebLoad()">Обновить сейчас</button><ul class="tr-list">${rows || '<li class="v3-empty">В этом разделе досье нет.</li>'}</ul><div class="tr-chips">${page ? `<button class="v3-link" onclick="purgeWebLoad(${page-1})">Предыдущие</button>` : ''}${d.has_more ? `<button class="v3-link" onclick="purgeWebLoad(${page+1})">Следующие</button>` : ''}</div><button class="v3-pill v3-pill--full v3-pill--ghost" ${c.blocked ? 'disabled' : ''} onclick="purgeWebFinish()">Завершить чистку</button><p class="tr-note">Участники без решения останутся без санкций. Отдельно закрытый чат после чистки останется закрытым.</p>`;
-    if (quiet) {
-      if (el('mb')) {
-        el('mb').scrollTop = scroll;
-        const row = anchorId ? host.querySelector(`[data-purge-user="${anchorId}"]`) : null;
-        if (row) el('mb').scrollTop += row.getBoundingClientRect().top - anchorTop;
-      }
-      if (focusId) el(focusId)?.focus({preventScroll:true});
-      else if (focusAction) [...host.querySelectorAll('button')].find(b => b.getAttribute('onclick') === focusAction)?.focus({preventScroll:true});
-    }
+    if (seq !== _purge.seq) return;
+    _purge.chats = d.items || [];
+    if (!_purge.chats.some(c => c.id === _purge.cid)) { _purge.cid = _purge.chats[0]?.id || 0; _purge.view = null; _purge.page = 0; }
   } catch (e) {
-    if (host.isConnected && seq === _pgWeb.seq) {
-      const sync = el('pg-web-sync');
-      if (e?.status===403 || e?.status===401) { _pgWeb.denied = true; _pgWeb.state = null; host.innerHTML = `<p class="v3-err" role="alert">${esc(e.message)}</p><button class="v3-link" onclick="openPurgeHub()">Проверить доступ снова</button>`; }
-      else if (sync) { sync.textContent = `${e.message || 'Нет связи.'} Показаны последние данные; попробуем ещё раз.`; sync.className = 'tr-err'; }
-      else host.innerHTML = `<p class="v3-err" role="alert">${esc(String(e))}</p><button class="v3-link" onclick="purgeWebLoad()">Повторить загрузку</button>`;
-    }
+    if (seq === _purge.seq) { _purge.error = e.message || 'Нет связи.'; _purgeRender(); }
+    return;
+  }
+  if (!_purge.cid) { _purgeRender(); return; }
+  await purgeLoad();
+}
+function purgeBack() {
+  clearTimeout(_purge.timer); _purgeRememberDraft(); ++_purge.seq;
+  if (_navStack.length) navBack(); else switchPage('more', null, true);
+}
+function purgePick(cid) {
+  if (_purge.busy) return null;
+  _purgeRememberDraft(); _purge.cid = Number(cid); _purge.view = null; _purge.page = 0; _purge.mode = 'pending'; _purge.etag = '';
+  _purge.denied = false;
+  return purgeLoad();
+}
+function purgeFilter(mode) { if (_purge.busy) return null; _purge.mode = mode; _purge.page = 0; _purge.etag = ''; return purgeLoad(); }
+function purgePage(page) { if (_purge.busy) return null; _purge.page = Math.max(0, page); _purge.etag = ''; return purgeLoad(); }
+
+function _purgeSchedule() {
+  clearTimeout(_purge.timer);
+  if (!_purgeVisible() || _purge.denied || !_purge.cid) return;
+  _purge.timer = setTimeout(() => {
+    if (!_purgeVisible()) return;
+    if (document.hidden || _purge.busy || el('cf-sheet') || el('modal')?.open) { _purgeSchedule(); return; }
+    purgeLoad(true);
+  }, PURGE_FALLBACK_MS);
+}
+// Живое событие с сервера (app.01.js): ход этого чата изменился
+function purgeLive(event) {
+  if (!_purgeVisible() || Number(event?.chat_id) !== _purge.cid || _purge.busy || _purge.loading) return null;
+  return purgeLoad(true);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && _purgeVisible() && !_purge.busy) purgeLoad(true); });
+
+async function purgeLoad(quiet = false) {
+  if (!_purgeVisible() || !_purge.cid || (quiet && _purge.loading)) return;
+  const cid = _purge.cid, seq = ++_purge.seq;
+  _purge.loading = true;
+  if (!quiet) { _purge.error = ''; _purgeRender(); }
+  try {
+    const answer = await _purgeFetch(`/purge-v1/chats/${cid}?live=1&page=${_purge.page}&mode=${_purge.mode}`);
+    if (seq !== _purge.seq || !_purgeVisible()) return;
+    _purge.denied = false; _purge.error = '';
+    if (answer.status === 304 && _purge.view) return;
+    _purge.view = answer.data; _purge.etag = answer.etag || ''; _purge.page = answer.data.page || 0;
+    _purgeRender(quiet);
+  } catch (e) {
+    if (seq !== _purge.seq) return;
+    if (e?.status === 403 || e?.status === 401) { _purge.denied = true; _purge.view = null; _purge.etag = ''; }
+    _purge.error = e.message || 'Нет связи.';
+    _purgeRender(quiet);
   } finally {
-    if (seq === _pgWeb.seq) { _pgWeb.loading = false; if (purgeWebVisible(host)) purgeWebSchedule(); }
+    if (seq === _purge.seq) { _purge.loading = false; _purgeSchedule(); }
   }
 }
-async function purgeWebPost(path, body, button) {
-  if (_pgWeb.busy) return;
-  const cid = _pgWeb.cid, host = el('web-purge-host'); _pgWeb.busy = true; ++_pgWeb.seq; clearTimeout(_pgWeb.timer); if (button) button.disabled = true;
-  host?.querySelectorAll('button,select').forEach(b => b.disabled = true);
-  const sync = el('pg-web-sync'); if (sync) sync.textContent = 'Сохраняем решение…';
-  try {
-    const result = await purgeWebApi(`/purge-v1/chats/${cid}/${path}`, {method:'POST',body:JSON.stringify(body)});
-    if (result.ok && path==='finish') _pgWeb.completed[cid] = result.counts;
-    if (result.ok && path==='start') delete _pgWeb.completed[cid];
-    return result;
-  }
-  catch (e) { toast(e.message || String(e), false); }
-  finally { _pgWeb.busy = false; _pgWeb.loading = false; _pgWeb.signature = ''; if (el('web-purge-host') === host && _pgWeb.cid === cid) await purgeWebLoad(_pgWeb.page,true); }
+
+function _purgeRememberDraft() {
+  if (!_purge.cid || !el('pg-norm')) return;
+  _purge.drafts[_purge.cid] = {norm: el('pg-norm').value, from: el('pg-from').value, to: el('pg-to').value};
 }
-async function purgeWebStart(button) {
-  if (_pgWeb.busy || !el('pg-web-norm') || !el('pg-web-from') || !el('pg-web-to')) return;
-  const body = {norm:Number(el('pg-web-norm').value),date_from:el('pg-web-from').value,date_to:el('pg-web-to').value}, cid = _pgWeb.cid;
-  if (!Number.isInteger(body.norm) || body.norm<1 || body.norm>100000 || !body.date_from || !body.date_to || body.date_from>body.date_to) { toast('Проверьте норму и период.',false); return; }
-  const title = _pgWeb.chats.find(c=>c.id===cid)?.title || 'Чат';
-  if (!await v3Confirm({title:'Начать чистку?',name:title,sub:'Чат перейдёт в режим чистки. Санкции выбираются отдельно.',rows:[['Период',body.date_from+' — '+body.date_to],['Норма',String(body.norm)]],cta:'Начать чистку'}) || cid!==_pgWeb.cid || !purgeWebVisible()) return;
+const _purgeDay = iso => { const d = iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00`) : null; return d && !isNaN(d) ? d.toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) : esc(iso || ''); };
+const _purgeName = t => t.member_tag || (t.username ? '@' + t.username : 'Участник ' + t.user_id);
+const _purgeHelp = () => `<details class="pg-help"><summary>Как устроена чистка</summary><p>Бот находит тех, кто за период написал меньше нормы. Новичкам и тем, кто был в муте, норма уменьшается.</p><p>Чат закрыт, пока идёт чистка: писать могут только участники с рангом для чистки.</p><p>Решение по каждому принимаешь ты или другой админ — здесь или кнопками под досье в Telegram.</p><button type="button" class="v3-link" onclick="v3Guide('purge')">Подробнее в Путеводителе</button></details>`;
+
+function _purgeRender(quiet = false) {
+  const root = el('pg-purge'); if (!root) return;
+  const scroll = quiet ? (document.scrollingElement?.scrollTop || 0) : null;
+  _purgeRememberDraft();
+  const head = v3Head('Чистка', {sub: 'Кто не набрал норму сообщений', back: 'purgeBack()'});
+  root.innerHTML = `${head}<div class="pg-body">${_purgeBody()}</div>`;
+  const draft = _purge.drafts[_purge.cid];
+  if (draft && el('pg-norm')) { el('pg-norm').value = draft.norm; el('pg-from').value = draft.from; el('pg-to').value = draft.to; }
+  if (scroll !== null) try { document.scrollingElement.scrollTop = scroll; } catch (_) {}
+}
+function _purgeBody() {
+  if (_purge.chats === null) {
+    return _purge.error
+      ? `<div class="v3-empty" role="alert"><b>Чаты не загрузились</b> ${esc(_purge.error)} <button type="button" class="v3-link" onclick="openPurgeHub()">Повторить</button></div>`
+      : '<p class="v3-empty" role="status">Загружаю твои чаты…</p>';
+  }
+  if (!_purge.chats.length) return '<p class="v3-empty">Нет чатов, где твой ранг разрешает чистку.</p>';
+  const pick = _purge.chats.length > 1
+    ? `<label class="v3-eyebrow pg-label" for="pg-chat">Чат</label><select id="pg-chat" class="v3-field" onchange="purgePick(this.value)" ${_purge.busy ? 'disabled' : ''}>${_purge.chats.map(c => `<option value="${c.id}"${c.id === _purge.cid ? ' selected' : ''}>${esc(c.title)}</option>`).join('')}</select>`
+    : `<p class="v3-stat-line"><b>${esc(_purge.chats[0].title)}</b></p>`;
+  const v = _purge.view;
+  if (_purge.denied) return `${pick}<div class="v3-empty" role="alert"><b>Нет доступа</b> ${esc(_purge.error)} <button type="button" class="v3-link" onclick="openPurgeHub()">Проверить снова</button></div>`;
+  if (!v) {
+    return pick + (_purge.error
+      ? `<div class="v3-empty" role="alert"><b>Чистка не загрузилась</b> ${esc(_purge.error)} <button type="button" class="v3-link" onclick="purgeLoad()">Повторить</button></div>`
+      : '<p class="v3-empty" role="status">Загружаю…</p>');
+  }
+  const offline = _purge.error ? `<p class="tr-err" role="status">${esc(_purge.error)} Показано последнее, что загрузилось.</p>` : '';
+  return pick + offline + (v.active ? _purgeActive(v) : _purgeIdle(v));
+}
+function _purgeIdle(v) {
+  const job = v.preparing;
+  if (job?.state === 'preparing') {
+    return `<section class="pg-state" role="status"><b>Готовлю список…</b><p class="tr-note">Считаю сообщения участников с ${_purgeDay(job.date_from)} по ${_purgeDay(job.date_to)}, норма ${fmt(job.norm)}. Обычно это несколько секунд.</p></section>${_purgeHelp()}`;
+  }
+  const failed = job?.state === 'failed'
+    ? `<div class="v3-empty" role="alert"><b>Чистка не началась</b> ${esc(job.error || '')} <button type="button" class="v3-link" onclick="purgeRetryStart()" ${_purge.busy ? 'disabled' : ''}>Повторить</button></div>` : '';
+  const done = v.completed?.counts;
+  const result = done ? `<p class="tr-note">Прошлая чистка (${_purgeDay(v.completed.date_from)} — ${_purgeDay(v.completed.date_to)}): решено ${fmt(done.decided)} из ${fmt(done.total)}, исключено ${fmt(done.kicked)}, забанено ${fmt(done.banned)}.</p>` : '';
+  const d = v.defaults || {};
+  return `${failed}<section class="pg-form"><label class="v3-eyebrow pg-label" for="pg-norm">Норма сообщений за период</label><input id="pg-norm" class="v3-field" type="number" inputmode="numeric" min="1" max="100000" value="100">
+    <div class="pg-dates"><span><label class="v3-eyebrow pg-label" for="pg-from">С</label><input id="pg-from" class="v3-field" type="date" value="${esc(d.date_from || '')}" max="${esc(d.today || '')}"></span><span><label class="v3-eyebrow pg-label" for="pg-to">По</label><input id="pg-to" class="v3-field" type="date" value="${esc(d.date_to || '')}" max="${esc(d.today || '')}"></span></div>
+    <button type="button" class="v3-pill v3-pill--full" onclick="purgeStart(this)" ${_purge.busy ? 'disabled' : ''}>Начать чистку</button>
+    <p class="tr-note">Оба дня входят в период. Чат закроется до конца чистки, Мафия в нём встанет на паузу.</p></section>${result}${_purgeHelp()}`;
+}
+function _purgeActive(v) {
+  const s = v.session, c = v.counts, waiting = c.total - c.decided;
+  const sending = v.dossiers_running && c.sent < c.total;
+  const shown = sending ? c.sent : c.decided, of = Math.max(1, c.total);
+  const state = sending
+    ? `<b>Отправляю досье: ${fmt(c.sent)} из ${fmt(c.total)}</b><small>Досье уходят в админ-чат по одному, решать можно уже сейчас</small>`
+    : `<b>Решено ${fmt(c.decided)} из ${fmt(c.total)}</b><small>${_purgeDay(s.date_from)} — ${_purgeDay(s.date_to)} · норма ${fmt(s.norm)}</small>`;
+  const tabs = [['pending', `Ждут · ${fmt(waiting)}`], ['decided', 'Решённые'], ['all', 'Все']]
+    .map(([key, title]) => `<button type="button" role="tab" class="v3-tab${_purge.mode === key ? ' on' : ''}" aria-selected="${_purge.mode === key}" onclick="purgeFilter('${key}')">${title}</button>`).join('');
+  const rows = v.items.map(t => {
+    const stuck = ['sending', 'unknown'].includes(t.decision_state);
+    const end = t.verdict ? esc(PURGE_LABELS[t.verdict] || t.verdict) : stuck ? 'Проверить' : _v3Icon('chev');
+    return `<button type="button" class="v3-row pg-row" data-purge-user="${t.user_id}" onclick="purgeOpen(${t.user_id})"><span>${esc(_purgeName(t))}<small>${fmt(t.msg_count)} из ${fmt(t.required_norm ?? s.norm)} сообщений${t.member_tag && t.username ? ' · @' + esc(t.username) : ''}</small></span><span class="v3-end">${end}</span></button>`;
+  }).join('');
+  const empty = {pending: 'Все решения приняты. Можно завершать.', decided: 'Решений пока нет.', all: 'В этой чистке никого нет.'}[_purge.mode];
+  const pages = (v.page ? `<button type="button" class="v3-link" onclick="purgePage(${v.page - 1})">‹ Предыдущие</button>` : '')
+    + (v.has_more ? `<button type="button" class="v3-link" onclick="purgePage(${v.page + 1})">Следующие ›</button>` : '');
+  return `<section class="pg-state" role="status">${state}<span class="pg-meter" aria-hidden="true"><i style="width:${Math.round(100 * shown / of)}%"></i></span></section>
+    <nav class="v3-tabs" role="tablist" aria-label="Досье">${tabs}</nav>
+    <div class="pg-list">${rows || `<p class="v3-empty">${empty}</p>`}</div>${pages ? `<div class="pg-pages">${pages}</div>` : ''}
+    <button type="button" class="v3-pill v3-pill--full v3-pill--ghost pg-finish" onclick="purgeFinish()" ${c.blocked || _purge.busy ? 'disabled' : ''}>Завершить чистку</button>
+    <p class="tr-note">${c.blocked ? 'Завершить можно, когда Telegram ответит на все решения.' : 'Кто останется без решения, останется без наказания. Чат откроется.'}</p>${_purgeHelp()}`;
+}
+
+// Подробности участника и решения — лист поверх страницы
+function purgeOpen(uid) {
+  const v = _purge.view, t = v?.items.find(x => x.user_id === uid); if (!t || !v.active) return;
+  const facts = `<p class="v3-stat-line"><b>${fmt(t.msg_count)}</b> из ${fmt(t.required_norm ?? v.session.norm)} сообщений за период</p><p class="tr-note">В чате ${fmt(t.days_in_chat)} дн · варнов на начало чистки: ${fmt(t.warns)}. Норма уже учитывает дату входа и время в муте.</p><p><a class="v3-link" href="tg://user?id=${t.user_id}">Открыть профиль в Telegram</a></p>`;
+  if (t.verdict) {
+    const who = t.verdict_by ? ` · ${esc(t.verdict_by_name || t.verdict_by_username || 'админ')}` : '';
+    OM(_purgeName(t), `${facts}<p class="tr-ok">Решение: ${esc(PURGE_LABELS[t.verdict] || t.verdict)}${who}</p>`, [{l: 'Назад', f: 'CM()'}]);
+    return;
+  }
+  if (['sending', 'unknown'].includes(t.decision_state)) {
+    const note = t.reconcile_ready ? '' : '<p class="tr-note">Telegram ещё отвечает. Если ответа не будет, проверить вручную можно через две минуты.</p>';
+    OM(_purgeName(t), `${facts}<p class="tr-err" role="status">${esc(t.decision_error || 'Решение отправлено в Telegram. Не повторяй его, пока не проверишь участника.')}</p>${note}`,
+      [{l: 'Назад', f: 'CM()'}, ...(t.reconcile_ready ? [{l: 'Проверить вручную', f: `purgeReconcile(${uid})`}] : [])]);
+    return;
+  }
+  const buttons = PURGE_ACTIONS.map(([key, label]) => `<button type="button" class="v3-pill v3-pill--ghost" onclick="purgeDecide(${uid},'${key}',this)">${label}</button>`).join('');
+  OM(_purgeName(t), `${facts}${t.decision_error ? `<p class="tr-note">${esc(t.decision_error)}</p>` : ''}<div class="pg-acts" role="group" aria-label="Решение">${buttons}</div>`, [{l: 'Назад', f: 'CM()'}]);
+}
+
+async function _purgePost(path, body, button) {
+  if (_purge.busy) return null;
+  const cid = _purge.cid; _purge.busy = true; ++_purge.seq; clearTimeout(_purge.timer);
+  if (button) button.disabled = true;
+  try { return await purgeWebApi(`/purge-v1/chats/${cid}/${path}`, {method: 'POST', body: JSON.stringify(body)}); }
+  catch (e) { toast(e.message || String(e), false); return null; }
+  finally { _purge.busy = false; _purge.loading = false; _purge.etag = ''; if (button?.isConnected) button.disabled = false; if (_purge.cid === cid) await purgeLoad(true); }
+}
+async function purgeStart(button) {
+  if (_purge.busy || !el('pg-norm')) return;
+  const body = {norm: Number(el('pg-norm').value), date_from: el('pg-from').value, date_to: el('pg-to').value}, cid = _purge.cid;
+  if (!Number.isInteger(body.norm) || body.norm < 1 || body.norm > 100000 || !body.date_from || !body.date_to || body.date_from > body.date_to) { toast('Проверь норму и даты: «С» не позже «По».', false); return; }
+  const title = _purge.chats.find(c => c.id === cid)?.title || 'Чат';
+  if (!await v3Confirm({title: 'Начать чистку?', visual: '🧹', name: title, sub: 'Чат закроется до конца чистки. Наказания выбираешь сам, по каждому.', rows: [['Период', `${_purgeDay(body.date_from)} — ${_purgeDay(body.date_to)}`], ['Норма', String(body.norm)]], cta: 'Начать чистку'}) || cid !== _purge.cid || !_purgeVisible()) return;
+  _purge.lastStart = {cid, body};
+  await _purgeSendStart(cid, body, button);
+}
+function purgeRetryStart() { const last = _purge.lastStart; if (last && last.cid === _purge.cid) _purgeSendStart(last.cid, last.body, null); else purgeLoad(); }
+async function _purgeSendStart(cid, body, button) {
   const key = `pv-purge-start:${cid}:${body.norm}:${body.date_from}:${body.date_to}`;
-  let id; try { id = localStorage.getItem(key); } catch (_) {}
-  id ||= typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `purge-${Date.now()}-${Math.random().toString(36).slice(2)}`; try { localStorage.setItem(key,id); } catch (_) {}
-  const result = await purgeWebPost('start',{...body,action_id:id},button);
-  if (result?.ok) { try { localStorage.removeItem(key); } catch (_) {} toast(result.message); }
+  const result = await _purgePost('start?background=1', {...body, action_id: _purgeId(key)}, button);
+  if (result?.ok) { _purgeForget(key); delete _purge.drafts[cid]; }
 }
-async function purgeWebDecide(uid, action, button) {
-  const s = _pgWeb.state?.session, target = _pgWeb.state?.items.find(t=>t.user_id===uid), cid = _pgWeb.cid;
-  if (!s || !target || _pgWeb.busy) return;
-  const labels={forgive:'Оставить участника',warn:'Выдать бессрочный варн',mute:'Выдать мут на час',kick:'Исключить из чата',ban:'Забанить бессрочно'};
-  if (!await v3Confirm({title:labels[action],name:target.member_tag||target.username||'Участник '+uid,sub:_pgWeb.chats.find(c=>c.id===cid)?.title,rows:[['Сообщений',String(target.msg_count)],['Норма',String(target.required_norm??s.norm)]],cta:labels[action]})) return;
-  if (cid!==_pgWeb.cid || _pgWeb.state?.session?.id!==s.id || !purgeWebVisible()) return;
-  const key = `pv-purge:${cid}:${s.id}:${uid}:${action}`; let id;
-  try { id=localStorage.getItem(key); } catch (_) {}
-  id ||= typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `purge-${Date.now()}-${Math.random().toString(36).slice(2)}`; try { localStorage.setItem(key,id); } catch (_) {}
-  const result = await purgeWebPost('decision',{session_id:s.id,user_id:uid,action,action_id:id},button);
-  if (result?.ok) { try { localStorage.removeItem(key); } catch (_) {} if (result.replayed) toast('Другой администратор уже принял решение. Показан сохранённый результат.'); }
+async function purgeDecide(uid, action, button) {
+  const v = _purge.view, t = v?.items.find(x => x.user_id === uid), cid = _purge.cid; if (!t || _purge.busy) return;
+  const [, , title, what] = PURGE_ACTIONS.find(a => a[0] === action);
+  if (!await v3Confirm({title, visual: '🧹', name: _purgeName(t), sub: what, rows: [['Сообщений', `${fmt(t.msg_count)} из ${fmt(t.required_norm ?? v.session.norm)}`]], cta: title})) return;
+  if (cid !== _purge.cid || _purge.view?.session?.id !== v.session.id) return;
+  const key = `pv-purge:${cid}:${v.session.id}:${uid}:${action}`;
+  CM();
+  const result = await _purgePost('decision', {session_id: v.session.id, user_id: uid, action, action_id: _purgeId(key)}, button);
+  if (result?.ok) { _purgeForget(key); if (result.replayed) toast('Другой админ уже решил. Показано его решение.'); }
 }
-async function purgeWebFinish() {
-  const s = _pgWeb.state?.session, cid = _pgWeb.cid; if (!s || _pgWeb.busy) return;
-  if (await v3Confirm({title:'Завершить чистку?',name:_pgWeb.chats.find(c=>c.id===cid)?.title,sub:'Нерешённые досье останутся без санкций. Отдельная блокировка чата сохраняется.',cta:'Завершить'}) && cid===_pgWeb.cid && purgeWebVisible() && _pgWeb.state?.session?.id===s.id) await purgeWebPost('finish',{session_id:s.id});
+async function purgeFinish() {
+  const v = _purge.view, cid = _purge.cid; if (!v?.active || _purge.busy) return;
+  const waiting = v.counts.total - v.counts.decided;
+  if (!await v3Confirm({title: 'Завершить чистку?', visual: '🧹', name: _purge.chats.find(c => c.id === cid)?.title || 'Чат', sub: 'Чат откроется. Кто остался без решения, останется без наказания.', rows: [['Без решения', String(waiting)]], cta: 'Завершить'})) return;
+  if (cid === _purge.cid && _purge.view?.session?.id === v.session.id) await _purgePost('finish', {session_id: v.session.id});
 }
-function purgeWebReconcile(uid) {
-  const s = _pgWeb.state?.session, cid = _pgWeb.cid; if (!s || _pgWeb.busy) return;
-  _pgWeb.returnTo = {page:_pgWeb.page,mode:_pgWeb.mode,scroll:el('mb')?.scrollTop || 0}; clearTimeout(_pgWeb.timer); ++_pgWeb.seq;
-  OM('Сверка исполнения', `<p>Сначала проверьте статус участника и журнал Telegram. Эта операция ничего не отправляет повторно.</p><label for="pg-reconcile-applied">Проверенный результат</label><select id="pg-reconcile-applied" class="v3-field"><option value="">Выберите результат проверки</option><option value="yes">Санкция применена</option><option value="no">Санкция точно не применена</option></select><label for="pg-reconcile-reason">Что вы проверили (12–300 символов)</label><textarea id="pg-reconcile-reason" class="v3-field" minlength="12" maxlength="300"></textarea><p id="pg-reconcile-error" role="alert"></p>`, [{l:'Назад',f:`purgeWebBack(${cid})`},{l:'Записать сверку',f:`purgeWebReconcileGo(${cid},${s.id},${uid})`}]);
+function purgeReconcile(uid) {
+  const v = _purge.view; if (!v?.active || _purge.busy) return;
+  OM('Проверка решения', `<p>Сначала посмотри, что с участником в Telegram: в чате ли он, есть ли бан или ограничение. Эта проверка ничего не отправляет повторно.</p><label class="v3-eyebrow pg-label" for="pg-reconcile-applied">Что ты увидел</label><select id="pg-reconcile-applied" class="v3-field"><option value="">Выбери</option><option value="yes">Наказание применилось</option><option value="no">Наказания точно нет</option></select><label class="v3-eyebrow pg-label" for="pg-reconcile-reason">Что именно проверил (12–300 знаков)</label><textarea id="pg-reconcile-reason" class="v3-field" minlength="12" maxlength="300"></textarea><p id="pg-reconcile-error" class="tr-err" role="alert"></p>`,
+    [{l: 'Назад', f: `purgeOpen(${uid})`}, {l: 'Записать', f: `purgeReconcileGo(${v.session.id},${uid})`, c: 'primary'}]);
 }
-async function purgeWebReconcileGo(cid,sid,uid) {
-  if (_pgWeb.busy) return;
-  const value=el('pg-reconcile-applied')?.value, reason=el('pg-reconcile-reason')?.value.trim();
-  if (!value || !reason || reason.length<12) { el('pg-reconcile-error').textContent='Выберите проверенный результат и опишите проверку.'; return; }
-  const error = el('pg-reconcile-error'); _pgWeb.busy = true;
-  el('mf')?.querySelectorAll('button').forEach(b => b.disabled = true); error.textContent = 'Проверяем и сохраняем результат…';
-  try {
-    await purgeWebApi(`/purge-v1/chats/${cid}/reconcile`,{method:'POST',body:JSON.stringify({session_id:sid,user_id:uid,applied:value==='yes',reason})});
-    _pgWeb.busy = false;
-    if (el('pg-reconcile-error')===error && el('modal')?.open) await purgeWebBack(cid);
-  }
-  catch(e) { if(el('pg-reconcile-error')===error) error.textContent=e.message || String(e); }
-  finally { _pgWeb.busy = false; if(el('pg-reconcile-error')===error) el('mf')?.querySelectorAll('button').forEach(b => b.disabled = false); }
+async function purgeReconcileGo(sid, uid) {
+  if (_purge.busy) return;
+  const value = el('pg-reconcile-applied')?.value, reason = el('pg-reconcile-reason')?.value.trim() || '', error = el('pg-reconcile-error');
+  if (!value || reason.length < 12) { if (error) error.textContent = 'Выбери, что увидел, и опиши проверку (от 12 знаков).'; return; }
+  el('mf')?.querySelectorAll('button').forEach(b => b.disabled = true);
+  const result = await _purgePost('reconcile', {session_id: sid, user_id: uid, applied: value === 'yes', reason});
+  if (result?.ok) CM(); else el('mf')?.querySelectorAll('button').forEach(b => b.disabled = false);
 }
-function purgeWebBack(cid) { return openPurgeHub(cid,_pgWeb.returnTo); }

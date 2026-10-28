@@ -12,7 +12,7 @@ const _GV_GO = {
   pass: () => { location.href = BASE + '/league#pass'; }, profile: () => switchPage('profile'), pets: () => openPetsV1(), quests: () => openQuestsV1(),
   looks: () => openLooksModal(), chests: () => openChestsV1(), inventory: () => openInventory(), top: () => openTopV3(), wallet: () => showCurrModal(),
   more: () => switchPage('more'), vip: () => openStoreV3('vip'), zarniki: () => openStoreV3('zarniki'), promo: () => openPromoSheet(),
-  achievements: () => openAchievementsV1(), market: () => openPlayerExchangeV1(), casino: () => openCasino(),
+  achievements: () => openAchievementsV1(), market: () => openPlayerExchangeV1(), casino: () => openCasino(), purge: () => openPurgeHub(),
 };
 const _gvRating = () => { location.href = BASE + '/league?game=rhythm'; };
 const _gvNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9 ]+/g, ' ');
