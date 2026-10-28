@@ -17,6 +17,23 @@ def _pass_screen(edit: str) -> str:
 
 _PASS_ALL = "s.points = 9400; s.level = 30; s.points_to_next = 0; "
 
+
+def _purge_screen(view: str, after: str = "") -> str:
+    """«Чистка» on a fixed answer: the stand has no Telegram to confirm admin rights, so the page's two readers return
+    a ready chat list and the given view (JS object literal). Nothing is sent to the server."""
+    items = ("[{user_id:2,username:'silent_one',member_tag:'Тихоня',msg_count:1,required_norm:20,days_in_chat:40,warns:0,decision_state:'idle'},"
+             "{user_id:3,username:'quiet_player_with_a_long_name',msg_count:0,required_norm:14,days_in_chat:9,warns:1,decision_state:'idle'},"
+             "{user_id:4,username:'gone',msg_count:3,required_norm:20,days_in_chat:120,warns:2,decision_state:'unknown',reconcile_ready:true,"
+             "decision_error:'Ответ не получен. Проверь участника.'},"
+             "{user_id:5,username:'warned',msg_count:5,required_norm:20,days_in_chat:60,warns:0,decision_state:'done',verdict:'warn',verdict_by:1,verdict_by_name:'Админ'}]")
+    return ("window.purgeWebApi = () => Promise.resolve({items:[{id:-1,title:'Флудилка «Предвестник»'},{id:-2,title:'Второй чат'}],next_offset:null}); "
+            f"window._purgeFetch = () => Promise.resolve({{status:200, etag:'', data:{view.replace('ITEMS', items)}}}); "
+            "openPurgeHub(-1)" + (f".then(() => {{ {after} }})" if after else ""))
+
+
+_PURGE_SESSION = "session:{id:7,norm:20,date_from:'2026-10-19',date_to:'2026-10-25'}"
+_PURGE_IDLE = "{active:false,items:[],page:0,has_more:false,defaults:{date_from:'2026-10-20',date_to:'2026-10-26',today:'2026-10-28'},"
+
 # Every player screen and sheet reachable from the app. (name, JS that opens it)
 SCREENS = [
     ("profile", "switchPage('profile')"),
@@ -83,6 +100,20 @@ SCREENS = [
     ("welcome", "_showWelcome()"),
     ("tos-gate", "_tosGate({tos_accepted:false})"),
     ("public", "openPublicCardV3(PEER_ID)"),
+    # «Чистка» (S05): ход, форма, подготовка, ошибки, лист решения — на готовых ответах (_purge_screen)
+    ("purge", _purge_screen("{active:true,page:0,has_more:true,mode:'pending',dossiers_running:true,preparing:null," + _PURGE_SESSION
+                            + ",counts:{total:38,sent:12,decided:1,blocked:1},items:ITEMS}")),
+    ("purge-decided", _purge_screen("{active:true,page:0,has_more:false,mode:'pending',dossiers_running:false,preparing:null," + _PURGE_SESSION
+                                    + ",counts:{total:38,sent:38,decided:21,blocked:0},items:ITEMS}")),
+    ("purge-form", _purge_screen(_PURGE_IDLE + "preparing:null,completed:{id:6,date_from:'2026-10-12',date_to:'2026-10-18',"
+                                 "counts:{total:31,decided:29,kicked:12,banned:3}}}")),
+    ("purge-preparing", _purge_screen(_PURGE_IDLE + "completed:null,preparing:{state:'preparing',norm:20,date_from:'2026-10-20',date_to:'2026-10-26'}}")),
+    ("purge-failed", _purge_screen(_PURGE_IDLE + "completed:null,preparing:{state:'failed',error:'Боту нужны права администратора и удаления сообщений.',"
+                                   "norm:20,date_from:'2026-10-20',date_to:'2026-10-26'}}")),
+    ("purge-error", "window.purgeWebApi = () => Promise.resolve({items:[{id:-1,title:'Флудилка'}],next_offset:null}); "
+                    "window._purgeFetch = () => Promise.reject({message:'Нет ответа. Проверь связь.', status:0}); openPurgeHub(-1)"),
+    ("purge-decide", _purge_screen("{active:true,page:0,has_more:false,mode:'pending',dossiers_running:false,preparing:null," + _PURGE_SESSION
+                                   + ",counts:{total:38,sent:38,decided:21,blocked:1},items:ITEMS}", "purgeOpen(2);")),
 ]
 
 # Standalone pages outside the single-page app (no dock): the two games and the public legal pages.

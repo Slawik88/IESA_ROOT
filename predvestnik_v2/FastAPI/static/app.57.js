@@ -20,7 +20,7 @@ const _GV_GO = {
   pass: () => _gvLeave('/league#pass', 'Пропуск сезона'), profile: () => switchPage('profile'), pets: () => openPetsV1(), quests: () => openQuestsV1(),
   looks: () => openLooksModal(), chests: () => openChestsV1(), inventory: () => openInventory(), top: () => openTopV3(), wallet: () => showCurrModal(),
   more: () => switchPage('more'), vip: () => openStoreV3('vip'), zarniki: () => openStoreV3('zarniki'), promo: () => openPromoSheet(),
-  achievements: () => openAchievementsV1(), market: () => openPlayerExchangeV1(), casino: () => openCasino(),
+  achievements: () => openAchievementsV1(), market: () => openPlayerExchangeV1(), casino: () => openCasino(), purge: () => openPurgeHub(),
   settings: () => openSettingsModal(), family: () => openFamilyTree(), bot: () => _gvBot(),
 };
 // Чат с ботом (команды, пыль, переводы): имя бота страница получает от сервера (<meta name="pv-bot">, index.html).

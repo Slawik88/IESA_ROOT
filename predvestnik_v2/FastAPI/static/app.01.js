@@ -321,6 +321,7 @@ function connectWS() {
     if (event?.type === 'notification_pending') {
       loadPendingNotifications(); queueDynamicRefresh('notification'); return;
     }
+    if (event?.type === 'data_changed' && event.scope === 'purge') { if (typeof purgeLive === 'function') purgeLive(event); return; }   // ход «Чистки» не трогает профиль
     if (event?.type === 'data_changed') { queueDynamicRefresh(event.scope || 'profile'); return; }
     if (event?.type === 'activity_changed') {
       if (_profileData) {

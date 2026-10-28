@@ -161,8 +161,16 @@ body[data-dev="low"] :is(.v3-emblem, .v3-tw, .v3-pod, .v3-goal-arc, .v3-bal-coin
 
 .v3-top-list .v3-rowbtn>.chat-theme-avatar { box-sizing:border-box;flex:0 0 34px;width:34px;min-width:34px;height:34px;padding:0;margin:0; }
 
-/* Purge actions remain easy to tap on small phones. */
-.purge-web button,.purge-web select,.purge-web input { min-height:44px; }
-.purge-web .tr-chips { flex-wrap:wrap; }
-.purge-web .tr-grp .tr-chips>.v3-pill { flex:1 1 100px; }
-.purge-web .tr-grp h3 { overflow-wrap:anywhere; }
+/* «Чистка» (app.07.js, S05): ход чистки, форма запуска, лист решений. Полоса хода — тушью, не акцентом. */
+#pg-purge .pg-label { display:block; margin:14px 0 6px; }
+#pg-purge .pg-dates { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; margin-bottom:18px; }
+#pg-purge .pg-state { display:grid; gap:4px; margin:6px 0 8px; font-size:16px; font-variant-numeric:tabular-nums; }
+#pg-purge .pg-state small { color:var(--v3-dim); font-size:12.5px; font-weight:400; }
+#pg-purge .pg-meter { display:block; height:4px; margin-top:8px; border-radius:4px; background:var(--v3-track); overflow:hidden; }
+#pg-purge .pg-meter i { display:block; height:100%; background:var(--v3-ink); transition:width .3s; }
+#pg-purge .pg-row > span:first-child { min-width:0; overflow-wrap:anywhere; }
+#pg-purge .pg-pages { display:flex; justify-content:space-between; gap:10px; margin:8px 0; }
+#pg-purge .pg-finish { margin-top:18px; }
+#pg-purge .pg-help { margin-top:22px; color:var(--v3-dim); font-size:13px; line-height:1.45; }
+#pg-purge .pg-help summary { display:flex; align-items:center; min-height:44px; color:var(--v3-ink); cursor:pointer; }
+.pg-acts { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; margin-top:14px; }
