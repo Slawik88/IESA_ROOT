@@ -71,12 +71,12 @@ function _v3QuestRoute(metric) {
   if (['pet_fed','pet_activity_completed','pet_trek_completed','pet_expedition_completed','pet_watch_completed'].includes(m)) return 'openPetsV1()';
   return "openQuestsV1()";
 }
-// Новичок (уровень аккаунта до 3 или в игре меньше трёх дней), который ещё не открывал тему «Первый день»: карточка ведёт туда.
-// Тема прочитана (pv_guide_first, app.57.js) — карточка больше не показывается.
+// Новичок (в игре меньше семи дней), который ещё не открывал тему «Первый день»: карточка ведёт туда.
+// Уровень аккаунта не годится: он из прошлой версии игры и больше не растёт (services/leveling.py). Тема прочитана (pv_guide_first, app.57.js) — карточки нет.
 function _v3Newcomer() {
   try { if (localStorage.getItem('pv_guide_first')) return false; } catch (_) { return false; }
   const d = typeof _profileData !== 'undefined' && _profileData || {}, joined = Date.parse(d.joined_date || '');
-  return (Number(d.account_level) || 1) <= 3 || (joined > 0 && Date.now() - joined < 3 * 864e5);
+  return joined > 0 && Date.now() - joined < 7 * 864e5;
 }
 function renderV3Next() {
   const host = el('v3-next'); if (!host) return;

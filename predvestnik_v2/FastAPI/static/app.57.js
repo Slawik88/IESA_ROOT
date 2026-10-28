@@ -21,7 +21,15 @@ const _GV_GO = {
   looks: () => openLooksModal(), chests: () => openChestsV1(), inventory: () => openInventory(), top: () => openTopV3(), wallet: () => showCurrModal(),
   more: () => switchPage('more'), vip: () => openStoreV3('vip'), zarniki: () => openStoreV3('zarniki'), promo: () => openPromoSheet(),
   achievements: () => openAchievementsV1(), market: () => openPlayerExchangeV1(), casino: () => openCasino(),
+  settings: () => openSettingsModal(), family: () => openFamilyTree(), bot: () => _gvBot(),
 };
+// Чат с ботом (команды, пыль, переводы): имя бота страница получает от сервера (<meta name="pv-bot">, index.html).
+function _gvBot() {
+  const name = document.querySelector('meta[name="pv-bot"]')?.content || '';
+  if (!name) return;
+  const link = 'https://t.me/' + name;
+  if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(link); else window.open(link, '_blank', 'noopener');
+}
 // Игры живут на своих страницах: показываем «Открываем…», а «‹» в игре вернёт в эту же тему (pv_back читает game-shell-v3.html).
 function _gvLeave(path, what) {
   try { if (_GV.view === 'topic' && _GV.topic) sessionStorage.setItem('pv_back', 'guide_' + _GV.topic); } catch (_) {}
@@ -30,7 +38,7 @@ function _gvLeave(path, what) {
   location.href = BASE + path;
 }
 const _gvRating = () => _gvLeave('/league?game=rhythm', 'Рейтинг');
-const _gvNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9 ]+/g, ' ');
+const _gvNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/18\s*\+/g, ' 18plus ').replace(/[^a-zа-я0-9 ]+/g, ' ');   // «18+» — одно слово поиска
 const _gvStem = w => w.length >= 7 ? w.slice(0, 5) : w.length >= 5 ? w.slice(0, w.length - 2) : w.length >= 4 ? w.slice(0, w.length - 1) : w;
 const _gvWords = s => _gvNorm(s).split(/\s+/).flatMap(w => (_GV_ALIAS[w] || (/^скин/.test(w) ? 'образ' : /^корм/.test(w) ? 'еда' : w)).split(' ')).filter(w => w.length > 2 && !_GV_STOP.has(w));
 const _gvText = b => [b.h, b.text, ...(b.items || []).flatMap(i => [i.h, i.p, i.w, i.plus, i.minus]), ...(b.a ? [b.a.h, ...b.a.items] : []), ...(b.b ? [b.b.h, ...b.b.items] : [])].filter(Boolean).join(' ');

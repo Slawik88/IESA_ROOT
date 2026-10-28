@@ -86,14 +86,13 @@ for t in guide["topics"]:
     assert {"steps", "gives", "list", "words", "gifts", "pair"} & set(kinds), f"{tid}: нужен хотя бы один блок «Шаги», «Что даёт» или «Слова»"
     assert len(kinds) <= 9, f"{tid}: тема слишком длинная — раздели её"
     assert t.get("where") and t["where"]["path"], f"{tid}: нужен блок «Где найти» с путём словами экрана"
-    if t["where"].get("go"):
-        assert t["where"]["go"] in go_keys and t["where"]["label"], f"{tid}: кнопка «Где найти» ведёт в никуда"
+    assert t["where"].get("go") in go_keys and t["where"]["label"], f"{tid}: в «Где найти» нужна кнопка «Открыть», и она должна вести на экран (_GV_GO)"
     for n in t.get("next", []):
         assert n in topics and n != tid, f"{tid}: ссылка «Читай дальше» на {n}"
     for b in t["blocks"]:
         where = f"{tid}/{b['t']}"
         if b["t"] in ("what", "tip", "warn"):
-            assert_short(where, b["text"], 190)
+            assert_short(where, b["text"], 180)   # абзац — две строки на телефоне (PLAYER_COPY.md, раздел 3)
         if b["t"] == "steps":
             assert 3 <= len(b["items"]) <= 5, f"{where}: шагов от 3 до 5"
             for i in b["items"]:
@@ -121,7 +120,7 @@ for term in guide["glossary"]:
 assert [x["w"].lower().replace("ё", "е") for x in guide["glossary"]] == sorted(x["w"].lower().replace("ё", "е") for x in guide["glossary"]), "словарь по алфавиту"
 for item in guide["faq"]:
     assert item["t"] in topics and item["q"].endswith(("?",)) or item["q"].startswith("Приложение"), item
-    assert_short(f"вопрос «{item['q']}»", item["a"], 190)
+    assert_short(f"вопрос «{item['q']}»", item["a"], 180)
     assert_plain("вопросы", item["a"] + ("" if item["q"] == "Куда делась Лига?" else " " + item["q"]))
 assert "Рейтинг" in {x["w"] for x in guide["glossary"]} and "Мора" in {x["w"] for x in guide["glossary"]}, "ключевые слова в словаре"
 
@@ -183,6 +182,22 @@ vip_text = body("vip")
 for number in ("20", "100", "10%", "10 вопросов", "20 значков", "Пять замен"):
     assert number in vip_text and (number in vip_line or number == "10 вопросов" and "10 вопросов" in vip_line or number == "Пять замен" and "Пять замен" in vip_line), f"VIP: «{number}» расходится с registry.VIP_PERKS_PITCH"
 assert "Telegram Stars" in body("zarniki")
+# S08: числа в новых и починенных темах
+from bot.chat import family as family_chat, settings as chat_settings, streak as streak_chat
+from core import coin_market_v2, mafia_online, mafia_v1, marks_v1
+has("modes", league_pass.CASUAL_DAILY_CAP, f"{league_v1.XP_BY_STARS[1]}, {league_v1.XP_BY_STARS[2]} или {league_v1.XP_BY_STARS[3]}")
+has("mafia", mafia_v1.MIN_PLAYERS)
+has("games", mafia_v1.MIN_PLAYERS)
+has("market", f"{coin_market_v2.FEE_BPS / 100:g}%".replace(".", ","))
+has("mora", quest_rewards.REWARD_MORA["daily"], quest_rewards.REWARD_MORA["weekly"])
+has("family", family_chat.MAX_CHILDREN)
+assert family_chat.ADOPT_INVITE_HOURS == 24 and "сутки" in body("family"), "family: приглашение в семью действует сутки"
+has("streak", streak_chat.WEEKS, marks_v1.EARNED_RULES["streak30"][1])
+has("marks", marks_v1.EARNED_RULES["veteran"][1], f"{marks_v1.LIVE_RULES['chatter'][1]:,}".replace(",", " "), 30)
+has("mafia-online", mafia_online.POSTGAME_CHAT_TTL // 60)
+assert set(chat_settings.DEFAULT_TRANSFERABLE) == {"mora", "diamonds"} and {"zarniki", "essence"} <= chat_settings.NEVER_TRANSFERABLE \
+    and "Мора и Алмазы" in body("transfers") and "Зарники и Эссенцию переводить нельзя" in body("transfers"), "transfers: какие валюты переводятся — как в bot/chat/settings.py"
+has("settings", 14)
 
 # ── Приложение ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 index = (STATIC / "index.html").read_text(encoding="utf-8")
