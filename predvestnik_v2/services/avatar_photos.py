@@ -34,6 +34,7 @@ PHOTO_TTL = 24 * 3600     # a stored photo is re-checked daily (one Bot API call
 MISS_TTL = 30 * 60        # "no photo" is re-checked after half an hour
 FAILURE_PAUSE = 60        # after a Telegram failure the same player is not retried sooner
 BUDGET_SEC = 8.0          # one whole refresh: lookup + download + shrink
+_SIGNED_PREFIX = "u:"     # version of a photo taken from the owner's signed Mini App URL
 _GATE = asyncio.Semaphore(4)
 _inflight: dict[int, asyncio.Task] = {}
 _failed_at: dict[int, float] = {}
@@ -91,11 +92,16 @@ async def _refresh_now(user_id: int, photo_url: str | None) -> None:
         version, image = found.version, await telegram_photo.shrink(await telegram_photo.download_file(found.file_id))
     if image is None and photo_url and telegram_photo.valid_url(photo_url):
         # Privacy settings may hide the photo from bots while Telegram still signs it for the Mini App.
-        source, version = "webapp", "u:" + hashlib.sha256(photo_url.encode()).hexdigest()[:32]
+        source, version = "webapp", _SIGNED_PREFIX + hashlib.sha256(photo_url.encode()).hexdigest()[:32]
         if stored and stored.has_image and stored.version == version:
             await _with_db(lambda db: repo.touch(db, user_id))
             return
         image = await telegram_photo.shrink(await telegram_photo.download_signed(photo_url, user_id))
+    elif found is None and stored and stored.has_image and (stored.version or "").startswith(_SIGNED_PREFIX):
+        # A photo only the owner's own launch can renew (tops, cards and the admin panel have no signed URL):
+        # the bot not seeing it is expected, not a reason to forget it.
+        await _with_db(lambda db: repo.touch(db, user_id))
+        return
     await _with_db(lambda db: repo.save(db, user_id, version, image))
     support_diagnostics.record(user_id, "avatar", {"source": source, "stage": "final", "outcome": "photo" if image else "empty"})
     logger.info("avatar uid={} source={} result={}", user_id, source, "photo" if image else "empty")
@@ -126,15 +132,20 @@ def _stale(stored: repo.StoredPhoto) -> bool:
 async def views(db, players: dict[int, str], *, photo_urls: dict[int, str] | None = None) -> dict[int, AvatarView]:
     """Avatars of VIP players ({user_id: profile_ref}); the caller has already checked VIP.
     Missing or old photos are refreshed in the background; the answer never waits for Telegram."""
-    stored = await repo.stored(db, list(players))
+    try:
+        stored = await repo.stored(db, list(players))
+    except Exception:   # a photo is decoration: its storage failing must not take the profile or the top down
+        logger.exception("avatar views unavailable")
+        return {uid: AvatarView(None, "absent") for uid in players}
     result = {}
     for uid, ref in players.items():
         row = stored.get(uid)
-        refreshing = refresh(uid, (photo_urls or {}).get(uid)) if row is None or _stale(row) else None
+        if row is None or _stale(row):
+            refresh(uid, (photo_urls or {}).get(uid))
         if row and row.has_image:
             result[uid] = AvatarView(avatar_path(ref, row.version), "ready")
-        elif row is None and refreshing is not None:
-            result[uid] = AvatarView(None, "loading")
+        elif row is None:
+            result[uid] = AvatarView(None, "loading")   # being fetched, or retried after a Telegram failure
         else:
             result[uid] = AvatarView(None, "absent")
     return result

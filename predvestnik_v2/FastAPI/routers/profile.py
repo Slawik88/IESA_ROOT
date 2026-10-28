@@ -117,7 +117,11 @@ async def _avatar_view(db, user_id: int, *, vip_active: bool, photo_url: str | N
     """Photo of a VIP player as a short address (services/avatar_photos.py); never waits for Telegram."""
     if not vip_active:
         return avatar_photos.AvatarView(None, "vip_only")
-    ref = await public_profiles.ensure_reference(db, user_id=int(user_id))
+    try:
+        ref = await public_profiles.ensure_reference(db, user_id=int(user_id))
+    except Exception:   # a photo is decoration: it must not take the whole profile down
+        logger.exception("avatar: public reference unavailable")
+        return avatar_photos.AvatarView(None, "absent")
     return await avatar_photos.view(db, int(user_id), ref, vip_active=True, photo_url=photo_url)
 
 
@@ -173,7 +177,8 @@ async def avatar_image(profile_ref: str, request: Request) -> Response:
         raise HTTPException(404)
     version, image = stored
     etag = avatar_photos.image_etag(version)
-    headers = {"ETag": etag, "Cache-Control": "private, max-age=3600"}
+    # Short browser cache: a lapsed VIP's photo disappears within minutes; revalidation is a cheap 304.
+    headers = {"ETag": etag, "Cache-Control": "private, max-age=300"}
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
     return Response(image, media_type="image/webp", headers=headers)

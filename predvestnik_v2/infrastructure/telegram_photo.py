@@ -115,15 +115,15 @@ def valid_url(value: str | None) -> bool:
 
 
 async def download_signed(url: str | None, user_id: int) -> bytes | None:
-    """The photo URL from the owner's own signed initData. No arbitrary hosts, redirects or unbounded bodies."""
+    """The photo URL from the owner's own signed initData. No arbitrary hosts, redirects or unbounded bodies.
+    None for a URL that is not Telegram's; TelegramUnavailable when the download fails (the stored photo stays)."""
     if not valid_url(url):
         return None
     try:
-        data = await _read_capped(url)
+        return await _read_capped(url)
     except TelegramUnavailable as error:
         logger.info("avatar uid={} source=webapp result={}", user_id, error)
-        return None
-    return data
+        raise
 
 
 def _shrink(data: bytes) -> bytes | None:

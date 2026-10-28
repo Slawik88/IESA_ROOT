@@ -115,7 +115,8 @@ async def main() -> None:
                     assert await a.fetchval("SELECT 1") == 1 and await b.fetchval("SELECT 1") == 1
             responses = await asyncio.gather(*requests)
             elapsed = time.monotonic() - started
-            assert all(r.status_code == 200 and r.json() == {"avatar": None, "vip": True, "avatar_state": "absent"} for r in responses), \
+            # "loading", not "absent": the photo is still expected once Telegram answers again.
+            assert all(r.status_code == 200 and r.json() == {"avatar": None, "vip": True, "avatar_state": "loading"} for r in responses), \
                 [r.text for r in responses]
             assert elapsed < 5, f"budget not applied: {elapsed:.1f}s"
             assert calls["lookup"] == 1, f"lookups not shared: {calls}"

@@ -142,7 +142,13 @@ def main() -> None:
         try:
             assert first_message_code(client, ACTIVE, None) == 1008, "silent client"
         finally:
-            main_module._WS_AUTH_TIMEOUT_SEC = 10
+            main_module._WS_AUTH_TIMEOUT_SEC = 5
+        assert main_module._ws_pending_auth == 0, "a waiting socket was not released"
+        main_module._WS_AUTH_MAX_PENDING = 0
+        try:
+            assert first_message_code(client, ACTIVE, {"type": "auth", "token": create_session_token(ACTIVE)}) == 1013, "pending cap"
+        finally:
+            main_module._WS_AUTH_MAX_PENDING = 300
         assert rejected_code(client, f"/ws/{DELETED}?token={create_session_token(DELETED)}") == 1008, "deleted"
 
         os.environ["PREDVESTNIK_ENV"] = "preprod"

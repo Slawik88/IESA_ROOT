@@ -174,7 +174,7 @@ async function _csPost(path, body) {
       const error = new Error(_humanErr(typeof payload.detail === 'string' ? payload.detail : 'Не получилось выполнить действие.', response.status));
       error.status = response.status;
       error.definitive = response.status === 409 || response.status === 422;
-      if (response.status === 401) handleAuthRefusal(response.headers.get('x-auth-reason') || '');
+      if (response.status === 401) handleAuthRefusal();
       throw error;
     }
     const result = await response.json(); _scheduleReactiveRefresh(); return result;

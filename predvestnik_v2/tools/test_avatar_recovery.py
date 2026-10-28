@@ -115,6 +115,20 @@ async def main():
             assert signed.await_count == 1, 'the same signed photo is not downloaded again'
             assert monitor.overview()['totals']['avatar_miss'] == 0
 
+            # Tops, cards and the admin panel refresh without the signed URL: a photo the bot cannot see is kept.
+            repo.rows[2] = (repo.rows[2][0], WEBP, old)
+            await avatar_photos.refresh(2)
+            assert repo.rows[2][1] == WEBP and repo.saves == 2, 'a signed-URL photo must survive a refresh without the URL'
+            # A failed signed download keeps the stored photo too.
+            reset()
+            repo.rows[2] = ('u:previous', WEBP, old)
+            with patch.object(telegram_photo, 'download_signed', AsyncMock(side_effect=telegram_photo.TelegramUnavailable('http 500'))):
+                await avatar_photos.refresh(2, URL)
+            assert repo.rows[2] == ('u:previous', WEBP, old) and 2 in avatar_photos._failed_at
+            # While paused after a failure a player without any stored row is still "loading" (photo expected).
+            avatar_photos._failed_at[4] = avatar_photos.time.monotonic()
+            assert (await avatar_photos.view(None, 4, 'q' * 16, vip_active=True)).state == 'loading'
+
             # No photo anywhere: "absent", cached; the miss is visible in diagnostics.
             await avatar_photos.refresh(3)
             assert repo.rows[3][1] is None

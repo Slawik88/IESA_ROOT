@@ -1,5 +1,6 @@
 """FastAPI/main.py — Predvestnik Mini App entry point. Adapter layer only."""
 import asyncio
+import contextlib
 import json
 import os
 from contextlib import asynccontextmanager
@@ -357,8 +358,10 @@ async def telegram_login(payload: _LoginWidgetPayload):
 
 # ── WebSocket notifications ────────────────────────────────────────────────────
 
-_WS_AUTH_TIMEOUT_SEC = 10
+_WS_AUTH_TIMEOUT_SEC = 5
 _WS_AUTH_MAX_CHARS = 8192
+_WS_AUTH_MAX_PENDING = 300      # accepted sockets still waiting for their credential (all clients together)
+_ws_pending_auth = 0
 
 
 async def _ws_first_message_credentials(websocket: WebSocket) -> dict[str, str]:
@@ -380,11 +383,23 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
     # браузер — session-token). Иначе можно было слушать чужой поток уведомлений.
     # Current clients send the credential as the first message; ?init=/?token= stays for
     # clients opened before that release.
+    global _ws_pending_auth
     accepted = not (init or token)
     if accepted:
-        await websocket.accept()
-        sent = await _ws_first_message_credentials(websocket)
+        if _ws_pending_auth >= _WS_AUTH_MAX_PENDING:
+            await websocket.close(code=1013)   # try again later: too many silent sockets right now
+            return
+        _ws_pending_auth += 1
+        try:
+            await websocket.accept()
+            sent = await _ws_first_message_credentials(websocket)
+        finally:
+            _ws_pending_auth -= 1
         init, token = sent.get("init", ""), sent.get("token", "")
+        if not (init or token):
+            with contextlib.suppress(RuntimeError, OSError):   # a silent client may already have hung up
+                await websocket.close(code=1008)
+            return
 
     def credential_valid() -> bool:
         if init:

@@ -46,6 +46,15 @@ def signed(user):
     return urlencode(fields)
 
 
+async def refused(download) -> None:
+    """A failed download raises, so the refresh keeps the stored photo instead of saving "no photo"."""
+    try:
+        await download
+    except telegram_photo.TelegramUnavailable:
+        return
+    raise AssertionError("download should have been refused")
+
+
 @asynccontextmanager
 async def connection():
     yield object()
@@ -111,12 +120,12 @@ async def main():
                     assert await telegram_photo.download_signed(invalid, 1) is None
                 assert len(requests) == before
                 state["status"] = 302
-                assert await telegram_photo.download_signed(URL, 1) is None
+                await refused(telegram_photo.download_signed(URL, 1))
                 assert len(requests) == before + 1, "redirect was not followed"
                 state.update(status=200, body=b"<svg xmlns='http://www.w3.org/2000/svg'></svg>")
                 assert await telegram_photo.shrink(await telegram_photo.download_signed(URL, 1)) is None
                 state["body"] = b"x" * (telegram_photo.MAX_BYTES + 1)
-                assert await telegram_photo.download_signed(URL, 1) is None
+                await refused(telegram_photo.download_signed(URL, 1))
                 assert not any(URL in line or os.environ["BOT_TOKEN"] in line for line in logs)
         print("PASS: real signed initData -> avatar refresh -> WebP address with ETag; tampering, VIP on the direct address, "
               "cross-user isolation, host/redirect/size/SVG guards")

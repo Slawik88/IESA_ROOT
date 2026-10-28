@@ -163,7 +163,7 @@ function _scheduleReactiveRefresh(){
   }, 350);
 }
 // A refused login (401): one place decides what the player sees (api(), purge and casino requests use it).
-function handleAuthRefusal(reason) {
+function handleAuthRefusal() {
   localStorage.removeItem(SK);
   try{sessionStorage.removeItem('pv_preprod_ticket');}catch(_){}
   _localPreprodTicket='';
@@ -172,11 +172,13 @@ function handleAuthRefusal(reason) {
 }
 // Every request has a deadline. Only reads (GET) are repeated after a network failure or a busy
 // server: a purchase, a transfer or any other change is never sent twice behind the player's back.
-const API_TIMEOUT_MS=15000, API_GET_RETRY_DELAYS=[800,2500], API_RETRY_STATUSES=new Set([502,503,504]);
+// A change gets a longer deadline: giving up early would leave the player unsure whether it was saved.
+const API_TIMEOUT_MS=15000, API_CHANGE_TIMEOUT_MS=30000, API_GET_RETRY_DELAYS=[800,2500], API_RETRY_STATUSES=new Set([502,503,504]);
 function _apiFetch(path, opts) {
   const {timeout, ...init} = opts;
   const controller = init.signal || typeof AbortController !== 'function' ? null : new AbortController();
-  const timer = controller ? setTimeout(() => controller.abort(), timeout || API_TIMEOUT_MS) : 0;
+  const deadline = timeout || ((init.method || 'GET').toUpperCase() === 'GET' ? API_TIMEOUT_MS : API_CHANGE_TIMEOUT_MS);
+  const timer = controller ? setTimeout(() => controller.abort(), deadline) : 0;
   return fetch(BASE+path,{...init,headers:{...hdrs(),...(init.headers||{})},...(controller?{signal:controller.signal}:{})})
     .finally(() => clearTimeout(timer));
 }
@@ -204,7 +206,7 @@ function api(path, opts={}) {
       if(r.status===401){
         // Newer Telegram launch data may have arrived (SDK copy, return to the app): one more read with it.
         if(method==='GET' && !reauthorized && refreshInitData()){ reauthorized=true; return send().then(handle); }
-        return Promise.reject(handleAuthRefusal(r.headers.get('x-auth-reason')||''));
+        return Promise.reject(handleAuthRefusal());
       }
       // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
       if(r.ok && method!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
