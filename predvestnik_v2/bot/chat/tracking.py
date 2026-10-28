@@ -102,17 +102,22 @@ async def record_message(db, message: Message) -> None:
         await chat_bots.observe(db, user)
         return
     day = local_now().strftime("%Y-%m-%d")
+    # Identity rows are rewritten only when the nick, name or title really changed (S04): an UPDATE that sets the same
+    # nick still fired users_live_profile_v1, and every chat message made the author's open Mini App reload the profile.
     await db.execute(
         "INSERT INTO users (user_tg_id, user_tg_username, user_tg_name) VALUES (?, ?, ?) "
         "ON CONFLICT (user_tg_id) DO UPDATE SET user_tg_username = EXCLUDED.user_tg_username, "
-        "user_tg_name = COALESCE(EXCLUDED.user_tg_name, users.user_tg_name)",
+        "user_tg_name = COALESCE(EXCLUDED.user_tg_name, users.user_tg_name) "
+        "WHERE users.user_tg_username IS DISTINCT FROM EXCLUDED.user_tg_username "
+        "OR (EXCLUDED.user_tg_name IS NOT NULL AND users.user_tg_name IS DISTINCT FROM EXCLUDED.user_tg_name)",
         (user.id, user.username, (getattr(user, "full_name", None) or "").strip()[:128] or None),
     )
     await _claim_username(db, user.id, user.username)
     await name_history.record(db, user.id, user.username, getattr(user, "full_name", None))
     await db.execute(
         "INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, ?) "
-        "ON CONFLICT (chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, bot_left_at = NULL",   # пишут в чат — бот в нём
+        "ON CONFLICT (chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, bot_left_at = NULL "   # пишут в чат — бот в нём
+        "WHERE chat_settings.chat_title IS DISTINCT FROM EXCLUDED.chat_title OR chat_settings.bot_left_at IS NOT NULL",
         (chat.id, chat.title),
     )
     await db.execute(
