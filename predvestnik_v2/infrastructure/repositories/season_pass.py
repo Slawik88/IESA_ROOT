@@ -5,6 +5,22 @@ from datetime import date
 
 
 async def ensure_tables(db) -> None:
+    # GET /season-pass/me calls this on every request: one catalog read instead of three DDL statements.
+    if await _schema_ready(db):
+        return
+    await _install_tables(db)
+
+
+async def _schema_ready(db) -> bool:
+    async with db.execute("""
+        SELECT to_regclass('season_pass_progress') IS NOT NULL
+          AND to_regclass('season_pass_days') IS NOT NULL
+          AND to_regclass('season_pass_receipts') IS NOT NULL
+    """) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _install_tables(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS season_pass_progress (
             user_id BIGINT NOT NULL,
