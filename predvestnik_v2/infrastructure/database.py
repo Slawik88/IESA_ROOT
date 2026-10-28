@@ -21,6 +21,7 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.preprod import assert_preprod_environment, is_preprod
 
 _pool: asyncpg.Pool | None = None
+_pool_dsn: str | None = None          # the source the pool connected through; direct connections reuse it
 _pool_create_lock = asyncio.Lock()
 _SCHEMA = "predvestnik"
 # Shown in pg_stat_activity: the managed cluster is shared with the IESA site, so its connection count
@@ -28,13 +29,27 @@ _SCHEMA = "predvestnik"
 APP_NAME = "predvestnik"
 
 
+# Long-lived connections outside the pool: the bot's single-instance advisory lock and the LISTEN for live
+# player events (connect_direct). They used to sit in the pool for good; the process total stays the same.
+DIRECT_CONNECTIONS = 2
+
+
 def _pool_max_size() -> int:
-    """Keep one app process inside a small share of managed-Postgres slots."""
+    """Keep one app process inside a small share of managed-Postgres slots: DB_POOL_MAX_SIZE is the
+    process total (the cluster limit is shared with the IESA site), the direct connections included."""
     try:
         configured = int(os.environ.get("DB_POOL_MAX_SIZE", "10"))
     except ValueError:
         configured = 10
-    return max(2, min(configured, 10))
+    return max(2, min(configured, 10) - DIRECT_CONNECTIONS)
+
+
+def _server_settings(statement_timeout_ms: int) -> dict:
+    return {
+        "search_path": f"{_SCHEMA},public",
+        "statement_timeout": str(statement_timeout_ms),
+        "application_name": APP_NAME,
+    }
 
 
 def _acquire_timeout_sec() -> float:
@@ -141,7 +156,7 @@ async def _create_pool_unlocked() -> asyncpg.Pool:
     For each source we run DNS+TCP diagnostics first, then attempt asyncpg
     connection (2 tries, 5 s backoff). The first source that connects wins.
     """
-    global _pool
+    global _pool, _pool_dsn
     if _pool is not None:
         return _pool
 
@@ -195,13 +210,10 @@ async def _create_pool_unlocked() -> asyncpg.Pool:
                     max_size=_pool_max_size(),
                     statement_cache_size=0,   # required for DO managed PG / pgbouncer
                     timeout=30,
-                    server_settings={
-                        "search_path": f"{_SCHEMA},public",
-                        "statement_timeout": str(_statement_timeout_ms()),
-                        "application_name": APP_NAME,
-                    },
+                    server_settings=_server_settings(_statement_timeout_ms()),
                     init=_set_schema,
                 )
+                _pool_dsn = _url
                 logger.info(
                     f"✅ PostgreSQL pool готов через [{_name}] "
                     f"(min=1 max={_pool_max_size()}, schema={_SCHEMA})"
@@ -240,6 +252,16 @@ async def server_connection_usage(conn: asyncpg.Connection) -> dict:
           FROM pg_stat_activity
         """, APP_NAME)
     return {"total": int(row["total"]), "ours": int(row["ours"]), "limit": int(row["limit"])}
+
+
+async def connect_direct(*, statement_timeout_ms: int | None = None) -> asyncpg.Connection:
+    """A connection outside the pool, through the same source the pool uses (create_pool first).
+    statement_timeout_ms=0 lets a statement wait without limit (the advisory lock waits for the old instance)."""
+    if _pool_dsn is None:
+        raise RuntimeError("Pool not initialised. Call create_pool() first.")
+    timeout = _statement_timeout_ms() if statement_timeout_ms is None else statement_timeout_ms
+    return await asyncpg.connect(_pool_dsn, statement_cache_size=0, timeout=30,
+                                 server_settings=_server_settings(timeout))
 
 
 def get_pool() -> asyncpg.Pool:

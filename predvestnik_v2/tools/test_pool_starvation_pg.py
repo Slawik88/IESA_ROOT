@@ -12,7 +12,9 @@ so ten stuck Telegram calls left the Mini App waiting for a free connection.
 3. Lazy handle semantics: a transaction keeps its connection across a Telegram call; a background task copied
    from the handler's context never releases the handler's connection; BEGIN/COMMIT through execute works;
    a full pool answers PoolBusy after DB_ACQUIRE_TIMEOUT_SEC instead of hanging.
-4. Read-only and moderation methods (getChatMember, deleteMessage, banChatMember) do not wait for the
+4. The single-instance advisory lock and the LISTEN for live player events use their own connections outside
+   the pool; the lock waits longer than statement_timeout; LISTEN reconnects after its connection is killed.
+5. Read-only and moderation methods (getChatMember, deleteMessage, banChatMember) do not wait for the
    per-chat send slot; sendMessage still keeps 1 message per second per chat.
 Only a loopback DSN is accepted.
 """
@@ -37,6 +39,7 @@ if urlparse(args.dsn).hostname not in {"127.0.0.1", "localhost", "::1"}:
 os.environ["DATABASE_URL"] = args.dsn
 os.environ["DB_POOL_MAX_SIZE"] = "4"
 os.environ["DB_ACQUIRE_TIMEOUT_SEC"] = "1"
+os.environ["DB_STATEMENT_TIMEOUT_MS"] = "1000"     # the advisory lock below must outlive it
 os.environ.setdefault("BOT_TOKEN", "1:pool-test")
 
 from aiogram import Bot
@@ -50,7 +53,9 @@ from fastapi import Depends, FastAPI
 
 from FastAPI.deps import get_db
 from infrastructure import lazy_db
-from infrastructure.database import PoolBusy, create_pool, get_pool
+from FastAPI import notifications
+from infrastructure.database import PoolBusy, connect_direct, create_pool, get_pool
+from infrastructure.repositories import balance_events
 
 SLOW_SEC = 2.0
 CHAT = -1_009_300_000_001
@@ -197,6 +202,53 @@ async def lazy_handle_semantics() -> None:
     print("  transaction and BEGIN keep their connection, background tasks do not release it, full pool → PoolBusy in 1 s (HTTP 503)")
 
 
+async def long_lived_connections_outside_the_pool() -> None:
+    pool = get_pool()
+    holder = await connect_direct()
+    waiter = await connect_direct(statement_timeout_ms=0)     # what bot/__main__.py uses for the lock
+    try:
+        await holder.execute("SELECT pg_advisory_lock(990003)")
+        wait = asyncio.create_task(waiter.execute("SELECT pg_advisory_lock(990003)"))
+        await asyncio.sleep(1.6)                               # longer than DB_STATEMENT_TIMEOUT_MS
+        assert not wait.done(), "the lock wait was cancelled by statement_timeout"
+        await holder.execute("SELECT pg_advisory_unlock(990003)")
+        await asyncio.wait_for(wait, 2)
+    finally:
+        await holder.close()
+        await waiter.close()
+
+    assert await notifications.ensure_balance_listener()
+    held = [await pool.acquire() for _ in range(pool.get_max_size())]   # the whole pool is free for work
+    try:
+        pid = await held[0].fetchval(
+            "SELECT pid FROM pg_stat_activity WHERE application_name = 'predvestnik' AND query LIKE 'LISTEN%'")
+        assert pid and pid not in {c.get_server_pid() for c in held}, "LISTEN sits in the pool"
+        notifications.LISTENER_RETRY_SEC = (0.1,)
+        assert await held[0].fetchval("SELECT pg_terminate_backend($1)", pid)
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            if notifications._balance_listener_ready.is_set():
+                new_pid = await held[0].fetchval(
+                    "SELECT pid FROM pg_stat_activity WHERE application_name = 'predvestnik' AND query LIKE 'LISTEN%'")
+                if new_pid and new_pid != pid:
+                    break
+        else:
+            raise AssertionError("LISTEN did not reconnect after its connection was killed")
+        queue = asyncio.Queue()
+        notifications.register(990_003_001, queue)
+        try:
+            await held[0].execute("SELECT pg_notify($1, $2)", balance_events.CHANNEL,
+                                  '{"user_id": 990003001, "type": "balance_changed"}')
+            event = await asyncio.wait_for(queue.get(), 3)
+        finally:
+            notifications.unregister(990_003_001, queue)
+        assert event["type"] == "balance_changed", event
+    finally:
+        for conn in held:
+            await pool.release(conn)
+    print("  lock waits past statement_timeout; LISTEN outside the pool, back after its connection was killed")
+
+
 async def read_calls_skip_the_send_slot() -> None:
     bot, session = production_bot(0.0)
     started = time.monotonic()
@@ -218,8 +270,11 @@ async def main() -> None:
         await stuck_telegram_does_not_starve_miniapp()
         await fastapi_endpoints_release_before_telegram()
         await lazy_handle_semantics()
+        await long_lived_connections_outside_the_pool()
         await read_calls_skip_the_send_slot()
     finally:
+        if notifications._balance_listener_task:
+            notifications._balance_listener_task.cancel()
         await get_pool().close()
     print("OK: slow Telegram holds no database connection and no send slot for read calls")
 

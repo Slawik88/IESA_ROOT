@@ -38,38 +38,61 @@ _balance_listener_lock = asyncio.Lock()
 _balance_listener_ready = asyncio.Event()
 
 
+# Waits between reconnect attempts of the LISTEN connection (the last one repeats).
+LISTENER_RETRY_SEC = (1.0, 2.0, 5.0, 10.0, 30.0)
+
+
 async def _balance_listener() -> None:
     """Bridge transactional PostgreSQL player events to local WS queues.
 
     Every application process listens to the same channel. Only the process
     holding a user's WebSocket has a matching queue, so no shared Redis bus or
     periodic profile reads are needed.
+
+    LISTEN lives on its own connection outside the pool (it used to occupy a
+    pool slot for good). When that connection drops (database restart,
+    network), the listener reconnects with a growing pause; events sent while
+    it is down are not replayed — the next change refreshes the screen.
     """
-    from infrastructure.database import create_pool, get_pool
+    from infrastructure.database import connect_direct, create_pool
     from infrastructure.pg_adapter import PGAdapter
     from infrastructure.repositories import balance_events
 
-    await create_pool()
-    async with get_pool().acquire() as conn:
-        await balance_events.ensure_schema(PGAdapter(conn))
-
-        def on_balance(_connection, _pid, _channel, payload: str) -> None:
-            try:
-                event = json.loads(payload)
-                user_id = int(event.pop("user_id"))
-                if event.get("type") in {
-                    "balance_changed", "data_changed", "notification_pending"
-                }:
-                    asyncio.create_task(notify(user_id, event))
-            except Exception as exc:
-                logger.warning(f"balance event ignored: {exc}")
-
-        await conn.add_listener(balance_events.CHANNEL, on_balance)
-        _balance_listener_ready.set()
+    def on_balance(_connection, _pid, _channel, payload: str) -> None:
         try:
-            await asyncio.Future()
+            event = json.loads(payload)
+            user_id = int(event.pop("user_id"))
+            if event.get("type") in {
+                "balance_changed", "data_changed", "notification_pending"
+            }:
+                asyncio.create_task(notify(user_id, event))
+        except Exception as exc:
+            logger.warning(f"balance event ignored: {exc}")
+
+    await create_pool()   # chooses the database source the direct connection reuses
+    failures = 0
+    while True:
+        conn = None
+        lost = asyncio.Event()
+        try:
+            conn = await connect_direct()
+            await balance_events.ensure_schema(PGAdapter(conn))
+            conn.add_termination_listener(lambda _conn: lost.set())
+            await conn.add_listener(balance_events.CHANNEL, on_balance)
+            _balance_listener_ready.set()
+            failures = 0
+            await lost.wait()
+            logger.warning("player event listener connection lost; reconnecting")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(f"player event listener failed: {type(exc).__name__}: {exc}")
         finally:
-            await conn.remove_listener(balance_events.CHANNEL, on_balance)
+            _balance_listener_ready.clear()
+            if conn is not None and not conn.is_closed():
+                await conn.close()
+        await asyncio.sleep(LISTENER_RETRY_SEC[min(failures, len(LISTENER_RETRY_SEC) - 1)])
+        failures += 1
 
 
 async def ensure_balance_listener() -> bool:

@@ -12,7 +12,7 @@ from bot.config import config
 from bot.core.database import init_db
 from bot.dispatcher import attach_outbound, build_dispatcher
 from bot.chat.payments import star_payment_reconciliation_task
-from infrastructure.database import create_pool
+from infrastructure.database import connect_direct, create_pool
 from infrastructure.preprod import is_preprod
 from services.scheduler import (
     mafia_phase_task,
@@ -172,10 +172,18 @@ async def main():
     # holds it (e.g. the previous dyno during a rolling redeploy), this call
     # blocks until that instance dies and its connection is closed.
     # The lock is automatically released when _lock_conn is closed in finally.
+    # Its own connection outside the pool, without statement_timeout: the wait for the previous instance
+    # may be longer than 30 s, and the pool keeps all its connections for real work.
     logger.info("🔒 Ожидание advisory lock (единственный инстанс)...")
-    _lock_conn = await pool.acquire()
+    _lock_conn = await connect_direct(statement_timeout_ms=0)
     await _lock_conn.execute(f"SELECT pg_advisory_lock({_ADVISORY_LOCK_KEY})")
     logger.info("🔒 Advisory lock получен — этот инстанс единственный.")
+
+    def _on_lock_lost(_conn) -> None:
+        # Without the lock a second instance may start polling: stop and let the platform restart us.
+        logger.error("🔒 Соединение advisory lock потеряно — перезапуск процесса.")
+        background_failed.set()
+    _lock_conn.add_termination_listener(_on_lock_lost)
     # ─────────────────────────────────────────────────────────────────────────
 
     logger.info("⚙️  Инициализация Telegram Bot API...")
@@ -330,10 +338,11 @@ async def main():
             await asyncio.gather(*background_tasks, return_exceptions=True)
         await bot.session.close()
         # Release advisory lock by closing the dedicated connection
+        _lock_conn.remove_termination_listener(_on_lock_lost)
         try:
-            await pool.release(_lock_conn)
-        except Exception:
-            pass
+            await _lock_conn.close()
+        except Exception as exc:
+            logger.warning(f"advisory lock connection close failed: {type(exc).__name__}: {exc}")
         logger.info("✅ Сессия закрыта.")
 
 
