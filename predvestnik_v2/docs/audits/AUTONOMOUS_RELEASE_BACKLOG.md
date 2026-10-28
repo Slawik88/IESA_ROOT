@@ -1,3 +1,13 @@
+## ROADMAP-S08 — PLAYER GUIDE COMPLETE, PUSHED TO MASTER (production not verified from the cloud; S08v waits for the owner's OK)
+
+Guide 32 → 42 topics (transfers, streak, inventory, marks, the account-level circle, family and marriage, settings and privacy, warps and 18+, a chat-admin entry,
+online Mafia), steps in every topic, glossary 49 → 66, FAQ 42 → 60; weak topics fixed (bot commands by help section, exchange, profile, map, dust, words, Mafia).
+New `tools/test_guide_coverage.py`: every dock tab, «Ещё» row, bot command and feature switch has a topic or a reasoned exception (verified to fail on a missing one);
+the copy contract now caps paragraphs at 180, requires an «Открыть» button and binds the new numbers to code. Guide buttons open settings, family and the bot chat
+(`<meta name="pv-bot">`). Fix of S07: the newcomer card used the frozen account level and showed to almost everyone — now only the first 7 days. Checked locally:
+copy/coverage/navigation/patch-note/What's-new/minifier/asset tests, guide UI 320/390/430, `ui_smoke` help. Not verified: production; `test_static_delivery_asgi`
+crashes in the restarted sandbox on master too.
+
 ## ROADMAP-S07 — Путеводитель под рукой, одобрен владельцем 28.10.2026
 
 Вход из Профиля за одно касание, подсказки девяти экранов, первый день, кнопка и команда бота; крошки, содержание, поиск с опечатками и возврат на исходный экран. Перед вливанием независимая проверка исправила подсказки поверх нативных окон Кошелька/семьи и возврат в них; карточка первого дня исчезает сразу. Патч-нот дня и «Что нового» подготовлены на 28.10; два пункта ускорения объединены с covers, чтобы сохранить предел четырёх новинок.
