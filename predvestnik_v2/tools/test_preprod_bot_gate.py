@@ -59,7 +59,7 @@ async def main() -> None:
         assert production == "handled"
         assert calls == [101, 202]
 
-        main_source = (Path(__file__).resolve().parents[1] / "bot/__main__.py").read_text(
+        main_source = (Path(__file__).resolve().parents[1] / "bot/dispatcher.py").read_text(
             encoding="utf-8"
         )
         assert main_source.index("dp.update.middleware(preprod_gate_middleware)") < (

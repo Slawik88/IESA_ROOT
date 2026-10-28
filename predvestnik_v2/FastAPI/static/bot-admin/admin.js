@@ -2211,6 +2211,7 @@ async function healthView(main) {
       ${kpi('🤖 Telegram', tg ? (tg.ok ? 'работает' : 'не отвечает') : '—', tg && tg.ok ? `<small> ${tg.ms} мс</small>` : '', tg ? (tg.ok ? 'ok' : 'bad') : '')}
       ${kpi('🗄 База', `${h.database.ms} мс`)}${kpi('⏱ Работает', duration(h.process.uptime_seconds))}${kpi('⚠️ Ошибок за сутки', num(h.errors.count_24h))}</div>
     <p class="sub note">Ошибки и время работы считаются с последнего перезапуска: каждый выкат новой версии обнуляет их, поэтому «0» сразу после выката ничего не доказывает.</p>
+    <div id="h-ops"><div class="sub">Загружаем «Здоровье»…</div></div>
     <section class="section" data-sec="h-bot"><h3 class="sec-h">🤖 Бот</h3>
       ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
       ${row('Работает', duration(h.process.uptime_seconds), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
@@ -2253,12 +2254,68 @@ async function healthView(main) {
       toast('Сохранено');
     } catch (e) { toast(e.message, true); }
   };
+  healthOpsView(main.querySelector('#h-ops'), PREFS.get('health.hours', 1));
   $('#dgon').onchange = save; $('#dghour').onchange = save;
   $('#dgtest').onclick = async () => {
     $('#dgtest').disabled = true;
     try { toast((await api('/health/digest/test', {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
     $('#dgtest').disabled = false;
   };
+}
+
+// «Здоровье»: цифры из services/ops_health.py, хранятся 14 дней и переживают перезапуск.
+const AUTH_REASONS = {no_header: 'нет данных входа (приложение открыто без Telegram или SDK не загрузился)', stale_auth_date: 'вход старше суток (приложение долго висело свёрнутым)',
+  bad_hash: 'неверная подпись Telegram', malformed: 'испорченные данные входа', user_missing: 'в данных входа нет игрока',
+  bad_session: 'неверная сессия браузера', expired_session: 'сессия браузера истекла', no_bot_token: 'на сервере нет токена бота'};
+const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился Telegram SDK', boot_timing: 'замеры запуска'};
+const ms = v => v >= 1000 ? `${(v / 1000).toLocaleString('ru-RU', {maximumFractionDigits: 1})} с` : `${num(Math.round(v))} мс`;
+
+async function healthOpsView(box, hours) {
+  if (!box) return;
+  if (![1, 24, 168].includes(hours)) hours = 1;
+  PREFS.set('health.hours', hours);
+  let o;
+  try { o = await api(`/health/ops?hours=${hours}`); }
+  catch (e) { box.innerHTML = alertBox('bad', `«Здоровье» не загрузилось: ${esc(e.message)}`); return; }
+  if (!box.isConnected) return;
+  const period = {1: '1 час', 24: '24 часа', 168: '7 дней'};
+  const lagBad = o.loop_lag.p95 > 1000, poolBad = o.pool_wait.some(p => p.p95 > 1000);
+  const c = o.client, be = o.bot_errors;
+  const clientErrors = c.by_type.filter(t => t.type !== 'boot_timing').reduce((a, t) => a + t.count, 0);
+  const none = text => `<div class="sub">${text}</div>`;
+  box.innerHTML = `
+    <div class="scope">${Object.entries(period).map(([h, t]) =>
+      `<button class="btn small ${+h === o.hours ? 'primary' : ''}" data-hours="${h}">${t}</button>`).join('')}
+      <span class="sub">Хранится 14 дней, перезапуск не обнуляет.</span></div>
+    <div class="kpis hero">
+      ${kpi('🐢 Лаг сервера (p95)', ms(o.loop_lag.p95), '', lagBad ? 'bad' : '')}
+      ${kpi('🗄 Ожидание базы (p95)', ms(Math.max(0, ...o.pool_wait.map(p => p.p95))), '', poolBad ? 'bad' : '')}
+      ${kpi('🚫 Отказов входа', num(o.auth_401.reduce((a, r) => a + r.count, 0)))}
+      ${kpi('📱 Ошибок у игроков', num(clientErrors), '', clientErrors ? 'warn' : '')}
+      ${kpi('🤖 Ошибок бота', num(be.total), '', be.total ? 'bad' : '')}
+      ${kpi('🌐 Ошибок 5xx', num(o.http_5xx), `<small> из ${num(o.http_total)}</small>`, o.http_5xx ? 'bad' : '')}</div>
+    ${section('h-ops-server', '⚙️ Сервер и база', `
+      <div class="log"><div>Задержка обработки <b>p95 ${ms(o.loop_lag.p95)}</b> · максимум ${ms(o.loop_lag.max)}</div><div class="sub">Больше секунды подряд — сервер не успевает, игроки видят «зависания».</div></div>
+      <div class="log"><div>Соединений с базой занято <b>в среднем ${o.pool_busy.avg}</b> · максимум ${o.pool_busy.max}</div></div>
+      ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
+      ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram: ${esc(t.method)} <b>p95 ${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
+    ${section('h-ops-routes', '🌐 Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'p50', 'p95', 'p99', '4xx / 5xx'],
+      o.routes.map(r => [esc(r.route), num(r.count), ms(r.p50), ms(r.p95), ms(r.p99), `${num(r.e4)} / ${r.e5 ? `<b>${num(r.e5)}</b>` : 0}`])) : none('Запросов не было.'), {fold: true, open: false, count: num(o.http_total)})}
+    ${section('h-ops-auth', '🚫 Почему не пустило в приложение (401)', o.auth_401.length ? o.auth_401.map(r =>
+      `<div class="log"><div>${esc(AUTH_REASONS[r.reason] || r.reason)} <b>${num(r.count)}</b></div><div class="sub">${esc(r.reason)}</div></div>`).join('') : none('Отказов не было.'), {fold: true, open: o.auth_401.length > 0})}
+    ${section('h-ops-client', '📱 Ошибки у игроков в приложении', `
+      ${c.by_type.length ? c.by_type.map(t => `<div class="log"><div>${esc(CLIENT_TYPES[t.type] || t.type)} <b>${num(t.count)}</b></div><div class="sub">у ${num(t.sessions)} открытий приложения</div></div>`).join('') : none('Ошибок не было.')}
+      ${c.boot.count ? `<div class="log"><div>Запуск до профиля <b>p50 ${ms(c.boot.p50_ms)}</b> · p95 ${ms(c.boot.p95_ms)}</div><div class="sub">${num(c.boot.count)} запусков</div></div>` : ''}
+      ${c.by_version.length ? `<div class="sub">По версиям: ${c.by_version.map(v => `${esc(v.version)} — ${num(v.count)}`).join(' · ')}</div>` : ''}
+      ${c.top.length ? `<h4 class="sub">Повторяются чаще всего</h4>` + c.top.map(t => `<div class="log"><div>${esc(CLIENT_TYPES[t.type] || t.type)}${t.status != null ? ` · ${t.status}` : ''} <b>×${num(t.count)}</b></div>
+        <div class="sub">${esc([t.message, t.path].filter(Boolean).join(' · ') || '—')} · последний раз ${when(t.last_at)}</div></div>`).join('') : ''}
+      ${Object.keys(c.dropped || {}).length ? `<div class="sub">Не записано (лимиты защиты): ${Object.entries(c.dropped).map(([k, v]) => `${esc(k)} ${num(v)}`).join(', ')}</div>` : ''}`,
+      {fold: true, open: clientErrors > 0, count: num(clientErrors)})}
+    ${section('h-ops-bot', '🤖 Ошибки бота по обработчикам', `
+      ${be.top.length ? be.top.map(b => `<div class="log"><div>${esc(b.handler)} · ${esc(b.exc)} <b>×${num(b.count)}</b></div></div>`).join('') : none('Ошибок в обработчиках бота не было.')}
+      ${be.recent.length ? `<h4 class="sub">Последние</h4>` + be.recent.map(b => `<div class="log"><div>${esc(b.handler)} · ${esc(b.exc_type)}</div><div class="sub">${when(b.at)}${b.update_type ? ` · ${esc(b.update_type)}` : ''} · ${esc(b.trace || '')}</div></div>`).join('') : ''}`,
+      {fold: true, open: be.total > 0, count: num(be.total)})}`;
+  box.querySelectorAll('[data-hours]').forEach(b => b.onclick = () => healthOpsView(box, +b.dataset.hours));
 }
 
 SECTIONS.health = main => healthView(main);

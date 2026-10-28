@@ -4,17 +4,14 @@ import os
 import re
 import signal
 import sys
-from aiogram import Bot, Dispatcher
+from aiogram import Bot
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 from loguru import logger
 
 from bot.config import config
 from bot.core.database import init_db
-from bot.middlewares.db import db_middleware
-from bot.middlewares.config_mw import config_middleware
-from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
+from bot.dispatcher import build_dispatcher
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
-from bot.handlers import main_router
 from bot.chat.payments import star_payment_reconciliation_task
 from infrastructure.database import create_pool
 from infrastructure.preprod import is_preprod
@@ -187,17 +184,8 @@ async def main():
     # Троттлинг ВСЕХ исходящих запросов (не апдейтов!) — предотвращает flood
     # control Telegram при высокой активности чата (см. bot/middlewares/outbound_throttle.py).
     bot.session.middleware(OutboundThrottleMiddleware())
-    dp = Dispatcher()
-
-    logger.info("🔌 Подключение Middleware...")
-    dp.update.middleware(config_middleware)
-    # Keep non-allowlisted users outside DB and business middleware when the
-    # temporary Cloudflare-backed test bot is publicly reachable.
-    dp.update.middleware(preprod_gate_middleware)
-    dp.update.middleware(db_middleware)
-
-    logger.info("📡 Регистрация роутеров...")
-    dp.include_router(main_router)
+    logger.info("📡 Middleware, перехват ошибок обработчиков и роутеры...")
+    dp = build_dispatcher()
     logger.info("✅ Все роутеры подключены!")
 
     def _on_sigterm():
@@ -279,6 +267,10 @@ async def main():
             ])
         except Exception as _e:
             logger.warning(f"Циклы админки (рассылки, итоги дня) не запущены: {_e}")
+        from services import broadcasts as _bc_db, ops_health
+        # «Здоровье»: лаг цикла, пул, агрегаты раз в 5 минут, ошибки Mini App и бота, тревоги владельцу.
+        background_tasks.append(_spawn_supervised("ops-health", ops_health.run(_bc_db.pool_db_factory(), bot),
+                                                  failed=background_failed))
         from services.mafia_online_scheduler import run as run_mafia_online
         background_tasks.extend([
             _spawn_supervised("mafia-online-phases", run_mafia_online(), failed=background_failed),

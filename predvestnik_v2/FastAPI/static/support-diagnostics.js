@@ -82,6 +82,45 @@
     } catch (_) { /* diagnostics must not break gameplay */ }
   }
   function issue() { window.dispatchEvent(new Event('pv-support-issue')); }
+  // Anonymous error telemetry for the owner's «Здоровье» panel (POST /telemetry). Works before login:
+  // a random page id instead of the Telegram id, no initData, no bodies; deduplicated and capped per page.
+  const telemetry = (() => {
+    const sid = Math.random().toString(36).slice(2, 12).padEnd(8, '0'), MAX_PER_PAGE = 20, seen = new Set();
+    let sent = 0, stopped = false, queue = [], timer = null, page = routeName(location.href);
+    const tg = window.Telegram?.WebApp;
+    const device = `${/^[a-z]{2,16}$/.test(tg?.platform || '') ? tg.platform : 'browser'}/${innerWidth < 600 ? 'phone' : 'wide'}`;
+    function post(onLeave) {
+      clearTimeout(timer); timer = null;
+      if (!queue.length || stopped) return;
+      const body = JSON.stringify({sid, version, device, events: queue.splice(0, 10)});
+      try {
+        if (onLeave && navigator.sendBeacon?.(`${base}/telemetry`, new Blob([body], {type: 'application/json'}))) return;
+        nativeFetch(`${base}/telemetry`, {method: 'POST', body, keepalive: true, headers: {'Content-Type': 'application/json'}})
+          .then(r => { if (r.status === 429 || r.status === 413) stopped = true; }).catch(() => {});
+      } catch (_) { /* telemetry must not break gameplay */ }
+      if (queue.length) timer = setTimeout(post, 3000);
+    }
+    function send(type, data = {}) {
+      const key = `${type}|${data.path || ''}|${data.status || ''}|${data.message || ''}`;
+      if (stopped || sent >= MAX_PER_PAGE || seen.has(key)) return;
+      seen.add(key); sent++;
+      queue.push({type, screen: page, ...data});
+      if (!timer) timer = setTimeout(post, 3000);
+    }
+    addEventListener('pagehide', () => post(true));
+    return {send, page: value => { page = value; }};
+  })();
+  const bootStarted = performance.now();
+  let bootSent = false;
+  function sendBootTiming(readyMs) {
+    if (bootSent) return;
+    bootSent = true;
+    const nav = performance.getEntriesByType?.('navigation')?.[0];
+    telemetry.send('boot_timing', {ready_ms: readyMs, ttfb_ms: nav ? Math.round(nav.responseStart) : undefined,
+      dom_ms: nav ? Math.round(nav.domContentLoadedEventEnd) : undefined, load_ms: nav ? Math.round(nav.loadEventEnd) : undefined});
+  }
+  setTimeout(() => sendBootTiming(undefined), 20000);   // the profile never arrived: timing without "ready"
+  if (!window.Telegram?.WebApp) telemetry.send('sdk_missing', {message: /tgWebApp(Data|Platform|Version)=/.test(location.hash + location.search) ? 'opened in Telegram' : 'browser'});
   function errorData(error, file, line, column) {
     const name = error?.name || 'Error';
     const frames = [...String(error?.stack || '').matchAll(/(?:https?:\/\/[^\s)]+\/)?([A-Za-z0-9_.-]{1,80}\.js)(?:\?[^\s):]*)?:(\d+):(\d+)/g)].slice(0,8).map(m => `${m[1]}:${m[2]}:${m[3]}`);
@@ -102,9 +141,12 @@
         record('lifecycle',{state:'auth_mismatch'}); issue(); return response;
       }
       if (verified && /^\d+$/.test(verified) && (!auth.owner || auth.owner === verified)) bound = {owner:verified,key:auth.key};
-      record('request',{route:response.headers.get('x-diagnostic-route')||relative,method,status:response.status,
-                        duration_ms:Math.round(performance.now()-began),request_id:response.headers.get('x-request-id')||''});
+      const took = Math.round(performance.now()-began), route = response.headers.get('x-diagnostic-route')||relative;
+      record('request',{route,method,status:response.status,duration_ms:took,request_id:response.headers.get('x-request-id')||''});
       if (response.status >= 500 || response.status === 401) issue();
+      if (response.status >= 500 || response.status === 401 || took >= 15000)
+        telemetry.send('fetch_fail',{path:routeName(route),status:response.status,ms:took,timeout:took >= 15000});
+      if (relative === '/profile/me') sendBootTiming(Math.round(performance.now()-bootStarted));
       // Only these booleans are read from JSON. Names, photos, messages and bodies are never retained.
       if (response.ok && ['/profile/avatar','/profile/me'].includes(relative)) {
         response.clone().json().then(data => {
@@ -114,23 +156,38 @@
       return response;
     } catch (error) {
       if (auth.key === authState().key) {
-        record('request',{route:relative,method,status:0,duration_ms:Math.round(performance.now()-began),error_kind:error?.name || 'NetworkError'});
-        if (error?.name !== 'AbortError') issue();
+        const took = Math.round(performance.now()-began);
+        record('request',{route:relative,method,status:0,duration_ms:took,error_kind:error?.name || 'NetworkError'});
+        if (error?.name !== 'AbortError') {
+          issue();
+          telemetry.send('fetch_fail',{path:routeName(relative),status:0,ms:took,timeout:took >= 15000,message:/^[A-Za-z]{1,40}$/.test(error?.name || '') ? error.name : 'NetworkError'});
+        }
       }
       throw error;
     }
   };
   window.addEventListener('error',event => {
-    if (event.target !== window) { record('resource',{error_kind:'ResourceError',source:event.target?.tagName || 'resource'}); if (['SCRIPT','LINK'].includes(event.target?.tagName)) issue(); return; }
-    record('runtime',errorData(event.error,event.filename,event.lineno,event.colno)); issue();
+    if (event.target !== window) {
+      record('resource',{error_kind:'ResourceError',source:event.target?.tagName || 'resource'});
+      if (['SCRIPT','LINK'].includes(event.target?.tagName)) { issue(); telemetry.send('js_error',{message:`ResourceError: ${event.target.tagName} not loaded`}); }
+      return;
+    }
+    const data = errorData(event.error,event.filename,event.lineno,event.colno);
+    record('runtime',data); issue();
+    telemetry.send('js_error',{message:safeText(`${data.error_kind}: ${event.error?.message || event.message || ''}`,200),path:data.frames[0] || ''});
   },true);
-  window.addEventListener('unhandledrejection',event => { record('runtime',errorData(event.reason)); issue(); });
+  window.addEventListener('unhandledrejection',event => {
+    const data = errorData(event.reason);
+    record('runtime',data); issue();
+    // Strings are api() refusals already counted as fetch_fail; only real exceptions are reported here.
+    if (typeof event.reason !== 'string' && !window.isCancelledPageTransition?.(event.reason)) telemetry.send('unhandled_rejection',{message:safeText(`${data.error_kind}: ${event.reason?.message || ''}`,200),path:data.frames[0] || ''});
+  });
   for (const name of ['online','offline','pageshow','pagehide']) window.addEventListener(name,() => { record(name === 'online' || name === 'offline' ? 'connection' : 'lifecycle',{state:name}); if (name === 'pagehide') flush(); });
   document.addEventListener('visibilitychange',() => { record('lifecycle',{state:document.visibilityState}); if (document.hidden) flush(); });
   document.addEventListener('click',event => {
     const target = event.target.closest?.('[data-page],[data-nav-key],[data-tab]');
     const value = target?.dataset.page || target?.dataset.navKey || target?.dataset.tab;
-    if (value && /^[a-z-]{1,32}$/.test(value)) record('navigation',{page:`/${value}`});
+    if (value && /^[a-z-]{1,32}$/.test(value)) { record('navigation',{page:`/${value}`}); telemetry.page(`/${value}`); }
   },true);
   function credentials() {
     const h = {'Content-Type':'application/json'};

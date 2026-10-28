@@ -57,21 +57,15 @@ class Harness:
 
     # ── lifecycle ───────────────────────────────────────────────────────────
     async def open(self) -> "Harness":
-        from aiogram import Bot, Dispatcher
-        from bot.handlers import main_router
-        from bot.middlewares.config_mw import config_middleware
-        from bot.middlewares.db import db_middleware
-        from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
+        from aiogram import Bot
+        from bot.dispatcher import build_dispatcher
         from infrastructure.database import create_pool
 
         await create_pool()
         await self._bootstrap_schema()
         await self._purge([CHAT_BASE - n for n in range(1, 2001)])  # leftovers of an aborted earlier run
         self.bot = Bot(token=f"{BOT_ID}:SIM-TOKEN", session=FakeSession(self.world))
-        self.dp = Dispatcher()
-        for middleware in (config_middleware, preprod_gate_middleware, db_middleware):  # same chain as bot/__main__.py
-            self.dp.update.middleware(middleware)
-        self.dp.include_router(main_router)
+        self.dp = build_dispatcher()  # the same middlewares and error monitor as bot/__main__.py
         return self
 
     async def _bootstrap_schema(self) -> None:

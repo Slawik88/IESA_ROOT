@@ -27,9 +27,16 @@ def _bot_token() -> str:
 def verify_webapp_data(init_data: str) -> dict | None:
     """Verify Telegram WebApp initData (HMAC-SHA256, key = 'WebAppData').
     Returns parsed user dict or None."""
+    return check_webapp_data(init_data)[0]
+
+
+def check_webapp_data(init_data: str) -> tuple[dict | None, str]:
+    """(user, "") or (None, reason) — the reason feeds the 401 counters (services/ops_health.AUTH_REASONS)."""
     token = _bot_token()
-    if not init_data or not token:
-        return None
+    if not init_data:
+        return None, "no_header"
+    if not token:
+        return None, "no_bot_token"
     try:
         params: dict[str, str] = {}
         for part in init_data.split("&"):
@@ -39,26 +46,27 @@ def verify_webapp_data(init_data: str) -> dict | None:
 
         check_hash = params.pop("hash", "")
         if not check_hash:
-            return None
+            return None, "malformed"
 
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
         secret_key = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
         computed = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
         if not hmac.compare_digest(computed, check_hash):
-            return None
+            return None, "bad_hash"
 
         # M14: отвергаем устаревший initData (replay-защита) — как у Login Widget.
         try:
             if time.time() - int(params.get("auth_date", 0)) > 86400:
-                return None
+                return None, "stale_auth_date"
         except (ValueError, TypeError):
-            return None
+            return None, "malformed"
 
         user_str = params.get("user", "")
-        return json.loads(user_str) if user_str else None
+        user = json.loads(user_str) if user_str else None
+        return (user, "") if user else (None, "user_missing")
     except Exception:
-        return None
+        return None, "malformed"
 
 
 def webapp_auth_date(init_data: str) -> int | None:
@@ -117,20 +125,25 @@ def create_session_token(user_id: int) -> str:
 
 def verify_session_token(token: str) -> int | None:
     """Verify session token. Returns user_id or None if invalid/expired."""
+    return check_session_token(token)[0]
+
+
+def check_session_token(token: str) -> tuple[int | None, str]:
+    """(user_id, "") or (None, "bad_session" | "expired_session")."""
     try:
         parts = token.split(":")
         if len(parts) != 3:
-            return None
+            return None, "bad_session"
         user_id_str, expires_str, sig = parts
         payload = f"{user_id_str}:{expires_str}"
         expected = hmac.new(_session_secret(), payload.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, sig):
-            return None
+            return None, "bad_session"
         if time.time() > int(expires_str):
-            return None
-        return int(user_id_str)
+            return None, "expired_session"
+        return int(user_id_str), ""
     except Exception:
-        return None
+        return None, "bad_session"
 
 
 def session_issued_at(token: str) -> int | None:

@@ -222,11 +222,11 @@ async def _send(recipients: list[int], text: str) -> None:
             logger.debug(f"admin alert to {uid} failed: {exc}")
 
 
-async def alert(db, text: str, *, skip: int | None = None) -> None:
+async def alert(db, text: str, *, skip: int | None = None, title: str = "Админка: необычное действие") -> None:
     """Написать владельцам в личку (кроме skip). Получатели собираются сразу, отправка идёт в фоне."""
     recipients = [o for o in await owners(db) if o != skip]
     if recipients:
-        _spawn(_send(recipients, "🔔 <b>Админка: необычное действие</b>\n" + text))
+        _spawn(_send(recipients, f"🔔 <b>{title}</b>\n" + text))
 
 
 async def _name(db, uid: int | None) -> str:

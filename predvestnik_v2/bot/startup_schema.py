@@ -9,6 +9,7 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import coin_market_v2 as coin_market_v2_repo
 from infrastructure.repositories import pet_chat, star_dust, mafia_online, league_pass, purge_sessions, word_chain
 from infrastructure.repositories import support_reports
+from infrastructure.repositories import ops_telemetry
 from infrastructure.repositories import (
     achievements_v1 as achievements_v1_repo, game_seasons as game_seasons_repo, gifts_v2 as gifts_v2_repo, global_skins_v1 as global_skins_v1_repo, mafia_v1 as mafia_v1_repo, marks_v1 as marks_v1_repo,
     minesweeper_v2 as minesweeper_v2_repo, nicknames_retired, pet_nudge_v1 as pet_nudge_v1_repo, casino_v1 as casino_v1_repo, pets_v1 as pets_v1_repo, pets_v2 as pets_v2_repo, player_exchange_v1 as player_exchange_v1_repo, presence_v1 as presence_v1_repo,
@@ -24,6 +25,7 @@ ENSURES = (
     ("purge", purge_sessions.ensure_operations),
     ("word_chain", word_chain.ensure_tables),
     ("support_reports", support_reports.ensure_tables),
+    ("ops_telemetry", ops_telemetry.ensure_tables),     # «Здоровье»: метрики, ошибки Mini App и бота (14 дней)
     ("mafia_online", mafia_online.ensure_tables),
     ("minesweeper_v2", minesweeper_v2_repo.ensure_tables),
     ("game_seasons", game_seasons_repo.ensure_tables),

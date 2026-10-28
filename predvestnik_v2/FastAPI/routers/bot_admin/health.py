@@ -8,7 +8,7 @@ from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.people import get_bot
 from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat.global_ranks import CREATOR
-from services import admin_people, bot_health, owner_digest
+from services import admin_people, bot_health, ops_health, owner_digest
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("health")
@@ -20,6 +20,12 @@ async def health(user=Depends(_user), db=Depends(get_db)):
     data = await bot_health.snapshot(db, get_bot())
     data["digest"] = {**await owner_digest.get_settings(db), "can_edit": user["rank"] >= CREATOR}
     return data
+
+
+@router.get("/health/ops")
+async def health_ops(hours: int = 1, user=Depends(_user), db=Depends(get_db)):
+    """Блок «Здоровье»: лаг цикла, пул, время маршрутов, причины 401, ошибки Mini App и бота за 1 ч / 24 ч / 7 дн."""
+    return await ops_health.dashboard(db, hours)
 
 
 @router.post("/health/digest")

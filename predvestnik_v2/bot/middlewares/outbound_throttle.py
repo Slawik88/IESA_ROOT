@@ -29,6 +29,8 @@ from aiogram.client.session.middlewares.base import (
 from aiogram.exceptions import TelegramRetryAfter
 from aiogram.methods.base import TelegramType
 
+from core import ops_metrics
+
 if TYPE_CHECKING:
     from aiogram import Bot
     from aiogram.methods import TelegramMethod
@@ -100,9 +102,12 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
     ):
         chat_id = getattr(method, "chat_id", None)
 
+        started = time.perf_counter()
         wait = await self._reserve_slot(chat_id)
         if wait > 0:
             await asyncio.sleep(wait)
+        # Measurement only: how long this call waited for its slot (lock + pause), per Bot API method.
+        ops_metrics.observe("throttle_wait", type(method).__name__, (time.perf_counter() - started) * 1000)
 
         attempt = 0
         while True:

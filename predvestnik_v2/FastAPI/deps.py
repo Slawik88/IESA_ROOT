@@ -13,8 +13,10 @@ from urllib.parse import unquote
 from fastapi import Depends, Header, HTTPException, Request
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
-from FastAPI.auth import (verify_preprod_browser_ticket, verify_webapp_data,
+from FastAPI.auth import (check_session_token, check_webapp_data, verify_preprod_browser_ticket,
                           verify_session_token, hash_signal)
+from core import ops_metrics
+from services.ops_health import record_auth_failure
 from infrastructure.preprod import is_preprod, is_preprod_browser_test_user, require_preprod_user
 
 
@@ -30,7 +32,9 @@ async def get_db():
     its startup sequence and global DB initialization.
     """
     await create_pool()
+    started = time.perf_counter()
     async with get_pool().acquire() as conn:
+        ops_metrics.observe("pool_wait", "http", (time.perf_counter() - started) * 1000)
         yield PGAdapter(conn)
 
 
@@ -46,9 +50,10 @@ async def require_tg_user_base(
     Везде остальное — require_tg_user (добавляет проверку deleted_at). Отдельной
     проверки глобального бана в HTTP нет ни здесь, ни там."""
     user = None
+    refusal = "no_header"   # why a 401 happens, counted for the health panel; never logs the header itself
     # 1. Telegram WebApp (in-Telegram button)
     if x_init_data:
-        user = verify_webapp_data(x_init_data)
+        user, refusal = check_webapp_data(x_init_data)
 
     # 2. Local automation persona. This cookie can only be issued by a
     # second Uvicorn listener bound to 127.0.0.1, and is rejected everywhere
@@ -74,11 +79,14 @@ async def require_tg_user_base(
 
     # 3. Login Widget session (browser)
     if not user and x_session_token:
-        user_id = verify_session_token(x_session_token)
+        user_id, session_refusal = check_session_token(x_session_token)
         if user_id:
             user = {"id": user_id}
+        elif not x_init_data:
+            refusal = session_refusal
 
     if not user:
+        record_auth_failure(refusal)
         raise HTTPException(
             status_code=401,
             detail="Требуется авторизация через Telegram.",

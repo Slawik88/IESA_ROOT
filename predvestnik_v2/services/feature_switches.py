@@ -37,7 +37,8 @@ SITE_AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
     "profiles": ("👤 Профили и регалии", ("/public-profile-v3", "/marks-v1")),
 }
 # Всегда открыто, даже при выключенном сайте: админка, вход, правовые документы, служебное.
-SITE_ALWAYS_OPEN = ("/bot-admin", "/auth", "/legal", "/support", "/api/health", "/api/ready", "/static", "/manifest.json")
+SITE_ALWAYS_OPEN = ("/bot-admin", "/auth", "/legal", "/support", "/api/health", "/api/ready", "/static", "/manifest.json",
+                    "/telemetry")   # ошибки игроков нужны именно тогда, когда сайт выключен
 NOTICES = {"achievements": "🏆 Объявления о новых уровнях достижений"}
 GROUPS = {"warps": "🤗 Все варп-команды (обнять, погладить…)", "pets": "🐾 Управление питомцами", "star_dust": "🌠 Звёздная пыль"}
 

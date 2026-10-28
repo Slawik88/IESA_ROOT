@@ -43,6 +43,9 @@ from FastAPI.routers import guide_v3 as guide_v3_router  # Путеводите�
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
 from FastAPI.routers import purge_v1 as purge_v1_router
 from FastAPI.routers import league_v1 as league_v1_router  # демо Лиги, только ранний доступ
+from FastAPI.routers import telemetry as telemetry_router  # анонимные ошибки Mini App для «Здоровья»
+from FastAPI.ops_middleware import RequestMetrics
+from services import ops_health
 from FastAPI import game_shell
 from FastAPI import support_middleware
 from FastAPI.routers import support as support_router
@@ -307,6 +310,7 @@ app.include_router(bot_admin_router.router)
 app.include_router(purge_v1_router.router)
 app.include_router(league_v1_router.router)
 app.include_router(support_router.router)
+app.include_router(telemetry_router.router)
 app.middleware("http")(bot_admin_router.site_gate)   # выключатели сайта из админки
 app.middleware("http")(support_middleware.record_request)
 
@@ -329,6 +333,8 @@ async def revalidate_mini_app_assets(request, call_next):
 # Сжатие текстовых ответов (статика ~1МБ JS, CSS, JSON API). Уже сжатые ответы
 # middleware пропускает (защита content_encoding_set в Starlette).
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+# Outermost: request time per route for the health panel, compression included.
+app.add_middleware(RequestMetrics)
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
@@ -427,6 +433,14 @@ async def player_release_status():
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/health/deep")
+async def health_deep():
+    """For people and external monitors, not for the platform probe: a slow database turns it red
+    (503) while /api/health keeps the container alive. Body: database ping and metrics freshness."""
+    status, body = await ops_health.deep_check()
+    return JSONResponse(body, status_code=status, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/ready")
