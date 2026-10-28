@@ -131,6 +131,21 @@ BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_db_hot_queries.py --dsn "$DSN" --inde
 Кэши в памяти процесса (общий для бота и Mini App): топы сообщений — 45 с (`services/leaderboards_v1.py`), свой профиль `/profile/me` — 8 с с ETag, сбрасывается любым не-GET запросом игрока и любым живым событием о нём (`FastAPI/profile_snapshot.py`); время на вкладках копится в памяти и пишется пачкой раз в минуту (`services/tab_time.py`).
 Соединения Предвестника открываются с `jit=off` (`infrastructure/database.py`): JIT компилировал план ~200 мс на запросах с большой оценкой строк. Если когда-нибудь включат пул соединений DigitalOcean (PgBouncer), проверить, что он пропускает параметры `jit`, `statement_timeout`, `search_path`.
 
+## «Чистка» (с S05)
+
+```bash
+DSN=$(bash "$R/predvestnik_v2/docs/roadmap/env-setup.sh" --fresh-db pv_test_purge_queue)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bootstrap_test_db.py --dsn "$DSN"          # схема как на старте бота (нужны столбцы чата: required_norm и др.)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_purge_queue_pg.py --dsn "$DSN"        # фон 202, очередь после «перезапуска», 0 getChatMember на опрос, 304, живые события, бан не держит соединение
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_purge_reliability_pg.py --dsn "$DSN"  # Telegram вне транзакции, сверка, сбой записи → сверка
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_purge_two_viewers_pg.py --dsn "$DSN" # замер «двое смотрят»: p50/p95 ответа и getChatMember на опрос
+node tools/test_purge_live_ui.js                                                # экран «Чистка» (настоящий app.07.js)
+```
+
+Без `bootstrap_test_db.py` тесты «Чистки» на свежей базе падают на `required_norm` (столбцы чата добавляет старт бота, а не `init_db`).
+Устройство: решение — `services/purge.py` (резерв → Telegram без транзакции → запись), очередь досье и запуск фоном — `bot/chat/purge.py` (`launch_dossiers`, `resume_dossiers` при старте, `launch_start`),
+живой ход — `FastAPI/purge_live.py` (зрители с `live=1`, событие `data_changed{scope:'purge'}` не чаще раза в секунду на чат), адрес — `FastAPI/routers/purge_v1.py` (`?live=1`, `?background=1`; без них — прежние ответы).
+
 ## Остановка и сброс
 
 ```bash

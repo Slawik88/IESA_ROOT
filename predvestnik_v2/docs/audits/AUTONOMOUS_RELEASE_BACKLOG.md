@@ -1,3 +1,16 @@
+## ROADMAP-S05 — CHAT PURGE AS A BACKGROUND QUEUE, PUSHED TO MASTER (production not verified from the cloud; the new screen S05v waits for the owner's OK)
+
+Dossiers are sent by a durable queue over `purge_targets.dossier_sent` (batches of 20, 0.4 s apart, marked right after sending, failed ones retried every minute) and resumed at bot start
+(`resume_dossiers`); dossier facts stored with the target (`total_messages`, `note`, added columns). Decisions: sanctions split into a Telegram call and a record (`moderation.*_in_telegram` /
+`record_*`); `services/purge.decide` reserves in a short transaction, calls Telegram with no open transaction, records with the verdict in a short transaction; a failed record after a
+successful sanction becomes "needs a check", never a resend. Web start `?background=1` answers 202 and prepares the list in a background task (`preparing` in the view); view `?live=1`
+adds WebSocket `data_changed{scope:'purge'}` pushes to viewers (≤ 1/s per chat, profile snapshot kept) and ETag/304; requests without these parameters keep the old answers (the old screen).
+Telegram member status cached 45 s for reads and «forgive»; start, warn, mute, kick, ban, finish and reconcile check actor, bot and target afresh, in parallel. Closed-chat deletions batched
+with `deleteMessages` every 0.4 s. Violators in one pass per chat (CTEs). Bench, 300 members, Telegram 0.5 s per call, two viewers polling every 2 s: view p50 511 → 8 ms, getChatMember per
+poll 1.94 → 0.80 (0 for the view itself). Checked locally: new `test_purge_queue_pg.py`, `bench_purge_two_viewers_pg.py`; updated `test_purge_reliability_pg`, `test_mechanics_community_pg`,
+`test_chat_bot_pg` (fake Telegram); purge, member tags, pool starvation, hot paths, word chain green on fresh databases; all fast tests identical on master and branch. Independent read-only
+audit: no blockers; fixes applied (record failure, duplicate dossier, cached rights for warn/finish/reconcile, retry rounds, task references). Not verified: production deploy, real Telegram.
+
 ## ROADMAP-S04 — DATABASE AND CACHES, PUSHED TO MASTER (production not verified from the cloud)
 
 Season pass reads without DDL (`to_regclass` fast path). Message tops: in-process cache 45 s per key (rankings and own places), index `daily_user_stats (date,
