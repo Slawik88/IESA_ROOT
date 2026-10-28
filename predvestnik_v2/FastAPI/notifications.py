@@ -90,7 +90,7 @@ async def _balance_listener() -> None:
         finally:
             _balance_listener_ready.clear()
             if conn is not None and not conn.is_closed():
-                await conn.close()
+                conn.terminate()   # a half-open socket must not stall the reconnect loop
         await asyncio.sleep(LISTENER_RETRY_SEC[min(failures, len(LISTENER_RETRY_SEC) - 1)])
         failures += 1
 

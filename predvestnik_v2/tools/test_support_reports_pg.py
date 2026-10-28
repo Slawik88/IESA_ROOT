@@ -19,7 +19,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 async def main(dsn):
     os.environ["DATABASE_URL"] = dsn
-    os.environ["DB_POOL_MAX_SIZE"] = "4"
+    os.environ["DB_POOL_MAX_SIZE"] = "6"   # process total: 4 pooled + 2 direct (lock, LISTEN)
     os.environ.setdefault("BOT_TOKEN","123456:offline-support-test")
     from FastAPI import deps, support_middleware
     from FastAPI.auth import create_session_token

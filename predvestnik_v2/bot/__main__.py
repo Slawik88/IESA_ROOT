@@ -4,6 +4,7 @@ import os
 import re
 import signal
 import sys
+import asyncpg
 from aiogram import Bot
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 from loguru import logger
@@ -101,6 +102,19 @@ def _spawn_supervised(name: str, coroutine, *, failed: asyncio.Event | None = No
     return task
 
 
+async def _connect_for_lock():
+    """The lock's own connection. The database server is shared with the IESA site and can be full for a while
+    (TooManyConnectionsError): wait and retry instead of crashing into a restart loop that only adds load."""
+    delay = 5.0
+    while True:
+        try:
+            return await connect_direct(statement_timeout_ms=0)
+        except (asyncpg.TooManyConnectionsError, OSError) as exc:
+            logger.warning(f"🔒 Нет соединения для advisory lock ({type(exc).__name__}), повтор через {delay:.0f} с")
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 60.0)
+
+
 async def main():
     _configure_safe_logging()
     background_tasks: list[asyncio.Task] = []
@@ -175,7 +189,7 @@ async def main():
     # Its own connection outside the pool, without statement_timeout: the wait for the previous instance
     # may be longer than 30 s, and the pool keeps all its connections for real work.
     logger.info("🔒 Ожидание advisory lock (единственный инстанс)...")
-    _lock_conn = await connect_direct(statement_timeout_ms=0)
+    _lock_conn = await _connect_for_lock()
     await _lock_conn.execute(f"SELECT pg_advisory_lock({_ADVISORY_LOCK_KEY})")
     logger.info("🔒 Advisory lock получен — этот инстанс единственный.")
 

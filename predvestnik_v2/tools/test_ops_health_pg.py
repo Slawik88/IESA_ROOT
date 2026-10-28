@@ -215,10 +215,11 @@ async def main(dsn: str) -> None:
 
     async def hold_connection():
         async for _db in get_db():
+            await _db.execute("SELECT 1")      # lazy handle: the connection is taken on the first SQL
             await asyncio.sleep(0.05)
     await asyncio.gather(*(hold_connection() for _ in range(60)))
     waits = ops_metrics.registry.window.timings[("pool_wait", "http")]
-    assert waits.count == 60 and waits.peak >= 40, (waits.count, waits.peak)   # 60 holders, 10 connections
+    assert waits.count == 60 and waits.peak >= 40, (waits.count, waits.peak)   # 60 holders, 8 pooled connections
 
     sampler = asyncio.create_task(ops_health._sample_loop())
     await asyncio.sleep(1.1)

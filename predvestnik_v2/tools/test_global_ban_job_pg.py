@@ -5,6 +5,7 @@
    so 12 slow chats take ~3 rounds, not 12; progress «N из M» is readable while it runs.
 2. The admin answer waits at most GLOBAL_JOB_WAIT_SEC: a slow job keeps going after the answer and finishes.
 3. Unban lifts the ban only where the global ban put it; chats where Telegram refused are counted as failed.
+4. An unban while the ban job still runs stops it first: no chat gets banned after the unban.
 Only a loopback DSN is accepted.
 """
 from __future__ import annotations
@@ -109,8 +110,29 @@ async def main() -> None:
             answer = await people._global_job_answer(job, "Бан снят в чатах")
         assert answer["job"]["finished"] and answer["message"] == f"Бан снят в чатах: {len(logged) - 1}.", answer
         assert set(bot.unbanned) == logged - {keep}, (bot.unbanned, keep)
+        bot.delay = 0.3
+        bot.banned.clear(); bot.unbanned.clear()
+        async with lazy_db.lazy_connection(pool, source="http") as db:
+            job = await global_moderation.global_ban(bot, db, broadcasts.pool_db_factory(), PLAYER, ACTOR, "ошибка")
+        await asyncio.sleep(0.5)                       # a few chats banned, most still waiting
+        async with lazy_db.lazy_connection(pool, source="http") as db:
+            undo = await global_moderation.global_unban(bot, db, PLAYER, ACTOR)
+        banned_before_unban = list(bot.banned)
+        assert await global_moderation.wait(undo, 30)
+        await asyncio.sleep(0.5)
+        assert bot.banned == banned_before_unban, "the ban job kept banning after the unban"
+        assert 0 < len(banned_before_unban) < total and set(bot.unbanned) >= set(banned_before_unban)
+
+        closed = lazy_db.LazyPGAdapter(pool, source="http")
+        await closed.close()
+        try:
+            await closed.execute("SELECT 1")
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("a closed handle silently took a new connection")
         print(f"  {total} chats banned {global_moderation.BAN_PARALLEL} at a time in {elapsed:.1f} s; "
-              "answer in < 1 s, progress «N из M», unban only where the global ban put it")
+              "answer in < 1 s, progress «N из M», unban only where the global ban put it and stops a running ban")
     finally:
         async with pool.acquire() as conn:
             await conn.execute("DELETE FROM chat_blacklist WHERE user_id = $1", PLAYER)

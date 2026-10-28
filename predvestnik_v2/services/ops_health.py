@@ -300,7 +300,7 @@ async def _db_server_loop() -> None:
         except asyncpg.TooManyConnectionsError:
             ops_metrics.count("db_refused", "server_full")
             continue
-        except (RuntimeError, asyncio.TimeoutError, OSError, asyncpg.PostgresError) as exc:
+        except Exception as exc:   # a sample is optional: never let a dropped connection stop the health loops
             logger.warning(f"database server usage not sampled: {type(exc).__name__}: {exc}")
             continue
         for name, value in usage.items():

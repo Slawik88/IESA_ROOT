@@ -5,7 +5,7 @@ HTTP client (mock transport) -> real shrink to WebP -> /profile/avatar/{ref} ser
 cross-user isolation, the VIP rule on the direct address, host/redirect/size/SVG guards; no URL or token in logs.
 """
 import asyncio
-from contextlib import asynccontextmanager, ExitStack
+from contextlib import ExitStack
 import hashlib
 import hmac
 from io import BytesIO
@@ -14,7 +14,6 @@ import os
 from pathlib import Path
 import sys
 import time
-from types import SimpleNamespace
 from urllib.parse import urlencode
 from unittest.mock import AsyncMock, patch
 
@@ -55,9 +54,27 @@ async def refused(download) -> None:
     raise AssertionError("download should have been refused")
 
 
-@asynccontextmanager
-async def connection():
-    yield object()
+class _Acquired:
+    """Like asyncpg's pool.acquire(): awaited (acquire_connection) or used as ``async with``."""
+
+    def __await__(self):
+        async def connection():
+            return object()
+        return connection().__await__()
+
+    async def __aenter__(self):
+        return object()
+
+    async def __aexit__(self, *exc):
+        return None
+
+
+class FakePool:
+    def acquire(self, timeout=None):
+        return _Acquired()
+
+    async def release(self, conn):
+        return None
 
 
 async def main():
@@ -76,7 +93,7 @@ async def main():
     try:
         with ExitStack() as stack:
             for target, name, value in (
-                (profile, "create_pool", AsyncMock()), (profile, "get_pool", lambda: SimpleNamespace(acquire=connection)),
+                (profile, "create_pool", AsyncMock()), (profile, "get_pool", FakePool),
                 (profile, "PGAdapter", lambda conn: object()), (profile, "assert_account_active", AsyncMock()),
                 (profile, "is_vip_active", AsyncMock(return_value=True)),
                 (profile.public_profiles, "resolve_reference", AsyncMock(side_effect=lambda db, profile_ref: refs.get(profile_ref))),

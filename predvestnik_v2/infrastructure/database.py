@@ -41,7 +41,7 @@ def _pool_max_size() -> int:
         configured = int(os.environ.get("DB_POOL_MAX_SIZE", "10"))
     except ValueError:
         configured = 10
-    return max(2, min(configured, 10) - DIRECT_CONNECTIONS)
+    return max(1, min(configured, 10) - DIRECT_CONNECTIONS)
 
 
 def _server_settings(statement_timeout_ms: int) -> dict:

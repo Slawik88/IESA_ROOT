@@ -39,9 +39,12 @@ class LazyPGAdapter(PGAdapter):
         self._busy = 0               # statements in flight
         self._pins = 0               # open transactions started through .connection.transaction()
         self._owner: asyncio.Task | None = None
+        self._closed = False
 
     # ── connection lifecycle ────────────────────────────────────────────────
     async def _ensure(self) -> asyncpg.Connection:
+        if self._closed:   # SQL after the update or request ended would take a connection nobody gives back
+            raise RuntimeError("database handle used after its update or request ended")
         if self._conn is None:
             async with self._lock:
                 if self._conn is None:
@@ -75,6 +78,7 @@ class LazyPGAdapter(PGAdapter):
     async def close(self) -> None:
         """End of the update or request: always give the connection back (an open transaction is rolled back)."""
         conn, self._conn, self._tx = self._conn, None, None
+        self._closed = True
         if conn is not None:
             await self._pool.release(conn)
 

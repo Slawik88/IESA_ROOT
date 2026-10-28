@@ -9,7 +9,7 @@ from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from FastAPI.deps import assert_account_active, get_db, require_tg_user, require_tg_user_base
-from infrastructure.database import create_pool, get_pool
+from infrastructure.database import acquire_connection, create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import avatar_photos as avatar_photo_repo
 from services import avatar_photos
@@ -165,18 +165,12 @@ async def avatar_image(profile_ref: str, request: Request) -> Response:
     """The photo itself for <img>: no login headers there, so the VIP rule is checked here on every request.
     The address carries the photo version (?v=), so a changed photo is a new address."""
     await create_pool()
-    async with _AVATAR_DB_SLOTS, get_pool().acquire() as conn:
-        db = PGAdapter(conn)
-        target = await public_profiles.resolve_reference(db, profile_ref=profile_ref)
-        if target is None:
-            raise HTTPException(404)
+    async with _AVATAR_DB_SLOTS:
+        conn = await acquire_connection(get_pool(), "http")   # full pool → PoolBusy → 503, not an endless wait
         try:
-            await assert_account_active(db, target)
-        except HTTPException:
-            raise HTTPException(404) from None
-        if not await is_vip_active(db, target):
-            raise HTTPException(404)
-        stored = await avatar_photo_repo.image(db, target)
+            stored = await _avatar_for(PGAdapter(conn), profile_ref)
+        finally:
+            await get_pool().release(conn)
     if stored is None:
         raise HTTPException(404)
     version, image = stored
@@ -186,6 +180,20 @@ async def avatar_image(profile_ref: str, request: Request) -> Response:
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
     return Response(image, media_type="image/webp", headers=headers)
+
+
+async def _avatar_for(db, profile_ref: str):
+    """(version, image) of a VIP's stored photo, or None; 404 for unknown, deleted or non-VIP profiles."""
+    target = await public_profiles.resolve_reference(db, profile_ref=profile_ref)
+    if target is None:
+        raise HTTPException(404)
+    try:
+        await assert_account_active(db, target)
+    except HTTPException:
+        raise HTTPException(404) from None
+    if not await is_vip_active(db, target):
+        raise HTTPException(404)
+    return await avatar_photo_repo.image(db, target)
 
 
 # Единый источник правды для названий глобальных рангов — services/roles.py

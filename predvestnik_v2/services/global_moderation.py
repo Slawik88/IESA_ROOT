@@ -138,6 +138,14 @@ async def wait(job: Job, timeout: float) -> bool:
     return job.finished
 
 
+async def _stop(kind: str, user_id: int) -> None:
+    """Stop a running job of the other kind first: an unban must not race a ban still in progress."""
+    task = _tasks.get((kind, int(user_id)))
+    if task is not None and not task.done():
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
 def _launch(job: Job, work) -> Job:
     key = (job.kind, job.user_id)
     previous = _tasks.get(key)
@@ -177,6 +185,7 @@ async def _each_chat(job: Job, chat_ids: list[int], effect) -> None:
 
 async def global_ban(bot, db, db_factory, user_id: int, actor_id: int, reason: str = "") -> Job:
     """Бан навсегда во всех чатах: решение записано сразу, сами баны идут фоновым заданием."""
+    await _stop("global_unban", user_id)
     await db.execute(
         "INSERT INTO chat_blacklist (chat_id, user_id, reason, added_by, expires_at) VALUES (?, ?, ?, ?, NULL) "
         "ON CONFLICT (chat_id, user_id) DO UPDATE SET reason = EXCLUDED.reason, added_by = EXCLUDED.added_by, "
@@ -204,6 +213,7 @@ async def global_unban(bot, db, user_id: int, actor_id: int) -> Job:
 
     Баны отдельных чатов — из бота (chat_blacklist) или руками в Telegram — остаются.
     """
+    await _stop("global_ban", user_id)   # иначе чаты, до которых бан ещё не дошёл, забанятся после снятия
     async with db.execute(
         "SELECT added_at FROM chat_blacklist WHERE chat_id = ? AND user_id = ?", (GLOBAL_CHAT, user_id)) as cur:
         row = await cur.fetchone()
