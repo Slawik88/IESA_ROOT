@@ -3,7 +3,7 @@
 // (что это · шаги · что даёт · слова · совет · где найти), «Читать по порядку», словарь и частые вопросы. Правила текстов — docs/PLAYER_COPY.md.
 // Ссылка на тему: ?startapp=guide_<id> или guide_<id>_<номер блока> (app.02.js), из подсказок и игр — openGuide('<id>'). Стили: guide-v3.css (префикс gv-).
 // Тема, открытая с другого экрана (💡, профиль, ссылка), помнит это: «Назад» сразу возвращает туда, а не на главную Путеводителя (_GV.ext).
-const _GV = { data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, block: 0, missTimer: 0, missSent: new Set() };
+const _GV = { data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, origin: null, block: 0, missTimer: 0, missSent: new Set() };
 const _GV_STORE = 'pv_guide_v1';
 const _GV_LAST = 'pv_guide_last';
 const _GV_STOP = new Set(['как', 'где', 'что', 'это', 'для', 'мне', 'меня', 'мой', 'мои', 'моя', 'мою', 'его', 'или', 'такое', 'такой', 'почему', 'взять', 'найти', 'получить', 'дают', 'даются', 'видно', 'хочу', 'могу', 'ли', 'если', 'делать']);
@@ -288,7 +288,10 @@ function gvView(view, topic = '', faq = -1) {
   _haptic('select'); _GV.view = view; _GV.topic = topic; _GV.faq = faq; gvPaint();
 }
 function _gvRemember(id) {
-  if (_GV.data?.topics.some(t => t.id === id)) try { localStorage.setItem(_GV_LAST, id); if (id === 'first-day') localStorage.setItem('pv_guide_first', '1'); } catch (_) {}   // pv_guide_first гасит карточку новичка в профиле (app.16.js)
+  if (!_GV.data?.topics.some(t => t.id === id)) return;
+  try { localStorage.setItem(_GV_LAST, id); if (id === 'first-day') localStorage.setItem('pv_guide_first', '1'); } catch (_) { return; }
+  // Профиль остаётся в памяти: обновляем «Дальше» сразу, до возвращения из прочитанной темы.
+  if (id === 'first-day' && typeof renderV3Next === 'function') renderV3Next();
 }
 function gvOpen(id) { gvView('topic', id); _gvRemember(id); }
 function gvOpenFaq(i) { gvView('faq', '', i); }
@@ -307,6 +310,15 @@ function gvSearchFrom(input) {
 function gvBack() {
   const prev = _GV.history.pop();
   if (prev) { Object.assign(_GV, { view: prev.view, topic: prev.topic, faq: prev.faq, q: prev.q }); gvPaint(prev); return true; }
+  if (_GV.origin) {
+    const origin = _GV.origin; _GV.origin = null;
+    if (_activePage !== origin.page) {
+      if (_navStack[_navStack.length - 1] === origin.page) _navStack.pop();
+      switchPage(origin.page, null, true);
+    }
+    origin.restore();
+    return true;
+  }
   if (_GV.view === 'hub' || _GV.ext) return false;
   gvHome(); return true;
 }
@@ -318,10 +330,11 @@ function gvShow() {
   return gvLoad().then(() => gvPaint()).catch(() => { root.innerHTML = `<div class="gv-scope">${v3Head('Путеводитель')}<div class="v3-empty" role="alert"><b>Путеводитель не открылся</b><span>Проверь связь.</span> <button type="button" class="v3-link" onclick="gvShow()">Повторить</button></div></div>`; });
 }
 // Открыть тему из любого места приложения: подсказки, «Что нового», ссылка из бота (?startapp=guide_<id>[_<номер блока>])
-function openGuide(id, block) {
+function openGuide(id, block, returnTo) {
   _GV.history = [];
   _GV.faq = -1;
   _GV.ext = !!id && _activePage !== 'help';
+  _GV.origin = typeof returnTo === 'function' ? { page: _activePage, restore: returnTo } : null;
   _GV.block = Number(block) || 0;
   if (_activePage !== 'help') switchPage('help');
   if (id) { _GV.view = 'topic'; _GV.topic = id; } else { _GV.view = 'hub'; _GV.topic = ''; }

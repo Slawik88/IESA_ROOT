@@ -83,6 +83,9 @@ async function main() {
   nav.run('_GV.data = guideData; gvPaint = () => {}; var _activePage = "chests", pages = []; switchPage = p => { pages.push(p); _activePage = p; }; gvShow = () => Promise.resolve()');
   await nav.run('openGuide("keys")');
   assert.equal(nav.run('_GV.ext'), true);
+  nav.run('var profileRefreshes = 0; renderV3Next = () => profileRefreshes++; _gvRemember("first-day")');
+  assert.equal(nav.storage.get('pv_guide_first'), '1');
+  assert.equal(nav.run('profileRefreshes'), 1, 'reading first-day refreshes the cached profile card immediately');
   assert.equal(nav.run('gvBack()'), false, 'the first topic from a screen hands «Назад» to the page stack (back to that screen)');
   nav.run('_activePage = "chests"');   // navBack took the player back to the chests
   await nav.run('openGuide("keys")');
@@ -94,6 +97,23 @@ async function main() {
   assert.equal(nav.run('gvBack()'), false);
   await nav.run('openGuide("pass", "5")');
   assert.equal(nav.run('_GV.block'), 5, 'guide_<topic>_<block> remembers the block to scroll to');
+  // A guide opened from a modal restores both its page and the modal, without a duplicate page in the stack.
+  const modal = fixture();
+  modal.run('_GV.data = guideData; gvPaint = () => {}; var _activePage = "profile", _navStack = [], restoredModal = 0; switchPage = (p, btn, back) => { if (!back && p !== _activePage) _navStack.push(_activePage); _activePage = p; }; gvShow = () => Promise.resolve()');
+  await modal.run('openGuide("wallet", 0, () => restoredModal++)');
+  assert.equal(modal.run('gvBack()'), true);
+  assert.equal(modal.run('_activePage'), 'profile');
+  assert.equal(modal.run('_navStack.length'), 0);
+  assert.equal(modal.run('restoredModal'), 1);
+  assert.equal(modal.run('_GV.origin'), null, 'restoration is consumed once');
+  modal.run('_activePage = "help"');
+  await modal.run('openGuide("wallet", 0, () => restoredModal++)');
+  assert.equal(modal.run('gvBack()'), true, 'a modal opened over the guide stays on that page');
+  assert.equal(modal.run('_activePage'), 'help');
+  assert.equal(modal.run('restoredModal'), 2);
+  await modal.run('openGuide("keys")');
+  assert.equal(modal.run('_GV.origin'), null, 'a new unrelated guide entry forgets the old modal');
+
   // Search from a topic page: results on the hub, «Назад» returns to the topic.
   nav.run('_GV.view = "topic"; _GV.topic = "keys"; _GV.history = []; gvSearchFrom({ value: "мора" })');
   assert.equal(nav.run('_GV.view'), 'hub'); assert.equal(nav.run('_GV.q'), 'мора');

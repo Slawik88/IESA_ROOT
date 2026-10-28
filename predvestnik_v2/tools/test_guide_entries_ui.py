@@ -60,6 +60,7 @@ def run(stand: Stand, browser, width: int, shots: str | None) -> None:
     shot(page, shots, f"2-first-day-{width}")
     page.click("#pg-help .v3-head-back")
     page.wait_for_function(f"() => ({ACTIVE})() === 'profile'", timeout=5000)
+    assert 'Первый день' not in page.locator('#v3-next').inner_text(), "the newcomer card disappears immediately after reading"
 
     # 2. The profile row: one tap into the guide.
     page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
@@ -93,6 +94,35 @@ def run(stand: Stand, browser, width: int, shots: str | None) -> None:
     page.click("#pg-help .v3-head-back")
     page.wait_for_function(f"() => ({ACTIVE})() === 'inventory'", timeout=5000)
 
+    # Native modal entry points: actual pointer clicks must reach the guide above the original dialog.
+    for book, opener, title in [('wallet', 'showCurrModal()', 'Кошелёк'), ('family', 'openFamilyTree()', 'Моя семья')]:
+        page.evaluate("() => switchPage('profile')")
+        page.evaluate(f"() => {opener}")
+        page.click("#modal[open] .v3-guide-ic")
+        page.locator("#g-sheet").get_by_role("button", name="Закрыть", exact=True).click()
+        page.wait_for_selector("#g-sheet", state="detached", timeout=5000)
+        assert page.locator("#modal[open]").count() == 1, f"{book}: closing hints keeps the source dialog"
+        assert page.evaluate("() => document.activeElement?.classList.contains('v3-guide-ic')"), f"{book}: focus returns to the lightbulb"
+        page.click("#modal[open] .v3-guide-ic")
+        page.click("#g-sheet .gv-more")
+        page.wait_for_function("() => _activePage === 'help' && !document.querySelector('dialog[open]')", timeout=5000)
+        page.click("#pg-help .v3-head-back")
+        page.wait_for_selector("#modal[open] .v3-guide-ic", timeout=5000)
+        assert page.evaluate(ACTIVE) == 'profile', f"{book}: back restores the original page"
+        assert page.locator("#mt").inner_text() == title, f"{book}: back restores the original dialog"
+        no_side_scroll(page, f"{book} restored {tag}")
+        page.evaluate("() => CM()")
+
+    # An «Открыть» button can also open the wallet over the guide itself; back restores that modal once.
+    page.evaluate("() => openGuide('wallet')")
+    page.click("#pg-help .gv-where button")
+    page.click("#modal[open] .v3-guide-ic")
+    page.click("#g-sheet .gv-more")
+    page.click("#pg-help .v3-head-back")
+    page.wait_for_selector("#modal[open] .v3-guide-ic", timeout=5000)
+    assert page.evaluate(ACTIVE) == 'help', "a modal opened over the guide returns over the guide"
+    page.evaluate("() => CM()")
+
     # 5. A long topic: breadcrumbs, contents, the search right on the page; «‹» returns from the results to the topic.
     page.evaluate("() => openGuide('pass')")
     page.wait_for_function(f"() => ({TITLE})() === 'Пропуск сезона' || !!document.querySelector('#pg-help .gv-crumbs')", timeout=10000)
@@ -109,7 +139,7 @@ def run(stand: Stand, browser, width: int, shots: str | None) -> None:
 
     assert not errors, errors
     ctx.close()
-    print(f"OK {tag}: welcome → «Первый день» → back; profile 1 tap; 💡 → topic → back on the screen; typo; contents, crumbs, search from a topic")
+    print(f"OK {tag}: welcome → «Первый день» → back; profile 1 tap; 💡 → topic → back on the screen; wallet/family modal clicks and return; typo; contents, crumbs, search from a topic")
 
 
 def main() -> None:

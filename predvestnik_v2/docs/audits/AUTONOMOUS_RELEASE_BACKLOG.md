@@ -1,3 +1,8 @@
+## ROADMAP-S07 — Путеводитель под рукой, одобрен владельцем 28.10.2026
+
+Вход из Профиля за одно касание, подсказки девяти экранов, первый день, кнопка и команда бота; крошки, содержание, поиск с опечатками и возврат на исходный экран. Перед вливанием независимая проверка исправила подсказки поверх нативных окон Кошелька/семьи и возврат в них; карточка первого дня исчезает сразу. Патч-нот дня и «Что нового» подготовлены на 28.10; два пункта ускорения объединены с covers, чтобы сохранить предел четырёх новинок.
+Проверено повторно на Windows: test_guide_entries_ui (320/390/430), ui_smoke help/profile/more (9 сценариев, 0 падений), test_guide_entry_sim_pg (Telegram на имитации), Node-навигация, тексты, chat_framework, patch_notes, whatsnew, static_asset_version, синтаксис JS/Python; static_delivery_asgi — OK (есть старые предупреждения Windows). Известные старые падения shell_v3_contract и chat_bot_pg (ожидание HTML «Лучший: 2» в стрике) не связаны с S07, зафиксированы. Реальный Telegram и прод не проверены; проверяет владелец.
+
 ## ROADMAP-S06b — SCREEN STYLESHEETS NO LONGER BLOCK THE START, PUSHED TO MASTER (owner's OK; production not verified from the cloud)
 
 20 screen stylesheets the first screen does not need (Mafia, quests, inventory, chests, trail, guide, news, pass, store, pets, casino, coin market and others) load with `media="print"` +

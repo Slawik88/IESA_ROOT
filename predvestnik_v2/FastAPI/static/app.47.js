@@ -20,9 +20,12 @@ function _guideClose(now) {
   if (now || typeof v3Dismiss !== 'function') { host.remove(); back(); } else v3Dismiss(host, back);
 }
 function _guideSheet(html) {
-  _guideOpener = document.activeElement;
+  const opener = document.activeElement;
   _guideClose(true);
-  const host = document.createElement('div'); host.id = 'g-sheet'; host.className = 'lk-sheet-back';
+  _guideOpener = opener;
+  // Подсказки из нативного окна тоже должны попасть в верхний слой браузера.
+  const native = !!document.querySelector('dialog[open]');
+  const host = document.createElement(native ? 'dialog' : 'div'); host.id = 'g-sheet'; host.className = 'lk-sheet-back';
   host.innerHTML = `<section class="lk-sheet tr-sheet" role="dialog" aria-modal="true" aria-labelledby="g-sheet-t" tabindex="-1">${html}</section>`;
   host.addEventListener('click', e => { if (e.target === host) _guideClose(); });
   _guideKeys = e => {
@@ -33,7 +36,9 @@ function _guideSheet(html) {
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   };
   document.addEventListener('keydown', _guideKeys, true);
-  document.body.appendChild(host); host.firstElementChild.focus({ preventScroll: true });
+  document.body.appendChild(host);
+  if (native) { host.addEventListener('cancel', e => { e.preventDefault(); _guideClose(); }); host.showModal(); }
+  host.firstElementChild.focus({ preventScroll: true });
 }
 function _guideTilesHtml(tiles) {
   return tiles.map(t =>
@@ -65,9 +70,13 @@ function _guideGo() {
 }
 // «Подробнее в Путеводителе»: закрывает лист и открывает тему (book.topic — id темы из guide-v3.json)
 function _guideMore() {
-  const topic = _guideCurrent && _GUIDE_BOOK[_guideCurrent] && _GUIDE_BOOK[_guideCurrent].topic;
+  const book = _guideCurrent && _GUIDE_BOOK[_guideCurrent];
+  const modal = document.querySelector('dialog#modal[open]');
+  const returnTo = modal && book && typeof book.returnTo === 'function' ? book.returnTo : null;
   _guideClose(true);
-  if (topic) openGuide(topic);
+  if (!book?.topic) return;
+  if (modal) CM();
+  openGuide(book.topic, 0, returnTo);
 }
 // Слепок кнопки для шапки вкладки: v3Head(..., { end: v3GuideBtn('trail') })
 // «Подсказки» — не «гайд»: слово понятно и тем, кто впервые открыл бота.
@@ -271,7 +280,7 @@ guideDefine('games', { title: 'Игры — подсказки', lead: 'Все �
   { icon: '🎭', title: 'Мафия', text: 'игра для компании в чате, нужно от 4 игроков' },
   { icon: '🎫', title: 'Пропуск сезона', text: 'играешь, копишь опыт и открываешь награды' },
 ] });
-guideDefine('wallet', { title: 'Кошелёк — подсказки', lead: 'Здесь видно, сколько у тебя денег, и можно обменять Зарники.', topic: 'wallet', tiles: [
+guideDefine('wallet', { title: 'Кошелёк — подсказки', lead: 'Здесь видно, сколько у тебя денег, и можно обменять Зарники.', topic: 'wallet', returnTo: () => showCurrModal(), tiles: [
   { icon: '🪙', title: 'Мора', text: 'главная монета: даётся за задания и игры' },
   { icon: '💎', title: 'Алмазы', text: 'редкая монета из наград, нужна для платинового ключа' },
   { icon: '✨', title: 'Зарники', text: 'платная монета: меняется на Мору, Алмазы и Эссенцию' },
@@ -309,7 +318,7 @@ guideDefine('promo', { title: 'Промокоды — подсказки', lead:
   { icon: '🎁', title: 'Забрать', text: 'личные коды появятся в списке с кнопкой «Забрать»' },
   { icon: '🤖', title: 'Через бота', text: 'напиши боту «бот промокод КОД»' },
 ] });
-guideDefine('family', { title: 'Моя семья — подсказки', lead: 'Брак, семейный кошелёк и родословная.', topic: 'profile', tiles: [
+guideDefine('family', { title: 'Моя семья — подсказки', lead: 'Брак, семейный кошелёк и родословная.', topic: 'profile', returnTo: () => openFamilyTree(), tiles: [
   { icon: '💍', title: 'Брак', text: 'в чате напиши «бот брак» и ник игрока' },
   { icon: '👛', title: 'Семейный кошелёк', text: 'общие деньги пары — видны в этом окне' },
   { icon: '🌳', title: 'Родословная', text: 'супруг, дети и родственники — ниже в этом окне' },
