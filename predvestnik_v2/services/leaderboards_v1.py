@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from core.ttl_cache import TtlCache
 from infrastructure.repositories import public_profiles_v1 as public_profiles
 from services import appearance_public_v3, marks_v1 as marks_service
 from infrastructure.repositories import stats as stats_repo, users as users_repo
@@ -19,6 +20,46 @@ TOP_LIMIT = 10
 PAGE_SIZE = 10
 PERIODS = ("day", "week", "month", "all_time")
 SCOPES = ("global", "chats", "local")
+# Message tops are sums over the whole message history: every player on the home screen asked for them again after
+# each chat message. Rankings and own places now live this long per key (period bounds, chat, page size); a new
+# message shows up in the top at most this late. Names, looks and marks of the visible rows are read fresh.
+# Cached rows and places are shared between viewers: callers read them and build new objects, never mutate them.
+BOARD_CACHE_SEC = 45
+_BOARDS = TtlCache(BOARD_CACHE_SEC, max_entries=128)    # up to 500 rows each: global, chats and local boards
+_PLACES = TtlCache(BOARD_CACHE_SEC, max_entries=4096)   # one small row per player and board
+
+
+async def _cached(cache: TtlCache, key: tuple, load):
+    value = cache.get(key)
+    if value is None:
+        value = await load()
+        cache.put(key, value)
+    return value
+
+
+async def _ranking(db, scope: str, *, chat_id: int | None = None, bounds: tuple[str, str] | None, limit: int = 500) -> list[dict]:
+    """Ranked rows of one board (players, or chats for scope "chats"), the same for every viewer."""
+    async def load() -> list[dict]:
+        if scope == "local":
+            return (await stats_repo.get_top_messages(db, int(chat_id), "all_time") if bounds is None
+                    else await stats_repo.get_top_messages_for_dates(db, int(chat_id), *bounds))
+        if scope == "global":
+            return (await stats_repo.get_top_messages_global_all_time(db, limit=limit) if bounds is None
+                    else await stats_repo.get_top_messages_global_for_dates(db, *bounds, limit=limit))
+        return (await stats_repo.get_top_chats_all_time(db) if bounds is None
+                else await stats_repo.get_top_chats_for_dates(db, *bounds))
+    return await _cached(_BOARDS, (scope, chat_id, bounds, limit), load)
+
+
+async def _position(db, *, scope: str, user_id: int, chat_id: int | None, bounds: tuple[str, str] | None,
+                    excluded_user_id: int | None = None) -> dict | None:
+    """Exact place of one player; None (not ranked) is cached too, as an empty dict."""
+    async def load() -> dict:
+        return await stats_repo.get_message_top_position(
+            db, scope=scope, entity_id=int(user_id), chat_id=chat_id,
+            date_start=bounds[0] if bounds else None, date_end=bounds[1] if bounds else None,
+            excluded_user_id=excluded_user_id) or {}
+    return await _cached(_PLACES, (scope, chat_id, bounds, excluded_user_id, int(user_id)), load) or None
 
 
 class NotAMember(PermissionError):
@@ -139,12 +180,8 @@ async def message_top(db, *, user_id: int, period: str, now: datetime | None = N
     if period not in ("week", "all_time"):
         raise ValueError("unsupported top period")
     bounds = period_bounds((now or datetime.now(timezone.utc)).astimezone(timezone.utc), period)
-    rows = (await stats_repo.get_top_messages_global_for_dates(db, bounds[0], bounds[1], limit=TOP_LIMIT)
-            if bounds else await stats_repo.get_top_messages_global_all_time(db, limit=TOP_LIMIT))
-    position = await stats_repo.get_message_top_position(
-        db, scope="global", entity_id=int(user_id),
-        date_start=bounds[0] if bounds else None, date_end=bounds[1] if bounds else None,
-    )
+    rows = await _ranking(db, "global", bounds=bounds, limit=TOP_LIMIT)
+    position = await _position(db, scope="global", user_id=user_id, chat_id=None, bounds=bounds)
     return {"period": period, "top": await _player_rows(db, rows, user_id, 1),
             "personal": _personal(position)}
 
@@ -178,15 +215,8 @@ async def message_top_page(
             raise NotAMember("local board is available to members of the chat only")
     offset_hours = await get_chat_timezone(db, int(chat_id)) if scope == "local" else 0
     bounds = period_bounds((now or datetime.now(timezone.utc)) + timedelta(hours=offset_hours), period)
-    if scope == "local":
-        rows = (await stats_repo.get_top_messages(db, int(chat_id), "all_time") if bounds is None
-                else await stats_repo.get_top_messages_for_dates(db, int(chat_id), *bounds))
-    elif scope == "global":
-        rows = (await stats_repo.get_top_messages_global_all_time(db) if bounds is None
-                else await stats_repo.get_top_messages_global_for_dates(db, *bounds))
-    else:
-        rows = (await stats_repo.get_top_chats_all_time(db) if bounds is None
-                else await stats_repo.get_top_chats_for_dates(db, *bounds))
+    local_chat = int(chat_id) if scope == "local" else None
+    rows = await _ranking(db, scope, chat_id=local_chat, bounds=bounds)
     own = bot_tg_id()
     if scope != "chats" and own is not None:
         rows = [row for row in rows if int(row["user_tg_id"]) != int(own)]
@@ -201,15 +231,11 @@ async def message_top_page(
         personal = None
     else:
         items = await _player_rows(db, visible, user_id, offset)
-        kwargs = {"scope": scope, "entity_id": int(user_id), "chat_id": int(chat_id) if scope == "local" else None}
-        position = await stats_repo.get_message_top_position(
-            db, date_start=bounds[0] if bounds else None, date_end=bounds[1] if bounds else None,
-            excluded_user_id=own, **kwargs)
-        personal = _personal(position)
+        kwargs = {"scope": scope, "user_id": int(user_id), "chat_id": local_chat, "excluded_user_id": own}
+        personal = _personal(await _position(db, bounds=bounds, **kwargs))
         previous = previous_bounds(bounds)
         if personal and previous:
-            before = await stats_repo.get_message_top_position(
-                db, date_start=previous[0], date_end=previous[1], excluded_user_id=own, **kwargs)
+            before = await _position(db, bounds=previous, **kwargs)
             personal["delta"] = personal["count"] - (int(before["msg_count"]) if before else 0)
     return {"scope": scope, "period": period, "chat_id": chat_id, "page": page, "pages": pages,
             "items": items, "personal": personal, "chats": chats}
