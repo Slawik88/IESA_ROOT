@@ -116,6 +116,21 @@ BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_global_ban_job_pg.py --dsn postgresql:
 Переменные окружения: `DB_POOL_MAX_SIZE` — **всего** соединений процесса (не больше 10; два из них прямые: блокировка экземпляра и LISTEN, пул = остальное), `DB_ACQUIRE_TIMEOUT_SEC` — сколько ждать свободное соединение (по умолчанию 10 с). Задавать не обязательно.
 Сервер базы общий с сайтом IESA: число соединений всего сервера видно в «Здоровье» → «Сервер и база» (`pg_stat_activity`, соединения Предвестника подписаны `application_name=predvestnik`).
 
+## База и кэши (с S04)
+
+```bash
+DSN=$(bash "$R/predvestnik_v2/docs/roadmap/env-setup.sh" --fresh-db pv_test_db_hot_paths)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_db_hot_paths_pg.py --dsn "$DSN"          # бюджет SQL профиля и топов, снимок и ETag, пачка «пульса», индексы CONCURRENTLY
+node tools/test_client_request_trims.js                                            # клиент: топ раз в 10 с, «пульс» раз в минуту, вход в «Чистку»
+DSN=$(bash "$R/predvestnik_v2/docs/roadmap/env-setup.sh" --fresh-db pv_s04_bench)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_db_hot_queries.py --dsn "$DSN" --indexes  # замер на синтетике ~1M строк (первый запуск наполняет базу ~30 с)
+```
+
+Устройство: индексы больших таблиц строит фоновая задача после блокировки экземпляра (`infrastructure/db_indexes.py`: `CREATE INDEX CONCURRENTLY IF NOT EXISTS` по одному, своё прямое соединение на время постройки, `lock_timeout` 60 с; брошенный деплоем INVALID-индекс удаляется и строится заново при следующем старте; итог — строка `db indexes: …` в логе).
+Триграммные индексы поиска админки строятся, только если расширение `pg_trgm` уже установлено в базе (само расширение не ставится).
+Кэши в памяти процесса (общий для бота и Mini App): топы сообщений — 45 с (`services/leaderboards_v1.py`), свой профиль `/profile/me` — 8 с с ETag, сбрасывается любым не-GET запросом игрока и любым живым событием о нём (`FastAPI/profile_snapshot.py`); время на вкладках копится в памяти и пишется пачкой раз в минуту (`services/tab_time.py`).
+Соединения Предвестника открываются с `jit=off` (`infrastructure/database.py`): JIT компилировал план ~200 мс на запросах с большой оценкой строк. Если когда-нибудь включат пул соединений DigitalOcean (PgBouncer), проверить, что он пропускает параметры `jit`, `statement_timeout`, `search_path`.
+
 ## Остановка и сброс
 
 ```bash
