@@ -21,6 +21,7 @@ def shape(base: dict, appearance: dict, *, is_self: bool, presence: dict | None 
             "badge": vip.get("badge"), "badge_position": vip.get("badge_position"),
         } if vip else None,
         "avatar": base.get("avatar") if vip else None,
+        "avatar_state": base.get("avatar_state", "absent") if vip else "vip_only",
         "level": {
             "level": int(base.get("account_level") or 1),
             "xp_into": int(base.get("xp_into") or 0),

@@ -6,7 +6,7 @@ from loguru import logger
 
 from FastAPI.deps import get_db, require_tab_enabled, require_tg_user
 from infrastructure.repositories import public_profiles_v1 as public_profiles
-from services import leaderboards_v1
+from services import avatar_photos, leaderboards_v1
 
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
 _game_minesweeper_gate = Depends(require_tab_enabled("game_minesweeper_v2"))
@@ -14,15 +14,19 @@ _game_mafia_gate = Depends(require_tab_enabled("game_mafia_v1"))
 
 
 async def podium_avatars(db, rows: list[dict], *, nested: bool = False) -> list[dict]:
-    """Фото VIP в строках топа (до 10 на странице), как в публичном профиле: перк VIP, аватарку видно везде. Самый маленький
-    снимок из кэша на процесс, без ожидания Telegram; пока фото не скачалось, клиент рисует созвездие. nested — строки {player: {...}}."""
-    from FastAPI.routers.profile import _vip_avatar
+    """Фото VIP в строках топа (до 10 на странице), как в публичном профиле: перк VIP, аватарку видно везде.
+    Адрес фото и avatar_state (services/avatar_photos.py) одним запросом к базе, без ожидания Telegram;
+    пока фото не скачалось, клиент рисует созвездие. nested — строки {player: {...}}."""
+    key = "profile_ref" if nested else "ref"
     players = [(r.get("player") or {}) if nested else r for r in rows]
-    refs = await public_profiles.resolve_references(db, [p.get("profile_ref" if nested else "ref") for p in players if p.get("is_vip")])
+    refs = await public_profiles.resolve_references(db, [p.get(key) for p in players if p.get("is_vip")])
+    shown = await avatar_photos.views(db, {uid: ref for ref, uid in refs.items()})
     for p in players:
-        uid = refs.get(p.get("profile_ref" if nested else "ref"))
-        if uid and p.get("is_vip"):
-            p["avatar"] = await _vip_avatar(db, uid, vip_active=True, wait=False)
+        if not p.get("is_vip"):
+            p["avatar"], p["avatar_state"] = None, "vip_only"
+            continue
+        view = shown.get(refs.get(p.get(key)))
+        p["avatar"], p["avatar_state"] = (view.avatar, view.state) if view else (None, "absent")
     return rows
 
 

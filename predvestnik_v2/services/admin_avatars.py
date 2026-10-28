@@ -1,9 +1,9 @@
-"""Фото людей для админки: подписанные ссылки и серверный кэш.
+"""Фото людей для админки: подписанные ссылки; сами фото — в общем кэше в базе.
 
-Фото берётся из Bot API (getUserProfilePhotos → getFile → download) и живёт в
-памяти процесса: 6 часов, если фото есть, и 30 минут, если его нет. Токен бота
-наружу не уходит: карточка получает относительную ссылку с коротким
-HMAC-пропуском `uid:exp:sig`, а байты отдаёт /bot-admin/avatar/{uid}.
+Фото берёт services/avatar_photos.py (Bot API → 128 px WebP → таблица avatar_photos), поэтому
+деплой его не теряет. Админка видит фото **всех** игроков, а не только VIP (правило Mini App
+сюда не относится). Токен бота наружу не уходит: карточка получает относительную ссылку с
+коротким HMAC-пропуском `uid:exp:sig`, а байты отдаёт /bot-admin/avatar/{uid}.
 
 Пропуск подписан ключом от BOT_TOKEN: нет токена — нет и ссылок, фронт покажет
 инициал, а не битую картинку. Ссылку минтит `avatar_url()`; её вызывают только
@@ -12,28 +12,18 @@ HMAC-пропуском `uid:exp:sig`, а байты отдаёт /bot-admin/ava
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import hmac
 import os
 import time
 
-import httpx
+from services import avatar_photos
 
-PHOTO_TTL = 6 * 3600          # позитивный кэш: фото меняется редко
-MISS_TTL = 30 * 60            # негативный кэш: не долбим Bot API «безфотными»
 TOKEN_TTL = 3 * 3600          # срок жизни подписанной ссылки
-MAX_BYTES = 2 * 1024 * 1024   # больше Telegram-аватарок не бывает
-MIN_SIDE = 160                # берём размер не меньше 160px по ширине
-CACHE_MAX = 5000              # страховка от разрастания памяти
 
 # Прозрачный плейсхолдер: под ним в карточке виден цветной кружок с инициалом,
 # поэтому <img> не ломается и браузер не пишет ошибку в консоль.
 PLACEHOLDER = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>'
-
-_CACHE: dict[int, tuple[bytes | None, float]] = {}
-_LOCKS: dict[int, asyncio.Lock] = {}
-_SEM = asyncio.Semaphore(6)   # бережём Bot API: не больше 6 параллельных доборов
 
 
 def _secret() -> bytes | None:
@@ -97,62 +87,6 @@ def image_mime(data: bytes) -> str:
     return "image/jpeg"
 
 
-def _pick_size(sizes: list[dict]) -> dict | None:
-    """Размеры идут от меньшего к большему: берём первый от 160px, иначе самый большой."""
-    usable = [s for s in sizes if (s.get("width") or 0) >= MIN_SIDE]
-    if usable:
-        usable.sort(key=lambda s: (s.get("width") or 0, s.get("height") or 0))
-        return usable[0]
-    return sizes[-1] if sizes else None
-
-
-async def _download(user_id: int) -> bytes | None:
-    token = os.getenv("BOT_TOKEN", "")
-    if not token:
-        return None
-    api = f"https://api.telegram.org/bot{token}"
-    try:
-        async with httpx.AsyncClient(timeout=8) as client:
-            answer = (await client.get(f"{api}/getUserProfilePhotos",
-                                       params={"user_id": int(user_id), "limit": 1})).json()
-            photos = (answer.get("result") or {}).get("photos") or []
-            if not answer.get("ok") or not photos:
-                return None
-            size = _pick_size(photos[0])
-            if not size or not size.get("file_id") or (size.get("file_size") or 0) > MAX_BYTES:
-                return None
-            found = (await client.get(f"{api}/getFile", params={"file_id": size["file_id"]})).json()
-            path = (found.get("result") or {}).get("file_path")
-            if not found.get("ok") or not path:
-                return None
-            photo = await client.get(f"https://api.telegram.org/file/bot{token}/{path}")
-            if photo.status_code != 200 or not photo.content or len(photo.content) > MAX_BYTES:
-                return None
-            return photo.content
-    except Exception:
-        return None
-
-
 async def bytes_for(user_id: int) -> bytes | None:
-    """Кэшированные байты фото или None; «фото нет» тоже кэшируется."""
-    uid = int(user_id)
-    now = time.time()
-    hit = _CACHE.get(uid)
-    if hit and now - hit[1] < (PHOTO_TTL if hit[0] else MISS_TTL):
-        return hit[0]
-    lock = _LOCKS.get(uid)
-    if lock is None:
-        lock = _LOCKS[uid] = asyncio.Lock()
-    async with lock:
-        now = time.time()
-        hit = _CACHE.get(uid)
-        if hit and now - hit[1] < (PHOTO_TTL if hit[0] else MISS_TTL):
-            return hit[0]
-        async with _SEM:
-            data = await _download(uid)
-        if len(_CACHE) > CACHE_MAX:
-            _CACHE.clear()
-        if len(_LOCKS) > CACHE_MAX:
-            _LOCKS.clear()
-        _CACHE[uid] = (data, time.time())
-        return data
+    """Фото игрока (WebP) или None; «фото нет» тоже кэшируется — в базе, на 30 минут."""
+    return await avatar_photos.image_for_admin(int(user_id))

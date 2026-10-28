@@ -2,7 +2,8 @@
 
 1) Пропуск принимается только свой и только до срока; подмена uid ломает подпись.
 2) Без BOT_TOKEN ссылок нет вовсе — фронт покажет инициал, а не битую картинку.
-3) «Фото нет» кэшируется негативно, повторный запрос не идёт в Bot API.
+3) Байты берутся из общего кэша в базе (services/avatar_photos) без правила VIP: админка видит всех;
+   сам кэш, его переживание деплоя и «фото нет» проверяет tools/test_avatar_pool_pg.py.
 4) Формат картинки определяется по байтам, а не по расширению.
 
 Запуск: python tools/test_bot_admin_avatars.py
@@ -65,23 +66,20 @@ def test_bytes_and_cache() -> None:
 
     async def fake(user_id):
         calls.append(user_id)
-        return b"\x89PNG\r\n\x1a\nphoto" if user_id == 1 else None
+        return b"RIFF\0\0\0\0WEBPphoto" if user_id == 1 else None
 
-    real = av._download
-    av._download = fake
-    av._CACHE.clear()
+    real = av.avatar_photos.image_for_admin
+    av.avatar_photos.image_for_admin = fake
     try:
         assert asyncio.run(av.bytes_for(2)) is None
-        assert asyncio.run(av.bytes_for(2)) is None
-        assert calls == [2], "негативный кэш должен гасить повторный запрос"
         assert asyncio.run(av.bytes_for(1)).endswith(b"photo")
+        assert calls == [2, 1], "админка не проверяет VIP: спрашивает фото любого игрока"
         assert av.image_mime(b"\x89PNG\r\n\x1a\n") == "image/png"
         assert av.image_mime(b"GIF89a") == "image/gif"
         assert av.image_mime(b"RIFF\0\0\0\0WEBP") == "image/webp"
         assert av.image_mime(b"\xff\xd8\xff") == "image/jpeg"
     finally:
-        av._download = real
-        av._CACHE.clear()
+        av.avatar_photos.image_for_admin = real
 
     placeholder = av.PLACEHOLDER
     assert placeholder.startswith(b"<svg") and "viewBox" in placeholder.decode()
@@ -119,7 +117,7 @@ def main() -> None:
     test_urls_and_attach()
     test_bytes_and_cache()
     test_route_is_token_gated()
-    print("OK: фото админки — подпись, срок, негативный кэш, плейсхолдер и формат байтов")
+    print("OK: фото админки — подпись, срок, общий кэш без правила VIP, плейсхолдер и формат байтов")
 
 
 main()
