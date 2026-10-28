@@ -1,3 +1,15 @@
+## ROADMAP-S03 — POOL AND TELEGRAM THROTTLER, PUSHED TO MASTER (production not verified from the cloud)
+
+Throttler: per-chat 1.05 s slot only for Send*/Edit*/Forward*/Copy* (not sendChatAction); per-chat priority heap, slot granted at send time, a cancelled waiter costs nothing,
+`urgent()` for admin actions (10 getChatMember in one chat 9.45 s → 0 s). Lazy DB handle `infrastructure/lazy_db.py`: connection on the first SQL, given back before every Telegram
+request when no transaction is open (bot updates, `get_db`, `pool_db_factory`, maintenance, chat Mafia tick); acquire timeout `DB_ACQUIRE_TIMEOUT_SEC` (10 s) → `PoolBusy` → HTTP 503
+(load test, 4 pooled connections, 10 stuck Telegram calls: Mini App wait 3.71 s → ≤ 2 ms). Advisory lock and LISTEN on direct connections; pool = `DB_POOL_MAX_SIZE` − 2, so the process
+total is unchanged (≤ 10); lock waits without statement_timeout, retries when the server is full, restarts the process if lost; LISTEN reconnects. Global ban/unban as a background job
+(4 chats at a time, unban stops a running ban, progress `GET /bot-admin/player/{uid}/global-progress`). Purge `decide` still holds its transaction over Telegram by design (→ S05).
+Checked locally: new `test_outbound_throttle.py`, `test_pool_starvation_pg.py`, `test_global_ban_job_pg.py`; purge, avatar, balance events, ws, ops health, support reports; Telegram simulator
+(mafia 55/55, bot error monitor); `ui_smoke --only profile` 320/390/430; all 110 PG tests on master vs branch (no new failures). Independent read-only audit: 10 findings, 7 fixed, 1 rejected,
+2 accepted as residual. Not checked: production (owner), real Telegram.
+
 ## ROADMAP-S03 (hotfix, part 1) — DATABASE SERVER OUT OF CONNECTIONS, PUSHED TO MASTER (production not verified from the cloud)
 
 Owner report 2026-10-28 ~10:40: `TooManyConnectionsError` / «remaining connection slots are reserved for roles with the SUPERUSER attribute» in the mafia and market loops, skin news
