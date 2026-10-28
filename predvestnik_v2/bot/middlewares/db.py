@@ -1,10 +1,10 @@
-import time
 from typing import Callable, Awaitable, Dict, Any
+
+from aiogram.client.session.middlewares.base import BaseRequestMiddleware
 from aiogram.types import TelegramObject
 
-from core import ops_metrics
+from infrastructure import lazy_db
 from infrastructure.database import get_pool
-from infrastructure.pg_adapter import PGAdapter
 
 
 async def db_middleware(
@@ -12,10 +12,17 @@ async def db_middleware(
     event: TelegramObject,
     data: Dict[str, Any],
 ) -> Any:
-    # Чат-логика (учёт сообщений, санкции, антиспам, чистка) удалена из кода;
-    # данные остаются в БД. Здесь только соединение для будущих обработчиков.
-    started = time.perf_counter()
-    async with get_pool().acquire() as conn:
-        ops_metrics.observe("pool_wait", "bot", (time.perf_counter() - started) * 1000)
-        data["db"] = PGAdapter(conn)
+    # The connection is taken on the handler's first SQL and given back before each Telegram call
+    # (DbReleaseMiddleware below), so a slow Telegram never holds a pool connection.
+    async with lazy_db.lazy_connection(get_pool(), source="bot") as db:
+        data["db"] = db
         return await handler(event, data)
+
+
+class DbReleaseMiddleware(BaseRequestMiddleware):
+    """Outbound (Bot.session) middleware: before any Telegram request, return the idle connection of the
+    current update or request to the pool. Registered outside the throttler, so the send-slot wait is free too."""
+
+    async def __call__(self, make_request, bot, method):
+        await lazy_db.release_current()
+        return await make_request(bot, method)

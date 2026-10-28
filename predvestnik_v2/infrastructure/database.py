@@ -11,10 +11,12 @@ which resets search_path to PostgreSQL default. We fix this via:
 import asyncio
 import os
 import socket
+import time
 import asyncpg
 from loguru import logger
 from urllib.parse import urlparse
 
+from core import ops_metrics
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.preprod import assert_preprod_environment, is_preprod
 
@@ -33,6 +35,31 @@ def _pool_max_size() -> int:
     except ValueError:
         configured = 10
     return max(2, min(configured, 10))
+
+
+def _acquire_timeout_sec() -> float:
+    """How long a bot update or request waits for a free pool connection before giving up with PoolBusy."""
+    try:
+        return max(1.0, float(os.environ.get("DB_ACQUIRE_TIMEOUT_SEC", "10")))
+    except ValueError:
+        return 10.0
+
+
+class PoolBusy(RuntimeError):
+    """No free pool connection within DB_ACQUIRE_TIMEOUT_SEC: the caller answers «busy» instead of hanging."""
+
+
+async def acquire_connection(pool: asyncpg.Pool, source: str) -> asyncpg.Connection:
+    """Take a pool connection with a time limit; the wait is measured per source ("http", "bot", …)."""
+    started = time.perf_counter()
+    timeout = _acquire_timeout_sec()
+    try:
+        return await pool.acquire(timeout=timeout)
+    except asyncio.TimeoutError:
+        ops_metrics.count("pool_timeout", source)
+        raise PoolBusy(f"no free database connection within {timeout:.0f} s ({source})") from None
+    finally:
+        ops_metrics.observe("pool_wait", source, (time.perf_counter() - started) * 1000)
 
 
 def _statement_timeout_ms() -> int:

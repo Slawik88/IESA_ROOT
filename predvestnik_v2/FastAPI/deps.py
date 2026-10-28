@@ -11,11 +11,11 @@ import time
 from urllib.parse import unquote
 
 from fastapi import Depends, Header, HTTPException, Request
+from infrastructure import lazy_db
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from FastAPI.auth import (check_session_token, check_webapp_data, verify_preprod_browser_ticket,
                           verify_session_token, hash_signal)
-from core import ops_metrics
 from services.ops_health import AUTH_REASONS, record_auth_failure
 from infrastructure.preprod import is_preprod, is_preprod_browser_test_user, require_preprod_user
 
@@ -26,17 +26,17 @@ AUTH_REASON_HEADER = "X-Auth-Reason"
 
 
 async def get_db():
-    """Yield a PGAdapter-wrapped DB connection from the shared pool.
+    """Yield a PGAdapter-compatible DB handle on the shared pool.
 
     If the shared pool has not been initialized yet, create it lazily.
     This protects FastAPI requests that arrive before the bot process finishes
     its startup sequence and global DB initialization.
     """
     await create_pool()
-    started = time.perf_counter()
-    async with get_pool().acquire() as conn:
-        ops_metrics.observe("pool_wait", "http", (time.perf_counter() - started) * 1000)
-        yield PGAdapter(conn)
+    # Lazy: the connection is taken on the first SQL and given back before any Telegram call made through
+    # the bot client (infrastructure/lazy_db.py), so admin and purge requests do not hold it while Telegram answers.
+    async with lazy_db.lazy_connection(get_pool(), source="http") as db:
+        yield db
 
 
 async def require_tg_user_base(

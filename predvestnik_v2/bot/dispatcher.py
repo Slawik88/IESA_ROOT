@@ -10,7 +10,8 @@ from loguru import logger
 
 from bot.handlers import main_router
 from bot.middlewares.config_mw import config_middleware
-from bot.middlewares.db import db_middleware
+from bot.middlewares.db import DbReleaseMiddleware, db_middleware
+from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
 from services import ops_health
 
@@ -34,3 +35,11 @@ def build_dispatcher() -> Dispatcher:
     dp.errors.register(note_handler_error)
     dp.include_router(main_router)
     return dp
+
+
+def attach_outbound(session, *, throttle: bool = True) -> None:
+    """Outbound middlewares of the bot client, outermost first: give back the idle DB connection, then wait
+    for the Telegram send slot. The simulator passes throttle=False (its Telegram has no rate limit)."""
+    session.middleware(DbReleaseMiddleware())
+    if throttle:
+        session.middleware(OutboundThrottleMiddleware())

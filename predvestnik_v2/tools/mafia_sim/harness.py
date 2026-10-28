@@ -58,13 +58,14 @@ class Harness:
     # ── lifecycle ───────────────────────────────────────────────────────────
     async def open(self) -> "Harness":
         from aiogram import Bot
-        from bot.dispatcher import build_dispatcher
+        from bot.dispatcher import attach_outbound, build_dispatcher
         from infrastructure.database import create_pool
 
         await create_pool()
         await self._bootstrap_schema()
         await self._purge([CHAT_BASE - n for n in range(1, 2001)])  # leftovers of an aborted earlier run
         self.bot = Bot(token=f"{BOT_ID}:SIM-TOKEN", session=FakeSession(self.world))
+        attach_outbound(self.bot.session, throttle=False)  # DB connection given back before each Telegram call, as in production
         self.dp = build_dispatcher()  # the same middlewares and error monitor as bot/__main__.py
         return self
 

@@ -22,7 +22,7 @@ if os.getenv("PREDVESTNIK_ENV", "").strip().lower() == "preprod":
 else:
     load_dotenv()
 
-from infrastructure.database import create_pool, get_pool
+from infrastructure.database import PoolBusy, create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import theme_templates, theme_meta, web_notifications, admin_log, system_flags, dev_settings, analytics as analytics_repo
 from FastAPI.auth import (verify_login_widget, create_session_token,
@@ -289,6 +289,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Predvestnik Mini App", lifespan=lifespan)
+
+
+@app.exception_handler(PoolBusy)
+async def _pool_busy(request, exc: PoolBusy):
+    # Every DB connection stayed busy past DB_ACQUIRE_TIMEOUT_SEC: a short «try again» instead of a hanging request.
+    # 503 is what the Mini App already retries once for GET (static/app.01.js api()).
+    return JSONResponse({"detail": "Сервер сейчас занят. Попробуй ещё раз через пару секунд."},
+                        status_code=503, headers={"Retry-After": "2"})
 app.include_router(mafia_online_router.router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])

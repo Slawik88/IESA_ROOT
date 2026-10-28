@@ -10,8 +10,7 @@ from loguru import logger
 
 from bot.config import config
 from bot.core.database import init_db
-from bot.dispatcher import build_dispatcher
-from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
+from bot.dispatcher import attach_outbound, build_dispatcher
 from bot.chat.payments import star_payment_reconciliation_task
 from infrastructure.database import create_pool
 from infrastructure.preprod import is_preprod
@@ -181,9 +180,9 @@ async def main():
 
     logger.info("⚙️  Инициализация Telegram Bot API...")
     bot = Bot(token=config.bot_token)
-    # Троттлинг ВСЕХ исходящих запросов (не апдейтов!) — предотвращает flood
-    # control Telegram при высокой активности чата (см. bot/middlewares/outbound_throttle.py).
-    bot.session.middleware(OutboundThrottleMiddleware())
+    # Исходящие запросы (не апдейты!): соединение с базой отдаётся до вызова Telegram, затем троттлинг
+    # против flood control (bot/middlewares/db.py, bot/middlewares/outbound_throttle.py).
+    attach_outbound(bot.session)
     logger.info("📡 Middleware, перехват ошибок обработчиков и роутеры...")
     dp = build_dispatcher()
     logger.info("✅ Все роутеры подключены!")
