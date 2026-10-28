@@ -7,7 +7,10 @@ import asyncio
 from datetime import date, datetime, timedelta, timezone
 from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from FastAPI import profile_snapshot
 from FastAPI.deps import assert_account_active, get_db, require_tg_user, require_tg_user_base
 from infrastructure.database import acquire_connection, create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
@@ -273,54 +276,46 @@ async def _achievement_paths(db, user_id: int) -> dict:
 
 async def _game_results(db, user_id: int, *, include_private: bool) -> dict:
     """Results from the three approved games; Rhythm trust stays explicit."""
+    # One round trip for the three games (each part reads only this player's rows).
     async with db.execute(
-        "SELECT "
+        "WITH rhythm AS (SELECT "
         "COUNT(*) FILTER (WHERE status='finished' AND integrity_status='clear') AS verified_runs,"
         "MAX(score) FILTER (WHERE status='finished' AND integrity_status='clear') AS best_verified_score,"
         "COUNT(*) FILTER (WHERE status='finished' AND integrity_status<>'clear') AS unranked_runs "
-        "FROM rhythm_v2_runs WHERE user_id=?",
-        (int(user_id),),
-    ) as cursor:
-        rhythm = dict(await cursor.fetchone())
-    rhythm_view = {
-        "verified_runs": int(rhythm.get("verified_runs") or 0),
-        "best_verified_score": int(rhythm["best_verified_score"]) if rhythm.get("best_verified_score") is not None else None,
-    }
-    if include_private:
-        rhythm_view["personal_unranked_runs"] = int(rhythm.get("unranked_runs") or 0)
-
-    async with db.execute(
-        "SELECT COUNT(*) FILTER (WHERE status IN ('won','lost')) AS played,"
+        "FROM rhythm_v2_runs WHERE user_id=?), "
+        "mines AS (SELECT COUNT(*) FILTER (WHERE status IN ('won','lost')) AS played,"
         "COUNT(*) FILTER (WHERE status='won') AS wins,"
         "MIN(elapsed_ms) FILTER (WHERE status='won' AND difficulty='easy') AS easy_best_ms,"
         "MIN(elapsed_ms) FILTER (WHERE status='won' AND difficulty='normal') AS normal_best_ms,"
         "MIN(elapsed_ms) FILTER (WHERE status='won' AND difficulty='hard') AS hard_best_ms "
-        "FROM minesweeper_v2_runs WHERE user_id=?",
-        (int(user_id),),
-    ) as cursor:
-        mines = dict(await cursor.fetchone())
-
-    async with db.execute(
-        "SELECT COUNT(*) FILTER (WHERE m.phase='finished') AS played,"
+        "FROM minesweeper_v2_runs WHERE user_id=?), "
+        "mafia AS (SELECT COUNT(*) FILTER (WHERE m.phase='finished') AS mafia_played,"
         "COUNT(*) FILTER (WHERE m.phase='finished' AND "
         "((m.winner='mafia' AND p.role IN ('mafia','don')) OR "
-        "(m.winner='town' AND p.role IN ('citizen','doctor','detective')))) AS wins "
-        "FROM mafia_v1_players p JOIN mafia_v1_matches m ON m.id=p.match_id WHERE p.user_id=?",
-        (int(user_id),),
+        "(m.winner='town' AND p.role IN ('citizen','doctor','detective')))) AS mafia_wins "
+        "FROM mafia_v1_players p JOIN mafia_v1_matches m ON m.id=p.match_id WHERE p.user_id=?) "
+        "SELECT * FROM rhythm, mines, mafia",
+        (int(user_id), int(user_id), int(user_id)),
     ) as cursor:
-        mafia = dict(await cursor.fetchone())
+        row = dict(await cursor.fetchone())
+    rhythm_view = {
+        "verified_runs": int(row.get("verified_runs") or 0),
+        "best_verified_score": int(row["best_verified_score"]) if row.get("best_verified_score") is not None else None,
+    }
+    if include_private:
+        rhythm_view["personal_unranked_runs"] = int(row.get("unranked_runs") or 0)
 
     def _best(key: str) -> int | None:
-        return int(mines[key]) if mines.get(key) is not None else None
+        return int(row[key]) if row.get(key) is not None else None
 
     return {
         "rhythm": rhythm_view,
         "minesweeper": {
-            "played": int(mines.get("played") or 0),
-            "wins": int(mines.get("wins") or 0),
+            "played": int(row.get("played") or 0),
+            "wins": int(row.get("wins") or 0),
             "best_ms": {"easy": _best("easy_best_ms"), "normal": _best("normal_best_ms"), "hard": _best("hard_best_ms")},
         },
-        "mafia": {"played": int(mafia.get("played") or 0), "wins": int(mafia.get("wins") or 0)},
+        "mafia": {"played": int(row.get("mafia_played") or 0), "wins": int(row.get("mafia_wins") or 0)},
     }
 
 
@@ -408,8 +403,20 @@ async def _sanctions(db, user_id: int, *, include_private: bool) -> dict:
 
 
 @router.get("/me")
-async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Полный профиль текущего пользователя."""
+async def my_profile(request: Request, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Полный профиль текущего пользователя: снимок на несколько секунд (FastAPI/profile_snapshot.py) и ETag."""
+    snapshot_key = profile_snapshot.key(int(user["id"]))
+    snapshot = profile_snapshot.get(snapshot_key)
+    if snapshot is None:
+        body = JSONResponse(jsonable_encoder(await _build_my_profile(db, user))).body
+        snapshot = profile_snapshot.put(snapshot_key, body)
+    headers = {"ETag": snapshot.etag, "Cache-Control": "private, no-cache"}
+    if request.headers.get("if-none-match") == snapshot.etag:
+        return Response(status_code=304, headers=headers)
+    return Response(snapshot.body, media_type="application/json", headers=headers)
+
+
+async def _build_my_profile(db, user: dict) -> dict:
     user_id = user["id"]
     await _ensure_profile_tables(db)
 

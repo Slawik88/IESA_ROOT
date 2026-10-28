@@ -14,6 +14,7 @@ from fastapi import Depends, Header, HTTPException, Request
 from infrastructure import lazy_db
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
+from FastAPI import profile_snapshot
 from FastAPI.auth import (check_session_token, check_webapp_data, verify_preprod_browser_ticket,
                           verify_session_token, hash_signal)
 from services.ops_health import AUTH_REASONS, record_auth_failure
@@ -25,7 +26,7 @@ _PREPROD_TEST_COOKIE = "predvestnik_preprod_test_session"
 AUTH_REASON_HEADER = "X-Auth-Reason"
 
 
-async def get_db():
+async def get_db(request: Request = None):   # None: a test drives the generator directly
     """Yield a PGAdapter-compatible DB handle on the shared pool.
 
     If the shared pool has not been initialized yet, create it lazily.
@@ -33,10 +34,15 @@ async def get_db():
     its startup sequence and global DB initialization.
     """
     await create_pool()
-    # Lazy: the connection is taken on the first SQL and given back before any Telegram call made through
-    # the bot client (infrastructure/lazy_db.py), so admin and purge requests do not hold it while Telegram answers.
-    async with lazy_db.lazy_connection(get_pool(), source="http") as db:
-        yield db
+    try:
+        # Lazy: the connection is taken on the first SQL and given back before any Telegram call made through
+        # the bot client (infrastructure/lazy_db.py), so admin and purge requests do not hold it while Telegram answers.
+        async with lazy_db.lazy_connection(get_pool(), source="http") as db:
+            yield db
+    finally:
+        # A write of the player (committed or not) ends the few seconds their own profile is served from memory.
+        if request is not None and request.method != "GET":
+            profile_snapshot.forget(getattr(request.state, "support_user_id", 0))
 
 
 async def require_tg_user_base(

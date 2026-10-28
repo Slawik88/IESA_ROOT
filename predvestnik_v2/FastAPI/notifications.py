@@ -17,6 +17,8 @@ import json
 
 from loguru import logger
 
+from FastAPI import profile_snapshot
+
 # user_id → queues of every open tab/device for this account
 _queues: dict[int, set[asyncio.Queue]] = {}
 
@@ -126,6 +128,7 @@ async def notify(user_id: int, event: dict) -> bool:
     """Доставить событие подключённому WS-клиенту. Возвращает True, если клиент
     онлайн (событие отправлено), иначе False — вызывающий может сохранить его в
     web_notifications для показа при следующем входе (Welcome Back)."""
+    profile_snapshot.forget(user_id)   # live event about the player: their profile snapshot is no longer current
     queues = tuple(_queues.get(user_id, ()))
     delivered = False
     for q in queues:
