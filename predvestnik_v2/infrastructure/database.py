@@ -49,6 +49,9 @@ def _server_settings(statement_timeout_ms: int) -> dict:
         "search_path": f"{_SCHEMA},public",
         "statement_timeout": str(statement_timeout_ms),
         "application_name": APP_NAME,
+        # Short game queries only: JIT compiled a plan for ~200 ms when the row estimate was large (S04, admin search on
+        # synthetic 1M rows) while the query itself ran ~30 ms. Off for our connections only; the IESA site is untouched.
+        "jit": "off",
     }
 
 

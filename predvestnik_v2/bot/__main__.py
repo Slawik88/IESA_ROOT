@@ -200,6 +200,11 @@ async def main():
     _lock_conn.add_termination_listener(_on_lock_lost)
     # ─────────────────────────────────────────────────────────────────────────
 
+    # Indexes on big tables (CREATE INDEX CONCURRENTLY): after the lock, so only one instance builds them, and in the
+    # background, so a long build never delays start-up. The task ends on its own and logs instead of failing.
+    from infrastructure import db_indexes
+    background_tasks.append(asyncio.create_task(db_indexes.run(), name="predvestnik:db-indexes"))
+
     logger.info("⚙️  Инициализация Telegram Bot API...")
     bot = Bot(token=config.bot_token)
     # Исходящие запросы (не апдейты!): соединение с базой отдаётся до вызова Telegram, затем троттлинг
