@@ -37,7 +37,7 @@ async def track_tab(body: _TabEvent, db=Depends(get_db), user=Depends(require_tg
 @router.post("/tab-duration")
 async def track_tab_duration(body: _TabDurationEvent, user=Depends(require_tg_user)):
     """Хартбит удержания: фронт копит видимые секунды вкладки и шлёт их раз в минуту и при сворачивании (БЛОК 36, S04).
-    Сервер складывает их в памяти и пишет пачкой (services/tab_time.py): запрос не берёт соединение с базой."""
+    Сервер складывает их в памяти и пишет пачкой (services/tab_time.py): сам запрос в таблицу визитов не пишет."""
     if _DEVELOPER_ID and user["id"] == _DEVELOPER_ID:
         return {"ok": True}
     tab = (body.tab or "")[:64]

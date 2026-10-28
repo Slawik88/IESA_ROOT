@@ -22,7 +22,8 @@ PERIODS = ("day", "week", "month", "all_time")
 SCOPES = ("global", "chats", "local")
 # Message tops are sums over the whole message history: every player on the home screen asked for them again after
 # each chat message. Rankings and own places now live this long per key (period bounds, chat, page size); a new
-# message shows up in the top at most this late. Names, looks and marks of the visible rows are read fresh.
+# message shows up in the top at most this late, and so does a new VIP badge (is_vip comes with the ranked row).
+# Names, looks and marks of the visible rows are read fresh.
 # Cached rows and places are shared between viewers: callers read them and build new objects, never mutate them.
 BOARD_CACHE_SEC = 45
 _BOARDS = TtlCache(BOARD_CACHE_SEC, max_entries=128)    # up to 500 rows each: global, chats and local boards

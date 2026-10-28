@@ -15,8 +15,10 @@ from infrastructure.repositories import analytics as analytics_repo
 
 FLUSH_SEC = 60
 MAX_PENDING = 50_000   # sessions waiting for a write; past it new seconds are dropped until the next write
+MAX_PENDING_PER_PLAYER = 20   # one player inventing sessions cannot fill the table for everybody
 
 _pending: dict[tuple[int, str, str], int] = {}
+_per_player: dict[int, int] = {}
 _last_flush = time.monotonic()
 _flush_task: asyncio.Task | None = None
 
@@ -24,8 +26,11 @@ _flush_task: asyncio.Task | None = None
 def add(user_id: int, tab: str, session_id: str, seconds: int) -> None:
     """Count the seconds; start a background write when the last one is FLUSH_SEC old."""
     key = (int(user_id), tab, session_id)
-    if key in _pending or len(_pending) < MAX_PENDING:
-        _pending[key] = _pending.get(key, 0) + int(seconds)
+    if key in _pending:
+        _pending[key] += int(seconds)
+    elif len(_pending) < MAX_PENDING and _per_player.get(key[0], 0) < MAX_PENDING_PER_PLAYER:
+        _per_player[key[0]] = _per_player.get(key[0], 0) + 1
+        _pending[key] = int(seconds)
     if time.monotonic() - _last_flush >= FLUSH_SEC and (_flush_task is None or _flush_task.done()):
         _start_flush()
 
@@ -47,7 +52,7 @@ async def _flush_in_background() -> None:
 
 async def flush(db) -> int:
     """Write everything summed so far; returns the number of visits updated. Seconds of a failed write are lost."""
-    global _pending
-    batch, _pending = _pending, {}
+    global _pending, _per_player
+    batch, _pending, _per_player = _pending, {}, {}
     await analytics_repo.add_tab_durations(db, [(*key, seconds) for key, seconds in batch.items()])
     return len(batch)

@@ -1,7 +1,7 @@
 ## ROADMAP-S04 — DATABASE AND CACHES, PUSHED TO MASTER (production not verified from the cloud)
 
-Season pass reads without DDL (`to_regclass` fast path). Message tops: in-process cache 45 s per key (rankings and own places), index `daily_user_stats (date, user_id) INCLUDE
-(message_count)`, client refreshes tops on chat activity at most once per 10 s. `/profile/me`: 8 s snapshot per player with ETag/304, dropped on any non-GET request of the player
+Season pass reads without DDL (`to_regclass` fast path). Message tops: in-process cache 45 s per key (rankings and own places), index `daily_user_stats (date,
+user_id)` (no INCLUDE: keeps per-message increments HOT), client refreshes tops on chat activity at most once per 10 s. `/profile/me`: 8 s snapshot per player with ETag/304, dropped on any non-GET request of the player
 (`get_db`) and on any live event (`notify`), generation keys so a read started before a write is never served; game results in one query (30 statements cold, 1 from the snapshot).
 Tab-time heartbeat: client once a minute and on hide (keepalive), server sums in memory and writes one batch UPDATE per minute (≤ 60 s of this statistic lost on restart).
 `record_message`: `users`/`chat_settings` rewritten only on a real change (the same nick fired `users_live_profile_v1` and reloaded the author's open profile on every chat message);
@@ -11,7 +11,7 @@ Indexes are built by a background task after the instance lock (`infrastructure/
 App connections use `jit=off` (JIT compile ~200 ms on large-estimate queries). Synthetic 1M rows, cold: week top 93 → 17 ms, admin search 295 → 40 ms, journal 80 → 20 ms, purge violators
 39 → 10 ms. Checked locally: new `test_db_hot_paths_pg.py`, `test_client_request_trims.js`, `bench_db_hot_queries.py`; 104 related tests on master vs branch (no new failures); Telegram
 simulator (mafia 55/55, error monitor, word chain); `ui_smoke --only profile,top,more` 320/390/430; auth recovery and telemetry browser tests; patch-note and copy contracts.
-AUDIT_LINE Not checked: production (owner), real Telegram, real table sizes.
+Independent read-only audit: no blockers, 2 major + 7 minor; fixed: no INCLUDE, no drop of an index still building, InterfaceError caught, per-player tab-time cap, comments; accepted: overlapping deploys during the one-time build (seconds), private WebView cache of the profile, module-level caches. Not checked: production (owner), real Telegram, real table sizes.
 
 ## ROADMAP-S03 — POOL AND TELEGRAM THROTTLER, PUSHED TO MASTER (production not verified from the cloud)
 

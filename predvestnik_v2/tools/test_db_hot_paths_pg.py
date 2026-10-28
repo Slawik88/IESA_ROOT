@@ -148,6 +148,12 @@ async def tab_time_in_one_batch(client, headers) -> None:
             "SELECT duration_sec FROM site_analytics WHERE user_id=$1 AND tab='top' AND session_id='s04' "
             "ORDER BY visited_at DESC LIMIT 1", PLAYER)
     assert total == 3 * 60 + 120, total
+    for n in range(tab_time.MAX_PENDING_PER_PLAYER + 5):   # one player inventing sessions fills only their own share
+        tab_time.add(OTHER, "top", f"fake-{n}", 60)
+    tab_time.add(PLAYER, "top", "s04", 60)
+    assert len(tab_time._pending) == tab_time.MAX_PENDING_PER_PLAYER + 1
+    tab_time._pending.clear()
+    tab_time._per_player.clear()
 
 
 async def identity_rows_kept(db) -> None:

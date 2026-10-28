@@ -10,12 +10,14 @@ from __future__ import annotations
 import asyncpg
 from loguru import logger
 
+_DB_ERRORS = (asyncpg.PostgresError, asyncpg.InterfaceError, OSError)   # InterfaceError: the connection dropped mid-build
 LOCK_TIMEOUT = "60s"   # how long a build may wait for its lock or for older transactions before it gives up until the next start
 
 # (name, table and columns, extension it needs). Order: the cheapest first.
 INDEXES = (
-    # tops for a period across all chats: filter by date only, sum per player (index-only scan)
-    ("idx_daily_stats_date_user", "daily_user_stats (date, user_id) INCLUDE (message_count)", None),
+    # tops for a period across all chats: filter by date only, sum per player. Without INCLUDE (message_count): every chat
+    # message increments that column, and an index holding it would turn each cheap in-place update into a write to every index.
+    ("idx_daily_stats_date_user", "daily_user_stats (date, user_id)", None),
     # purge: last mute of every member of a chat; the admin journal of one player; the admin journal by period
     ("idx_mod_chat_user_action_at", "moderation_logs (chat_id, user_id, action, created_at)", None),
     ("idx_mod_user", "moderation_logs (user_id)", None),
@@ -36,8 +38,14 @@ async def _state(connection: asyncpg.Connection, name: str) -> str:
     return "missing" if valid is None else ("ready" if valid else "invalid")
 
 
+async def _still_building(connection: asyncpg.Connection, name: str) -> bool:
+    return bool(await connection.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM pg_stat_progress_create_index p JOIN pg_class c ON c.oid = p.index_relid "
+        "WHERE c.relname = $1 AND c.relnamespace = current_schema()::regnamespace)", name))
+
+
 async def build_all(connection: asyncpg.Connection) -> dict[str, str]:
-    """Build the missing indexes one by one; returns name -> ready / built / skipped / failed."""
+    """Build the missing indexes one by one; returns name -> ready / built / building / skipped / failed."""
     await connection.execute(f"SET lock_timeout = '{LOCK_TIMEOUT}'")
     await connection.execute("SET statement_timeout = 0")
     installed = {row[0] for row in await connection.fetch("SELECT extname FROM pg_extension")}
@@ -50,13 +58,16 @@ async def build_all(connection: asyncpg.Connection) -> dict[str, str]:
         if state == "ready":
             result[name] = "ready"
             continue
+        if state == "invalid" and await _still_building(connection, name):   # a killed process's build may still run on the server
+            result[name] = "building"
+            continue
         try:
             if state == "invalid":   # left by an interrupted build: it is never used by queries, only slows writes
                 await connection.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {name}")
             await connection.execute(f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {name} ON {target}")
             result[name] = "built"
             logger.info("db index {} built", name)
-        except (asyncpg.PostgresError, OSError) as error:
+        except _DB_ERRORS as error:
             result[name] = "failed"
             logger.warning("db index {} not built, next start retries: {}: {}", name, type(error).__name__, error)
     return result
@@ -67,13 +78,13 @@ async def run() -> None:
     from infrastructure.database import connect_direct
     try:
         connection = await connect_direct(statement_timeout_ms=0)
-    except (asyncpg.PostgresError, OSError) as error:
+    except _DB_ERRORS as error:
         logger.warning("db indexes postponed to the next start: no connection: {}: {}", type(error).__name__, error)
         return
     try:
         result = await build_all(connection)
         logger.info("db indexes: {}", ", ".join(f"{name}={state}" for name, state in result.items()))
-    except (asyncpg.PostgresError, OSError) as error:
+    except _DB_ERRORS as error:
         logger.warning("db indexes stopped, next start retries: {}: {}", type(error).__name__, error)
     finally:
         await connection.close()
