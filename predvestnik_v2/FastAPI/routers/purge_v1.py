@@ -57,6 +57,15 @@ async def chats(offset: int = Query(0, ge=0, le=1_000_000), db=Depends(get_db), 
                                            purge_only=True, developer=is_developer(int(user["id"])))
 
 
+@router.get("/access")
+async def access(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Only "is there a chat to purge" for the entry in «Ещё»: no counting of chats and their members (S04)."""
+    from infrastructure.repositories import moderation_chats
+    from bot.chat.access import is_developer
+    return {"available": await moderation_chats.has_purge_access(db, user_id=int(user["id"]),
+                                                                 developer=is_developer(int(user["id"])))}
+
+
 @router.get("/chats/{cid}")
 async def current(cid: int, page: int = Query(0, ge=0, le=10000), mode: str = Query("pending", pattern="^(pending|decided|all)$"),
                   db=Depends(get_db), user=Depends(require_tg_user)):

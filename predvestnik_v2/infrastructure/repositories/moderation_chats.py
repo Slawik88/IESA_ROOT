@@ -2,14 +2,25 @@
 from core.chat_rank_policy import ACTION_BY_KEY
 
 
-async def listing(db, *, user_id: int, offset: int = 0, purge_only: bool = False, developer: bool = False) -> dict:
+def _source(user_id: int, purge_only: bool, developer: bool) -> tuple[str, list]:
     scope = "(COALESCE(c.owner_override,c.owner_id)=? OR (s.user_tg_id IS NOT NULL AND NOT COALESCE(s.is_left,FALSE)))"
     params = [user_id, user_id]
     if purge_only:
         scope += " AND c.bot_left_at IS NULL AND (? OR COALESCE(c.owner_override,c.owner_id)=? OR COALESCE(s.chat_rank,0)>=COALESCE(r.min_rank,?))"
         params.extend((developer, user_id, ACTION_BY_KEY["purge"].default))
-    source = (" FROM chat_settings c LEFT JOIN user_chat_stats s ON s.chat_tg_id=c.chat_id AND s.user_tg_id=? "
-              "LEFT JOIN chat_rank_rights r ON r.chat_id=c.chat_id AND r.action='purge' WHERE c.chat_id<0 AND " + scope)
+    return (" FROM chat_settings c LEFT JOIN user_chat_stats s ON s.chat_tg_id=c.chat_id AND s.user_tg_id=? "
+            "LEFT JOIN chat_rank_rights r ON r.chat_id=c.chat_id AND r.action='purge' WHERE c.chat_id<0 AND " + scope), params
+
+
+async def has_purge_access(db, *, user_id: int, developer: bool = False) -> bool:
+    """Is there at least one chat where this person may run a purge: the same rule as listing, stopped at the first match."""
+    source, params = _source(user_id, True, developer)
+    async with db.execute("SELECT EXISTS(SELECT 1" + source + ")", tuple(params)) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def listing(db, *, user_id: int, offset: int = 0, purge_only: bool = False, developer: bool = False) -> dict:
+    source, params = _source(user_id, purge_only, developer)
     async with db.execute("SELECT COUNT(*)" + source, tuple(params)) as cursor:
         total = int((await cursor.fetchone())[0])
     limit = 50

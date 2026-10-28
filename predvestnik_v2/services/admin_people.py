@@ -98,6 +98,12 @@ _PLAYER_SQL = (
     "SELECT u.user_tg_id, u.user_tg_username, COALESCE(u.bot_rank, 0), COALESCE(s.total, 0), s.last, u.user_tg_name "
     "FROM users u LEFT JOIN (SELECT user_tg_id, SUM(user_messages_count_all_time) AS total, "
     "MAX(last_message_at) AS last FROM user_chat_stats GROUP BY user_tg_id) s ON s.user_tg_id = u.user_tg_id ")
+# The same row for a search by ID or name: totals of the found players only, not GROUP BY over the whole table
+# (S04, 1M synthetic rows: 60 -> 31 ms). The full list keeps _PLAYER_SQL: there one pass is cheaper than a lookup per player.
+_FOUND_PLAYER_SQL = (
+    "SELECT u.user_tg_id, u.user_tg_username, COALESCE(u.bot_rank, 0), COALESCE(s.total, 0), s.last, u.user_tg_name "
+    "FROM users u LEFT JOIN LATERAL (SELECT SUM(user_messages_count_all_time) AS total, MAX(last_message_at) AS last "
+    "FROM user_chat_stats WHERE user_tg_id = u.user_tg_id) s ON TRUE ")
 _CHAT_SQL = (
     "SELECT c.chat_id, c.chat_title, COALESCE(s.members, 0), COALESCE(s.total, 0), s.last "
     "FROM chat_settings c LEFT JOIN (SELECT chat_tg_id, COUNT(*) FILTER (WHERE NOT COALESCE(is_left, FALSE)) AS members, "
@@ -246,7 +252,7 @@ async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -
         n = int(digits)
         ids = {n, -n} | ({-1000000000000 - n} if not q.startswith("-100") else set())
         marks = ", ".join("?" for _ in ids)
-        async with db.execute(_PLAYER_SQL + "WHERE u.user_tg_id = ?" + tail, (n, *cparams)) as cur:
+        async with db.execute(_FOUND_PLAYER_SQL + "WHERE u.user_tg_id = ?" + tail, (n, *cparams)) as cur:
             players = await _with_tags(db, [_player_row(r) for r in await cur.fetchall()])
         chats = []
         if not flt:
@@ -255,7 +261,7 @@ async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -
         return {"players": players, "chats": chats}
     name = q.lstrip("@")
     async with db.execute(
-        _PLAYER_SQL + "WHERE (u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
+        _FOUND_PLAYER_SQL + "WHERE (u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
         "OR EXISTS (SELECT 1 FROM user_chat_stats t WHERE t.user_tg_id = u.user_tg_id AND t.member_tag ILIKE ?))" + tail +
         " ORDER BY lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
         "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), *cparams, name, q, limit)) as cur:
@@ -394,18 +400,19 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
         if cursor.tzinfo is None:
             cursor = cursor.replace(tzinfo=timezone.utc)
 
-    def cond(time_col: str, actor_col: str) -> tuple[str, list]:
-        sql, args = f"action IN ({marks}) AND {time_col} > NOW() - make_interval(days => ?)", [*actions, days]
+    def cond(actor_col: str, cast: str = "") -> tuple[str, list]:
+        sql, args = f"action IN ({marks}) AND created_at > (NOW() - make_interval(days => ?)){cast}", [*actions, days]
         if actor_id:
             sql += f" AND {actor_col} = ?"
             args.append(actor_id)
         if cursor:
-            sql += f" AND {time_col} < ?::timestamptz"
+            sql += f" AND created_at < ?::timestamptz{cast}"
             args.append(cursor)
         return sql, args
 
-    c1, a1 = cond("created_at", "actor_id")
-    c2, a2 = cond("created_at::timestamptz", "admin_id")
+    c1, a1 = cond("actor_id")
+    # moderation_logs.created_at is a plain TIMESTAMP: cast the bound, not the column, so the index on created_at works
+    c2, a2 = cond("admin_id", "::timestamp")
     async with db.execute(
         f"SELECT actor_id, action, user_id, chat_id, details::text, created_at FROM bot_admin_actions WHERE {c1} "
         f"UNION ALL SELECT admin_id, action, user_id, chat_id, reason, created_at::timestamptz FROM moderation_logs "
@@ -434,7 +441,7 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
     async with db.execute(
         "SELECT DISTINCT actor_id FROM bot_admin_actions WHERE actor_id IS NOT NULL AND created_at > NOW() - INTERVAL '90 days' "
         "UNION SELECT DISTINCT admin_id FROM moderation_logs WHERE admin_id IS NOT NULL "
-        "AND created_at > NOW() - INTERVAL '90 days' LIMIT 100") as cur:
+        "AND created_at > (NOW() - INTERVAL '90 days')::timestamp LIMIT 100") as cur:
         actor_ids = [int(r[0]) for r in await cur.fetchall()]
     actor_names = await _names(db, actor_ids)
     return {"items": items, "more": more, "next": items[-1]["at"] if more and items else "",

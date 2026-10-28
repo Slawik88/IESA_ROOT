@@ -51,11 +51,16 @@ async function purgeWebApi(path, options = {}) {
     throw e;
   } finally { clearTimeout(timeout); }
 }
+// «Ещё» открывают часто, а чистка доступна немногим: короткая проверка доступа, «нет» помним 10 минут (S04).
+const PURGE_ENTRY_RECHECK_MS = 10 * 60 * 1000;
+let _purgeEntryDeniedAt = 0;
 async function loadPurgeEntry() {
   const root = el('pg-more'); if (!root || el('more-purge-entry')) return;
+  if (_purgeEntryDeniedAt && Date.now() - _purgeEntryDeniedAt < PURGE_ENTRY_RECHECK_MS) return;
   try {
-    const d = await purgeWebApi('/purge-v1/chats');
-    if (!d.items?.length || el('more-purge-entry')) return;
+    const d = await purgeWebApi('/purge-v1/access');
+    if (!d.available) { _purgeEntryDeniedAt = Date.now(); return; }
+    if (el('more-purge-entry')) return;
     const b = document.createElement('button'); b.type = 'button'; b.id = 'more-purge-entry'; b.className = 'v3-row';
     b.dataset.navKey = 'purge'; b.innerHTML = `${_v3Icon('manage')}<span>Чистка чатов<small>Досье и решения, общие с Telegram</small></span><span class="v3-end">${_v3Icon('chev')}</span>`; b.onclick = () => openPurgeHub();
     const group = root.querySelector('[data-nav-group="community"]'); if (group) group.append(b); else root.append(b);
