@@ -295,6 +295,16 @@ GUIDE = (
 )
 
 
+def _guide_btn(miniapp_url: str) -> list[InlineKeyboardButton]:
+    """Путеводитель по игре в мини-приложении сразу на теме «Первый день» (только в личке, как и кнопка сайта)."""
+    if not miniapp_url:
+        return []
+    from aiogram.types import WebAppInfo
+    from core.miniapp_links import miniapp_web_url
+    url = miniapp_web_url("guide_first-day")
+    return [InlineKeyboardButton(text="📖 Путеводитель по игре", web_app=WebAppInfo(url=url))] if url else []
+
+
 def _site_btn(miniapp_url: str) -> list[InlineKeyboardButton]:
     """Кнопка сайта (мини-приложения): только в личке, в группах Telegram такие кнопки не пускает."""
     if not miniapp_url:
@@ -322,7 +332,7 @@ def home_screen(username: str, miniapp_url: str = "") -> Screen:
     rows = [[_url("➕ Добавить бота в чат", cs.add_url(username))],
             [_btn("❔ Как подключить", "add"), _btn("⚙️ Мой чат", "my")],
             [_btn("🎮 Я просто играю", "play"), _btn("📖 Что умеет бот", "guide")],
-            _site_btn(miniapp_url)]
+            _site_btn(miniapp_url), _guide_btn(miniapp_url)]
     return text, _kb(*rows)
 
 
@@ -732,6 +742,19 @@ async def slash_help(message: Message, db) -> None:
     private = message.chat.type == "private"
     await message.answer(help_mod.main_text(private), parse_mode="HTML",
                          reply_markup=help_mod.main_keyboard(message.from_user.id, private))
+
+
+@router.message(Command("guide"), F.chat.type == "private")
+async def slash_guide(message: Message, bot: Bot, db) -> None:
+    """/guide из меню «/»: кнопка Путеводителя по игре, как «бот путеводитель»."""
+    from bot.chat.site import GUIDE_TEXT, site_keyboard
+    if await _quiet(message, db):
+        return
+    kb = site_keyboard(message.chat.type, await _username(bot), "guide_first-day", "📖 Открыть Путеводитель")
+    if kb is None:
+        await message.answer("📖 Путеводитель сейчас недоступен. Загляни позже.")
+        return
+    await message.answer(GUIDE_TEXT, parse_mode="HTML", reply_markup=kb)
 
 
 @router.message(Command("site"), F.chat.type == "private")

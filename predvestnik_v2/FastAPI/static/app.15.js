@@ -83,6 +83,7 @@ function renderProfileHome(data) {
       ${_v3Row('trophy', 'Достижения', 'openAchievementsV1()')}
       ${_v3Row('family', 'Моя семья', 'openFamilyTree()', 'Родословная: супруг, дети, родственники')}
       ${_v3Row('ticket', 'Промокоды', 'openPromoSheet()')}
+      ${_v3Row('help', 'Путеводитель', 'openGuide()', 'Ответы на вопросы и первые шаги')}
     </nav>`;
 }
 

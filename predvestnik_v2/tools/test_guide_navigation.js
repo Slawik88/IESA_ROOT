@@ -17,7 +17,7 @@ function fixture() {
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id),
     fetch: async () => ({ ok: true, json: async () => data }),
     esc: s => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;'),
-    v3Head: title => `<h1>${title}</h1>`, location: { href: '' },
+    v3Head: title => `<h1>${title}</h1>`, location: { href: '' }, addEventListener() {},
   });
   vm.runInContext(source, ctx);
   const run = code => vm.runInContext(code, ctx);
@@ -68,14 +68,68 @@ async function main() {
   assert.equal(f.run('window.restored.filter'), 'еда');
   assert.equal(f.run('window.restored.open[0]'), 'gv-gift-list');
   assert.equal(f.run('window.restored.scroll'), 900);
-  f.run('gvHome()');
-  assert.equal(f.run('_GV.q'), '');
+  f.run('_GV.q="мора"; gvHome()');
+  assert.equal(f.run('_GV.q'), 'мора', '«Путеводитель» in the breadcrumbs keeps the search');
   assert.equal(f.run('_GV.history.length'), 0);
+  f.run('_GV.q=""');
   assert.equal(f.storage.get('pv_guide_last'), 'pets');
   for (const [go, destination] of [['rhythm', '/rhythm-v2'], ['mines', '/minesweeper'], ['rating', '/league?game=rhythm']]) {
     f.run(`gvGo('${go}')`);
     assert.equal(f.ctx.location.href, '/predvestnik' + destination);
   }
+
+  // S07: a topic opened from another screen goes back there in one press; inside the guide «Назад» still steps back.
+  const nav = fixture();
+  nav.run('_GV.data = guideData; gvPaint = () => {}; var _activePage = "chests", pages = []; switchPage = p => { pages.push(p); _activePage = p; }; gvShow = () => Promise.resolve()');
+  await nav.run('openGuide("keys")');
+  assert.equal(nav.run('_GV.ext'), true);
+  assert.equal(nav.run('gvBack()'), false, 'the first topic from a screen hands «Назад» to the page stack (back to that screen)');
+  nav.run('_activePage = "chests"');   // navBack took the player back to the chests
+  await nav.run('openGuide("keys")');
+  nav.run('gvOpen("wallet")');
+  assert.equal(nav.run('gvBack()'), true); assert.equal(nav.run('_GV.topic'), 'keys');
+  assert.equal(nav.run('gvBack()'), false, 'and from the first topic — out to the screen');
+  nav.run('_activePage = "help"; gvHome(); gvOpen("mora")');
+  assert.equal(nav.run('gvBack()'), true); assert.equal(nav.run('_GV.view'), 'hub', 'a topic opened inside the guide returns to its hub');
+  assert.equal(nav.run('gvBack()'), false);
+  await nav.run('openGuide("pass", "5")');
+  assert.equal(nav.run('_GV.block'), 5, 'guide_<topic>_<block> remembers the block to scroll to');
+  // Search from a topic page: results on the hub, «Назад» returns to the topic.
+  nav.run('_GV.view = "topic"; _GV.topic = "keys"; _GV.history = []; gvSearchFrom({ value: "мора" })');
+  assert.equal(nav.run('_GV.view'), 'hub'); assert.equal(nav.run('_GV.q'), 'мора');
+  nav.run('gvBack()'); assert.equal(nav.run('_GV.topic'), 'keys');
+
+  // Breadcrumbs: the guide, the group, the topic (both links work).
+  const crumbs = nav.run('_gvCrumbs(guideData.topics.find(t => t.id === "keys"))');
+  assert(crumbs.includes('gvHome()') && crumbs.includes("gvGroup('money')") && crumbs.includes('Деньги и ключи'), crumbs);
+  // A long topic has a table of contents whose numbers match the block ids and the deep link.
+  const pass = nav.run('_gvTopic(guideData, guideData.topics.find(t => t.id === "pass"))');
+  assert(pass.includes('class="gv-toc"') && pass.includes('gvBlock(2)') && pass.includes('id="gv-b-2"'), 'pass has a table of contents');
+  assert(!nav.run('_gvTopic(guideData, guideData.topics.find(t => t.id === "promo"))').includes('gv-toc'), 'a short topic has none');
+  // Quick answers: one per section, not the first six of the list.
+  const quick = nav.run('_gvQuick(guideData)');
+  assert.equal(new Set(quick.map(i => data.groups.find(g => g.topics.includes(data.faq[i].t)).id)).size, quick.length);
+  assert(quick.length >= 6);
+  // FAQ grouped by section.
+  assert.equal((nav.run('_gvFaq(guideData)').match(/class="gv-qcat"/g) || []).length, new Set(data.faq.map(f => data.groups.find(g => g.topics.includes(f.t)).id)).size);
+
+  // Typos, the English keyboard layout and chat words find their topic; nonsense stays empty and shows three nearby topics.
+  for (const [query, topic] of [['питмоец', 'pets'], ['сундкуи', 'keys'], ['vjhf', 'mora'], ['ghjvjrjl', 'promo'], ['промик', 'promo'], ['кейс', 'keys'], ['ачивки', 'ach'], ['донат', 'zarniki'], ['петы', 'pets']]) {
+    const exact = f.run(`gvFind(${JSON.stringify(query)})`), fixed = exact.length ? '' : f.run(`gvSuggest(${JSON.stringify(query)})`);
+    const rows = exact.length ? exact : f.run(`gvFind(${JSON.stringify(fixed)})`);
+    assert(rows.some(r => r.kind === 'topic' && r.id === topic), `${query} → ${fixed || 'as is'} must find ${topic}`);
+  }
+  assert.equal(f.run('gvSuggest("совсемнесуществующаявещь")'), '');
+  assert.equal(f.run('gvSuggest("мора")'), '', 'a correct query is not «corrected»');
+  assert.equal(f.run('gvNear("совсемнесуществующаявещь").length'), 3);
+  const sent = [];
+  f.ctx.window.PVDiagnostics = { telemetry: (type, data) => sent.push([type, data.message]) };
+  f.run('_gvResults("совсемнесуществующаявещь")');
+  [...f.timers.values()].forEach(fn => fn()); f.timers.clear();
+  assert.deepEqual(sent, [['guide_miss', 'совсемнесуществующаявещь']], 'an unanswered query goes to the owner\'s health panel once');
+  f.run('_gvResults("совсемнесуществующаявещь")'); [...f.timers.values()].forEach(fn => fn()); f.timers.clear();
+  assert.equal(sent.length, 1);
+  assert(f.run('_gvResults("питмоец")').includes('Похоже на опечатку'), 'the player sees which word was searched instead');
 
   const fresh = fixture();
   let requests = 0;
@@ -114,6 +168,6 @@ async function main() {
   broken.ctx.fetch = async () => ({ ok: true, json: async () => ({ version: 1, topics: [{}], groups: [], glossary: [], faq: [] }) });
   await assert.rejects(broken.run('gvLoad()'), /guide/);
   assert.equal(broken.storage.has('pv_guide_v1'), false, 'Incomplete topics must not poison the saved copy');
-  console.log(`OK: ${queries.length} player queries; navigation, explicit game modes, request deduplication, offline recovery, timeout and corrupt data`);
+  console.log(`OK: ${queries.length} player queries; typos, layout and chat words; back to the source screen, breadcrumbs, contents, search from a topic; navigation, explicit game modes, request deduplication, offline recovery, timeout and corrupt data`);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -231,7 +231,7 @@
     return env;
   }
   async function snapshot() { const env = await environment(); bind(); trim(); return {captured_at:Date.now(),environment:env,events:events.map(e => ({at:e.at,kind:e.kind,data:clean(e.data)})),dropped_events:dropped}; }
-  window.PVDiagnostics = {record,snapshot,owner:() => { bind(); return owner; },credentials,nativeFetch,base,version,safeText,flush};
+  window.PVDiagnostics = {record,snapshot,owner:() => { bind(); return owner; },credentials,nativeFetch,base,version,safeText,flush,telemetry:telemetry.send};
   setInterval(() => { if (events.length && events[0].at < Date.now()-WINDOW) flush(); },60000);
   record('lifecycle',{state:'open',page:routeName(location.href)});
 })();

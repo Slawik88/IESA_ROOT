@@ -44,7 +44,7 @@ function svSelect(stars) { _svPick(Number(stars)); }
 function svTerm(days) { _sv.term = Number(days); _haptic('select'); _svRender(); }
 
 function _svTop() {
-  return `<div class="lk-top"><button type="button" class="v3-link pp-back" onclick="navBack()" aria-label="Назад">‹ Назад</button></div>
+  return `<div class="lk-top"><button type="button" class="v3-link pp-back" onclick="navBack()" aria-label="Назад">‹ Назад</button>${v3GuideIcon(_sv.tab === 'vip' ? 'vip' : 'zarniki')}</div>
     <div class="sv-tabs" role="tablist" aria-label="Раздел">${[['zarniki', 'Зарники'], ['vip', 'VIP']].map(([id, t]) => `<button type="button" role="tab" aria-selected="${_sv.tab === id}" class="${_sv.tab === id ? 'is-on' : ''}" onclick="svTab('${id}')">${t}</button>`).join('')}</div>`;
 }
 

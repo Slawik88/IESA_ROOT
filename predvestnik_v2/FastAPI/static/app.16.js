@@ -71,19 +71,27 @@ function _v3QuestRoute(metric) {
   if (['pet_fed','pet_activity_completed','pet_trek_completed','pet_expedition_completed','pet_watch_completed'].includes(m)) return 'openPetsV1()';
   return "openQuestsV1()";
 }
+// Новичок (уровень аккаунта до 3 или в игре меньше трёх дней), который ещё не открывал тему «Первый день»: карточка ведёт туда.
+// Тема прочитана (pv_guide_first, app.57.js) — карточка больше не показывается.
+function _v3Newcomer() {
+  try { if (localStorage.getItem('pv_guide_first')) return false; } catch (_) { return false; }
+  const d = typeof _profileData !== 'undefined' && _profileData || {}, joined = Date.parse(d.joined_date || '');
+  return (Number(d.account_level) || 1) <= 3 || (joined > 0 && Date.now() - joined < 3 * 864e5);
+}
 function renderV3Next() {
   const host = el('v3-next'); if (!host) return;
   const quests = _v3Quests?.daily?.quests || [], items = _v3Quests?.rewards?.items || {};
   const ready = ['daily', 'weekly', 'combined'].find(kind => items[kind]?.claimable);
   const todo = quests.find(q => !q.completed);
   let title, hint, action;
-  if (ready) { title = 'Заберите награду'; hint = `+${fmt(items[ready].amount_mora || 0)} Моры${items[ready].amount_essence ? ` и +${fmt(items[ready].amount_essence)} Эссенции` : ''} уже ждут`; action = `v3ClaimQuestReward('${ready}')`; }
+  if (!ready && _v3Newcomer()) { title = 'Первый день в игре'; hint = 'Пять шагов: с чего начать и что где нажать'; action = "openGuide('first-day')"; }
+  else if (ready) { title = 'Забери награду'; hint = `+${fmt(items[ready].amount_mora || 0)} Моры${items[ready].amount_essence ? ` и +${fmt(items[ready].amount_essence)} Эссенции` : ''} уже ждут`; action = `v3ClaimQuestReward('${ready}')`; }
   else if (todo) {
     const target = Math.max(1, Number(todo.target) || 1);
     title = todo.title; hint = `${Math.min(target, Number(todo.progress) || 0)} из ${target} · ${quests.filter(q => q.completed).length} из ${quests.length} заданий за день`;
     action = _v3QuestRoute(todo.metric);
   } else if (quests.length) { title = 'На сегодня всё выполнено'; hint = _v3Tip(); action = 'openLooksModal()'; }
-  else { title = 'Откройте «Игры»'; hint = 'Задания на сегодня появятся позже'; action = "switchPage('arena')"; }
+  else { title = 'Открой «Игры»'; hint = 'Задания на сегодня появятся позже'; action = "switchPage('arena')"; }
   const attrs = ready ? ` id="v3-claim" data-kind="${_profileEsc(ready)}" ${_v3Claiming ? 'disabled aria-busy="true"' : ''}` : '';
   if (ready) action = 'v3ClaimQuestReward(this.dataset.kind)';
   host.innerHTML = `<button type="button" class="v3-next"${attrs} onclick="${action}"><span class="v3-next-go" aria-hidden="true">${_v3Icon('chev')}</span>
@@ -102,7 +110,7 @@ function renderV3Path(failed) {
   const host = el('v3-path'); if (!host) return;
   const head = '<div class="v3-sec"><span class="v3-eyebrow">Путь</span><button type="button" class="v3-link" onclick="openAchievementsV1()">Достижения</button></div>';
   const families = _v3Path?.families || [];
-  if (failed || !families.length) { host.innerHTML = `${head}<div class="v3-empty">${failed ? 'Прогресс не загрузился. <button type="button" class="v3-link" onclick="loadV3Path()">Повторить</button>' : 'Сыграйте разок, и здесь вспыхнут первые кольца.'}</div>`; return; }
+  if (failed || !families.length) { host.innerHTML = `${head}<div class="v3-empty">${failed ? 'Прогресс не загрузился. <button type="button" class="v3-link" onclick="loadV3Path()">Повторить</button>' : 'Сыграй разок, и здесь вспыхнут первые кольца.'}</div>`; return; }
   host.innerHTML = `${head}<div class="v3-path-row">${families.map(f => {
     const max = Math.max(1, Number(f.max_level) || 40), level = Math.min(max, Number(f.level) || 0);
     return `<button type="button" class="v3-aspect" data-f="${_profileEsc(f.id || '')}" onclick="openAchievementsV1()" aria-label="${_profileEsc(f.title)}: уровень ${level} из ${max}">

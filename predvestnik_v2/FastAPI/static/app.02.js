@@ -105,13 +105,13 @@ function _tosGate(d){
   g.innerHTML=`<div class="tos-gate-box">
     <div class="tos-gate-emoji">📋</div>
     <div class="tos-gate-title">Добро пожаловать в PREDVESTNIK</div>
-    <div class="tos-gate-sub">Чтобы продолжить, ознакомьтесь и примите наши документы.</div>
+    <div class="tos-gate-sub">Чтобы играть, прочитай и прими правила игры и политику конфиденциальности.</div>
     <div class="tos-gate-links">
       <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
       <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
     </div>
     <button class="v3-pill v3-pill--full" onclick="_tosAccept(this)">✅ Принять и играть</button>
-    <div class="tos-gate-hint">Нажимая «Принять», вы соглашаетесь с Пользовательским соглашением и Политикой конфиденциальности.</div>
+    <div class="tos-gate-hint">Нажимая «Принять», ты соглашаешься с Пользовательским соглашением и Политикой конфиденциальности.</div>
   </div>`;
   document.body.appendChild(g);
 }
@@ -131,14 +131,19 @@ function _tosAccept(btn){
 // (= момент первого реального входа), с одним понятным следующим шагом.
 function _showWelcome(){
   try{ if(localStorage.getItem('pv_welcomed')) return; localStorage.setItem('pv_welcomed','1'); }catch(e){}
-  setTimeout(()=>OM('👋 Коротко о главном', `
-    <div style="font-size:12px;line-height:1.6">
-      <p><b>Предвестник</b> собирает разные форматы игры в одном месте: Ритм для реакции, Сапёр для логики и Мафию для живого чата.</p>
-      <p>Питомцы, кланы, экономика и косметика будут добавляться по мере утверждения правил. Никаких скрытых преимуществ или обязательных таймеров.</p>
-      <p style="color:var(--gold2)">Первый шаг: открой «Игра» и выбери формат под настроение.</p>
+  // Тексты — как в темах «Что такое Предвестник» и «Первый день» Путеводителя (guide-v3.json); главное действие — «Первый день».
+  setTimeout(()=>OM('👋 Добро пожаловать', `
+    <div class="v3-welcome">
+      <p>Предвестник — игра прямо в Telegram: играешь в мини-игры, выполняешь задания, растишь питомцев и получаешь награды.</p>
+      <ul>
+        <li><b>🎮 Игры</b><span>Ритм и Сапёр на несколько минут, Мафия — с людьми из чатов.</span></li>
+        <li><b>✅ Задания</b><span>Каждый день новый список. За выполнение дают Мору (монету игры) и ключи от сундуков.</span></li>
+        <li><b>🐾 Питомцы</b><span>Отправляешь их в путь — они приносят находки.</span></li>
+      </ul>
+      <p>Не знаешь, с чего начать? Открой «Первый день» — пять шагов по порядку. Все ответы — в Путеводителе: «Профиль» › «Путеводитель».</p>
     </div>`, [
-    {l:'🎮 Открыть игры', c:'primary', f:"CM();goTo('arena','game')"},
-    {l:'Позже', c:'ghost', f:'CM()'},
+    {l:'🚀 Первый день', c:'primary', f:"CM();openGuide('first-day')"},
+    {l:'Сразу к играм', c:'ghost', f:"CM();goTo('arena','game')"},
   ]), 500);
 }
 
@@ -201,7 +206,7 @@ function _handleStartParam(){
     looks:()=>openLooksModal(), cosmetics:()=>openLooksModal(), themes:()=>openLooksModal(), shop:()=>openLooksModal(), goods:()=>openLooksModal(), inventory:()=>openInventory(), inv:()=>openInventory(),
     vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
     casino:()=>openCasino(), exchange:()=>openPlayerExchangeV1(), exch:()=>openPlayerExchangeV1(), crypto:()=>openPlayerExchangeV1(), birzha:()=>openPlayerExchangeV1(),
-    guide:()=>openGuide(p.split('_')[1]||''), help:()=>openGuide(p.split('_')[1]||''),
+    guide:()=>openGuide(p.split('_')[1]||'',p.split('_')[2]||0), help:()=>openGuide(p.split('_')[1]||'',p.split('_')[2]||0),   // guide_<тема>_<номер блока>: сразу к нужному месту длинной темы
     notifications:settings, notifprefs:settings, settings:()=>openSettingsModal(), top:()=>openTopV3(), news:()=>openWhatsNew(), pass:()=>openSeasonPass(), season:()=>openSeasonPass(), bp:()=>openSeasonPass(), battlepass:()=>openSeasonPass(),
   };
   if(base==='public'){
@@ -326,7 +331,7 @@ function _walletIcon(code) {
 function showCurrModal() {
   const d = _v3Wallet(_profileData || {}), mine = ++_walletSeq;
   _walletPolicy = null;
-  OM('Кошелёк', `<div class="wallet-v4">
+  OM('Кошелёк', `<div class="v3-guide-row">${v3GuideIcon('wallet')}</div><div class="wallet-v4">
     <div class="wallet-summary"><span>${_walletIcon('zarniki')} Зарники</span><strong id="cm-bal-zarniki">${fmtF(d.zarniki || 0)}</strong></div>
     <div class="wallet-assets">${[['mora','Мора','Игры и задания'],['diamonds','Алмазы','Редкие награды'],['essence','Эссенция','Развитие образов']].map(([id,name,sub])=>`<div class="wallet-asset">${_walletIcon(id)}<span><b>${name}</b><small>${sub}</small></span><strong id="cm-bal-${id}">${fmtF(d[id] || 0)}</strong></div>`).join('')}</div>
     <section class="wallet-exchange" id="wallet-exchange" aria-live="polite"><p class="v3-sub">Загружаем актуальные курсы…</p></section>

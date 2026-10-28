@@ -95,13 +95,13 @@ function loadActivitiesHub(){
   open.push({flag:'chat_word_chain',name:'Слова в чате',hint:'Против бота, одному или вместе · сообщения идут в норму',cta:'Как играть',open:'openWordChainHelp()'});
   const mine=++_hubSeq;
   if(!open.length){
-    host.innerHTML=`<div class="v3-eyebrow">Играть</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:34px">Игры временно недоступны${v3GlintMark('Игры временно недоступны')}</div>
+    host.innerHTML=`<div class="v3-sec"><span class="v3-eyebrow">Играть</span>${v3GuideIcon('games')}</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:34px">Игры временно недоступны${v3GlintMark('Игры временно недоступны')}</div>
       <p class="v3-gdesc">Прогресс не потеряется. Пока можно заняться питомцами и образами.</p>
-      <button type="button" class="v3-pill" onclick="openPetsV1()">К питомцам</button></section>`;
+      <button type="button" class="v3-pill" onclick="openPetsV1()">К питомцам</button> <button type="button" class="v3-link" onclick="openGuide('games')">Что это?</button></section>`;
     return;
   }
   const draw=()=>{
-    host.innerHTML=`<div class="v3-eyebrow">Играть</div>
+    host.innerHTML=`<div class="v3-sec"><span class="v3-eyebrow">Играть</span>${v3GuideIcon('games')}</div>
       <section class="v3-games v3-games--hub" aria-label="Игры">${open.map(g=>_hubRow(g,chev)).join('')}</section>`;
     if(typeof passHubRow==='function')passHubRow(host);   // строка «Пропуск сезона», пока включён флаг season_pass_v1 (app.43.js)
     leagueHubRow(host,chev);   // «Пропуск сезона» (Лига) всем с сезона 2; до него — только с ранним доступом

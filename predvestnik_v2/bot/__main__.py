@@ -256,6 +256,7 @@ async def main():
                 BotCommand(command="start", description="Начало: как добавить бота в чат"),
                 BotCommand(command="help", description="Все команды бота"),
                 BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
+                BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
                 BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
             ], scope=BotCommandScopeAllPrivateChats())
         except Exception as _e:

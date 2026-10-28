@@ -65,7 +65,7 @@ function _renderWalletMini(){const h=el('wallet-mini');if(!h)return;if(!_walletM
 
 let _familyTree = null;
 function openFamilyTree() {
-  OM('Моя семья', '<div id="pro-marriage-card" role="region" aria-label="Брак и семейный кошелёк">Загружаем семейный кошелёк…</div><details id="family-tree-section" open><summary>Родословная</summary><div id="family-tree-host" class="v3-empty" role="status">Загружаем родственные связи…</div></details>', [{l:'Закрыть',f:'CM()'}]);
+  OM('Моя семья', `<div class="v3-guide-row">${v3GuideIcon('family')}</div>` + '<div id="pro-marriage-card" role="region" aria-label="Брак и семейный кошелёк">Загружаем семейный кошелёк…</div><details id="family-tree-section" open><summary>Родословная</summary><div id="family-tree-host" class="v3-empty" role="status">Загружаем родственные связи…</div></details>', [{l:'Закрыть',f:'CM()'}]);
   loadMarriageCard();
   const host = el('family-tree-host');
   api('/marriage/tree').then(d => {

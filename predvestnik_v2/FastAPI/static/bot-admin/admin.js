@@ -2267,7 +2267,7 @@ async function healthView(main) {
 const AUTH_REASONS = {no_header: 'нет данных входа (приложение открыто без Telegram или SDK не загрузился)', stale_auth_date: 'вход старше суток (приложение долго висело свёрнутым)',
   bad_hash: 'неверная подпись Telegram', malformed: 'испорченные данные входа', user_missing: 'в данных входа нет игрока',
   bad_session: 'неверная сессия браузера', expired_session: 'сессия браузера истекла', no_bot_token: 'на сервере нет токена бота'};
-const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился Telegram SDK', boot_timing: 'замеры запуска'};
+const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился Telegram SDK', boot_timing: 'замеры запуска', guide_miss: 'в Путеводителе не нашлось'};
 const ms = v => v >= 1000 ? `${(v / 1000).toLocaleString('ru-RU', {maximumFractionDigits: 1})} с` : `${num(Math.round(v))} мс`;
 
 async function healthOpsView(box, hours) {
@@ -2281,7 +2281,7 @@ async function healthOpsView(box, hours) {
   const period = {1: '1 час', 24: '24 часа', 168: '7 дней'};
   const lagBad = o.loop_lag.p95 > 1000, poolBad = o.pool_wait.some(p => p.p95 > 1000);
   const c = o.client, be = o.bot_errors;
-  const clientErrors = c.by_type.filter(t => t.type !== 'boot_timing').reduce((a, t) => a + t.count, 0);
+  const clientErrors = c.by_type.filter(t => !['boot_timing', 'guide_miss'].includes(t.type)).reduce((a, t) => a + t.count, 0);
   const none = text => `<div class="sub">${text}</div>`;
   box.innerHTML = `
     <div class="scope">${Object.entries(period).map(([h, t]) =>

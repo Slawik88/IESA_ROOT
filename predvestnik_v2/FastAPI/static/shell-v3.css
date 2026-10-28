@@ -290,3 +290,10 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 .mafia-live { box-shadow: inset 3px 0 0 var(--v3-acc); padding-left: 12px; }   /* идущая партия: полоса акцента слева */
 .mafia-live b { color: var(--v3-acc); }
 .mafia-cancelled { margin-top: 10px; color: var(--v3-dim); font-size: 12.5px; }
+
+/* Значок «Подсказки 💡» (v3GuideIcon, app.47.js): круглый, без акцента. Там, где у экрана нет шапки v3Head: в листе (Кошелёк, «Моя семья») — справа над содержимым, рядом с другой кнопкой шапки — в одну строку */
+.v3-guide-row { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+.v3-guide-end { display: flex; align-items: center; gap: 8px; }
+.v3-guide-ic { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: var(--v3-faint); color: var(--v3-ink); font-size: 19px; line-height: 1; cursor: pointer; }
+.v3-guide-ic:active { opacity: .55; }
+.v3-guide-ic:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }

@@ -1,8 +1,8 @@
 // Higher priorities appear first. Stable IDs keep ordering independent of wording.
 const _NAV_PRIORITY = Object.freeze({
-  groups: Object.freeze({management:100, community:90, collection:80, help:70, shop:60, account:50}),
+  groups: Object.freeze({management:100, help:95, community:90, collection:80, shop:60, account:50}),   // «Помощь» с Путеводителем — первой группой у игрока (S07)
   items: Object.freeze({purge:110, admin:90, chats:100, top:90, inventory:100, chests:95, looks:90, promo:80,
-    support:110, guide:100, news:90, 'community-link':80, 'updates-link':70, refresh:10, wallet:100, zarniki:70, vip:60, settings:100})
+    guide:120, support:110, news:90, 'community-link':80, 'updates-link':70, refresh:10, wallet:100, zarniki:70, vip:60, settings:100})
 });
 function orderNavigation() {
   const sort = (parent, selector, priorities, key) => {
@@ -684,12 +684,15 @@ function _isPageEnabled(name) {
   if(!key) return true;
   return _isFeatureEnabled(key);
 }
+const _PAGE_TOPIC = { casino: 'casino' };   // закрытый раздел: «Что это?» ведёт в его тему Путеводителя
 function _showMaintenance(pg) {
   const box = el('pg-'+pg); if(!box) return;
+  const what = _PAGE_TOPIC[pg] ? `<button type="button" class="v3-link" onclick="openGuide('${_PAGE_TOPIC[pg]}')">Что это?</button>` : '';
   box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:40vh;gap:12px;padding:32px 16px">
     <div style="font-size:40px">🚧</div>
     <div style="font-size:17px;font-weight:700;color:var(--bright)">Временно недоступно</div>
-    <div style="font-size:12px;color:var(--muted);text-align:center">Этот раздел отключён разработчиком.<br>Попробуйте позже.</div>
+    <div style="font-size:12px;color:var(--muted);text-align:center">Этот раздел сейчас выключен.<br>Загляни позже — прогресс не потеряется.</div>
+    ${what}
   </div>`;
 }
 

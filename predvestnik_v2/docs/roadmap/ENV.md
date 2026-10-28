@@ -152,6 +152,8 @@ node tools/test_purge_live_ui.js                                                
 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_cold_start.py --device mid --runs 3            # холодный старт: Slow 4G + CPU ×4, байты до готового профиля
 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_cold_start.py --device mid --skin void         # то же в образе с картинками сцены
 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_late_css_gate.py                             # «ворота» поздних стилей экранов: медленный, сломанный файл, нет события загрузки (~30 с)
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_guide_entries_ui.py [--shots DIR]          # входы в Путеводитель и навигация на 320/390/430 (~1 мин)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_guide_entry_sim_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod   # «путеводитель» в боте на имитации Telegram
 BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_js_minify.py            # сжатие JS не меняет ни одного токена (нужен node с acorn из /opt/node-tools)
 BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_static_delivery_asgi.py   # gzip заранее, ETag/304, версия у каждого файла, «пробный деплой»
 ```

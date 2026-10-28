@@ -6,20 +6,22 @@ import os
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from bot.chat.framework import Ctx, registry
+from core.miniapp_links import miniapp_web_url
 
 
-def site_keyboard(chat_type: str, bot_username: str) -> InlineKeyboardMarkup | None:
+def site_keyboard(chat_type: str, bot_username: str, section: str = "", label: str = "🔮 Открыть Предвестник") -> InlineKeyboardMarkup | None:
+    """Кнопка мини-приложения; section — раздел, который откроется сразу (?startapp=…, app.02.js), например guide_first-day."""
     url = os.getenv("MINIAPP_URL", "")
     short = os.getenv("MINIAPP_SHORT_NAME", "")
     if chat_type == "private" and url.startswith("https://"):
         # В личке кнопка открывает приложение прямо в Telegram.
-        btn = InlineKeyboardButton(text="🔮 Открыть Предвестник", web_app=WebAppInfo(url=url))
+        btn = InlineKeyboardButton(text=label, web_app=WebAppInfo(url=miniapp_web_url(section) if section else url))
     elif short and bot_username:
         # В группе web_app-кнопки запрещены Telegram — ведём по прямой ссылке
         # на мини-приложение, она тоже открывается внутри Telegram.
-        btn = InlineKeyboardButton(text="🔮 Открыть Предвестник", url=f"https://t.me/{bot_username}/{short}")
+        btn = InlineKeyboardButton(text=label, url=f"https://t.me/{bot_username}/{short}" + (f"?startapp={section}" if section else ""))
     elif url.startswith("https://"):
-        btn = InlineKeyboardButton(text="🔮 Открыть Предвестник", url=url)
+        btn = InlineKeyboardButton(text=label, url=miniapp_web_url(section) if section else url)
     else:
         return None
     return InlineKeyboardMarkup(inline_keyboard=[[btn]])
@@ -43,6 +45,26 @@ async def cmd_site(ctx: Ctx) -> None:
         await ctx.reply("🔮 Мини-приложение сейчас недоступно. Попробуйте позже.")
         return
     await ctx.reply(SITE_TEXT, reply_markup=kb)
+
+
+GUIDE_TEXT = (
+    "📖 <b>Путеводитель по игре</b>\n"
+    "<blockquote>Что такое Мора и ключи, как растить питомцев, где награды — ответы на всё в одном месте.</blockquote>\n"
+    "Не знаешь, с чего начать? Кнопка ниже откроет «Первый день»: пять шагов по порядку."
+)
+
+
+@registry.command(
+    "путеводитель", aliases=("гайд", "guide", "как играть"), usage="бот путеводитель",
+    section="basic", summary="Путеводитель по игре: ответы на вопросы и первые шаги.",
+)
+async def cmd_guide(ctx: Ctx) -> None:
+    me = await ctx.bot.me()
+    kb = site_keyboard(ctx.message.chat.type, me.username or "", "guide_first-day", "📖 Открыть Путеводитель")
+    if kb is None:
+        await ctx.reply("📖 Путеводитель сейчас недоступен. Загляни позже.")
+        return
+    await ctx.reply(GUIDE_TEXT, reply_markup=kb)
 
 
 def admin_url() -> str:

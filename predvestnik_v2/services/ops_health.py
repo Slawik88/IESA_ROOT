@@ -43,7 +43,8 @@ AUTH_REASONS = ("no_header", "malformed", "bad_hash", "stale_auth_date", "user_m
                 "no_bot_token", "bad_session", "expired_session")
 
 # ── anonymous client telemetry: limits ────────────────────────────────────────
-CLIENT_TYPES = ("js_error", "unhandled_rejection", "fetch_fail", "sdk_missing", "boot_timing")
+# guide_miss: a search in the player guide found nothing (the query text, scrubbed) — which topics are missing, not an error
+CLIENT_TYPES = ("js_error", "unhandled_rejection", "fetch_fail", "sdk_missing", "boot_timing", "guide_miss")
 CLIENT_ERROR_TYPES = ("js_error", "unhandled_rejection", "fetch_fail", "sdk_missing")
 MAX_BODY_BYTES = 16 * 1024
 MAX_EVENTS_PER_REQUEST = 10

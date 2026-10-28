@@ -41,7 +41,7 @@ function _promoLists() {
 function _promoRender() {
   const root = el('pg-promo'); if (!root) return;
   const typed = String(el('promo-in')?.value || ''), focused = document.activeElement?.id === 'promo-in';
-  root.innerHTML = `${v3Head('Промокоды', { back: 'promoBack()' })}
+  root.innerHTML = `${v3Head('Промокоды', { back: 'promoBack()', end: v3GuideIcon('promo') })}
     <form class="pm-form" onsubmit="event.preventDefault();promoTake()" novalidate>
       <label class="sr-only" for="promo-in">Код</label>
       <input id="promo-in" class="v3-field" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" placeholder="Введите код" oninput="_promoTyped(true)">

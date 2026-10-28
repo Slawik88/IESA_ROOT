@@ -9,7 +9,7 @@ function openInventory() {
   switchPage('inventory');
   const root = el('pg-inventory'); if (!root) return Promise.resolve();
   if (!_inv.skins && _inv.stock === undefined) {
-    root.innerHTML = v3Head('Инвентарь', { back: 'invBack()' }) + '<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:220px;border-radius:18px;margin-top:18px"></div><div class="sk" style="height:140px;border-radius:18px;margin-top:18px"></div>';
+    root.innerHTML = v3Head('Инвентарь', { back: 'invBack()', end: v3GuideIcon('inventory') }) + '<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:220px;border-radius:18px;margin-top:18px"></div><div class="sk" style="height:140px;border-radius:18px;margin-top:18px"></div>';
     v3EnterSync(root);
   }
   const mine = ++_inv.seq;
@@ -131,7 +131,7 @@ function _invRender() {
   if (!shown[_inv.tab]) _inv.tab = stock === null ? 'looks' : 'stuff';
   const need = stock === undefined && _inv.tab !== 'looks' ? _invFail('Склад не загрузился', _inv.bad.stock) : '';
   const body = need || { stuff: () => _invStuff(stock), pets: () => _invPets(stock), looks: () => _invLooks(st), archive: () => _invArchive(archive) }[_inv.tab]();
-  root.innerHTML = `${v3Head('Инвентарь', { back: 'invBack()' })}${_invTabs(shown)}<div class="inv-body" id="inv-panel" role="tabpanel" aria-labelledby="inv-tab-${_inv.tab}">${body}</div>`;
+  root.innerHTML = `${v3Head('Инвентарь', { back: 'invBack()', end: v3GuideIcon('inventory') })}${_invTabs(shown)}<div class="inv-body" id="inv-panel" role="tabpanel" aria-labelledby="inv-tab-${_inv.tab}">${body}</div>`;
   v3EnterSync(root);
 }
 
