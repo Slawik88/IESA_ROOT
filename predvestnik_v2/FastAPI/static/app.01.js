@@ -381,12 +381,23 @@ function queueDynamicRefresh(scope){
     if(scopes.has('looks'))try{if(_activePage==='looks'&&typeof openLooksModal==='function')openLooksModal();}catch(_){}
     if(scopes.has('pets'))try{if(_activePage==='pets'&&typeof openPetsV1==='function')openPetsV1();}catch(_){}
     if(scopes.has('achievements'))try{if(_activePage==='achievements-v1'&&typeof openAchievementsV1==='function')openAchievementsV1();}catch(_){}
-    if(scopes.has('activity')){
-      try{_v3TopCache={};if(_activePage==='profile'&&typeof v3LazyTop==='function')v3LazyTop();}catch(_){}
-      try{if(_activePage==='top'&&typeof loadTopV3==='function')loadTopV3();}catch(_){}
-      try{if(_activePage==='chat-tracker'&&typeof openChatTracker==='function')openChatTracker();}catch(_){}
-    }
+    if(scopes.has('activity'))_refreshActivityViews();
   },500);
+}
+// activity_changed приходит на каждое сообщение игрока в чате, а топы на сервере обновляются раз в 45 с (S04):
+// экраны с топом перечитываем не чаще раза в 10 с — первое событие сразу, остальные склеиваются в одно в конце паузы.
+const _ACTIVITY_REFRESH_MS=10000;
+let _activityRefreshAt=0,_activityRefreshTimer=0;
+function _refreshActivityViews(){
+  const wait=_activityRefreshAt+_ACTIVITY_REFRESH_MS-Date.now();
+  if(wait>0){
+    if(!_activityRefreshTimer)_activityRefreshTimer=setTimeout(()=>{_activityRefreshTimer=0;_refreshActivityViews();},wait);
+    return;
+  }
+  _activityRefreshAt=Date.now();
+  try{_v3TopCache={};if(_activePage==='profile'&&typeof v3LazyTop==='function')v3LazyTop();}catch(_){}
+  try{if(_activePage==='top'&&typeof loadTopV3==='function')loadTopV3();}catch(_){}
+  try{if(_activePage==='chat-tracker'&&typeof openChatTracker==='function')openChatTracker();}catch(_){}
 }
 function queueLiveBalance(event){
   _pendingBalanceEvent={...(_pendingBalanceEvent||{}),...event};
@@ -783,12 +794,25 @@ function navBack(){
 }
 function _trackSubtab(path){api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:path,session_id:_analyticsSession})}).catch(()=>{});}
 
-// Хартбит времени удержания — раз в 15с, ТОЛЬКО пока вкладка реально видима на экране
-// (не в фоне/свёрнут Telegram) — копится на бэке в ту же строку визита, что завёл switchPage.
+// Хартбит времени удержания: раз в 15 с засчитываем секунды вкладке, ТОЛЬКО пока она реально видима на экране
+// (не в фоне/свёрнут Telegram). Отправляем раз в минуту и при сворачивании (keepalive переживает закрытие),
+// а не каждые 15 с (S04); на бэке секунды копятся в ту же строку визита, что завёл switchPage.
+const _TAB_TICK_SEC=15, _TAB_SEND_SEC=60;
+const _tabSeconds=new Map();
+function _sendTabTime(){
+  _tabSeconds.forEach((sec,tab)=>{
+    api('/analytics/tab-duration',{method:'POST',keepalive:true,body:JSON.stringify({tab,session_id:_analyticsSession,delta_sec:sec})}).catch(()=>{});
+  });
+  _tabSeconds.clear();
+}
 setInterval(()=>{
   if(document.visibilityState!=='visible' || !_activePage) return;
-  api('/analytics/tab-duration',{method:'POST',body:JSON.stringify({tab:_activePage,session_id:_analyticsSession,delta_sec:15})}).catch(()=>{});
-},15000);
+  _tabSeconds.set(_activePage,(_tabSeconds.get(_activePage)||0)+_TAB_TICK_SEC);
+  let total=0; _tabSeconds.forEach(sec=>{total+=sec;});
+  if(total>=_TAB_SEND_SEC) _sendTabTime();
+},_TAB_TICK_SEC*1000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') _sendTabTime(); });
+window.addEventListener('pagehide',_sendTabTime);
 
 // Единая программная навигация — шорткаты в карточках/модалках.
 // goTo('zoo') · goTo('quests','streak') · goTo('market','gacha')

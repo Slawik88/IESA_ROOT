@@ -60,28 +60,23 @@ async def record_visit(db, user_id: int, tab: str, session_id: str) -> None:
         pass  # некритично; PGAdapter уже залогировал ошибку
 
 
-_HEARTBEAT_MAX_DELTA = 120  # защита от накрученных/испорченных тиков с клиента
+HEARTBEAT_MAX_DELTA = 120  # секунд в одном хартбите: защита от накрученных/испорченных тиков с клиента
 
 
-async def record_tab_duration(db, user_id: int, tab: str, session_id: str, delta_sec: int) -> None:
-    """Хартбит с фронта: добавляет delta_sec к duration_sec последней строки визита
-    этого (user_id, tab, session_id) — той самой, что вставил record_visit при входе."""
-    delta = max(0, min(int(delta_sec or 0), _HEARTBEAT_MAX_DELTA))
-    if not delta:
+async def add_tab_durations(db, rows: list[tuple[int, str, str, int]]) -> None:
+    """Пачка хартбитов (user_id, tab, session_id, секунды) одним запросом: каждая сумма — к последней строке своего визита."""
+    if not rows:
         return
-    try:
-        await db.execute(
-            "UPDATE site_analytics SET duration_sec = duration_sec + ? "
-            "WHERE id = ("
-            "  SELECT id FROM site_analytics "
-            "  WHERE user_id = ? AND tab = ? AND session_id = ? "
-            "  ORDER BY visited_at DESC LIMIT 1"
-            ")",
-            (delta, user_id, tab, session_id),
-        )
-        await db.commit()
-    except Exception:
-        pass  # некритично; PGAdapter уже залогировал ошибку
+    users, tabs, sessions, deltas = (list(column) for column in zip(*rows))
+    await db.execute(
+        "UPDATE site_analytics s SET duration_sec = s.duration_sec + latest.delta "
+        "FROM (SELECT DISTINCT ON (b.user_id, b.tab, b.session_id) a.id, b.delta "
+        "      FROM unnest(?::bigint[], ?::text[], ?::text[], ?::int[]) AS b(user_id, tab, session_id, delta) "
+        "      JOIN site_analytics a ON a.user_id = b.user_id AND a.tab = b.tab AND a.session_id = b.session_id "
+        "      ORDER BY b.user_id, b.tab, b.session_id, a.visited_at DESC) latest "
+        "WHERE s.id = latest.id",
+        (users, tabs, sessions, deltas),
+    )
 
 
 async def get_dashboard(db) -> dict:
