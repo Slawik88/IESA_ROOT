@@ -229,6 +229,19 @@ async def main(dsn: str) -> None:
     assert lag.peak >= 1000, lag.peak
     assert ("pool_busy", "connections") in ops_metrics.registry.window.timings
 
+    # ── the whole database server: every connection, ours by application_name, the limit ──
+    from infrastructure.database import server_connection_usage
+    async with pool.acquire() as conn:
+        usage = await server_connection_usage(conn)
+    assert 1 <= usage["ours"] <= usage["total"] < usage["limit"], usage
+    ops_health.DB_SERVER_SAMPLE_EVERY = 0.05
+    server_sampler = asyncio.create_task(ops_health._db_server_loop())
+    await asyncio.sleep(0.3)
+    server_sampler.cancel()
+    assert ops_metrics.registry.window.timings[("db_server", "ours")].peak >= 1
+    async with pool.acquire() as conn:
+        assert (await ops_health.dashboard(PGAdapter(conn), 1))["db_server"]["limit"] == usage["limit"]
+
     from aiogram.methods import SendMessage
     from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
     throttle = OutboundThrottleMiddleware()

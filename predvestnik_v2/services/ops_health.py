@@ -4,6 +4,8 @@ Sources (all in-process, see ``core/ops_metrics.py``):
   http           request time per route template (FastAPI/ops_middleware.py), http_4xx / http_5xx counters
   pool_wait      waiting for a database connection: http (FastAPI/deps.get_db), bot (bot/middlewares/db.py)
   pool_busy      busy connections, sampled every POOL_SAMPLE_EVERY seconds
+  db_server      connections open on the whole database server (total, ours, limit), every DB_SERVER_SAMPLE_EVERY s;
+                 db_refused counts samples the server refused for lack of free connections
   loop_lag       event-loop delay, sampled every second
   throttle_wait  waiting for the outbound Telegram throttler, per Bot API method
   auth_401       why the Mini App refused a request (FastAPI/deps.py, AUTH_REASONS)
@@ -31,6 +33,7 @@ from infrastructure.repositories import ops_telemetry as repo
 
 SAMPLE_EVERY = 1.0
 POOL_SAMPLE_EVERY = 10.0
+DB_SERVER_SAMPLE_EVERY = 60.0
 BUFFER_FLUSH_EVERY = 10.0
 FLUSH_EVERY = 300
 CLEANUP_EVERY = 3600.0
@@ -54,6 +57,7 @@ MAX_TRACKED_KEYS = 20_000   # distinct IPs or sids tracked per window; more are 
 ALERT_COOLDOWN = 3600.0
 LOOP_LAG_P95_MS = 1000
 POOL_WAIT_P95_MS = 1000
+DB_SERVER_SPARE = 3          # alert when fewer free connections are left on the database server
 HTTP_5XX_MIN = 20
 HTTP_5XX_SHARE = 0.05
 CLIENT_ERRORS_MIN = 50
@@ -284,6 +288,25 @@ async def _sample_loop() -> None:
                 pass
 
 
+async def _db_server_loop() -> None:
+    """How full the shared database server is: the site and the bot draw from the same connection limit."""
+    import asyncpg
+    from infrastructure.database import get_pool, server_connection_usage
+    while True:
+        await asyncio.sleep(DB_SERVER_SAMPLE_EVERY)
+        try:
+            async with get_pool().acquire(timeout=5) as conn:
+                usage = await asyncio.wait_for(server_connection_usage(conn), 5)
+        except asyncpg.TooManyConnectionsError:
+            ops_metrics.count("db_refused", "server_full")
+            continue
+        except (RuntimeError, asyncio.TimeoutError, OSError, asyncpg.PostgresError) as exc:
+            logger.warning(f"database server usage not sampled: {type(exc).__name__}: {exc}")
+            continue
+        for name, value in usage.items():
+            ops_metrics.observe("db_server", name, value)
+
+
 async def _flush_loop(db_factory, bot) -> None:
     loop = asyncio.get_running_loop()
     next_window = loop.time() + FLUSH_EVERY
@@ -308,7 +331,7 @@ async def _flush_loop(db_factory, bot) -> None:
 
 async def run(db_factory, bot=None) -> None:
     """Sampler and writer; started once by the bot process (bot/__main__.py)."""
-    await asyncio.gather(_sample_loop(), _flush_loop(db_factory, bot))
+    await asyncio.gather(_sample_loop(), _db_server_loop(), _flush_loop(db_factory, bot))
 
 
 # ── alerts ────────────────────────────────────────────────────────────────────
@@ -325,6 +348,12 @@ def alerts_for(window: ops_metrics.Window) -> list[tuple[str, str]]:
             waits.merge(series)
     if waits.count >= 10 and ops_metrics.percentile(waits.buckets, 0.95, waits.peak) > POOL_WAIT_P95_MS:
         found.append(("pool_wait", f"Не хватает соединений с базой: запросы ждут до {ops_metrics.percentile(waits.buckets, 0.95, waits.peak) / 1000:.1f} с (p95)."))
+    total, limit = window.timings.get(("db_server", "total")), window.timings.get(("db_server", "limit"))
+    refused = window.counters.get(("db_refused", "server_full"), 0)
+    if refused or (total and limit and total.peak >= limit.peak - DB_SERVER_SPARE):
+        ours = window.timings.get(("db_server", "ours"))
+        busy = f"занято до {total.peak:.0f} из {limit.peak:.0f}, из них Предвестник — {ours.peak if ours else 0:.0f}" if total and limit else "сервер базы отказал в соединении"
+        found.append(("db_server", f"На сервере базы кончаются соединения: {busy}. Остальные держат другие подключения к той же базе (сайт IESA)."))
     requests = sum(s.count for (kind, _), s in window.timings.items() if kind == "http")
     errors_5xx = sum(c for (kind, _), c in window.counters.items() if kind == "http_5xx")
     if errors_5xx >= HTTP_5XX_MIN and errors_5xx >= HTTP_5XX_SHARE * max(requests, 1):
@@ -403,6 +432,8 @@ async def dashboard(db, hours: int) -> dict:
         "loop_lag": _stat(lag),
         "pool_wait": [{"name": n, **_stat(s)} for n, s in sorted(by_kind("pool_wait").items())],
         "pool_busy": {"avg": round(busy.total / busy.count, 1) if busy.count else 0, "max": round(busy.peak)},
+        "db_server": {name: round(timings.get(("db_server", name), ops_metrics.Series()).peak)
+                      for name in ("total", "ours", "limit")} | {"refused": sum(counts("db_refused").values())},
         "throttle": sorted(({"method": n, **_stat(s)} for n, s in by_kind("throttle_wait").items()),
                            key=lambda r: (r["p95"], r["count"]), reverse=True)[:6],
         "routes": routes[:12],

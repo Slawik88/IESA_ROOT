@@ -80,6 +80,20 @@ def test_alert_thresholds() -> None:
     keys = [key for key, _ in ops_health.alerts_for(loud)]
     assert keys == ["loop_lag", "pool_wait", "http_5xx", "client", "bot_error"], keys
 
+    def server(total: int, ours: int, limit: int) -> ops_metrics.Window:
+        window = ops_metrics.Window()
+        for name, value in (("total", total), ("ours", ours), ("limit", limit)):
+            series = Series()
+            series.add(value)
+            window.timings[("db_server", name)] = series
+        return window
+    assert ops_health.alerts_for(server(10, 6, 22)) == []
+    (key, text), = ops_health.alerts_for(server(20, 9, 22))
+    assert key == "db_server" and "20 из 22" in text and "Предвестник — 9" in text, text
+    refused = ops_metrics.Window()
+    refused.counters[("db_refused", "server_full")] = 1
+    assert [k for k, _ in ops_health.alerts_for(refused)] == ["db_server"]
+
 
 def test_trim() -> None:
     assert ops_health._trim([3, 0, 1, 0, 0]) == [3, 0, 1]

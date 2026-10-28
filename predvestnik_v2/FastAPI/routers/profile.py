@@ -156,12 +156,16 @@ async def my_avatar(user=Depends(require_tg_user_base), profile_ref: str | None 
     return {"avatar": shown.avatar, "vip": vip, "avatar_state": shown.state}
 
 
+# A leaderboard asks for many photos at once; they share a few connections instead of taking the whole pool.
+_AVATAR_DB_SLOTS = asyncio.Semaphore(2)
+
+
 @router.get("/avatar/{profile_ref}", include_in_schema=False)
 async def avatar_image(profile_ref: str, request: Request) -> Response:
     """The photo itself for <img>: no login headers there, so the VIP rule is checked here on every request.
     The address carries the photo version (?v=), so a changed photo is a new address."""
     await create_pool()
-    async with get_pool().acquire() as conn:
+    async with _AVATAR_DB_SLOTS, get_pool().acquire() as conn:
         db = PGAdapter(conn)
         target = await public_profiles.resolve_reference(db, profile_ref=profile_ref)
         if target is None:

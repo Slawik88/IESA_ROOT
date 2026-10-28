@@ -2297,6 +2297,7 @@ async function healthOpsView(box, hours) {
     ${section('h-ops-server', '⚙️ Сервер и база', `
       <div class="log"><div>Задержка обработки <b>p95 ${ms(o.loop_lag.p95)}</b> · максимум ${ms(o.loop_lag.max)}</div><div class="sub">Больше секунды подряд — сервер не успевает, игроки видят «зависания».</div></div>
       <div class="log"><div>Соединений с базой занято <b>в среднем ${o.pool_busy.avg}</b> · максимум ${o.pool_busy.max}</div></div>
+      ${o.db_server && o.db_server.limit ? `<div class="log"><div>Всего соединений на сервере базы <b>до ${o.db_server.total} из ${o.db_server.limit}</b> · Предвестник до ${o.db_server.ours}</div><div class="sub">Общий лимит с сайтом IESA: когда он кончается, база отказывает всем${o.db_server.refused ? ` · отказов: <b>${num(o.db_server.refused)}</b>` : ''}.</div></div>` : ''}
       ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
       ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram: ${esc(t.method)} <b>p95 ${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
     ${section('h-ops-routes', '🌐 Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'p50', 'p95', 'p99', '4xx / 5xx'],

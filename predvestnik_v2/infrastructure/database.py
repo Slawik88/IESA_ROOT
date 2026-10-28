@@ -21,6 +21,9 @@ from infrastructure.preprod import assert_preprod_environment, is_preprod
 _pool: asyncpg.Pool | None = None
 _pool_create_lock = asyncio.Lock()
 _SCHEMA = "predvestnik"
+# Shown in pg_stat_activity: the managed cluster is shared with the IESA site, so its connection count
+# can only be split between the two by this name (see server_connection_usage).
+APP_NAME = "predvestnik"
 
 
 def _pool_max_size() -> int:
@@ -168,6 +171,7 @@ async def _create_pool_unlocked() -> asyncpg.Pool:
                     server_settings={
                         "search_path": f"{_SCHEMA},public",
                         "statement_timeout": str(_statement_timeout_ms()),
+                        "application_name": APP_NAME,
                     },
                     init=_set_schema,
                 )
@@ -193,6 +197,22 @@ async def _create_pool_unlocked() -> asyncpg.Pool:
 async def _set_schema(conn: asyncpg.Connection):
     """Called when a new connection is added to the pool."""
     await conn.execute(f"SET search_path TO {_SCHEMA}, public")
+
+
+async def server_connection_usage(conn: asyncpg.Connection) -> dict:
+    """Connections open on the whole database server (all databases and apps), ours, and the limit for
+    ordinary roles. When ``total`` reaches ``limit`` the server refuses new connections
+    ("remaining connection slots are reserved ...") to everyone, the site included."""
+    row = await conn.fetchrow(
+        """
+        SELECT count(*) FILTER (WHERE usesysid IS NOT NULL) AS total,
+               count(*) FILTER (WHERE usesysid IS NOT NULL AND application_name = $1) AS ours,
+               current_setting('max_connections')::int
+                 - current_setting('superuser_reserved_connections')::int
+                 - COALESCE(current_setting('reserved_connections', true), '0')::int AS limit
+          FROM pg_stat_activity
+        """, APP_NAME)
+    return {"total": int(row["total"]), "ours": int(row["ours"]), "limit": int(row["limit"])}
 
 
 def get_pool() -> asyncpg.Pool:

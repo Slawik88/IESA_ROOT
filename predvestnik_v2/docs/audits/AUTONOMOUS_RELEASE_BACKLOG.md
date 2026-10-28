@@ -1,3 +1,11 @@
+## ROADMAP-S03 (hotfix, part 1) — DATABASE SERVER OUT OF CONNECTIONS, PUSHED TO MASTER (production not verified from the cloud)
+
+Owner report 2026-10-28 ~10:40: `TooManyConnectionsError` / «remaining connection slots are reserved for roles with the SUPERUSER attribute» in the mafia and market loops, skin news
+and `/profile/avatar`. The process pool never exceeds 10, so the managed cluster limit (shared with the IESA site) was reached by all clients together. Released: pool connections carry
+`application_name=predvestnik`; «Здоровье» samples `pg_stat_activity` every 60 s (all connections on the server, ours, the limit for ordinary roles; refused samples counted) and shows
+one line under «Сервер и база»; owner alert when fewer than 3 free connections are left or the server refuses; `/profile/avatar/{ref}` uses at most 2 pool connections at a time.
+Checked locally: `test_ops_metrics.py`, `test_ops_health_pg.py` (fresh DB), `test_avatar_pool_pg.py`, the usage query as a non-superuser role. Not checked: production numbers (owner).
+
 ## ROADMAP-S02 — LOGIN AND AVATARS (incl. S02v screen approved by the owner), PUSHED TO MASTER (production not verified from the cloud)
 
 Login: 401 carries `X-Auth-Reason` (category only); initData lifetime unchanged (24 h). Client (`static/app.01.js`): initData re-read on return to the app and before one GET retry after 401,
