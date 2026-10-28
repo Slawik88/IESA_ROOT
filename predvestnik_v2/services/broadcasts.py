@@ -80,15 +80,14 @@ class BroadcastError(Exception):
 
 
 def pool_db_factory():
-    """Асинхронный контекст, дающий соединение (на каждый шаг фоновой отправки своё)."""
-    from contextlib import asynccontextmanager
+    """Асинхронный контекст, дающий соединение (на каждый шаг фоновой отправки своё).
+    Ленивое (infrastructure/lazy_db.py): соединение берётся на первом SQL и отдаётся перед каждым вызовом Telegram,
+    поэтому фоновые обходы (теги, новости образов, рассылки) не держат его, пока Telegram отвечает."""
+    from infrastructure import lazy_db
     from infrastructure.database import get_pool
-    from infrastructure.pg_adapter import PGAdapter
 
-    @asynccontextmanager
-    async def pool_db():
-        async with get_pool().acquire() as conn:
-            yield PGAdapter(conn)
+    def pool_db():
+        return lazy_db.lazy_connection(get_pool(), source="background")
     return pool_db
 
 

@@ -7,6 +7,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from loguru import logger
 
+from infrastructure import lazy_db
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
 
@@ -101,8 +102,8 @@ async def maintenance_task(bot: Bot) -> None:
     logger.info("Фоновая задача обслуживания запущена.")
     while True:
         try:
-            async with get_pool().acquire() as connection:
-                db = PGAdapter(connection)
+            # Lazy: the VIP and onboarding reminders below call Telegram; the connection is not held meanwhile.
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
                 await _daily_gc(db)
                 try:
                     from services.support_reports import storage as support_storage
@@ -182,8 +183,8 @@ async def mafia_tick(bot: Bot) -> None:
     from bot.chat.mafia_delivery import tick
 
     pool = get_pool()
-    async with pool.acquire() as conn:
-        await tick(bot, PGAdapter(conn), pool)
+    async with lazy_db.lazy_connection(pool, source="background") as db:
+        await tick(bot, db, pool)
 
 
 async def mafia_phase_task(bot: Bot) -> None:

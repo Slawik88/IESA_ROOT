@@ -259,7 +259,7 @@ async def _guarded(label: str, coro) -> None:
 
 
 # Several chats play at once: one chat's slow delivery (twelve role cards) must not hold the others' dawn.
-# Kept small on purpose: the database pool is shared with the bot and the Mini App (DB_POOL_MAX_SIZE, 5 by default).
+# Kept small on purpose: the database pool is shared with the bot and the Mini App (DB_POOL_MAX_SIZE).
 MATCH_CONCURRENCY = 2
 
 
@@ -269,12 +269,13 @@ async def _per_match(db, pool, ids: list[int], label: str, work: Callable) -> No
         for match_id in ids:
             await _guarded(f"{label} {match_id}", work(db, match_id))
         return
-    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure import lazy_db
     gate = asyncio.Semaphore(MATCH_CONCURRENCY)
 
     async def one(match_id: int) -> None:
-        async with gate, pool.acquire() as connection:
-            await _guarded(f"{label} {match_id}", work(PGAdapter(connection), match_id))
+        # Lazy: the connection goes back to the pool while Telegram takes the cards.
+        async with gate, lazy_db.lazy_connection(pool, source="background") as match_db:
+            await _guarded(f"{label} {match_id}", work(match_db, match_id))
     await asyncio.gather(*(one(match_id) for match_id in ids))
 
 
