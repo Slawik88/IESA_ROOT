@@ -357,10 +357,35 @@ async def telegram_login(payload: _LoginWidgetPayload):
 
 # ── WebSocket notifications ────────────────────────────────────────────────────
 
+_WS_AUTH_TIMEOUT_SEC = 10
+_WS_AUTH_MAX_CHARS = 8192
+
+
+async def _ws_first_message_credentials(websocket: WebSocket) -> dict[str, str]:
+    """The client sends {"type":"auth","init"|"token": ...} right after connecting, so credentials
+    never appear in the connection address (addresses are written to proxy logs)."""
+    try:
+        raw = await asyncio.wait_for(websocket.receive_text(), _WS_AUTH_TIMEOUT_SEC)
+        message = json.loads(raw) if len(raw) <= _WS_AUTH_MAX_CHARS else {}
+    except (asyncio.TimeoutError, WebSocketDisconnect, KeyError, ValueError):
+        return {}
+    if not isinstance(message, dict) or message.get("type") != "auth":
+        return {}
+    return {key: message[key] for key in ("init", "token") if isinstance(message.get(key), str)}
+
+
 @app.websocket("/ws/{user_id}")
 async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init: str = ""):
     # H6: верифицируем, что подключающийся — это и есть user_id (WebApp шлёт initData,
     # браузер — session-token). Иначе можно было слушать чужой поток уведомлений.
+    # Current clients send the credential as the first message; ?init=/?token= stays for
+    # clients opened before that release.
+    accepted = not (init or token)
+    if accepted:
+        await websocket.accept()
+        sent = await _ws_first_message_credentials(websocket)
+        init, token = sent.get("init", ""), sent.get("token", "")
+
     def credential_valid() -> bool:
         if init:
             _u = verify_webapp_data(init)
@@ -403,7 +428,8 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
         except Exception:
             return True   # transient DB error keeps an already admitted session
 
-    await websocket.accept()
+    if not accepted:
+        await websocket.accept()
     # Единый протокол сессии (отправка событий + keep-alive клиента) —
     # вся логика в notifications.ws_session, чистка гарантирована внутри.
     try:

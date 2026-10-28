@@ -280,13 +280,16 @@ let _ws=null, _wsTries=0, _wsTimer=0, _balanceEventTimer=0, _pendingBalanceEvent
 let _dynamicEventTimer=0;
 const _dynamicScopes=new Set();
 // События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
-// Сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
+// Первым сообщением сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
 function connectWS() {
   if (_ws || !_uid || typeof WebSocket === 'undefined' || (!INIT_DATA && !sess())) return;
-  const auth = INIT_DATA ? `init=${encodeURIComponent(INIT_DATA)}` : `token=${encodeURIComponent(sess())}`;
-  let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}?${auth}`); } catch (e) { return; }
+  let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}`); } catch (e) { return; }
   _ws = ws;
-  ws.onopen = () => { _wsTries = 0; window.PVDiagnostics?.record('websocket',{state:'open'}); };
+  ws.onopen = () => {
+    _wsTries = 0; window.PVDiagnostics?.record('websocket',{state:'open'});
+    // The credential goes inside the connection, never in its address (addresses land in proxy logs).
+    try { ws.send(JSON.stringify(INIT_DATA ? {type:'auth', init:INIT_DATA} : {type:'auth', token:sess()})); } catch (e) { /* закроется само */ }
+  };
   ws.onmessage = ev => {
     let event; try { event = JSON.parse(ev.data); } catch (e) { return; }
     // The server sends this only after its PostgreSQL listener is active. One

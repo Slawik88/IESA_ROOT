@@ -3,7 +3,9 @@
 
 - valid account connects; foreign ID, deleted account and a preprod non-allowlisted
   account are rejected before accept; DB failure fails closed (1011);
-- an open session is closed with 1008 once the account stops being allowed.
+- an open session is closed with 1008 once the account stops being allowed;
+- the credential may come as the first message instead of the address (roadmap S02):
+  the same gates apply, and a silent, malformed or foreign first message is refused.
 Only a loopback DSN is accepted.
 """
 from __future__ import annotations
@@ -62,6 +64,19 @@ def rejected_code(client: TestClient, path: str) -> int:
     raise AssertionError(f"{path} was accepted")
 
 
+def first_message_code(client: TestClient, user_id: int, message) -> int:
+    """Connect without credentials in the address, then send `message` (str or JSON) first."""
+    fresh_pool()
+    try:
+        with client.websocket_connect(f"/ws/{user_id}") as ws:
+            if message is not None:
+                ws.send_text(message) if isinstance(message, str) else ws.send_json(message)
+            ws.receive_json()
+    except WebSocketDisconnect as exc:
+        return exc.code
+    return 0
+
+
 async def seed(sql: str, *params) -> None:
     conn = await asyncpg.connect(args.dsn, server_settings={"search_path": "predvestnik,public"})
     try:
@@ -112,6 +127,22 @@ def main() -> None:
             assert ws.receive_json()["type"] == "app_version"
 
         assert rejected_code(client, f"/ws/{ACTIVE}?token={create_session_token(DELETED)}") == 1008, "foreign id"
+
+        # Credential as the first message: nothing secret in the connection address.
+        fresh_pool()
+        with client.websocket_connect(f"/ws/{ACTIVE}") as ws:
+            ws.send_json({"type": "auth", "token": create_session_token(ACTIVE)})
+            assert ws.receive_json()["type"] == "app_version"
+        assert first_message_code(client, ACTIVE, {"type": "auth", "token": create_session_token(DELETED)}) == 1008, "foreign id"
+        assert first_message_code(client, DELETED, {"type": "auth", "token": create_session_token(DELETED)}) == 1008, "deleted"
+        assert first_message_code(client, ACTIVE, {"type": "auth", "init": "hash=forged&user=%7B%7D"}) == 1008, "forged initData"
+        assert first_message_code(client, ACTIVE, "ping") == 1008, "not an auth message"
+        assert first_message_code(client, ACTIVE, "x" * 9000) == 1008, "oversized"
+        main_module._WS_AUTH_TIMEOUT_SEC = 0.2
+        try:
+            assert first_message_code(client, ACTIVE, None) == 1008, "silent client"
+        finally:
+            main_module._WS_AUTH_TIMEOUT_SEC = 10
         assert rejected_code(client, f"/ws/{DELETED}?token={create_session_token(DELETED)}") == 1008, "deleted"
 
         os.environ["PREDVESTNIK_ENV"] = "preprod"
