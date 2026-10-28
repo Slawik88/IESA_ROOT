@@ -88,7 +88,7 @@ class FakeBot:
         if user_id == 999:   # сам бот: как в живом чате — либо админ с удалением, либо обычный участник
             return SimpleNamespace(status="administrator" if self.bot_admin else "member",
                                    can_delete_messages=self.bot_admin, can_restrict_members=self.bot_admin)
-        return SimpleNamespace(status="member", can_delete_messages=False)
+        return SimpleNamespace(status="member", can_delete_messages=False, user=SimpleNamespace(id=user_id, is_bot=False))
 
     async def send_message(self, chat_id, text, **kw):
         self.sent.append((chat_id, text, kw))
@@ -236,7 +236,9 @@ async def purge_flow(db, bot):
     await asyncio.sleep(1.5)       # досье уходят фоном
     assert any("Досье" in t for _, t, _ in bot.sent), [t[:30] for _, t, _ in bot.sent]
     m = FakeMessage("болтаю", 2002, "talker")
-    assert await purge.purge_gate(db, bot, m) and m.deleted
+    assert await purge.purge_gate(db, bot, m)
+    await asyncio.sleep(purge.DELETE_BUFFER_SEC + 0.2)   # удаление идёт пачкой deleteMessages после короткого буфера
+    assert ("delete_messages", (-100, [m.message_id]), {}) in bot.calls, bot.calls
     m = FakeMessage("я админ", 1002, "beta")
     assert not await purge.purge_gate(db, bot, m)
     s = await purge.active_session(db, -100)

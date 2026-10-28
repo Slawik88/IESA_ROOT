@@ -124,11 +124,13 @@ async def ensure_balance_listener() -> bool:
         return False
 
 
-async def notify(user_id: int, event: dict) -> bool:
+async def notify(user_id: int, event: dict, *, forget_profile: bool = True) -> bool:
     """Доставить событие подключённому WS-клиенту. Возвращает True, если клиент
     онлайн (событие отправлено), иначе False — вызывающий может сохранить его в
-    web_notifications для показа при следующем входе (Welcome Back)."""
-    profile_snapshot.forget(user_id)   # live event about the player: their profile snapshot is no longer current
+    web_notifications для показа при следующем входе (Welcome Back).
+    forget_profile=False — событие не о самом игроке (ход «Чистки»): снимок его профиля остаётся."""
+    if forget_profile:
+        profile_snapshot.forget(user_id)   # live event about the player: their profile snapshot is no longer current
     queues = tuple(_queues.get(user_id, ()))
     delivered = False
     for q in queues:

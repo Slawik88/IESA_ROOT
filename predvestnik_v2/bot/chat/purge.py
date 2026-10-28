@@ -11,9 +11,9 @@ import asyncio
 import html
 import math
 import re
+import time
 from dataclasses import dataclass
 from dataclasses import asdict
-from uuid import uuid4
 from datetime import date, datetime, timedelta, timezone
 
 from aiogram import Bot, Router
@@ -26,18 +26,27 @@ from bot.chat import ranks
 from bot.chat.access import is_developer
 from bot.chat.admin_chat import admin_chat_of, ping_line
 from bot.chat.framework import Ctx, UsageError, registry
-from bot.chat.moderation import (FOREVER, TG_FAIL, commit, do_ban, do_kick, do_mute, do_warn, log,
-                                 rank_block, warn_limit_alert)
+from bot.chat.moderation import (FOREVER, ban_in_telegram, do_warn, kick_in_telegram, log, mute_in_telegram, rank_block,
+                                 record_ban, record_kick, record_mute, warn_limit_alert)
 from bot.chat.tracking import PRESENCE_SQL, local_now, stay_start, tz_delta
 from bot.chat.style import quote
+from core.ttl_cache import TtlCache
+from infrastructure import lazy_db
 from infrastructure.database import get_pool
-from infrastructure.pg_adapter import PGAdapter
+from infrastructure.repositories import purge_sessions
 from services import chat_bots, member_tags
 from services import purge as purge_flow
 
 router = Router(name="chat_purge")
 USAGE = "бот чистка, норма [01.12.2026-07.12.2026]"
 MAX_NORM = 100000   # норма в сообщениях; больше не помещалась бы в счётчики
+PURGE_MUTE = timedelta(hours=1)
+DOSSIER_PAUSE_SEC = 0.4    # между досье: админ-чат не захлёбывается, а троттлер держит 1 сообщение в секунду на чат
+DOSSIER_BATCH = 20
+DOSSIER_ATTEMPTS = 3       # столько раз за запуск очереди пробуем одно досье, потом оно ждёт следующего запуска
+MEMBER_CACHE_SEC = 45      # статус участника в Telegram для просмотра и статуса; перед бан/кик/мут — всегда заново
+DELETE_BUFFER_SEC = 0.4    # сообщения закрытого чата удаляются пачкой раз в столько секунд
+DELETE_BATCH = 100         # больше Telegram за один deleteMessages не принимает
 _DATE = r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?"
 _RANGE = re.compile(rf"{_DATE}\s*[-–—]\s*{_DATE}")
 
@@ -149,19 +158,24 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
     shift = tz_delta()
     start_dt = datetime.combine(plan.start, datetime.min.time()) - shift
     end_dt = datetime.combine(plan.end + timedelta(days=1), datetime.min.time()) - shift
+    # Один проход: сообщения за период, последний мут и действующие варны считаются сразу по всему чату
+    # (по индексам daily_user_stats, moderation_logs и user_warnings), а не тремя подзапросами на каждого участника.
     async with db.execute(
+        "WITH period AS (SELECT d.user_id, SUM(d.message_count) AS n FROM daily_user_stats d "
+        "  WHERE d.chat_id = ? AND d.date BETWEEN ? AND ? GROUP BY d.user_id), "
+        "last_mute AS (SELECT l.user_id, MAX(l.created_at) AS at FROM moderation_logs l "
+        "  WHERE l.chat_id = ? AND l.action = 'mute' GROUP BY l.user_id), "
+        "warns AS (SELECT w.user_id, COUNT(*) AS n FROM user_warnings w WHERE w.chat_id = ? AND w.revoked_at IS NULL "
+        "  AND (w.expires_at IS NULL OR w.expires_at > NOW()) GROUP BY w.user_id) "
         "SELECT s.user_tg_id, u.user_tg_username, COALESCE(s.chat_rank, 0), s.is_immune, "
         "(s.immune_until IS NOT NULL AND s.immune_until > NOW()), "
         f"{PRESENCE_SQL}, s.muted_until, s.user_messages_count_all_time, "
-        "COALESCE((SELECT SUM(d.message_count) FROM daily_user_stats d WHERE d.chat_id = s.chat_tg_id "
-        "  AND d.user_id = s.user_tg_id AND d.date BETWEEN ? AND ?), 0), "
-        "(SELECT MAX(l.created_at) FROM moderation_logs l WHERE l.chat_id = s.chat_tg_id "
-        "  AND l.user_id = s.user_tg_id AND l.action = 'mute'), s.member_tag, "
-        "(SELECT COUNT(*) FROM user_warnings w WHERE w.chat_id=s.chat_tg_id AND w.user_id=s.user_tg_id "
-        "AND w.revoked_at IS NULL AND (w.expires_at IS NULL OR w.expires_at>NOW())) "
+        "COALESCE(p.n, 0), m.at, s.member_tag, COALESCE(w.n, 0) "
         "FROM user_chat_stats s LEFT JOIN users u ON u.user_tg_id = s.user_tg_id "
+        "LEFT JOIN period p ON p.user_id = s.user_tg_id LEFT JOIN last_mute m ON m.user_id = s.user_tg_id "
+        "LEFT JOIN warns w ON w.user_id = s.user_tg_id "
         "WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND COALESCE(s.is_bot, FALSE) = FALSE",
-        (plan.start.isoformat(), plan.end.isoformat(), chat_id),
+        (chat_id, plan.start.isoformat(), plan.end.isoformat(), chat_id, chat_id, chat_id),
     ) as cur:
         rows = await cur.fetchall()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -253,48 +267,116 @@ async def web_keyboard(bot, chat_id: int):
     return None
 
 
-async def _skip_target(session_id: int, user_id: int) -> None:
-    """Оказался ботом: досье не нужно. Запись остаётся с отметкой «пропущен», в итоги она не входит."""
-    async with get_pool().acquire() as conn:
-        db = PGAdapter(conn)
-        await chat_bots.mark(db, user_id)
-        await db.execute("UPDATE purge_targets SET verdict = 'skip', verdict_at = NOW() WHERE session_id = ? AND user_id = ? AND verdict IS NULL AND decision_state IN ('idle','failed')",
-                         (session_id, user_id))
-        await commit(db)
+# ── Очередь досье ─────────────────────────────────────────────────────────
+# Досье живут в purge_targets (dossier_sent): очередь читает их из базы порциями, поэтому перезапуск процесса
+# (деплой) её не теряет — при старте бот продолжает незаконченные (resume_dossiers). Telegram вызывается без открытого
+# соединения с базой. Каждое отправленное досье двигает счётчик «отправлено N из M» у тех, кто смотрит чистку.
+
+_dossier_tasks: dict[int, asyncio.Task] = {}
 
 
-async def _send_dossiers(bot: Bot, session_id: int, chat_id: int, chat_title: str, dest: int,
-                         violators: list[Violator]) -> None:
-    """Фоном: по одному сообщению на нарушителя (не блокирует команду)."""
-    for v in violators:
-        try:
-            async with get_pool().acquire() as connection:
-                adapter = PGAdapter(connection)
-                async with adapter.execute("SELECT s.status,t.verdict,t.dossier_sent FROM purge_targets t JOIN purge_sessions s ON s.id=t.session_id "
-                                           "WHERE t.session_id=? AND t.user_id=?", (session_id, v.user_id)) as cursor:
-                    pending = await cursor.fetchone()
-            if not pending or pending[0] != "active" or pending[1] or pending[2]:
-                continue
-            # Тех, кто мало пишет, бот мог ни разу не видеть с тегом: спрашиваем Telegram прямо перед досье
-            state, tag = await member_tags.probe(bot, chat_id, v.user_id)
-            if state == "bot":   # проверка перед чисткой не дошла до этого человека, а он бот: досье не нужно
-                await _skip_target(session_id, v.user_id)
-                continue
-            known = state == "ok"
-            if known:
-                v.tag = tag
-            await bot.send_message(dest, dossier_text(v, chat_title), parse_mode="HTML",
-                                   reply_markup=dossier_kb(session_id, v.user_id))
-            async with get_pool().acquire() as conn:
-                db = PGAdapter(conn)
-                if known:
-                    await member_tags.observe(db, chat_id, v.user_id, tag)
-                await db.execute("UPDATE purge_targets SET dossier_sent = TRUE, member_tag = ? "
-                                 "WHERE session_id = ? AND user_id = ?", (v.tag, session_id, v.user_id))
-                await commit(db)
-        except Exception as exc:
-            logger.warning(f"purge dossier {session_id}/{v.user_id} failed: {exc}")
-        await asyncio.sleep(0.4)
+def _background_db():
+    return lazy_db.lazy_connection(get_pool(), source="background")
+
+
+def live_changed(chat_id: int) -> None:
+    """Сказать экранам, которые смотрят чистку этого чата, что она изменилась (FastAPI/purge_live.py)."""
+    from FastAPI import purge_live
+    purge_live.changed(chat_id)
+
+
+def dossier_queue_running(session_id: int) -> bool:
+    task = _dossier_tasks.get(int(session_id))
+    return bool(task and not task.done())
+
+
+def launch_dossiers(bot: Bot, session_id: int, chat_id: int, chat_title: str, dest: int) -> asyncio.Task:
+    """Запустить (или вернуть уже идущую) фоновую отправку досье этой чистки."""
+    sid = int(session_id)
+    running = _dossier_tasks.get(sid)
+    if running and not running.done():
+        return running
+    task = asyncio.get_running_loop().create_task(_dossier_queue(bot, sid, int(chat_id), chat_title, int(dest)),
+                                                  name=f"predvestnik:purge-dossiers:{sid}")
+    _dossier_tasks[sid] = task
+
+    def finished(done: asyncio.Task) -> None:
+        if _dossier_tasks.get(sid) is done:
+            _dossier_tasks.pop(sid, None)
+        if not done.cancelled() and done.exception():
+            logger.opt(exception=done.exception()).error(f"purge dossiers {sid} stopped")
+    task.add_done_callback(finished)
+    return task
+
+
+async def resume_dossiers(bot: Bot) -> int:
+    """При старте процесса: продолжить очереди досье, которые прошлый процесс не закончил. Возвращает их число."""
+    async with _background_db() as db:
+        await purge_sessions.ensure_operations(db)
+        sessions = await purge_sessions.sessions_with_unsent(db)
+    for row in sessions:
+        launch_dossiers(bot, int(row["id"]), int(row["chat_id"]), str(row["chat_title"] or ""), int(row["dest_chat_id"]))
+    return len(sessions)
+
+
+async def _dossier_queue(bot: Bot, session_id: int, chat_id: int, chat_title: str, dest: int) -> None:
+    failures: dict[int, int] = {}
+    while True:
+        given_up = [uid for uid, n in failures.items() if n >= DOSSIER_ATTEMPTS]
+        async with _background_db() as db:
+            session = await purge_sessions.get_by_id(db, session_id)
+            if not session or session["status"] != "active":
+                return
+            batch = await purge_sessions.unsent_targets(db, session_id, DOSSIER_BATCH, skip=given_up)
+        if not batch:
+            if given_up:
+                logger.warning(f"purge dossiers {session_id}: {len(given_up)} not sent this run, will retry on restart")
+            return
+        for row in batch:
+            uid = int(row["user_id"])
+            try:
+                if not await _send_dossier(bot, session_id, chat_id, chat_title, dest, row):
+                    return   # чистку завершили, пока шла очередь
+            except Exception as exc:
+                failures[uid] = failures.get(uid, 0) + 1
+                logger.warning(f"purge dossier {session_id}/{uid} failed ({failures[uid]}/{DOSSIER_ATTEMPTS}): {exc}")
+            await asyncio.sleep(DOSSIER_PAUSE_SEC)
+
+
+async def _send_dossier(bot: Bot, session_id: int, chat_id: int, chat_title: str, dest: int, row: dict) -> bool:
+    """Одно досье. False — чистка уже не идёт, очередь пора остановить."""
+    uid = int(row["user_id"])
+    async with _background_db() as db:
+        async with db.execute("SELECT s.status, t.verdict, COALESCE(t.dossier_sent, FALSE) FROM purge_targets t "
+                              "JOIN purge_sessions s ON s.id = t.session_id WHERE t.session_id = ? AND t.user_id = ?",
+                              (session_id, uid)) as cursor:
+            pending = await cursor.fetchone()
+    if not pending or pending[0] != "active":
+        return False
+    if pending[1] or pending[2]:
+        return True
+    # Тех, кто мало пишет, бот мог ни разу не видеть с тегом: спрашиваем Telegram прямо перед досье
+    state, tag = await member_tags.probe(bot, chat_id, uid)
+    if state == "bot":   # проверка перед чисткой не дошла до этого человека, а он бот: досье не нужно
+        async with _background_db() as db:
+            await chat_bots.mark(db, uid)
+            await db.execute("UPDATE purge_targets SET verdict = 'skip', verdict_at = NOW() WHERE session_id = ? AND user_id = ? "
+                             "AND verdict IS NULL AND decision_state IN ('idle','failed')", (session_id, uid))
+        live_changed(chat_id)
+        return True
+    violator = Violator(uid, row["username"], int(row["msg_count"] or 0), int(row["required_norm"] or 0),
+                        int(row["total_messages"] or 0), int(row["days_in_chat"] or 0), int(row["warns"] or 0),
+                        row["note"] or "", member_tags.clean(row["member_tag"]))
+    if state == "ok":
+        violator.tag = tag
+    await bot.send_message(dest, dossier_text(violator, chat_title), parse_mode="HTML",
+                           reply_markup=dossier_kb(session_id, uid))
+    async with _background_db() as db:
+        if state == "ok":
+            await member_tags.observe(db, chat_id, uid, tag)
+        await purge_sessions.mark_sent(db, session_id, uid, violator.tag)
+    live_changed(chat_id)
+    return True
 
 
 # ── Команды ───────────────────────────────────────────────────────────────
@@ -350,7 +432,7 @@ async def cmd_purge(ctx: Ctx) -> None:
                 f"Нарушителей: {len(violators)}. Досье идут ниже, по одному на игрока.")
         line = await ping_line(ctx.db, chat.id)
         await ctx.bot.send_message(dest, head + (f"\n\n{line}" if line else ""), parse_mode="HTML")
-    asyncio.create_task(_send_dossiers(ctx.bot, session_id, chat.id, chat.title or "", dest, violators))
+    launch_dossiers(ctx.bot, session_id, chat.id, chat.title or "", dest)
 
 
 async def status(ctx: Ctx) -> None:
@@ -423,6 +505,7 @@ async def finish(ctx: Ctx) -> None:
     except purge_flow.PurgeConflict as error:
         await ctx.reply(str(error)); return
     _hush.pop(chat_id, None)
+    live_changed(chat_id)
     await ctx.message.answer("✅ <b>Чистка завершена, чат открыт</b>\n" + summary_lines(counts)
                              + await outcome_lines(ctx.db, int(s[0]), ("ban", "kick", "none"), "⏳ Без решения"), parse_mode="HTML")
 
@@ -430,10 +513,14 @@ async def finish(ctx: Ctx) -> None:
 # ── Тишина во время чистки ────────────────────────────────────────────────
 
 _hush: dict[int, int] = {}
+# Сообщения закрытого чата копятся DELETE_BUFFER_SEC и удаляются одним deleteMessages (до DELETE_BATCH за вызов):
+# при наплыве в чате бот делает один вызов Telegram вместо сотни.
+_to_delete: dict[int, list[int]] = {}
+_delete_tasks: dict[int, asyncio.Task] = {}
 
 
 async def purge_gate(db, bot: Bot, message: Message) -> bool:
-    """Во время чистки удалить сообщение того, кому писать нельзя. True — удалено."""
+    """Во время чистки убрать сообщение того, кому писать нельзя. True — сообщение поставлено в удаление."""
     if message.chat.type not in ("group", "supergroup") or not message.from_user or message.from_user.is_bot:
         return False
     async with db.execute("SELECT is_purging FROM chat_settings WHERE chat_id = ?", (message.chat.id,)) as cur:
@@ -442,18 +529,38 @@ async def purge_gate(db, bot: Bot, message: Message) -> bool:
         return False
     if await ranks.can(db, message.chat.id, message.from_user.id, "purge_write"):
         return False
-    try:
-        await message.delete()
-    except Exception:
-        return False
+    _queue_delete(bot, message.chat.id, message.message_id)
     n = _hush.get(message.chat.id, 0) + 1
     _hush[message.chat.id] = n
     if n % 20 == 0:
         try:
             await bot.send_message(message.chat.id, "🤫 Тсссс, идёт чистка. Чат откроется после её окончания.")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"purge hush message in {message.chat.id} failed: {exc}")
     return True
+
+
+def _queue_delete(bot: Bot, chat_id: int, message_id: int) -> None:
+    pending = _to_delete.setdefault(chat_id, [])
+    pending.append(message_id)
+    running = _delete_tasks.get(chat_id)
+    if running and not running.done():
+        return
+    task = asyncio.get_running_loop().create_task(_flush_deletes(bot, chat_id), name=f"predvestnik:purge-delete:{chat_id}")
+    _delete_tasks[chat_id] = task
+    task.add_done_callback(lambda done: _delete_tasks.pop(chat_id, None) if _delete_tasks.get(chat_id) is done else None)
+
+
+async def _flush_deletes(bot: Bot, chat_id: int) -> None:
+    while _to_delete.get(chat_id):
+        if len(_to_delete[chat_id]) < DELETE_BATCH:
+            await asyncio.sleep(DELETE_BUFFER_SEC)
+        pending = _to_delete.pop(chat_id, [])
+        for start in range(0, len(pending), DELETE_BATCH):
+            try:
+                await bot.delete_messages(chat_id, pending[start:start + DELETE_BATCH])
+            except Exception as exc:   # нет прав или чат пропал: сообщения останутся, чистка продолжается
+                logger.warning(f"purge delete in {chat_id} ({len(pending[start:start + DELETE_BATCH])} messages) failed: {exc}")
 
 
 # ── Решения по досье ──────────────────────────────────────────────────────
@@ -485,6 +592,21 @@ async def on_verdict(call: CallbackQuery, callback_data: PurgeCB, bot: Bot, db) 
 
 
 
+# Статусы участников в Telegram на MEMBER_CACHE_SEC: просмотр и опрос хода чистки не ходят в Telegram каждый раз.
+# Перед бан/кик/мут и запуском чистки права актёра, бота и цели спрашиваются заново, без кэша (и параллельно).
+_members = TtlCache(MEMBER_CACHE_SEC, max_entries=4096)
+FRESH_ACTIONS = frozenset({None, "ban", "kick", "mute"})
+
+
+async def _member(bot, chat_id: int, user_id: int, *, fresh: bool):
+    key = (int(chat_id), int(user_id))
+    member = None if fresh else _members.get(key)
+    if member is None:
+        member = await bot.get_chat_member(chat_id, user_id)
+        _members.put(key, member)
+    return member
+
+
 async def authorize_shared(bot, db, chat_id: int, actor: int, target: int | None = None, action: str | None = None) -> None:
     try:
         await asyncio.wait_for(_authorize_shared(bot,db,chat_id,actor,target,action),timeout=8)
@@ -493,7 +615,7 @@ async def authorize_shared(bot, db, chat_id: int, actor: int, target: int | None
 
 
 async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | None = None, action: str | None = None) -> None:
-    """Current local delegation plus fresh Telegram membership and bot capability."""
+    """Current local delegation plus Telegram membership and bot capability (fresh before start and sanctions)."""
     await ranks.sync_owner(db, bot, chat_id)
     if not await ranks.can(db, chat_id, actor, "purge"):
         raise purge_flow.PurgeConflict("У вашего ранга нет права проводить чистку.")
@@ -502,10 +624,14 @@ async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | Non
         disabled = await feature_switches.disabled(db, feature_switches.command_features("чистка", "purge", None), chat_id)
         if disabled is not None:
             raise purge_flow.PurgeConflict("Чистка сейчас отключена настройками бота или чата.")
+    fresh = action in FRESH_ACTIONS
+    check_target = target is not None and action != "forgive"
     try:
-        member = await bot.get_chat_member(chat_id, actor)
         me = await bot.me()
-        own = await bot.get_chat_member(chat_id, me.id) if action != "read" else None
+        member, own, live_target = await asyncio.gather(
+            _member(bot, chat_id, actor, fresh=fresh),
+            _member(bot, chat_id, me.id, fresh=fresh) if action != "read" else asyncio.sleep(0),
+            _member(bot, chat_id, target, fresh=True) if check_target else asyncio.sleep(0))
     except Exception:
         raise purge_flow.PurgeUnavailable("Не удалось проверить текущие права в Telegram. Повторите позже.") from None
     if member.status in ("left", "kicked") or (member.status == "restricted" and not member.is_member):
@@ -514,7 +640,7 @@ async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | Non
         raise purge_flow.PurgeConflict("Боту нужны права администратора и удаления сообщений.")
     if action in {"ban", "kick", "mute"} and not own.can_restrict_members:
         raise purge_flow.PurgeConflict("Боту нужны права блокировки участников.")
-    if target is None or action == "forgive":
+    if not check_target:
         return
     if target == me.id or is_developer(target):
         raise purge_flow.PurgeConflict("К этому участнику санкции не применяются.")
@@ -526,10 +652,6 @@ async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | Non
         protected = await cursor.fetchone()
     if protected and any(protected):
         raise purge_flow.PurgeConflict("У участника сейчас иммунитет или щит.")
-    try:
-        live_target = await bot.get_chat_member(chat_id, target)
-    except Exception:
-        raise purge_flow.PurgeUnavailable("Не удалось проверить текущий статус участника.") from None
     if chat_bots.is_bot(live_target.user):
         raise purge_flow.PurgeConflict("Боты не участвуют в чистке. Оставьте это досье без санкции.")
     if live_target.status in ("creator", "administrator"):
@@ -549,7 +671,91 @@ async def start_shared(bot, db, chat_id: int, actor: int, plan: Plan, violators:
                 matches = await cursor.fetchall()
             for match in matches:
                 await mafia_v1.pause_for_moderation_intervention(db, match_id=int(match[0]))
-        return receipt
+    if receipt["created"]:
+        live_changed(chat_id)
+    return receipt
+
+
+async def prepare_and_start(bot, db, chat_id: int, actor: int, plan: Plan, action_id: str) -> dict:
+    """Запуск с сайта: список нарушителей, сессия и очередь досье. Возвращает квитанцию start_shared и число досье."""
+    targets = await find_violators(db, chat_id, plan)
+    targets, _ = await screen_violators(bot, db, chat_id, targets, live=False)
+    dest = await admin_chat_of(db, chat_id) or chat_id
+    async with db.execute("SELECT chat_title FROM chat_settings WHERE chat_id=?", (chat_id,)) as cursor:
+        chat = await cursor.fetchone()
+    receipt = await start_shared(bot, db, chat_id, actor, plan, targets, dest, action_id=action_id)
+    if receipt["created"]:
+        launch_dossiers(bot, receipt["session_id"], chat_id, str(chat[0] or "Чат") if chat else "Чат", dest)
+    return {**receipt, "targets": len(targets)}
+
+
+# ── Запуск с сайта фоном ──────────────────────────────────────────────────
+# Подсчёт нарушителей большого чата не должен держать HTTP-запрос: экран получает 202 и ход подготовки,
+# а сессия появляется, когда список готов. Подготовка идемпотентна (квитанция по action_id): если процесс
+# перезапустился посреди неё, ничего не записано, и повтор того же запуска с экрана начнёт её заново.
+
+START_JOB_KEEP_SEC = 600   # сколько помнить итог подготовки (ошибку или номер сессии) для экрана
+
+
+@dataclass
+class StartJob:
+    chat_id: int
+    actor: int
+    action_id: str
+    plan: Plan
+    state: str = "preparing"   # preparing → started | failed
+    error: str | None = None
+    session_id: int | None = None
+    targets: int | None = None
+    finished_at: float | None = None
+
+    def view(self) -> dict:
+        return {"action_id": self.action_id, "state": self.state, "error": self.error, "session_id": self.session_id,
+                "targets": self.targets, "norm": self.plan.norm, "date_from": self.plan.start.isoformat(),
+                "date_to": self.plan.end.isoformat()}
+
+
+_start_jobs: dict[int, StartJob] = {}
+_start_tasks: dict[int, asyncio.Task] = {}
+
+
+def start_job(chat_id: int) -> StartJob | None:
+    job = _start_jobs.get(int(chat_id))
+    if job and job.finished_at is not None and time.monotonic() - job.finished_at > START_JOB_KEEP_SEC:
+        _start_jobs.pop(int(chat_id), None)
+        return None
+    return job
+
+
+def launch_start(bot, chat_id: int, actor: int, plan: Plan, action_id: str) -> StartJob:
+    """Начать подготовку чистки фоном или вернуть уже идущую с тем же action_id."""
+    cid = int(chat_id)
+    job = start_job(cid)
+    if job and job.state == "preparing":
+        if (job.actor, job.action_id) == (int(actor), action_id):
+            return job
+        raise purge_flow.PurgeConflict("Чистка этого чата уже готовится. Дождитесь списка.")
+    job = StartJob(cid, int(actor), action_id, plan)
+    _start_jobs[cid] = job
+    task = asyncio.get_running_loop().create_task(_prepare_start(bot, job), name=f"predvestnik:purge-start:{cid}")
+    _start_tasks[cid] = task
+    task.add_done_callback(lambda done: _start_tasks.pop(cid, None) if _start_tasks.get(cid) is done else None)
+    return job
+
+
+async def _prepare_start(bot, job: StartJob) -> None:
+    try:
+        async with _background_db() as db:
+            receipt = await prepare_and_start(bot, db, job.chat_id, job.actor, job.plan, job.action_id)
+        job.session_id, job.targets, job.state = receipt["session_id"], receipt["targets"], "started"
+    except purge_flow.PurgeConflict as error:
+        job.state, job.error = "failed", str(error)
+    except Exception:
+        logger.exception(f"purge start {job.chat_id} failed")
+        job.state, job.error = "failed", "Не удалось подготовить список. Попробуй ещё раз."
+    finally:
+        job.finished_at = time.monotonic()
+        live_changed(job.chat_id)
 
 
 async def decide_shared(bot, db, chat_id: int, session_id: int, target: int, actor: int, action: str, action_id: str) -> dict:
@@ -558,19 +764,26 @@ async def decide_shared(bot, db, chat_id: int, session_id: int, target: int, act
         if cid != chat_id:
             raise purge_flow.PurgeConflict("Чистка относится к другому чату.")
         await authorize_shared(bot, db, cid, actor, uid, act)
-    async def execute(cid, uid, act):
-        nonlocal warned
+    async def deliver(cid, uid, act):
         try:
-            if act == "ban": await do_ban(bot, db, cid, uid, actor, FOREVER, "чистка")
-            elif act == "kick": await do_kick(bot, db, cid, uid, actor, "чистка")
-            elif act == "mute": await do_mute(bot, db, cid, uid, actor, timedelta(hours=1), "чистка")
-            elif act == "warn": warned = await do_warn(db, cid, uid, actor, None, "чистка: не набрана норма")
+            if act == "ban": await ban_in_telegram(bot, cid, uid, FOREVER)
+            elif act == "kick": await kick_in_telegram(bot, cid, uid)
+            elif act == "mute": await mute_in_telegram(bot, cid, uid, PURGE_MUTE)
         except (TelegramBadRequest, TelegramForbiddenError):
             # Kick is ban+unban: a rejection of step two can follow a successful ban.
             if act == "kick": raise RuntimeError("kick delivery requires verification") from None
             raise purge_flow.DeliveryRejected() from None
-    result = await purge_flow.decide(db, session_id=session_id, user_id=target, actor=actor,
-                                     action=action, action_id=action_id, authorize=authorize, execute=execute)
+    async def record(cid, uid, act):
+        nonlocal warned
+        if act == "ban": await record_ban(db, cid, uid, actor, FOREVER, "чистка")
+        elif act == "kick": await record_kick(db, cid, uid, actor, "чистка")
+        elif act == "mute": await record_mute(db, cid, uid, actor, PURGE_MUTE, "чистка")
+        elif act == "warn": warned = await do_warn(db, cid, uid, actor, None, "чистка: не набрана норма")
+    try:
+        result = await purge_flow.decide(db, session_id=session_id, user_id=target, actor=actor, action=action,
+                                         action_id=action_id, authorize=authorize, deliver=deliver, record=record)
+    finally:
+        live_changed(chat_id)   # решение, отказ Telegram или неизвестный исход — экраны перечитают досье
     if warned and warned[0] >= warned[1]:
         try:
             await warn_limit_alert(bot, db, chat_id, None, target, str(target), warned[0], warned[1])

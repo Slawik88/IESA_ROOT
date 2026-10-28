@@ -293,6 +293,13 @@ async def main():
             ])
         except Exception as _e:
             logger.warning(f"Циклы админки (рассылки, итоги дня) не запущены: {_e}")
+        try:
+            from bot.chat import purge as _purge
+            _resumed = await _purge.resume_dossiers(bot)   # досье чистки, которые не успел отправить прошлый процесс
+            if _resumed:
+                logger.info(f"🧹 Чистка: продолжена отправка досье ({_resumed})")
+        except Exception as _e:
+            logger.warning(f"Очереди досье чистки не продолжены: {_e}")
         from services import broadcasts as _bc_db, ops_health
         # «Здоровье»: лаг цикла, пул, агрегаты раз в 5 минут, ошибки Mini App и бота, тревоги владельцу.
         background_tasks.append(_spawn_supervised("ops-health", ops_health.run(_bc_db.pool_db_factory(), bot),

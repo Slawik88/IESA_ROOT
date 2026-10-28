@@ -6,11 +6,11 @@ from infrastructure.pg_adapter import PGAdapter
 
 async def ensure_operations(db) -> None:
     # Inspect the actual database, rather than caching readiness across rollbacks.
-    async with db.execute("SELECT COUNT(*)=8 AND to_regclass('purge_start_receipt') IS NOT NULL "
+    async with db.execute("SELECT COUNT(*)=10 AND to_regclass('purge_start_receipt') IS NOT NULL "
                           "FROM pg_attribute WHERE attrelid='purge_targets'::regclass "
                           "AND attname=ANY(?::text[]) AND NOT attisdropped",
                           (["decision_state", "decision_action", "decision_actor", "decision_key", "decision_error",
-                            "decision_started_at", "verdict_by", "verdict_at"],)) as cursor:
+                            "decision_started_at", "verdict_by", "verdict_at", "total_messages", "note"],)) as cursor:
         if (await cursor.fetchone())[0]:
             return
     await db.execute("ALTER TABLE purge_sessions ADD COLUMN IF NOT EXISTS request_key TEXT")
@@ -21,29 +21,27 @@ async def ensure_operations(db) -> None:
     await db.execute("ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS decision_key TEXT")
     await db.execute("ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS decision_error TEXT")
     await db.execute("ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS decision_started_at TIMESTAMPTZ")
+    # Dossier facts kept with the target: the background queue resends after a restart from the database alone.
+    await db.execute("ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS total_messages INTEGER")
+    await db.execute("ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS note TEXT")
 
 
 async def insert_targets(db, session_id: int, targets: list[dict]) -> None:
     if not targets:
         return
-    await db.execute("INSERT INTO purge_targets(session_id,user_id,username,msg_count,days_in_chat,warns,required_norm,member_tag) "
-                     "SELECT ?,t.* FROM unnest(?::bigint[],?::text[],?::integer[],?::integer[],?::integer[],?::integer[],?::text[]) "
-                     "AS t(user_id,username,msg_count,days_in_chat,warns,required_norm,member_tag)",
+    await db.execute("INSERT INTO purge_targets(session_id,user_id,username,msg_count,days_in_chat,warns,required_norm,member_tag,"
+                     "total_messages,note) "
+                     "SELECT ?,t.* FROM unnest(?::bigint[],?::text[],?::integer[],?::integer[],?::integer[],?::integer[],?::text[],"
+                     "?::integer[],?::text[]) "
+                     "AS t(user_id,username,msg_count,days_in_chat,warns,required_norm,member_tag,total_messages,note)",
                      (session_id,[t["user_id"] for t in targets],[t.get("username") for t in targets],
                       [t["count"] for t in targets],[t["days_in_chat"] for t in targets],
-                      [t["warns"] for t in targets],[t["required"] for t in targets],[t.get("tag") for t in targets]))
+                      [t["warns"] for t in targets],[t["required"] for t in targets],[t.get("tag") for t in targets],
+                      [t.get("total") for t in targets],[t.get("note") or None for t in targets]))
 
 
 async def lock_chat(db, chat_id: int) -> None:
     await db.execute("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", (f"purge:{int(chat_id)}",))
-
-
-async def lock_delivery(db, session_id: int, user_id: int, *, wait: bool = True) -> bool:
-    function = "pg_advisory_xact_lock" if wait else "pg_try_advisory_xact_lock"
-    async with db.execute(f"SELECT {function}(hashtextextended(?,0))",
-                          (f"purge-delivery:{int(session_id)}:{int(user_id)}",)) as cursor:
-        row = await cursor.fetchone()
-    return True if wait else bool(row[0])
 
 
 async def delivery_failed(db, session_id: int, user_id: int, key: str, started_at, state: str, error: str) -> None:
@@ -128,19 +126,37 @@ async def add_target(db: PGAdapter, session_id: int, user_id: int, username: str
     )
 
 
-async def unsent_targets(db: PGAdapter, session_id: int, limit: int) -> list[dict]:
+async def unsent_targets(db, session_id: int, limit: int, skip: list[int] = ()) -> list[dict]:
+    """Next dossiers to send, in the order of the start message: furthest below the norm first.
+    Targets saved before total_messages existed take the chat's all-time count."""
     async with db.execute(
-        "SELECT * FROM purge_targets WHERE session_id = ? AND dossier_sent = FALSE "
-        "ORDER BY msg_count ASC LIMIT ?",
-        (session_id, limit),
+        "SELECT t.user_id, t.username, t.msg_count, t.required_norm, "
+        "COALESCE(t.total_messages, s.user_messages_count_all_time, 0) AS total_messages, "
+        "t.days_in_chat, t.warns, t.note, t.member_tag "
+        "FROM purge_targets t JOIN purge_sessions p ON p.id = t.session_id "
+        "LEFT JOIN user_chat_stats s ON s.chat_tg_id = p.chat_id AND s.user_tg_id = t.user_id "
+        "WHERE t.session_id = ? AND NOT COALESCE(t.dossier_sent, FALSE) AND t.verdict IS NULL "
+        "AND NOT (t.user_id = ANY(?::bigint[])) "
+        "ORDER BY t.msg_count - COALESCE(t.required_norm, 0), t.msg_count, t.user_id LIMIT ?",
+        (session_id, [int(u) for u in skip], limit),
     ) as c:
         return [dict(r) for r in await c.fetchall()]
 
 
-async def mark_sent(db: PGAdapter, session_id: int, user_id: int) -> None:
+async def sessions_with_unsent(db) -> list[dict]:
+    """Active purges whose dossier queue a previous process did not finish."""
+    async with db.execute(
+        "SELECT s.id, s.chat_id, s.dest_chat_id, COALESCE(c.chat_title, '') AS chat_title FROM purge_sessions s "
+        "LEFT JOIN chat_settings c ON c.chat_id = s.chat_id WHERE s.status = 'active' AND EXISTS "
+        "(SELECT 1 FROM purge_targets t WHERE t.session_id = s.id AND NOT COALESCE(t.dossier_sent, FALSE) AND t.verdict IS NULL) ORDER BY s.id"
+    ) as c:
+        return [dict(r) for r in await c.fetchall()]
+
+
+async def mark_sent(db, session_id: int, user_id: int, member_tag: str | None) -> None:
     await db.execute(
-        "UPDATE purge_targets SET dossier_sent = TRUE WHERE session_id = ? AND user_id = ?",
-        (session_id, user_id),
+        "UPDATE purge_targets SET dossier_sent = TRUE, member_tag = ? WHERE session_id = ? AND user_id = ?",
+        (member_tag, session_id, user_id),
     )
 
 
