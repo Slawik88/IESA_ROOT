@@ -15,9 +15,20 @@ Telegram-запросов (aiogram request middleware, а не update middleware
 точка, через которую проходят ВСЕ исходящие вызовы Telegram Bot API
 (message.answer/reply, bot.send_message, callback.answer и т.д.), поэтому
 троттлинг здесь работает для всего бота сразу, без правок в хендлерах.
+
+Слот «1 сообщение в секунду на чат» нужен только методам, которые публикуют или меняют сообщения
+(send*/edit*/forward*/copy*). Чтение и модерация (getChatMember, deleteMessage, banChatMember, …)
+идут сразу: раньше они стояли в той же очереди, и «Чистка» ждала по секунде на каждую проверку прав.
+Очередь чата — честная куча с приоритетом: ожидающий вызов, который отменили, слот не тратит, а
+вызовы внутри ``urgent()`` (действия админки) проходят раньше обычных ответов того же чата.
 """
 import asyncio
+import contextlib
+import heapq
+import itertools
 import time
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 from loguru import logger
@@ -45,54 +56,96 @@ _GLOBAL_MAX_PER_SEC = 25
 # ровно столько, сколько просит Telegram, и повторяем. Без этого одно
 # исключение теряет ответ пользователю насовсем.
 _MAX_RETRY_ATTEMPTS = 3
-# Периодическая чистка _next_allowed от давно неактивных чатов — иначе dict
+# Периодическая чистка очередей давно неактивных чатов — иначе dict
 # растёт вечно по числу когда-либо писавших чатов (утечка на долгом аптайме).
 _PRUNE_EVERY_SEC = 120.0
 _STALE_AFTER_SEC = 600.0
 
+# Методы, которые публикуют или меняют сообщение в чате: только им нужен слот чата.
+_CHAT_SLOT_PREFIXES = ("Send", "Edit", "Forward", "Copy")
+# «Печатает…» не сообщение: не должен отодвигать настоящий ответ на секунду.
+_NO_CHAT_SLOT = frozenset({"SendChatAction"})
+
+URGENT, NORMAL = 0, 1
+_priority: ContextVar[int] = ContextVar("outbound_priority", default=NORMAL)
+
+
+@contextlib.contextmanager
+def urgent():
+    """Вызовы Telegram внутри блока обгоняют обычные ответы в очереди своего чата."""
+    token = _priority.set(URGENT)
+    try:
+        yield
+    finally:
+        _priority.reset(token)
+
+
+def needs_chat_slot(method_name: str) -> bool:
+    return method_name.startswith(_CHAT_SLOT_PREFIXES) and method_name not in _NO_CHAT_SLOT
+
+
+@dataclass
+class _ChatLane:
+    next_free: float = 0.0
+    waiters: list = field(default_factory=list)   # куча (приоритет, порядок, future)
+    pump: Optional[asyncio.Task] = None
+
 
 class OutboundThrottleMiddleware(BaseRequestMiddleware):
     def __init__(self) -> None:
-        self._lock = asyncio.Lock()
-        self._next_allowed: dict[int, float] = {}
+        self._lanes: dict[int, _ChatLane] = {}
+        self._order = itertools.count()
         self._global_window_start = time.monotonic()
         self._global_count = 0
         self._last_prune = time.monotonic()
 
-    async def _reserve_slot(self, chat_id: Optional[int]) -> float:
-        """Резервирует ближайший разрешённый момент отправки (per-chat +
-        глобальный кап) под одним lock'ом — без гонок за 'кто первый читает
-        время последней отправки'. Возвращает, сколько секунд нужно подождать
-        (сам sleep — вне lock'а, чтобы не сериализовать отправку в РАЗНЫЕ чаты)."""
-        async with self._lock:
-            now = time.monotonic()
+    def _prune(self, now: float) -> None:
+        if now - self._last_prune <= _PRUNE_EVERY_SEC:
+            return
+        cutoff = now - _STALE_AFTER_SEC
+        self._lanes = {cid: lane for cid, lane in self._lanes.items()
+                       if lane.waiters or lane.next_free > cutoff}
+        self._last_prune = now
 
-            if now - self._last_prune > _PRUNE_EVERY_SEC:
-                cutoff = now - _STALE_AFTER_SEC
-                self._next_allowed = {
-                    cid: t for cid, t in self._next_allowed.items() if t > cutoff
-                }
-                self._last_prune = now
+    async def _chat_slot(self, chat_id: int) -> None:
+        """Ждёт своей очереди в чате. Слот берётся в момент выдачи, а не постановки в очередь."""
+        now = time.monotonic()
+        self._prune(now)
+        lane = self._lanes.setdefault(chat_id, _ChatLane())
+        if not lane.waiters and now >= lane.next_free:
+            lane.next_free = now + _MIN_INTERVAL_PER_CHAT_SEC
+            return
+        granted = asyncio.get_running_loop().create_future()
+        heapq.heappush(lane.waiters, (_priority.get(), next(self._order), granted))
+        if lane.pump is None or lane.pump.done():
+            lane.pump = asyncio.create_task(self._pump(lane), name=f"predvestnik:throttle:{chat_id}")
+        try:
+            await granted
+        except asyncio.CancelledError:
+            if granted.done() and not granted.cancelled():
+                lane.next_free = time.monotonic()   # слот выдан, но не использован: вернуть сразу
+            raise
 
-            if now - self._global_window_start >= 1.0:
-                self._global_window_start = now
-                self._global_count = 0
-            wait_global = (
-                1.0 - (now - self._global_window_start)
-                if self._global_count >= _GLOBAL_MAX_PER_SEC else 0.0
-            )
+    async def _pump(self, lane: _ChatLane) -> None:
+        while lane.waiters:
+            delay = lane.next_free - time.monotonic()
+            if delay > 0:
+                await asyncio.sleep(delay)
+                continue
+            *_, granted = heapq.heappop(lane.waiters)
+            if granted.done():          # ожидавший вызов отменили: слот достаётся следующему
+                continue
+            lane.next_free = time.monotonic() + _MIN_INTERVAL_PER_CHAT_SEC
+            granted.set_result(None)
 
-            wait_chat = 0.0
-            if chat_id is not None:
-                wait_chat = max(0.0, self._next_allowed.get(chat_id, 0.0) - now)
-
-            wait = max(wait_global, wait_chat)
-
-            if chat_id is not None:
-                self._next_allowed[chat_id] = now + wait + _MIN_INTERVAL_PER_CHAT_SEC
-            self._global_count += 1
-
-            return wait
+    def _global_wait(self) -> float:
+        now = time.monotonic()
+        if now - self._global_window_start >= 1.0:
+            self._global_window_start = now
+            self._global_count = 0
+        wait = 1.0 - (now - self._global_window_start) if self._global_count >= _GLOBAL_MAX_PER_SEC else 0.0
+        self._global_count += 1
+        return wait
 
     async def __call__(
         self,
@@ -101,13 +154,16 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
         method: "TelegramMethod[TelegramType]",
     ):
         chat_id = getattr(method, "chat_id", None)
+        name = type(method).__name__
 
         started = time.perf_counter()
-        wait = await self._reserve_slot(chat_id)
+        if chat_id is not None and needs_chat_slot(name):
+            await self._chat_slot(chat_id)
+        wait = self._global_wait()
         if wait > 0:
             await asyncio.sleep(wait)
-        # Measurement only: how long this call waited for its slot (lock + pause), per Bot API method.
-        ops_metrics.observe("throttle_wait", type(method).__name__, (time.perf_counter() - started) * 1000)
+        # Measurement only: how long this call waited for its slot, per Bot API method.
+        ops_metrics.observe("throttle_wait", name, (time.perf_counter() - started) * 1000)
 
         attempt = 0
         while True:
@@ -117,13 +173,13 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
                 attempt += 1
                 if attempt > _MAX_RETRY_ATTEMPTS:
                     logger.warning(
-                        f"[throttle] {type(method).__name__} chat={chat_id}: "
+                        f"[throttle] {name} chat={chat_id}: "
                         f"лимит повторов ({_MAX_RETRY_ATTEMPTS}) исчерпан, сдаюсь"
                     )
                     raise
                 delay = e.retry_after + 0.5
                 logger.warning(
-                    f"[throttle] {type(method).__name__} chat={chat_id}: "
+                    f"[throttle] {name} chat={chat_id}: "
                     f"flood control, жду {delay:.1f}с (попытка {attempt}/{_MAX_RETRY_ATTEMPTS})"
                 )
                 await asyncio.sleep(delay)

@@ -17,6 +17,7 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import SECTIONS, section
 from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat import moderation
+from bot.middlewares import outbound_throttle
 from bot.chat.access import is_developer
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_rank
 from core.economy_contract import InsufficientBalance
@@ -398,33 +399,34 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
             except chat_rank_admin.StaleRights as exc:raise HTTPException(409,str(exc))
             except chat_rank_admin.RightsError as exc:raise HTTPException(400,str(exc))
         bot = get_bot()
-        try:
-            if action == "mute":
-                await moderation.do_mute(bot, db, chat_id, uid, actor, _duration(data), reason)
-            elif action == "unmute":
-                await moderation.do_unmute(bot, db, chat_id, uid, actor)
-            elif action == "kick":
-                await moderation.do_kick(bot, db, chat_id, uid, actor, reason)
-            elif action == "ban":
-                await moderation.do_ban(bot, db, chat_id, uid, actor, _duration(data), reason)
-            elif action == "unban":
-                await moderation.do_unban(bot, db, chat_id, uid, actor)
-            elif action == "warn":
-                count, limit = await moderation.do_warn(db, chat_id, uid, actor, _duration(data), reason)
-                if count >= limit:
-                    async with db.execute("SELECT chat_title FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cur:
-                        row = await cur.fetchone()
-                    label = (await admin_people._names(db, [uid])).get(uid)
-                    await moderation.warn_limit_alert(bot, db, chat_id, row[0] if row else None, uid,
-                                                      f"@{label}" if label else f"id{uid}", count, limit)
-                return {"ok": True, "message": f"Варн выдан ({count}/{limit})."}
-            elif action == "unwarn_all":
-                n = await moderation.revoke_all_warns(db, chat_id, uid, actor)
-                return {"ok": True, "message": f"Снято варнов: {n}."}
-        except HTTPException:
-            raise
-        except Exception as exc:
-            raise _tg_error(exc)
+        with outbound_throttle.urgent():   # действие админа обгоняет обычные ответы бота в этом чате
+            try:
+                if action == "mute":
+                    await moderation.do_mute(bot, db, chat_id, uid, actor, _duration(data), reason)
+                elif action == "unmute":
+                    await moderation.do_unmute(bot, db, chat_id, uid, actor)
+                elif action == "kick":
+                    await moderation.do_kick(bot, db, chat_id, uid, actor, reason)
+                elif action == "ban":
+                    await moderation.do_ban(bot, db, chat_id, uid, actor, _duration(data), reason)
+                elif action == "unban":
+                    await moderation.do_unban(bot, db, chat_id, uid, actor)
+                elif action == "warn":
+                    count, limit = await moderation.do_warn(db, chat_id, uid, actor, _duration(data), reason)
+                    if count >= limit:
+                        async with db.execute("SELECT chat_title FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cur:
+                            row = await cur.fetchone()
+                        label = (await admin_people._names(db, [uid])).get(uid)
+                        await moderation.warn_limit_alert(bot, db, chat_id, row[0] if row else None, uid,
+                                                          f"@{label}" if label else f"id{uid}", count, limit)
+                    return {"ok": True, "message": f"Варн выдан ({count}/{limit})."}
+                elif action == "unwarn_all":
+                    n = await moderation.revoke_all_warns(db, chat_id, uid, actor)
+                    return {"ok": True, "message": f"Снято варнов: {n}."}
+            except HTTPException:
+                raise
+            except Exception as exc:
+                raise _tg_error(exc)
         return {"ok": True, "message": "Готово."}
 
     if action in ("mark_grant", "mark_revoke"):
@@ -566,7 +568,8 @@ async def chat_action(cid: int, data: dict = Body(...), user=Depends(_user), db=
         if not 1 <= len(text) <= 3500:
             raise HTTPException(400, "Текст — от 1 до 3500 символов.")
         try:
-            await get_bot().send_message(cid, text)
+            with outbound_throttle.urgent():
+                await get_bot().send_message(cid, text)
         except Exception as exc:
             raise _tg_error(exc)
         await admin_people.audit(db, actor, "message", chat_id=cid, details={"text": text[:500]})
