@@ -61,8 +61,15 @@ async def begin_with_receipt(db, *, chat_id: int, actor: int, norm: int, date_fr
         return {"session_id": sid, "created": True, "active": True}
 
 
+# Deliveries in flight in this process (bot and Mini App share it; one instance runs at a time).
+# Human reconciliation of such a target waits for the live Telegram request to return or time out.
+_delivering: set[tuple[int, int]] = set()
+
+
 async def decide(db, *, session_id: int, user_id: int, actor: int, action: str, action_id: str,
-                 authorize, execute) -> dict:
+                 authorize, deliver, record) -> dict:
+    """forgive/warn: one transaction. mute/kick/ban: reserve (short transaction) → ``deliver`` in Telegram with no
+    open transaction (the lazy handle gives its connection back) → ``record`` and the verdict in one short transaction."""
     if action not in VERDICTS or not action_id or len(action_id) > 96:
         raise PurgeConflict("Неверное решение или идентификатор операции.")
     await repo.ensure_operations(db)
@@ -85,33 +92,33 @@ async def decide(db, *, session_id: int, user_id: int, actor: int, action: str, 
             raise PurgeConflict("Действие выполняется или его исход неизвестен. Сначала проверьте результат; повторная санкция заблокирована.")
         attempt = await repo.reserve(db, session_id, user_id, action, actor, action_id)
         if action in {"forgive", "warn"}:
-            if action == "warn":
-                await execute(cid, user_id, action)
+            await record(cid, user_id, action)
             await repo.set_verdict(db, session_id, user_id, action, actor)
             await repo.operation_state(db, session_id, user_id, "done")
             return {"ok": True, "verdict": action, "replayed": False}
-    # The durable sending state survives loss of process/connection after Telegram accepts.
+    # The committed sending state survives loss of process/connection after Telegram accepts.
+    key = (int(session_id), int(user_id))
+    _delivering.add(key)
     try:
+        try:
+            await asyncio.wait_for(deliver(cid, user_id, action), timeout=DELIVERY_TIMEOUT)
+        except DeliveryRejected:
+            await repo.delivery_failed(db, session_id, user_id, action_id, attempt, "failed", "Telegram отклонил действие. Проверьте права и повторите.")
+            raise PurgeConflict("Telegram отклонил действие; решение не принято.") from None
+        except Exception:
+            await repo.delivery_failed(db, session_id, user_id, action_id, attempt, "unknown", "Ответ не получен. Проверьте участника и журнал Telegram до повторной попытки.")
+            raise PurgeConflict("Ответ Telegram не получен. Исход требует проверки, автоматического повтора не будет.") from None
         async with db.connection.transaction():
-            # A live delivery owns this target until it returns or is cancelled.
-            # Human reconciliation must never race an ongoing Telegram request.
-            await repo.lock_delivery(db, session_id, user_id)
+            await repo.lock_chat(db, cid)
             target = await repo.get_target(db, session_id, user_id)
             if (target["decision_state"] != "sending" or target["decision_key"] != action_id
                     or target["decision_started_at"] != attempt):
                 raise PurgeConflict("Результат уже сверен. Обновите досье перед новым решением.")
-            await asyncio.wait_for(execute(cid, user_id, action), timeout=DELIVERY_TIMEOUT)
-            await repo.lock_chat(db, cid)
+            await record(cid, user_id, action)
             await repo.set_verdict(db, session_id, user_id, action, actor)
             await repo.operation_state(db, session_id, user_id, "done")
-    except DeliveryRejected:
-        await repo.delivery_failed(db, session_id, user_id, action_id, attempt, "failed", "Telegram отклонил действие. Проверьте права и повторите.")
-        raise PurgeConflict("Telegram отклонил действие; решение не принято.")
-    except PurgeConflict:
-        raise
-    except Exception:
-        await repo.delivery_failed(db, session_id, user_id, action_id, attempt, "unknown", "Ответ не получен. Проверьте участника и журнал Telegram до повторной попытки.")
-        raise PurgeConflict("Ответ Telegram не получен. Исход требует проверки, автоматического повтора не будет.") from None
+    finally:
+        _delivering.discard(key)
     return {"ok": True, "verdict": action, "replayed": False}
 
 
@@ -171,7 +178,7 @@ async def reconcile(db, *, session_id: int, user_id: int, actor: int, applied: b
     await authorize(int(session["chat_id"]), None, None)
     async with db.connection.transaction():
         await repo.lock_chat(db, int(session["chat_id"]))
-        if not await repo.lock_delivery(db, session_id, user_id, wait=False):
+        if (int(session_id), int(user_id)) in _delivering:
             raise PurgeConflict("Telegram ещё обрабатывает действие. Дождитесь ответа перед сверкой.")
         current = await repo.get_by_id(db, session_id)
         if current["status"] != "active":

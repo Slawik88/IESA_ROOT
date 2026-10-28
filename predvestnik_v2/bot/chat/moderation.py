@@ -287,8 +287,20 @@ async def cmd_warn_limit(ctx: Ctx) -> None:
 # ── Мут ───────────────────────────────────────────────────────────────────
 
 async def do_mute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int, dur, reason: str = "") -> None:
+    await mute_in_telegram(bot, chat_id, user_id, dur)
+    await record_mute(db, chat_id, user_id, admin_id, dur, reason)
+    await commit(db)
+
+
+# Санкция = вызов Telegram + запись в базу. Части разделены, чтобы «Чистка» вызывала Telegram вне транзакции,
+# а запись делала одной короткой транзакцией вместе с решением (services/purge.py).
+async def mute_in_telegram(bot: Bot, chat_id: int, user_id: int, dur) -> None:
     td = dur if isinstance(dur, timedelta) else None
     await bot.restrict_chat_member(chat_id, user_id, permissions=NO_PERMS, until_date=until(td))
+
+
+async def record_mute(db, chat_id: int, user_id: int, admin_id: int, dur, reason: str = "") -> None:
+    td = dur if isinstance(dur, timedelta) else None
     # Строки игрока в этом чате может ещё не быть (ни разу не писал): без неё мут не попадал в «санкции» и карточку
     if td:
         await db.execute(
@@ -302,7 +314,6 @@ async def do_mute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int, dur, 
             "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET muted_until = EXCLUDED.muted_until",
             (user_id, chat_id))
     await log(db, chat_id, user_id, admin_id, "mute", reason)
-    await commit(db)
 
 
 @moderation_command(
@@ -349,17 +360,35 @@ async def do_unmute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> 
 # ── Кик и бан ─────────────────────────────────────────────────────────────
 
 async def do_kick(bot: Bot, db, chat_id: int, user_id: int, admin_id: int, reason: str = "") -> None:
-    await bot.ban_chat_member(chat_id, user_id)
-    await bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
-    await db.execute(
-        "UPDATE user_chat_stats SET is_left = TRUE WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
-    await log(db, chat_id, user_id, admin_id, "kick", reason)
+    await kick_in_telegram(bot, chat_id, user_id)
+    await record_kick(db, chat_id, user_id, admin_id, reason)
     await commit(db)
 
 
+async def kick_in_telegram(bot: Bot, chat_id: int, user_id: int) -> None:
+    await bot.ban_chat_member(chat_id, user_id)
+    await bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
+
+
+async def record_kick(db, chat_id: int, user_id: int, admin_id: int, reason: str = "") -> None:
+    await db.execute(
+        "UPDATE user_chat_stats SET is_left = TRUE WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
+    await log(db, chat_id, user_id, admin_id, "kick", reason)
+
+
 async def do_ban(bot: Bot, db, chat_id: int, user_id: int, admin_id: int, dur, reason: str = "") -> None:
+    await ban_in_telegram(bot, chat_id, user_id, dur)
+    await record_ban(db, chat_id, user_id, admin_id, dur, reason)
+    await commit(db)
+
+
+async def ban_in_telegram(bot: Bot, chat_id: int, user_id: int, dur) -> None:
     td = dur if isinstance(dur, timedelta) else None
     await bot.ban_chat_member(chat_id, user_id, until_date=until(td))
+
+
+async def record_ban(db, chat_id: int, user_id: int, admin_id: int, dur, reason: str = "") -> None:
+    td = dur if isinstance(dur, timedelta) else None
     if td:
         await db.execute(
             "INSERT INTO chat_blacklist (chat_id, user_id, reason, added_by, expires_at) "
@@ -375,7 +404,6 @@ async def do_ban(bot: Bot, db, chat_id: int, user_id: int, admin_id: int, dur, r
     await db.execute(
         "UPDATE user_chat_stats SET is_left = TRUE WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
     await log(db, chat_id, user_id, admin_id, "ban", reason)
-    await commit(db)
 
 
 async def is_blacklisted(db, chat_id: int, user_id: int) -> bool:

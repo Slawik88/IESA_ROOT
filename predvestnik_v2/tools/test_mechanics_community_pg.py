@@ -97,11 +97,11 @@ async def run(dsn):
         calls = []
         async def authorize(*args): pass
         async def execute(*args): calls.append(args)
-        kwargs = dict(session_id=sid,user_id=other,actor=owner,action="warn",action_id="warn-one",authorize=authorize,execute=execute)
+        kwargs = dict(session_id=sid,user_id=other,actor=owner,action="warn",action_id="warn-one",authorize=authorize,deliver=execute,record=execute)
         assert (await purge.decide(db,**kwargs))["ok"]
         assert (await purge.decide(db,**kwargs))["replayed"] and len(calls)==1
         async def uncertain(*args): raise TimeoutError()
-        bad = {**kwargs,"user_id":users[2],"action":"ban","action_id":"uncertain","execute":uncertain}
+        bad = {**kwargs,"user_id":users[2],"action":"ban","action_id":"uncertain","deliver":uncertain}
         await denied(purge.decide(db,**bad))
         await denied(purge.decide(db,**bad))
         await denied(purge.complete(db,chat_id=cid,actor=owner,expected_session=sid))
@@ -162,7 +162,7 @@ async def concurrent(dsn):
             effects.append(args)
             await asyncio.sleep(.04)
         async def decide(db, actor):
-            return await purge.decide(db,session_id=sid,user_id=202,actor=actor,action="warn",action_id=f"actor-{actor}",authorize=authorize,execute=effect)
+            return await purge.decide(db,session_id=sid,user_id=202,actor=actor,action="warn",action_id=f"actor-{actor}",authorize=authorize,deliver=effect,record=effect)
         results = await asyncio.gather(decide(a,101),decide(b,303))
         assert len(effects)==1 and sum(bool(r.get("replayed")) for r in results)==1
         print("OK: real concurrent moderators apply once")
