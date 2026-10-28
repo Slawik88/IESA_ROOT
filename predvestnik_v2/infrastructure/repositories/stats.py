@@ -1,5 +1,6 @@
 # infrastructure/repositories/stats.py
 import aiosqlite
+from core.chat_inactivity import InactiveMember, InactivePage, PAGE_SIZE
 
 # all_time still reads from the counter column; period-based reads from daily_user_stats
 # so that stale lazy-reset counters can't show players who haven't written today.
@@ -341,17 +342,49 @@ async def get_top_auction_sales(db: aiosqlite.Connection, chat_id: int | None, l
         return [dict(r) for r in await c.fetchall()]
 
 
-async def get_inactive_users(
-    db: aiosqlite.Connection, chat_id: int, days_limit: int = 4
-) -> list[dict]:
+async def get_inactive_users(db, chat_id: int, seconds: int, page: int, *,
+                             excluded_ids: list[int], timezone_seconds: int) -> InactivePage:
+    """One snapshot for count, clamped page and members; timestamps are explicitly UTC.
+
+    A join also sets last_message_at's default, so never-speakers use observed
+    presence instead. A return resets the silence clock without changing history.
+    If counters are missing, positive daily history proves a message. Its day-end
+    is a conservative fallback: never declare someone silent before a full period.
+    """
     async with db.execute(
-        "SELECT s.user_tg_id, u.user_tg_username, s.last_message_at, "
-        "EXTRACT(DAY FROM NOW() - s.last_message_at)::INTEGER AS days_offline "
-        "FROM user_chat_stats s "
-        "LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
-        "AND EXTRACT(DAY FROM NOW() - s.last_message_at) >= ? "
-        "ORDER BY days_offline DESC",
-        (chat_id, days_limit),
+        "WITH activity AS ("
+        "SELECT s.user_tg_id,s.rejoined_at, "
+        "(COALESCE(s.user_messages_count_all_time,0)=0 AND h.last_day IS NULL) AS never_spoke, "
+        "CASE WHEN COALESCE(s.user_messages_count_all_time,0)>0 AND s.last_message_at IS NOT NULL "
+        "THEN s.last_message_at AT TIME ZONE 'UTC' "
+        "ELSE ((h.last_day::date+1)::timestamp AT TIME ZONE 'UTC') "
+        "- make_interval(secs => ?::double precision) END AS last_message, "
+        "LEAST(s.joined_at AT TIME ZONE 'UTC',s.membership_since) AS first_seen "
+        "FROM user_chat_stats s LEFT JOIN LATERAL (SELECT MAX(d.date) AS last_day FROM daily_user_stats d "
+        "WHERE d.chat_id=s.chat_tg_id AND d.user_id=s.user_tg_id AND d.message_count>0 "
+        "AND (COALESCE(s.user_messages_count_all_time,0)=0 OR s.last_message_at IS NULL)) h ON TRUE "
+        "WHERE s.chat_tg_id=? AND NOT COALESCE(s.is_left,FALSE) "
+        "AND NOT (s.user_tg_id=ANY(?::bigint[])) AND NOT EXISTS "
+        "(SELECT 1 FROM user_chat_stats b WHERE b.user_tg_id=s.user_tg_id AND COALESCE(b.is_bot,FALSE))), "
+        "observed AS (SELECT user_tg_id,rejoined_at,last_message,never_spoke, "
+        "GREATEST(rejoined_at,CASE WHEN never_spoke THEN first_seen ELSE last_message END) AS silent_since "
+        "FROM activity), "
+        "candidates AS (SELECT * FROM observed WHERE silent_since<=NOW()-make_interval(secs => ?::double precision)), "
+        "counts AS (SELECT COUNT(*)::int AS total, "
+        "(SELECT COUNT(*)::int FROM observed WHERE silent_since IS NULL) AS unknown FROM candidates), "
+        "meta AS (SELECT total, unknown, GREATEST(1,(total+?-1)/?) AS pages, "
+        "LEAST(?::int,GREATEST(0,(total-1)/?)) AS page FROM counts) "
+        "SELECT m.total,m.unknown,m.pages,m.page,i.user_tg_id,u.user_tg_username,u.user_tg_name, "
+        "FLOOR(EXTRACT(EPOCH FROM NOW()-i.silent_since))::bigint AS seconds,i.never_spoke, "
+        "(i.rejoined_at IS NOT NULL AND (i.last_message IS NULL OR i.rejoined_at>i.last_message)) AS rejoined "
+        "FROM meta m LEFT JOIN LATERAL (SELECT * FROM candidates ORDER BY silent_since,user_tg_id "
+        "LIMIT ? OFFSET m.page*?) i ON TRUE LEFT JOIN users u ON u.user_tg_id=i.user_tg_id "
+        "ORDER BY i.silent_since,i.user_tg_id",
+        (timezone_seconds, chat_id, excluded_ids, seconds, PAGE_SIZE, PAGE_SIZE,
+         page, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE),
     ) as cursor:
-        return [dict(row) for row in await cursor.fetchall()]
+        rows = await cursor.fetchall()
+    meta = rows[0]
+    items = tuple(InactiveMember(int(r[4]), r[5], r[6], int(r[7]), bool(r[8]), bool(r[9]))
+                  for r in rows if r[4] is not None)
+    return InactivePage(items, int(meta[0]), int(meta[1]), int(meta[3]), int(meta[2]))

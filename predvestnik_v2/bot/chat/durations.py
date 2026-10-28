@@ -6,11 +6,10 @@ from datetime import timedelta
 
 FOREVER = "forever"
 MAX_DAYS = 366   # дольше Telegram сам считает вечным, а в базе срок истёк бы: для вечного есть «навсегда»
-MAX_SECONDS = MAX_DAYS * 86400
 
 
 class TooLong(ValueError):
-    """Срок дольше года: слишком большие числа ломали запись в базу и чтение варнов."""
+    """Срок превышает разрешённый максимум (для санкций по умолчанию 366 дней)."""
 
 _UNITS = {
     "м": 60, "мин": 60, "минута": 60, "минуты": 60, "минут": 60, "m": 60,
@@ -18,6 +17,7 @@ _UNITS = {
     "д": 86400, "дн": 86400, "день": 86400, "дня": 86400, "дней": 86400, "d": 86400,
     "н": 604800, "нед": 604800, "неделя": 604800, "недели": 604800, "недель": 604800, "w": 604800,
     "мес": 2592000, "месяц": 2592000, "месяца": 2592000, "месяцев": 2592000,
+    "г": 31536000, "год": 31536000, "года": 31536000, "лет": 31536000, "y": 31536000,
 }
 _FOREVER_WORDS = {"навсегда", "вечно", "forever", "∞"}
 _PART = re.compile(r"(\d+)\s*([a-zа-яё]+)", re.IGNORECASE)
@@ -25,10 +25,11 @@ _HEAD = re.compile(r"^\s*((?:\d+\s*[a-zа-яё]+\s*)+)", re.IGNORECASE)
 _DECIMAL = re.compile(r"^\s*\d+[.,]\d+\s*[a-zа-яё]+", re.IGNORECASE)   # «1.5ч»: дробные сроки не поддерживаются
 
 
-def split_duration(text: str) -> tuple[timedelta | str | None, str]:
+def split_duration(text: str, *, max_days: int = MAX_DAYS) -> tuple[timedelta | str | None, str]:
     """Срок в начале значений -> (срок, остаток). Срок None — не указан.
 
     Возвращает FOREVER для «навсегда». Неизвестная единица («5х») — ValueError.
+    Год — 365 дней. max_days переопределяется только для списков, не для санкций.
     """
     t = text.strip()
     first = t.split(maxsplit=1)
@@ -50,7 +51,7 @@ def split_duration(text: str) -> tuple[timedelta | str | None, str]:
             raise ValueError(part.group(0))
         total += int(part.group(1)) * _UNITS[unit]
         consumed_to = part.end()
-        if total > MAX_SECONDS:
+        if total > max_days * 86400:
             raise TooLong(m.group(1).strip())
     if not consumed_to:
         return None, t

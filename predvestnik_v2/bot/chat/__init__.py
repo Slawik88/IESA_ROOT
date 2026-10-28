@@ -5,6 +5,7 @@ from aiogram.types import Message
 from bot.chat import account, achievements, admin_chat, cosmetics, family, games, help, mafia, members, migration, moderation, onboarding, pets, profile, promo, purge, rank_commands, reports, sanctions, site, streak, star_dust, tags, top, transfer, vip, warps, word_chain  # noqa: F401
 from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat import mafia_online  # noqa: F401,E402  (отдельный режим, локальная команда без изменений)
+from bot.chat import inactive  # noqa: F401,E402
 from bot.chat.framework import dispatch, registry
 from bot.chat.tracking import record_message
 from bot.chat.warps_data import WARPS
@@ -77,7 +78,7 @@ async def _callback_gate(handler, event, data):
     return await handler(event, data)
 
 
-for sub in (top.router, help.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, star_dust.router, word_chain.router):
+for sub in (top.router, help.router, inactive.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, star_dust.router, word_chain.router):
     sub.callback_query.middleware(_callback_gate)
     router.include_router(sub)
 

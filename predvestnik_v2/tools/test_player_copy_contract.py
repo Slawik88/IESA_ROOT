@@ -125,7 +125,7 @@ for item in guide["faq"]:
     assert_plain("вопросы", item["a"] + ("" if item["q"] == "Куда делась Лига?" else " " + item["q"]))
 assert "Рейтинг" in {x["w"] for x in guide["glossary"]} and "Мора" in {x["w"] for x in guide["glossary"]}, "ключевые слова в словаре"
 
-for relative in ("bot/chat/word_chain.py", "services/word_chain.py"):
+for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/inactive.py"):
     tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"[А-Яа-яЁё]", node.value):
