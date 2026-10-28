@@ -4,7 +4,8 @@
   if (window.PVDiagnostics) return;
   const script = document.currentScript, scriptURL = new URL(script.src, location.href);
   const base = scriptURL.pathname.replace(/\/static\/support-diagnostics\.js$/, '');
-  const version = scriptURL.searchParams.get('v') || '';
+  // the release from <meta name="pv-release"> (index.html: each file has its own ?v= now); the game pages have no such tag and report their script version as before
+  const version = document.querySelector('meta[name="pv-release"]')?.content || scriptURL.searchParams.get('v') || '';
   const WINDOW = 3600000, MAX_EVENTS = 3000, MAX_BYTES = 600000, WRITE_DELAY = 15000;
   const nativeFetch = window.fetch.bind(window);
   const words = new Set(('profile me avatar mafia-online mafia-v1 minesweeper-v2 rhythm-v2 league-v1 api hub leaderboard leaderboards top stats rooms room match matches state action actions chat messages history settings join leave start stop ready vote send read players seats table events account restore deleted skins-v3 appearance cosmetics marks-v1 pets-v1 pets-v2 inventory-v1 inventory shop-v1 gifts-v2 payments wallet vip analytics presence-v1 notifications quests-v1 achievements-v1 chests-v1 season-pass star-dust player-exchange-v1 coin-market-v2 purge-v1 public-profile-v3 public u easy normal hard casual ranked status sync daily home games more help looks family pass').split(' '));

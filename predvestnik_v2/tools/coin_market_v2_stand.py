@@ -56,12 +56,14 @@ async def seed():
 if __name__ == "__main__":
     with Stand(8423, DSN, rich=False, trail="none", season_pass="none") as stand:
         from FastAPI import main
+        from FastAPI.static_assets import prepare
 
         # Only this test process moves the existing preprod persona UI port.
         # Production sources and authentication checks are unchanged.
-        main._APP_JS = main._APP_JS.replace(
+        app_js = main._STORE["app.js"]
+        main._STORE["app.js"] = prepare(app_js.body.decode("utf-8").replace(
             "location.port === '8403'", "location.port === '8423'"
-        )
+        ), app_js.media_type)
         asyncio.run(seed())
         asyncio.run_coroutine_threadsafe(main._run_coin_market_v2(), stand._loop)
         print("COIN_MARKET_V2_STAND " + stand.url, flush=True)

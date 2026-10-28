@@ -221,9 +221,11 @@ assert "monolith-v3.css" in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8
 mono = (STATIC / "monolith-v3.css").read_text(encoding="utf-8")
 for page in ("#pg-pets", "#pg-help", "#pg-looks"):   # Достижения и Сундуки собраны на v3-компонентах (achievements-v3.css, chests-v3.css), уплощать нечего
     assert page in mono, f"{page} must be flattened in monolith-v3.css"
-# 100% new design on the player side: the old control/card classes live only in admin-legacy.css for the admin, moderation and console screens (rewritten elsewhere).
-# A player screen (every JS part except app.07/08/09, and index.html outside the admin pages) may not use them: use v3-pill, v3-field, v3-err, v3-dim, v3-line, v3-empty, v3-row.
-assert "admin-legacy.css" in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8") and "admin-legacy.css" in (STATIC / "index.html").read_text(encoding="utf-8")
+# 100% new design on the player side: the old control/card classes are gone with admin-legacy.css (the old admin screens no longer exist); the only rules left are the .btn family
+# at the end of app.css for one old dialog footer (app.14.js passes c: 'btn-gold'). A player screen (every JS part except app.07/08/09, and index.html outside the admin pages)
+# may not use them in markup: use v3-pill, v3-field, v3-err, v3-dim, v3-line, v3-empty, v3-row.
+assert "admin-legacy.css" not in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8") and "admin-legacy.css" not in (STATIC / "index.html").read_text(encoding="utf-8")
+assert not (STATIC / "admin-legacy.css").exists(), "admin-legacy.css is deleted: every player loaded 20 KB of rules for screens that no longer exist"
 LEGACY_CONTROLS = {"btn", "btn-sm", "btn-gold", "btn-ghost", "btn-red", "btn-full", "btn-teal", "num-input", "err", "card", "card-title", "irow", "ik", "iv", "empty-state", "es-icon", "es-title", "es-sub", "cx-dim", "set-hint", "pcard"}
 _html = (STATIC / "index.html").read_text(encoding="utf-8")
 _player_html = re.sub(r'<div id="pg-(?:admin|global|console)".*?(?=<div id="pg-(?!admin|global|console))', "", _html, flags=re.S)
@@ -264,7 +266,7 @@ for _css_path in sorted(STATIC.glob("*.css")):
 # use a lighter colour in normal blending. A filter may not wrap running animation either: a drop-shadow on the root of the artifact's hexagon HUD (it turns inside) and on the glitch nick (two
 # copies run inside) was re-drawn every frame, so the glow sits on the shapes themselves and on the text itself.
 for _css_path in sorted(STATIC.glob("*.css")):
-    if _css_path.name in ("app.css", "admin-legacy.css"):
+    if _css_path.name == "app.css":
         continue
     _plain = re.sub(r"/\*.*?\*/", "", _css_path.read_text(encoding="utf-8"), flags=re.S)
     assert not re.search(r"mix-blend-mode\s*:\s*(?!normal)", _plain), f"{_css_path.name}: mix-blend-mode costs about two render passes per element"

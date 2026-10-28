@@ -20,11 +20,11 @@
 // telegram.org is unreachable for some players: the app then loads its own copy of the SDK (same file, served by us).
 if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback';document.write('<script src="{{BASE}}/static/vendor/telegram-web-app.js?v={{ASSET_VER}}"><\/script>');}
 </script>
+<meta name="pv-release" content="{{RELEASE}}"/>
 <script src="{{BASE}}/static/support-diagnostics.js?v={{ASSET_VER}}"></script>
 <script defer src="{{BASE}}/static/support-feedback.js?v={{ASSET_VER}}"></script>
 <link rel="stylesheet" href="{{BASE}}/static/support-feedback.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/admin-legacy.css?v={{ASSET_VER}}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap" media="print" onload="this.media='all'"/>
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap"/></noscript>
@@ -35,9 +35,6 @@ if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback'
 <link rel="stylesheet" href="{{BASE}}/static/fx-tiers-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/nickname-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/skin-scene-e-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/skin-scene-f-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/skin-scene-g-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-holidays-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-ring-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-stage-v3.css?v={{ASSET_VER}}"/>
@@ -51,10 +48,8 @@ if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback'
 <link rel="stylesheet" href="{{BASE}}/static/skin-sig-c-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-sig-d-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-scene-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/skin-scene-a-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/skin-scene-b-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/skin-scene-c-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/skin-scene-d-v3.css?v={{ASSET_VER}}"/>
+<!-- Картинки сцен образов (skin-scene-a…g-v3.css) не подключаются здесь: сцена сама запрашивает свой файл (apScene, app.35.js). Новый файл картинок — только в _SKIN_SCENE_ART (FastAPI/main.py). -->
+<script>window.__pvSceneArt={{SCENE_ART}};</script>
 <link rel="stylesheet" href="{{BASE}}/static/public-card-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/collect-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/toast-v3.css?v={{ASSET_VER}}"/>

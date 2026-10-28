@@ -21,10 +21,8 @@ const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }  // setHeaderColor removed — deprecated in TG WebApp v6.0
 
 const BASE = (location.origin + location.pathname).replace(/[/]$/, '');
-const APP_VERSION = (() => {
-  try { return new URL(document.currentScript?.src || '', location.href).searchParams.get('v') || ''; }
-  catch (_) { return ''; }
-})();
+// Версия выпуска (её же сервер шлёт по сокету, когда вышло обновление): у каждого файла теперь свой ?v=, поэтому выпуск берётся из <meta name="pv-release">.
+const APP_VERSION = document.querySelector('meta[name="pv-release"]')?.content || '';
 
 // el() defined here — BEFORE any usage to avoid TDZ ReferenceError
 const el = id => document.getElementById(id);

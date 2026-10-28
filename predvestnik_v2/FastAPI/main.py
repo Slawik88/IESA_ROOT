@@ -3,9 +3,10 @@ import asyncio
 import contextlib
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -30,7 +31,7 @@ from FastAPI.auth import (verify_login_widget, create_session_token,
                           verify_webapp_data)
 from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod, require_preprod_user
 from FastAPI import notifications
-from FastAPI.static_assets import asset_version
+from FastAPI.static_assets import StaticAsset, asset_version, compact_json, minify_js, prepare, respond
 from FastAPI.deps import assert_account_active
 from infrastructure import readiness
 from FastAPI.routers import (profile, marriage, wallet, vip,
@@ -547,9 +548,8 @@ _STATIC_CACHE: dict[str, str] = {}
 
 
 def _read_static(name: str) -> str:
-    # Раздача читает файлы на каждый запрос — держим исходник в памяти;
-    # контент идентифицируется _ASSET_VER, ручная правка файла на диске
-    # подхватывается только после рестарта процесса.
+    # Исходник читается один раз и держится в памяти (раздача готовит файлы при старте, _STORE);
+    # ручная правка файла на диске подхватывается только после рестарта процесса.
     source = _STATIC_CACHE.get(name)
     if source is None:
         with open(os.path.join(_STATIC_DIR, name), encoding="utf-8") as f:
@@ -567,10 +567,14 @@ def _read_static(name: str) -> str:
 # records remain.
 _APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57)]
 
-# Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
-_SHELL_V3_CSS = ("support-feedback.css", "admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "mafia-online-v3.css", "fx-tiers-v3.css", "appearance-v3.css",
-                 "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "skin-scene-e-v3.css", "skin-scene-f-v3.css", "skin-scene-g-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
+# Shell V3 stylesheets (loaded after app.css, in this order); each is served at /static/<name>.
+_SHELL_V3_CSS = ("support-feedback.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "mafia-online-v3.css", "fx-tiers-v3.css", "appearance-v3.css",
+                 "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "skin-scene-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
                  "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "guide-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css", "desktop-v3.css")
+
+# The scene pictures of the looks (tools/scene_art.py, ~830 KB) are never linked from index.html: a scene asks for a file when it draws a layer with one
+# of its pictures (apScene, app.35.js), so a player in the default look downloads none of them. A new scene picture file goes here, not into index.html.
+_SKIN_SCENE_ART = tuple(f"skin-scene-{letter}-v3.css" for letter in "abcdefg")
 
 # Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
 # The page look, the «Обычный | Рейтинг» switch and the shared header come from the League assets (/static/league-demo/…, FastAPI/game_shell.py).
@@ -582,13 +586,44 @@ TELEGRAM_SDK_FALLBACK = "vendor/telegram-web-app.js"
 # Buildpacks normalize mtimes (1980 on production), so only content identifies
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
 _ASSET_SOURCES = tuple(dict.fromkeys((
-    *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", TELEGRAM_SDK_FALLBACK, "app.css", *_SHELL_V3_CSS,
+    *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", TELEGRAM_SDK_FALLBACK, "app.css", *_SHELL_V3_CSS, *_SKIN_SCENE_ART,
     "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html", "game-shell-v3.html",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
     "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
 )))
+# The release: the «update available» banner and error reports name it (<meta name="pv-release"> in index.html).
 _ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
 app.state.asset_version = _ASSET_VER
+
+# Every text asset is prepared once per process: JS minified, gzipped once (not on every request), with its own content hash. A page links
+# /static/<name>?v=<that hash>, so a deploy makes clients download again only the files whose bytes changed (FastAPI/static_assets.py).
+_JS = "application/javascript; charset=utf-8"
+_CSS = "text/css; charset=utf-8"
+_JS_SOURCES = {"app.js": "".join(_read_static(p) for p in _APP_JS_PARTS), **{name: _read_static(name) for name in (
+    "page-transitions.js", "support-diagnostics.js", "support-feedback.js", "nickname-v3.js", "game-board-v3.js", "skin-runtime-v3.js",
+    "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "coin-market-chart.js", "coin-market-v2.js")}}
+_STORE: dict[str, StaticAsset] = {name: prepare(minify_js(source), _JS) for name, source in _JS_SOURCES.items()}
+_STORE[TELEGRAM_SDK_FALLBACK] = prepare(_read_static(TELEGRAM_SDK_FALLBACK), _JS)   # the official file, served as it is
+for _css_name in ("app.css", *_SHELL_V3_CSS, *_SKIN_SCENE_ART, "coin-market-v2.css"):
+    _STORE[_css_name] = prepare(_read_static(_css_name), _CSS)
+_VERSIONED_LINK = re.compile(r"/static/([\w./-]+)\?v=\{\{ASSET_VER\}\}")
+
+
+def _link_versions(html: str) -> str:
+    """/static/<name>?v={{ASSET_VER}} -> the file's own version (an unknown name stops the start: a typo must not ship)."""
+    return _VERSIONED_LINK.sub(lambda m: f"/static/{m[1]}?v={_STORE[m[1]].version}", html)
+
+
+def _scene_art() -> str:
+    """For apScene: which file holds each scene picture, {letter: [address, "name name …"]}."""
+    files = {}
+    for name in _SKIN_SCENE_ART:
+        letter = name.split("-")[2]
+        pictures = re.findall(r"^\.i-([\w-]+) \{", _read_static(name), re.M)
+        files[letter] = [f"{_ASSET_BASE}/static/{name}?v={_STORE[name].version}", " ".join(pictures)]
+    return json.dumps(files, separators=(",", ":"))
+
+
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
 _ASSET_BASE = os.getenv("ROOT_PATH", "").rstrip("/")
@@ -601,28 +636,28 @@ _LOGIN_SURFACE = (
          f'data-telegram-login="{_BOT_USERNAME}" data-size="large" data-radius="14" '
          'data-onauth="onTelegramWidgetAuth(user)" data-request-access="write"></script></div>'
 )
-_INDEX_HTML = (
-    _read_static("index.html")
+_INDEX = prepare(
+    _link_versions(_read_static("index.html"))
     .replace("{{BOT_USERNAME}}", _BOT_USERNAME)
     .replace("{{LOGIN_SURFACE}}", _LOGIN_SURFACE)
-    .replace("{{ASSET_VER}}", _ASSET_VER)
-    .replace("{{BASE}}", _ASSET_BASE)
+    .replace("{{RELEASE}}", _ASSET_VER)
+    .replace("{{SCENE_ART}}", _scene_art())
+    .replace("{{BASE}}", _ASSET_BASE),
+    "text/html; charset=utf-8",
 )
-_APP_CSS = _read_static("app.css")
-_APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
 def _game_page(source: str, *, title: str, game: str, script: str) -> str:
     """A casual game page: the shared header and League look first, then the app's own versioned scripts."""
     html = game_shell.render(_read_static(source), base=_ASSET_BASE, version=league_v1_router.ASSET_VERSION,
                              eyebrow="Сезон · обычный", title=title, game=game, mode="casual")
     for name in (script, "skin-runtime-v3.js", "local-games-v1.js"):
-        html = html.replace(f'src="/static/{name}"', f'src="{_ASSET_BASE}/static/{name}?v={_ASSET_VER}"')
+        html = html.replace(f'src="/static/{name}"', f'src="{_ASSET_BASE}/static/{name}?v={_STORE[name].version}"')
     return html
 
 
 def _with_game_board_assets(html: str) -> str:
     for name in _GAME_BOARD_ASSETS:
         attr = "src" if name.endswith(".js") else "href"
-        html = html.replace(f'{attr}="/static/{name}"', f'{attr}="{_ASSET_BASE}/static/{name}?v={_ASSET_VER}"')
+        html = html.replace(f'{attr}="/static/{name}"', f'{attr}="{_ASSET_BASE}/static/{name}?v={_STORE[name].version}"')
     return html
 
 
@@ -630,13 +665,13 @@ _RHYTHM_V2_HTML = _with_game_board_assets(_game_page("rhythm-v2.html", title="Р
 _MINESWEEPER_V2_HTML = _with_game_board_assets(_game_page("minesweeper-v2.html", title="Сапёр", game="minesweeper", script="minesweeper-v2.js"))
 
 # Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
-# (при деплое перечитывается). Отдаётся как обычный JSON — фронт рендерит страницу.
-_UPDATES_JSON = _read_static("updates.json")
+# (при деплое перечитывается). Отдаётся JSON без пробелов, сжатым, с ETag: пока лента та же, ответ 304 без тела.
+_UPDATES = prepare(compact_json(_read_static("updates.json")), "application/json; charset=utf-8")
 
 
 @app.get("/", response_class=HTMLResponse)
-async def mini_app():
-    return HTMLResponse(_INDEX_HTML)
+async def mini_app(request: Request):
+    return respond(_INDEX, request)
 
 
 @app.get("/__preprod/activate", response_class=RedirectResponse)
@@ -693,102 +728,31 @@ async def minesweeper_game():
 
 
 @app.get("/updates.json")
-async def updates_feed():
-    return Response(_UPDATES_JSON, media_type="application/json; charset=utf-8")
+async def updates_feed(request: Request):
+    return respond(_UPDATES, request)
 
 
-@app.get("/static/app.css")
-async def static_css():
-    return Response(_APP_CSS, media_type="text/css; charset=utf-8")
+def _register_asset(name: str) -> None:
+    async def _serve(request: Request) -> Response:
+        return respond(_STORE[name], request)
+    app.add_api_route(f"/static/{name}", _serve, methods=["GET"], include_in_schema=False)
 
 
-@app.get('/static/coin-market-v2.css')
-async def coin_market_v2_css():
-    return Response(_read_static('coin-market-v2.css'),media_type='text/css; charset=utf-8')
-
-
-@app.get('/static/coin-market-v2.js')
-async def coin_market_v2_js():
-    return Response(_read_static('coin-market-v2.js'),media_type='application/javascript; charset=utf-8')
-
-
-@app.get('/static/coin-market-chart.js')
-async def coin_market_chart_js():
-    return Response(_read_static('coin-market-chart.js'),media_type='application/javascript; charset=utf-8')
-
-
-@app.get("/static/app.js")
-async def static_js():
-    return Response(_APP_JS, media_type="application/javascript; charset=utf-8")
-
-
-
-@app.get("/static/rhythm-v2.js")
-async def rhythm_v2_js():
-    return Response(_read_static("rhythm-v2.js"), media_type="application/javascript; charset=utf-8")
-
-
-@app.get("/static/nickname-v3.js")
-async def nickname_js():
-    return Response(_read_static("nickname-v3.js"), media_type="application/javascript; charset=utf-8")
-
-
-@app.get("/static/page-transitions.js")
-async def page_transitions_js():
-    return Response(_read_static("page-transitions.js"), media_type="application/javascript; charset=utf-8")
+# vendor/telegram-web-app.js: a copy of the Telegram SDK, loaded by index.html only when telegram.org fails.
+for _asset_name in _STORE:
+    _register_asset(_asset_name)
 
 
 @app.get("/local-games-sw.js")
 async def local_games_worker():
     assets = [f"{_ASSET_BASE}/rhythm-v2", f"{_ASSET_BASE}/minesweeper"]
-    assets += [f"{_ASSET_BASE}/static/{name}?v={_ASSET_VER}" for name in (
+    assets += [f"{_ASSET_BASE}/static/{name}?v={_STORE[name].version}" for name in (
         "support-diagnostics.js", "support-feedback.js", "support-feedback.css",
         "local-games-v1.js", "rhythm-v2.js", "minesweeper-v2.js", "skin-runtime-v3.js", *_GAME_BOARD_ASSETS)]
     # the look and the shared header of the casual pages come from the League assets: they must play offline too
     assets += [f"{_ASSET_BASE}/static/league-demo/{name}?v={league_v1_router.ASSET_VERSION}" for name in league_v1_router.CASUAL_PAGE_ASSETS]
     source = _read_static("local-games-sw.js").replace("{{VERSION}}", _ASSET_VER).replace("{{PRECACHE}}", json.dumps(assets))
     return Response(source, media_type="application/javascript; charset=utf-8", headers={"Cache-Control": "no-cache"})
-
-
-@app.get("/static/local-games-v1.js")
-async def local_games_js():
-    return Response(_read_static("local-games-v1.js"), media_type="application/javascript; charset=utf-8")
-
-
-@app.get("/static/game-board-v3.js")
-async def game_board_js():
-    return Response(_read_static("game-board-v3.js"), media_type="application/javascript; charset=utf-8")
-
-
-def _register_shell_css(name: str) -> None:
-    async def _serve() -> Response:
-        return Response(_read_static(name), media_type="text/css; charset=utf-8")
-    app.add_api_route(f"/static/{name}", _serve, methods=["GET"], include_in_schema=False)
-
-
-for _css_name in _SHELL_V3_CSS:
-    _register_shell_css(_css_name)
-
-
-def _register_support_js(name: str) -> None:
-    async def _serve() -> Response:
-        return Response(_read_static(name),media_type="application/javascript; charset=utf-8")
-    app.add_api_route(f"/static/{name}",_serve,methods=["GET"],include_in_schema=False)
-
-
-# vendor/telegram-web-app.js: a copy of the Telegram SDK, loaded by index.html only when telegram.org fails.
-for _support_js in ("support-diagnostics.js","support-feedback.js",TELEGRAM_SDK_FALLBACK):
-    _register_support_js(_support_js)
-
-
-@app.get("/static/skin-runtime-v3.js")
-async def skin_runtime_js():
-    return Response(_read_static("skin-runtime-v3.js"), media_type="application/javascript; charset=utf-8")
-
-
-@app.get("/static/minesweeper-v2.js")
-async def minesweeper_js():
-    return Response(_read_static("minesweeper-v2.js"), media_type="application/javascript; charset=utf-8")
 
 
 @app.get("/static/mafia-art/{name}")

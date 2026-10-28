@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Silhouette art of the skin scenes (FastAPI/static/skin-scene-{a,b,c,d}-v3.css): the pictures are drawn in tools/scene_art_{a,b,c,d}.py (kit: tools/scene_kit.py)
+"""Silhouette art of the skin scenes (FastAPI/static/skin-scene-{a..g}-v3.css, loaded on demand, never from index.html): the pictures are drawn in tools/scene_art_{a,b,c,d}.py (kit: tools/scene_kit.py)
 and baked into data-URI classes.
 
-    python tools/scene_art.py          # rewrites the four skin-scene-*-v3.css files (never edit them by hand)
+    python tools/scene_art.py          # rewrites the seven skin-scene-*-v3.css files (never edit them by hand)
     python tools/scene_art.py --check  # fails when the files on disk differ from what the art files draw
 
 A class `i-<name>` sets `--img`; a scene layer picks it with `sil i-<name>` (a coloured picture) or `sil m i-<name>` (a mask coloured by the layer), see app.35–38.js and skin-scene-v3.css.
@@ -36,6 +36,8 @@ def render() -> dict[str, str]:
     for letter, head in HEAD.items():
         lines = [f"/* ═══ СЦЕНА · картинки · {letter.upper()} ({head}) ═══", "   Файл создаёт tools/scene_art.py, руками не править. Класс i-<имя> задаёт --img для слоя «sil». */"]
         lines += [f".i-{name} {{ --img: {value}; }}" for name, (l, value) in ARTS.items() if l == letter]
+        # the file is loaded on demand (apScene, app.35.js): a layer waiting for its picture is hidden in skin-scene-v3.css until this file arrives
+        lines.append(f'.ap-scene .sc[data-al="{letter}"] {{ visibility: visible; }}')
         out[f"skin-scene-{letter}-v3.css"] = "\n".join(lines) + "\n"
     return out
 

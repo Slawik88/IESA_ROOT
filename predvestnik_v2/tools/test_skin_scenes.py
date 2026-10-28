@@ -41,9 +41,15 @@ for part in parts:
 art_css = {}
 for letter in "abcdefg":
     name = f"skin-scene-{letter}-v3.css"
-    assert name in main_py and name in index, f"{name} must be listed in _SHELL_V3_CSS and linked in index.html"
+    # 830 KB of pictures: not linked from index.html, a scene asks for its file when it draws a picture (S06); a new picture file is a new letter in _SKIN_SCENE_ART
+    assert name not in index, f"{name} is loaded on demand by apScene (app.35.js), never linked from index.html"
     art_css[letter] = (STATIC / name).read_text(encoding="utf-8")
+    assert art_css[letter].rstrip().endswith(f'.ap-scene .sc[data-al="{letter}"] {{ visibility: visible; }}'), f"{name} shows the layers that waited for it"
+assert '_SKIN_SCENE_ART = tuple(f"skin-scene-{letter}-v3.css" for letter in "abcdefg")' in main_py, "every picture file is served and listed for the page"
 assert "skin-scene-v3.css" in main_py and "skin-scene-v3.css" in index
+assert ".ap-scene .sc[data-al] { visibility: hidden; }" in (STATIC / "skin-scene-v3.css").read_text(encoding="utf-8"), "a layer is hidden until its picture file arrives (no empty frames, no unmasked colour boxes)"
+loader = (STATIC / "app.35.js").read_text(encoding="utf-8")
+assert "globalThis.__pvSceneArt" in loader and "${_scArt(l[1])}" in loader and "link.onerror" in loader, "apScene asks for the picture file of each layer it draws"
 drawn = re.findall(r"^\.i-([A-Za-z0-9_]+) \{ --img: url\(", "".join(art_css.values()), re.M)
 assert len(drawn) == len(set(drawn)), "a picture is drawn twice"
 for name, value in re.findall(r'^\.i-([A-Za-z0-9_]+) \{ --img: url\("data:image/svg\+xml,(.*)"\); \}$', "".join(art_css.values()), re.M):

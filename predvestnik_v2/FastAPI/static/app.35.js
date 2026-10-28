@@ -1,6 +1,6 @@
 // ── Skins V3 · сцена образа: окружение вокруг аватара ──────────────────────────────────────────
 // У каждого образа свой набор слоёв, и он растёт с тиром (C земля и вода, B небо и свет, A предметы по бокам, S живое, SS редкое событие, SSS фирменная деталь, app.32–34.js).
-// Слой это строка [минимальный тир 1…7, 'форма движение', {геометрия и переменные}]; формы и движения описаны в skin-scene-v3.css, картинки-силуэты в skin-scene-*-v3.css.
+// Слой это строка [минимальный тир 1…7, 'форма движение', {геометрия и переменные}]; формы и движения описаны в skin-scene-v3.css, картинки-силуэты в skin-scene-*-v3.css (подгружаются по требованию, _scArt).
 // Форма: glow (мягкое пятно), ring, sil i-<имя> (силуэт), dot (точки через --bs), band, wave. Движение: drift sway pulse breathe beat blink twinkle float rise spin ripple shimmer sweep cross peek flash flicker (неон: трубка гаснет и загорается).
 // Флаги: w2 отдаёт слой только полному режиму (на среднем телефоне его нет), m маска, fl зеркало (неподвижным), st растянуть картинку на весь слой (полосы земли и хребтов), go бегущая волна, rev спин назад, dash пунктир.
 // cr: [x0, y0, x1, y1] кадрирует рамку слоя до границ рисунка (целые px рамки; у рамки в % доли), см. _scCrop; границы считает и проверяет tools/scene_crop.py.
@@ -66,10 +66,29 @@ function _scStyle(p, cls = '') {
   }
   return out;
 }
+// Картинки слоёв (i-<имя>) лежат в семи файлах skin-scene-{a…g}-v3.css (~830 КБ) и не грузятся при запуске: первый слой с картинкой из файла
+// подключает этот файл, а до его прихода слой невидим (data-al, skin-scene-v3.css). Образ по умолчанию и образы без картинок не качают ничего.
+// Какая картинка в каком файле, сервер пишет в index.html (window.__pvSceneArt = {буква: [адрес, "имя имя …"]}, FastAPI/main.py _scene_art).
+const _SC_ART_FILES = globalThis.__pvSceneArt || {}, _SC_ART = new Map();
+for (const [letter, [, names]] of Object.entries(_SC_ART_FILES)) for (const name of names.split(' ')) _SC_ART.set(name, letter);
+const _scArtAsked = new Set();
+function _scArt(cls) {
+  const m = /\bi-([\w-]+)/.exec(cls), letter = m && _SC_ART.get(m[1]);
+  if (!letter) return '';
+  if (!_scArtAsked.has(letter)) {
+    _scArtAsked.add(letter);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = _SC_ART_FILES[letter][0];
+    link.onerror = () => { _scArtAsked.delete(letter); link.remove(); };   // нет сети: слой остаётся невидимым, следующая отрисовка спросит снова
+    document.head.appendChild(link);
+  }
+  return ` data-al="${letter}"`;
+}
 function apScene(ap) {
   const layers = _AP_SCENES.get(ap.id);
   if (!layers) return '';
-  const html = layers.filter(l => l[0] <= ap.ti).map(l => `<i class="sc ${l[1]}${l[2].cr ? ' cr' : ''}" style="${_scStyle(l[2], l[1])}"></i>`).join('');
+  const html = layers.filter(l => l[0] <= ap.ti).map(l => `<i class="sc ${l[1]}${l[2].cr ? ' cr' : ''}"${_scArt(l[1])} style="${_scStyle(l[2], l[1])}"></i>`).join('');
   return html ? `<div class="ap-scene ap-t${ap.ti}" data-sk="${ap.id}" style="${ap.vars}" aria-hidden="true">${html}</div>` : '';
 }
 
