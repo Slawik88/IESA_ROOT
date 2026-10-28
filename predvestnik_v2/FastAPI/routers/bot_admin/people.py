@@ -23,7 +23,7 @@ from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_ran
 from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
-from services import admin_access, admin_people, admin_security, feature_switches, global_moderation, staff_notes, staff_watch
+from services import admin_access, admin_people, admin_security, broadcasts, feature_switches, global_moderation, staff_notes, staff_watch
 from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
@@ -528,17 +528,35 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         await admin_people.audit(db, actor, "unblock", user_id=uid, details={"reason": reason} if reason else None)
         return {"ok": True, "message": "Бот снова отвечает игроку."}
     if action == "global_ban":
-        done, failed = await global_moderation.global_ban(get_bot(), db, uid, actor, reason)
+        job = await global_moderation.global_ban(get_bot(), db, broadcasts.pool_db_factory(), uid, actor, reason)
         await admin_security.after_action(db, user, "global_ban", uid)
-        return {"ok": True, "message": f"Забанен в чатах: {done}" + (f", не вышло: {failed}." if failed else ".")}
+        return await _global_job_answer(job, "Забанен в чатах")
     if action == "global_unban":
-        done, failed = await global_moderation.global_unban(get_bot(), db, uid, actor)
-        return {"ok": True, "message": f"Бан снят в чатах: {done}" + (f", не вышло: {failed}." if failed else ".")}
+        job = await global_moderation.global_unban(get_bot(), db, uid, actor)
+        return await _global_job_answer(job, "Бан снят в чатах")
     if action == "revoke_sessions":
         await admin_security.revoke(db, uid)
         await admin_people.audit(db, actor, "sessions_revoke", user_id=uid)
         return {"ok": True, "message": "Сессии админки у этого сотрудника завершены: ему нужно открыть её заново."}
     raise HTTPException(400, "Неизвестное действие.")
+
+
+GLOBAL_JOB_WAIT_SEC = 8.0   # дольше ответ ждать не будем: задание доделается в фоне, прогресс — по адресу ниже
+
+
+async def _global_job_answer(job, done_title: str) -> dict:
+    if await global_moderation.wait(job, GLOBAL_JOB_WAIT_SEC):
+        return {"ok": True, "message": f"{done_title}: {job.done}" + (f", не вышло: {job.failed}." if job.failed else "."),
+                "job": job.view()}
+    return {"ok": True, "message": f"{done_title}: {job.done} из {job.total}, остальные доделаются в фоне.",
+            "job": job.view()}
+
+
+@router.get("/player/{uid}/global-progress")
+async def global_progress(uid: int, user=Depends(_user)):
+    """«N из M» для бана и снятия бана во всех чатах (последнее задание по игроку в этом процессе)."""
+    return {"ban": global_moderation.job_view("global_ban", uid),
+            "unban": global_moderation.job_view("global_unban", uid)}
 
 
 # ── Действия с чатом ─────────────────────────────────────────────────────────

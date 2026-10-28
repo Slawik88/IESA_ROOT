@@ -4,15 +4,24 @@
 выгоняет игрока (как и при бане в одном чате), а при наложении — банит во всех известных чатах.
 Блокировка — таблица bot_user_blocks: бот молча игнорирует команды игрока во всех чатах и в личке,
 сообщения при этом считаются как обычно.
+
+Бан и снятие во всех чатах идут фоновым заданием (roadmap S03): раньше один HTTP-запрос админки банил
+циклом по всем чатам десятки секунд. Запрос записывает решение (строка chat_id = 0, журнал) и запускает
+задание; оно банит по BAN_PARALLEL чатов разом и ведёт счёт «N из M» (``job_view``). Задание живёт в памяти
+процесса: деплой посреди него оставит часть чатов без бана, но глобальная строка уже записана, и бот выгонит
+игрока при первом его появлении в любом чате. Прочную очередь строит S05.
 """
 from __future__ import annotations
 
+import asyncio
 import time
+from dataclasses import asdict, dataclass, field
 
 from loguru import logger
 
 GLOBAL_CHAT = 0
 TTL = 15.0
+BAN_PARALLEL = 4          # чатов одновременно: вызовы бана не ждут слота сообщений, но Telegram не любит залпы
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS bot_user_blocks (
@@ -94,33 +103,103 @@ async def _known_chats(db) -> list[int]:
         return [int(r[0]) for r in await cur.fetchall()]
 
 
-async def global_ban(bot, db, user_id: int, actor_id: int, reason: str = "") -> tuple[int, int]:
-    """Бан навсегда во всех чатах. Возвращает (сколько чатов забанил, сколько не вышло)."""
+@dataclass
+class Job:
+    kind: str                  # "global_ban" или "global_unban"
+    user_id: int
+    total: int
+    done: int = 0
+    failed: int = 0
+    finished: bool = False
+    started_at: float = field(default_factory=time.time)
+
+    def view(self) -> dict:
+        return asdict(self)
+
+
+_jobs: dict[tuple[str, int], Job] = {}           # последнее задание по (вид, игрок)
+_tasks: dict[tuple[str, int], asyncio.Task] = {}
+
+
+def job_view(kind: str, user_id: int) -> dict | None:
+    job = _jobs.get((kind, int(user_id)))
+    return job.view() if job else None
+
+
+async def wait(job: Job, timeout: float) -> bool:
+    """Дождаться конца задания не дольше timeout. Само задание это ожидание не отменяет."""
+    task = _tasks.get((job.kind, job.user_id))
+    if task is None or task.done():
+        return job.finished
+    try:
+        await asyncio.wait_for(asyncio.shield(task), timeout)
+    except asyncio.TimeoutError:
+        pass
+    return job.finished
+
+
+def _launch(job: Job, work) -> Job:
+    key = (job.kind, job.user_id)
+    previous = _tasks.get(key)
+    if previous is not None and not previous.done():
+        previous.cancel()      # повторное решение по тому же игроку заменяет незаконченное
+    _jobs[key] = job
+    task = asyncio.create_task(work, name=f"predvestnik:{job.kind}:{job.user_id}")
+    _tasks[key] = task
+
+    def finished(done: asyncio.Task) -> None:
+        if _tasks.get(key) is done:
+            _tasks.pop(key, None)
+        if not done.cancelled() and done.exception() is not None:
+            logger.error(f"{job.kind} {job.user_id} stopped: {done.exception()!r}")
+    task.add_done_callback(finished)
+    return job
+
+
+async def _each_chat(job: Job, chat_ids: list[int], effect) -> None:
+    gate = asyncio.Semaphore(BAN_PARALLEL)
+
+    async def one(chat_id: int) -> None:
+        async with gate:
+            try:
+                await effect(chat_id)
+                job.done += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:   # бота могли выгнать из чата или лишить прав
+                logger.debug(f"{job.kind} {job.user_id} in {chat_id}: {exc}")
+                job.failed += 1
+    try:
+        await asyncio.gather(*(one(chat_id) for chat_id in chat_ids))
+    finally:
+        job.finished = True
+
+
+async def global_ban(bot, db, db_factory, user_id: int, actor_id: int, reason: str = "") -> Job:
+    """Бан навсегда во всех чатах: решение записано сразу, сами баны идут фоновым заданием."""
     await db.execute(
         "INSERT INTO chat_blacklist (chat_id, user_id, reason, added_by, expires_at) VALUES (?, ?, ?, ?, NULL) "
         "ON CONFLICT (chat_id, user_id) DO UPDATE SET reason = EXCLUDED.reason, added_by = EXCLUDED.added_by, "
         "added_at = NOW(), expires_at = NULL",
         (GLOBAL_CHAT, user_id, reason or None, actor_id))
-    done = failed = 0
-    for chat_id in await _known_chats(db):
-        try:
-            await bot.ban_chat_member(chat_id, user_id)
-            done += 1
-            # Запоминаем, где бан поставил именно глобальный бан: снимать будем только там.
-            await db.execute(
-                "INSERT INTO moderation_logs (chat_id, user_id, admin_id, action) VALUES (?, ?, ?, 'global_ban_chat')",
-                (chat_id, user_id, actor_id))
-        except Exception as exc:   # бота могли выгнать из чата или лишить прав
-            logger.debug(f"global ban {user_id} in {chat_id}: {exc}")
-            failed += 1
     await db.execute("UPDATE user_chat_stats SET is_left = TRUE WHERE user_tg_id = ?", (user_id,))
     await db.execute(
         "INSERT INTO moderation_logs (chat_id, user_id, admin_id, action, reason) VALUES (?, ?, ?, 'global_ban', ?)",
         (GLOBAL_CHAT, user_id, actor_id, reason or None))
-    return done, failed
+    chats = await _known_chats(db)
+
+    async def ban(chat_id: int) -> None:
+        await bot.ban_chat_member(chat_id, user_id)
+        # Запоминаем, где бан поставил именно глобальный бан: снимать будем только там.
+        async with db_factory() as job_db:
+            await job_db.execute(
+                "INSERT INTO moderation_logs (chat_id, user_id, admin_id, action) VALUES (?, ?, ?, 'global_ban_chat')",
+                (chat_id, user_id, actor_id))
+    job = Job("global_ban", int(user_id), len(chats))
+    return _launch(job, _each_chat(job, chats, ban))
 
 
-async def global_unban(bot, db, user_id: int, actor_id: int) -> tuple[int, int]:
+async def global_unban(bot, db, user_id: int, actor_id: int) -> Job:
     """Снять глобальный бан только в тех чатах, где его поставил глобальный бан.
 
     Баны отдельных чатов — из бота (chat_blacklist) или руками в Telegram — остаются.
@@ -138,15 +217,12 @@ async def global_unban(bot, db, user_id: int, actor_id: int) -> tuple[int, int]:
         "SELECT chat_id FROM chat_blacklist WHERE user_id = ? AND chat_id <> ? "
         "AND (expires_at IS NULL OR expires_at > NOW())", (user_id, GLOBAL_CHAT)) as cur:
         keep = {int(r[0]) for r in await cur.fetchall()}
-    done = failed = 0
-    for chat_id in sorted(banned_here - keep):
-        try:
-            await bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
-            done += 1
-        except Exception as exc:
-            logger.debug(f"global unban {user_id} in {chat_id}: {exc}")
-            failed += 1
     await db.execute(
         "INSERT INTO moderation_logs (chat_id, user_id, admin_id, action) VALUES (?, ?, ?, 'global_unban')",
         (GLOBAL_CHAT, user_id, actor_id))
-    return done, failed
+    chats = sorted(banned_here - keep)
+
+    async def unban(chat_id: int) -> None:
+        await bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
+    job = Job("global_unban", int(user_id), len(chats))
+    return _launch(job, _each_chat(job, chats, unban))
