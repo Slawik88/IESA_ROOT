@@ -16,6 +16,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+// telegram.org is unreachable for some players: the app then loads its own copy of the SDK (same file, served by us).
+if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback';document.write('<script src="{{BASE}}/static/vendor/telegram-web-app.js?v={{ASSET_VER}}"><\/script>');}
+</script>
 <script src="{{BASE}}/static/support-diagnostics.js?v={{ASSET_VER}}"></script>
 <script defer src="{{BASE}}/static/support-feedback.js?v={{ASSET_VER}}"></script>
 <link rel="stylesheet" href="{{BASE}}/static/support-feedback.css?v={{ASSET_VER}}"/>

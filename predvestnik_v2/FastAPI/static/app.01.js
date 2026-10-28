@@ -32,7 +32,23 @@ const el = id => document.getElementById(id);
 // не было вспышки анимации перед заморозкой. Сам класс гасит анимацию через
 // правило .no-fx в app.css (тот же вход, что и системный prefers-reduced-motion).
 try{ if(localStorage.getItem('pv_no_fx')==='1') document.body.classList.add('no-fx'); }catch(e){}
-const INIT_DATA = tg?.initData || '';
+// Telegram puts the signed launch data into the URL hash (and the SDK keeps a copy in sessionStorage
+// for reloads). Reading it directly keeps the login working even when no SDK copy loaded at all.
+function launchInitData() {
+  try {
+    const fromHash = new URLSearchParams(location.hash.slice(1)).get('tgWebAppData');
+    if (fromHash) return fromHash;
+    return JSON.parse(sessionStorage.getItem('__telegram__initParams') || '{}').tgWebAppData || '';
+  } catch (_) { return ''; }
+}
+let INIT_DATA = window.Telegram?.WebApp?.initData || launchInitData();
+// Re-read on every return to the app: a later SDK copy or a relaunch may carry newer launch data.
+function refreshInitData() {
+  const latest = window.Telegram?.WebApp?.initData || launchInitData();
+  const changed = !!latest && latest !== INIT_DATA;
+  if (changed) INIT_DATA = latest;
+  return changed;
+}
 const SK = 'pv_sess';
 const UK = 'pv_uid';
 // The isolated preprod launcher issues a host-only HttpOnly test cookie on
@@ -146,13 +162,52 @@ function _scheduleReactiveRefresh(){
     _reactiveSubs.forEach(fn=>{ try{ fn(); }catch(_){} });
   }, 350);
 }
+// A refused login (401): one place decides what the player sees (api(), purge and casino requests use it).
+function handleAuthRefusal(reason) {
+  localStorage.removeItem(SK);
+  try{sessionStorage.removeItem('pv_preprod_ticket');}catch(_){}
+  _localPreprodTicket='';
+  el('login-ov')?.classList.remove('hidden');
+  return 'Войдите снова.';
+}
+// Every request has a deadline. Only reads (GET) are repeated after a network failure or a busy
+// server: a purchase, a transfer or any other change is never sent twice behind the player's back.
+const API_TIMEOUT_MS=15000, API_GET_RETRY_DELAYS=[800,2500], API_RETRY_STATUSES=new Set([502,503,504]);
+function _apiFetch(path, opts) {
+  const {timeout, ...init} = opts;
+  const controller = init.signal || typeof AbortController !== 'function' ? null : new AbortController();
+  const timer = controller ? setTimeout(() => controller.abort(), timeout || API_TIMEOUT_MS) : 0;
+  return fetch(BASE+path,{...init,headers:{...hdrs(),...(init.headers||{})},...(controller?{signal:controller.signal}:{})})
+    .finally(() => clearTimeout(timer));
+}
+function _apiNetworkError(error, method, ownSignal) {
+  if (ownSignal) return error;   // the caller cancelled on purpose: keep its own error
+  if (error?.name === 'AbortError') return method === 'GET'
+    ? 'Сервер долго не отвечает. Попробуй ещё раз через минуту.'
+    : 'Ответ не пришёл. Проверь, сохранилось ли действие, прежде чем повторять.';
+  return 'Нет связи с сервером. Проверь интернет и попробуй ещё раз.';
+}
 function api(path, opts={}) {
-  return fetch(BASE+path,{...opts,headers:{...hdrs(),...(opts.headers||{})}})
-    .then(r=>{
-      if(r.status===401){localStorage.removeItem(SK);try{sessionStorage.removeItem('pv_preprod_ticket');}catch(_){};_localPreprodTicket='';el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
+  const method=(opts.method||'GET').toUpperCase();
+  let attempt=0, reauthorized=false;
+  const send=()=>_apiFetch(path,opts).then(r=>{
+    if(method==='GET' && API_RETRY_STATUSES.has(r.status) && attempt<API_GET_RETRY_DELAYS.length)
+      return new Promise(done=>setTimeout(done,API_GET_RETRY_DELAYS[attempt++])).then(send);
+    return r;
+  },error=>{
+    // A timed-out read is not repeated: the server is already slow, another wait would only add load.
+    if(method==='GET' && !opts.signal && error?.name!=='AbortError' && attempt<API_GET_RETRY_DELAYS.length)
+      return new Promise(done=>setTimeout(done,API_GET_RETRY_DELAYS[attempt++])).then(send);
+    return Promise.reject(_apiNetworkError(error,method,!!opts.signal));
+  });
+  const handle=r=>{
+      if(r.status===401){
+        // Newer Telegram launch data may have arrived (SDK copy, return to the app): one more read with it.
+        if(method==='GET' && !reauthorized && refreshInitData()){ reauthorized=true; return send().then(handle); }
+        return Promise.reject(handleAuthRefusal(r.headers.get('x-auth-reason')||''));
+      }
       // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
-      const _m=(opts.method||'GET').toUpperCase();
-      if(r.ok && _m!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
+      if(r.ok && method!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
       return r.ok?r.json():r.text().then(t=>{
         try{
           const e=JSON.parse(t);
@@ -164,7 +219,8 @@ function api(path, opts={}) {
           return Promise.reject(r.status>=500?'Сервер прилёг отдохнуть. Попробуй через минуту.':'Ошибка сервера');
         }
       });
-    });
+  };
+  return send().then(handle);
 }
 // UX_AUDIT С9: сырые/англоязычные detail (Pydantic и пр.) не долетают до игрока.
 // Русские сообщения сервера показываем как есть, техжаргон — прячем в консоль.
@@ -264,7 +320,11 @@ function connectWS() {
   ws.onerror = () => { window.PVDiagnostics?.record('websocket',{state:'error'}); try { ws.close(); } catch (e) { /* уже закрыт */ } };
 }
 setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !_ws) connectWS(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  refreshInitData();
+  if (!_ws) connectWS();
+});
 function showAppUpdate(version){
   const v=String(version||'');
   if(!v || !APP_VERSION || v===APP_VERSION)return;

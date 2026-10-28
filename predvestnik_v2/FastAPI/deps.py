@@ -16,12 +16,13 @@ from infrastructure.pg_adapter import PGAdapter
 from FastAPI.auth import (check_session_token, check_webapp_data, verify_preprod_browser_ticket,
                           verify_session_token, hash_signal)
 from core import ops_metrics
-from services.ops_health import record_auth_failure
+from services.ops_health import AUTH_REASONS, record_auth_failure
 from infrastructure.preprod import is_preprod, is_preprod_browser_test_user, require_preprod_user
 
 
 _DEV_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 _PREPROD_TEST_COOKIE = "predvestnik_preprod_test_session"
+AUTH_REASON_HEADER = "X-Auth-Reason"
 
 
 async def get_db():
@@ -87,9 +88,12 @@ async def require_tg_user_base(
 
     if not user:
         record_auth_failure(refusal)
+        # The reason lets the Mini App tell "Telegram launch data expired, reopen the app"
+        # (stale_auth_date) from "log in again"; it names a category, never the credential.
         raise HTTPException(
             status_code=401,
             detail="Требуется авторизация через Telegram.",
+            headers={AUTH_REASON_HEADER: refusal if refusal in AUTH_REASONS else "malformed"},
         )
     if not local_test_persona and not require_preprod_user(int(user["id"])):
         # A Quick Tunnel is public by design; only explicitly listed test

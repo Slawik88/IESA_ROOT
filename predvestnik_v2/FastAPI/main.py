@@ -528,10 +528,12 @@ _SHELL_V3_CSS = ("support-feedback.css", "admin-legacy.css", "shell-v3.css", "sk
 _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
                       "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js", "page-transitions.js")
 
+TELEGRAM_SDK_FALLBACK = "vendor/telegram-web-app.js"
+
 # Buildpacks normalize mtimes (1980 on production), so only content identifies
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
 _ASSET_SOURCES = tuple(dict.fromkeys((
-    *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", "app.css", *_SHELL_V3_CSS,
+    *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", TELEGRAM_SDK_FALLBACK, "app.css", *_SHELL_V3_CSS,
     "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html", "game-shell-v3.html",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
     "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
@@ -725,7 +727,8 @@ def _register_support_js(name: str) -> None:
     app.add_api_route(f"/static/{name}",_serve,methods=["GET"],include_in_schema=False)
 
 
-for _support_js in ("support-diagnostics.js","support-feedback.js"):
+# vendor/telegram-web-app.js: a copy of the Telegram SDK, loaded by index.html only when telegram.org fails.
+for _support_js in ("support-diagnostics.js","support-feedback.js",TELEGRAM_SDK_FALLBACK):
     _register_support_js(_support_js)
 
 

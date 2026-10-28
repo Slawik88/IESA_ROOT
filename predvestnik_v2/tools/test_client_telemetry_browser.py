@@ -42,7 +42,7 @@ def main() -> None:
         with sync_playwright() as pw:
             browser = pw.chromium.launch()
             page = browser.new_page(viewport={"width": 390, "height": 800})
-            page.route("**/telegram-web-app.js", lambda route: route.abort())
+            page.route("**/telegram-web-app.js*", lambda route: route.abort())   # telegram.org and the app's own SDK copy
             page.on("request", lambda r: posted.append(r.post_data or "") if r.url.endswith("/telemetry") else None)
             page.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
             page.evaluate("setTimeout(() => { throw new TypeError('telemetry probe') }, 0)")
