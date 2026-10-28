@@ -29,7 +29,7 @@ function loadTopV3(quiet = false) {
 }
 // Сезонная таблица Ритма приводится к виду таблицы сообщений: очки идут в count
 function _v3RhythmFull(d) {
-  const items = (d.items || []).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, look: r.player?.look || null, mark: r.player?.mark || null, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, count: r.best_score, avatar: r.player?.avatar, level: r.player?.level }));
+  const items = (d.items || []).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, look: r.player?.look || null, mark: r.player?.mark || null, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, count: r.best_score, avatar: r.player?.avatar, avatar_state: r.player?.avatar_state, level: r.player?.level }));
   const personal = d.personal ? { place: d.personal.place, total: d.personal.total, count: d.personal.best_score } : null;
   return { page: d.page, pages: d.pages, items, personal, season: d.season, chats: _v3Full.data?.chats };
 }
@@ -43,7 +43,7 @@ function chatThemeStyle(r) {
   return `--chat-a:${palette[0]};--chat-b:${palette[1]};--chat-c:${palette[2]}`;
 }
 function chatThemeAvatar(r) {
-  const photo = _validAvatar(r.avatar) ? `<img src="${_profileEsc(r.avatar)}" alt="" decoding="async" loading="lazy" onerror="this.remove()">` : '';
+  const photo = _validAvatar(r.avatar) ? `<img src="${_profileEsc(_avatarSrc(r.avatar))}" alt="" decoding="async" loading="lazy" onerror="this.remove()">` : '';
   return `<span class="chat-theme-avatar"><span aria-hidden="true">${_profileEsc(Array.from(r.name || 'Ч').slice(0,1).join(''))}</span>${photo}</span>`;
 }
 function _v3FullRow(r, scope) {

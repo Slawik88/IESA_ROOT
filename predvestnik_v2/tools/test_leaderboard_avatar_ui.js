@@ -31,5 +31,17 @@ const a=node(),b=node(),host={isConnected:true,querySelectorAll:()=>[a,b]};
    await new Promise(setImmediate);await new Promise(setImmediate);
    assert.equal(tries,2,`HTTP ${status} is retried`);assert.equal(row.images[0].src,photo);
  }
+ // Server photo addresses (roadmap S02): shown with the app base; final states never ask again.
+ const address='/profile/avatar/'+ref+'?v=0123456789abcdef';
+ ctx.BASE='/predvestnik';
+ const shown=ctx.window.gameWhoV3({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:address,avatar_state:'ready'});
+ assert.match(shown,/src="\/predvestnik\/profile\/avatar\//);assert.doesNotMatch(shown,/data-lb-avatar/,'a row with its photo needs no request');
+ for(const state of ['absent','vip_only'])assert.doesNotMatch(ctx.window.gameWhoV3({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:null,avatar_state:state}),/data-lb-avatar/,state);
+ assert.match(ctx.window.gameWhoV3({display_name:'Vip',profile_ref:'loadingloadingload',is_vip:true,avatar:null,avatar_state:'loading'}),/data-lb-avatar/);
+ assert.doesNotMatch(ctx.window.gameWhoV3({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:'/profile/avatar/'+ref+'?v=bad"x'}),/<img/);
+ let finalCalls=0;ctx.api=async()=>{finalCalls++;return {vip:true,avatar:null,avatar_state:'absent'}};
+ const quiet=node();quiet.dataset.lbAvatar='zyxwvutsrqponmlk';ctx.window.hydrateLeaderboardAvatars({isConnected:true,querySelectorAll:()=>[quiet]});
+ await new Promise(setImmediate);await new Promise(setImmediate);
+ assert.equal(finalCalls,1,'"absent" stops the retries after one answer');assert.equal(quiet.images.length,0);
  console.log('PASS: shared cold avatar hydration, escaped names, VIP display gate, safe image types and detached-board guard');
 })().catch(e=>{console.error(e);process.exitCode=1});

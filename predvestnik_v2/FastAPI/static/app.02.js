@@ -31,7 +31,7 @@ function loadProfile() {
     try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
     try { if(!_ws && _uid) connectWS(); } catch (_) {}
-    try { updateCurrBar(d); if(d.is_vip){if(_validAvatar(d.avatar))_vipAvatar=d.avatar;_ensureVipAvatar();} } catch (_) {}
+    try { updateCurrBar(d); if(d.is_vip){if(_validAvatar(d.avatar))_vipAvatar=d.avatar;_ensureVipAvatar(d.avatar_state);} } catch (_) {}
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
 
@@ -244,7 +244,7 @@ function updateCurrBar(data) {
     const sub=el('hdr-sub'); if(sub) sub.textContent='Профиль Предвестника';
     const av=el('hdr-ava');
     if(av){
-      if(data.is_vip){ av.textContent='👑'; _ensureVipAvatar(); }
+      if(data.is_vip){ av.textContent='👑'; _ensureVipAvatar(data.avatar_state); }
       else if(!_vipAvatar) av.textContent='🔮';
     }
   }
@@ -264,21 +264,27 @@ function updateCurrBar(data) {
 }
 
 // ── VIP Telegram avatar (Block 3) ──────────────────────────────────────────────
-// Грузим один раз за сессию, кэшируем, применяем к хедеру и карточке профиля.
+// Сервер отдаёт адрес фото (/profile/avatar/<ref>?v=…) и avatar_state: ready — фото есть,
+// loading — фото ещё качается (спросить позже), absent и vip_only — фото не будет, не спрашивать.
 let _vipAvatar = null, _vipAvatarLoading = null, _vipAvatarRetryAt = 0;
+const _AVATAR_FINAL_STATES = new Set(['absent', 'vip_only']);
 function _validAvatar(value) {
-  return typeof value === 'string' && /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
+  return typeof value === 'string' && (/^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+    || /^\/profile\/avatar\/[A-Za-z0-9_-]{16,64}\?v=[0-9a-f]{16}$/.test(value));
+}
+function _avatarSrc(value) {
+  return value.startsWith('/') ? BASE + value : value;
 }
 async function _requestVipAvatar(ref, current = () => true) {
-  // Bounded recovery covers a cold background download and the short negative
-  // cache. Leaving a card stops its retries; the next visit can try again.
-  for (const delay of [0, 2000, 6000, 12000]) {
+  // Bounded recovery while the server is still fetching the photo. Leaving a card stops its retries;
+  // "no photo" and "not a VIP" are answers, not errors, and end the loop at once.
+  for (const delay of [0, 2000, 5000, 10000]) {
     if (delay) await new Promise(resolve => setTimeout(resolve, delay));
     if (!current()) return null;
     try {
       const r = await api('/profile/avatar' + (ref ? `?profile_ref=${encodeURIComponent(ref)}` : ''));
       if (!current()) return null;
-      if (r?.vip === false) return null;
+      if (r?.vip === false || _AVATAR_FINAL_STATES.has(r?.avatar_state)) return null;
       if (_validAvatar(r?.avatar)) return r.avatar;
     } catch (_) { /* a transient network error is retried within this budget */ }
   }
@@ -288,16 +294,21 @@ function _applyVipAvatar() {
   if (!_vipAvatar) return;
   if (_profileData?.is_vip) {
     _profileData.avatar = _vipAvatar;
+    _profileData.avatar_state = 'ready';
     if (typeof v3SaveProfileCache === 'function') v3SaveProfileCache(_profileData);
   }
-  const img = `<img src="${_vipAvatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
-  const h = el('hdr-ava'); if (h) h.innerHTML = img;
-  const p = el('pro-ava'); if (p) p.innerHTML = img;
-  const s = el('pro-showcase-ava'); if (s) s.innerHTML = img;
-  const f = el('fit-ava'); if (f) f.innerHTML = img;
+  const img = `<img src="${_profileEsc(_avatarSrc(_vipAvatar))}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
+  for (const id of ['hdr-ava', 'pro-ava', 'pro-showcase-ava', 'fit-ava']) {
+    const node = el(id); if (!node) continue;
+    const before = node.innerHTML;
+    node.innerHTML = img;
+    const shown = node.querySelector?.('img');
+    if (shown) shown.onerror = () => { node.innerHTML = before; };   // the photo did not load: keep the placeholder
+  }
 }
-function _ensureVipAvatar() {
+function _ensureVipAvatar(state) {
   if (_vipAvatar) { _applyVipAvatar(); return; }
+  if (_AVATAR_FINAL_STATES.has(state)) return;
   if (_vipAvatarLoading || Date.now() < _vipAvatarRetryAt) return;
   _vipAvatarLoading = _requestVipAvatar(null, () => !!_profileData?.is_vip).then(avatar => {
     if (avatar && _profileData?.is_vip) { _vipAvatar = avatar; _applyVipAvatar(); }

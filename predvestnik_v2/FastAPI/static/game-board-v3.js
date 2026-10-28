@@ -31,14 +31,20 @@
 // A cold photo download must update the existing row without reloading the board.
 (function () {
   'use strict';
-  const PHOTO = /^data:image\/(?:png|jpe?g|webp);base64,/i, REF = /^[A-Za-z0-9_-]{16,64}$/;
+  // A photo is a data URI (older answers) or the server's photo address /profile/avatar/<ref>?v=<version>.
+  const PHOTO = /^(?:data:image\/(?:png|jpe?g|webp);base64,|\/profile\/avatar\/[A-Za-z0-9_-]{16,64}\?v=[0-9a-f]{16}$)/i, REF = /^[A-Za-z0-9_-]{16,64}$/;
+  // "absent" (no photo) and "vip_only" are answers: such rows never ask the server again.
+  const FINAL = new Set(['absent', 'vip_only']);
+  const appBase = () => typeof BASE === 'string' ? BASE : (document.body.dataset.appBase || '');
+  const src = photo => photo.startsWith('/') ? appBase() + photo : photo;
   const photos = new Map(), inFlight = new Map(), queue = [];
   let running = 0;
   const esc = v => String(v || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   window.leaderboardAvatar = function (p, fallback = '') {
     const ref = p?.profile_ref || p?.ref, photo = p?.is_vip ? (p.avatar || photos.get(ref)?.photo) : null;
     const initials = Array.from(p?.display_name || p?.name || '✦').slice(0,1).join('');
-    return `<span class="lb-avatar"${p?.is_vip && REF.test(ref || '') ? ` data-lb-avatar="${ref}"` : ''}>${fallback || `<span aria-hidden="true">${esc(initials)}</span>`}${PHOTO.test(photo || '') ? `<img src="${esc(photo)}" alt="" decoding="async" loading="lazy" onerror="this.remove()">` : ''}</span>`;
+    const hydrate = p?.is_vip && REF.test(ref || '') && !PHOTO.test(photo || '') && !FINAL.has(p?.avatar_state);
+    return `<span class="lb-avatar"${hydrate ? ` data-lb-avatar="${ref}"` : ''}>${fallback || `<span aria-hidden="true">${esc(initials)}</span>`}${PHOTO.test(photo || '') ? `<img src="${esc(src(photo))}" alt="" decoding="async" loading="lazy" onerror="this.remove()">` : ''}</span>`;
   };
   async function request(ref) {
     if (typeof api === 'function') return api(`/profile/avatar?profile_ref=${encodeURIComponent(ref)}`);
@@ -70,7 +76,7 @@
             if (delay) await new Promise(done => setTimeout(done,delay));
             try {
               const r = await request(ref);
-              if (r.vip === false) break;
+              if (r.vip === false || FINAL.has(r.avatar_state)) break;
               if (PHOTO.test(r.avatar || '')) { photo = r.avatar; break; }
             } catch (_) { /* bounded retry; the fallback stays visible */ }
           }
@@ -88,7 +94,7 @@
       if (!photo || !host.isConnected) return;
       host.querySelectorAll(`[data-lb-avatar="${ref}"]`).forEach(node => {
         if (!node.isConnected || node.querySelector('img')) return;
-        const img = document.createElement('img'); img.src = photo; img.alt = ''; img.decoding = 'async';
+        const img = document.createElement('img'); img.src = src(photo); img.alt = ''; img.decoding = 'async';
         img.onerror = () => img.remove(); node.append(img);
       });
     }));

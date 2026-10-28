@@ -13,14 +13,14 @@ function _v3TopShell() {
 // Ответы двух API приводятся к одному виду: {top:[{place,name,value,is_vip,is_me}], personal:{place,value}|null}
 function _v3TopNormalize(id, d) {
   if (id === 'rhythm') {
-    return { top: (d.top || []).slice(0, 10).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, look: r.player?.look || null, mark: r.player?.mark || null, avatar: r.player?.avatar, level: r.player?.level })),
+    return { top: (d.top || []).slice(0, 10).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, look: r.player?.look || null, mark: r.player?.mark || null, avatar: r.player?.avatar, avatar_state: r.player?.avatar_state, level: r.player?.level })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.best_score } : null };
   }
   if (id === 'minesweeper' || id === 'mafia') {
-    return { top: (d.items || []).slice(0, 10).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark, avatar: r.avatar, level: r.level })),
+    return { top: (d.items || []).slice(0, 10).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark, avatar: r.avatar, avatar_state: r.avatar_state, level: r.level })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
   }
-  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark, avatar: r.avatar, level: r.level })),
+  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark, avatar: r.avatar, avatar_state: r.avatar_state, level: r.level })),
     personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
 }
 function _v3TopTabs() {

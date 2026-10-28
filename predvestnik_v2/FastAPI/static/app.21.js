@@ -18,7 +18,7 @@ function openPublicCardV3(ref) {
     .then(d => {
       if (mine !== _ppSeq) return;
       root.innerHTML = renderPublicCardV3(d);
-      if (d.vip && !d.avatar) {
+      if (d.vip && !d.avatar && d.avatar_state !== 'absent' && d.avatar_state !== 'vip_only') {
         const current = () => mine === _ppSeq && _activePage === 'public-profile';
         _requestVipAvatar(id, current).then(avatar => {
           const slot = root.querySelector('.pp-ring .v3-ava');
