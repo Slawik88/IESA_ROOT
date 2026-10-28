@@ -1,3 +1,12 @@
+## ROADMAP-S06b — SCREEN STYLESHEETS NO LONGER BLOCK THE START, PUSHED TO MASTER (owner's OK; production not verified from the cloud)
+
+20 screen stylesheets the first screen does not need (Mafia, quests, inventory, chests, trail, guide, news, pass, store, pets, casino, coin market and others) load with `media="print"` +
+`onload="pvLateCss(this)"` in `index.html`, so neither the first paint nor `app.js` waits for them; the links keep their place, the cascade order is unchanged. A gate in `<head>` holds the
+splash (`_plSkip`), the deep link (`_handleStartParam`) and makes open dialogs transparent and inert (`html.pv-css-wait`, `app.css`; the support dialog excluded) until they arrive; a failed
+file opens it at once, a browser without the load event after 12 s (then every late sheet is switched on). Cold start (stand, Slow 4G, CPU x4, mid): first paint 7.1 → 5.2 s, profile ready
+9.3 → 7.7 s, splash gone 9.8 → 8.2 s, blocking stylesheets 44 → 25. Checked locally: `tools/test_late_css_gate.py` (held, failed, no load event), static delivery, minifier, asset version,
+navigation, patch notes, What's new; `ui_smoke` 12 screens before/after alike (same baseline failures). Not verified: production deploy.
+
 ## ROADMAP-S06 — FAST FRONT-END START, PUSHED TO MASTER (production not verified from the cloud)
 
 Text assets are prepared once per process (`FastAPI/static_assets.py`, `_STORE` in `FastAPI/main.py`): gzip at start instead of GZip level 9 per request, ETag, `Vary`, 304 (weak validators
