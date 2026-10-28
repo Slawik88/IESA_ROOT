@@ -68,6 +68,8 @@ def main() -> int:
         name = path.rsplit("/", 1)[-1]
         if name.startswith("admin") and name.endswith(".js"):
             return route.fulfill(status=200, content_type="text/javascript", body=read(name))
+        if name.endswith(".json"):   # данные справки (guide-admin.json, S09)
+            return route.fulfill(status=200, content_type="application/json", body=read(name))
         if name.startswith("admin") and name.endswith(".css"):
             return route.fulfill(status=200, content_type="text/css", body=read(name))
         return route.fulfill(status=200, content_type="text/html", body=html)

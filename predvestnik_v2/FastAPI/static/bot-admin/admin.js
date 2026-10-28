@@ -480,7 +480,8 @@ function runAction(action, target, ctx, extra, after) {
     sheet(CONFIRM_TITLE[action.key] || action.title, `<div class="sub" style="margin-bottom:8px">Проверьте перед выполнением:</div>
       <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>
       ${typed ? `<div class="field" style="margin-top:10px"><label>Для подтверждения введите ID игрока: <b>${ctx.id}</b></label>
-        <input id="fconfirm" inputmode="numeric" autocomplete="off"/></div>` : ''}`,
+        <input id="fconfirm" inputmode="numeric" autocomplete="off"/></div>` : ''}
+      <button type="button" class="ag-link ag-why" data-ag-why="${esc(action.key)}">Что это значит?</button>`,
       'Подтвердить', () => {
         if (!typed) return perform(payload);
         const typedId = ($('#fconfirm').value || '').trim();

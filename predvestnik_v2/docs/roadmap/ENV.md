@@ -155,6 +155,9 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/t
 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_guide_entries_ui.py [--shots DIR]          # входы в Путеводитель и навигация на 320/390/430 (~1 мин)
 BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_guide_entry_sim_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod   # «путеводитель» в боте на имитации Telegram
 BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_guide_coverage.py                                       # у каждой вкладки, строки «Ещё», команды бота и выключателя есть тема Путеводителя
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_admin_guide_contract.py                               # справка администрации = разделы, действия и пороги из кода
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_admin_guide_ui.py [--shots DIR]   # справка по ролям 2/4/5/6 и владельцу, 320/390/430 (стенд админки)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_admin_help_sim_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod   # «бот админ помощь» на имитации Telegram
 BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_js_minify.py            # сжатие JS не меняет ни одного токена (нужен node с acorn из /opt/node-tools)
 BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_static_delivery_asgi.py   # gzip заранее, ETag/304, версия у каждого файла, «пробный деплой»
 ```
