@@ -127,15 +127,15 @@ async def add_target(db: PGAdapter, session_id: int, user_id: int, username: str
 
 
 async def unsent_targets(db, session_id: int, limit: int, skip: list[int] = ()) -> list[dict]:
-    """Next dossiers to send, in the order of the start message: furthest below the norm first.
-    Targets saved before total_messages existed take the chat's all-time count."""
+    """Next dossiers to send, in the order of the start message: furthest below the norm first. A target a moderator
+    already acted on from the web needs no dossier. Targets saved before total_messages existed take the all-time count."""
     async with db.execute(
         "SELECT t.user_id, t.username, t.msg_count, t.required_norm, "
         "COALESCE(t.total_messages, s.user_messages_count_all_time, 0) AS total_messages, "
         "t.days_in_chat, t.warns, t.note, t.member_tag "
         "FROM purge_targets t JOIN purge_sessions p ON p.id = t.session_id "
         "LEFT JOIN user_chat_stats s ON s.chat_tg_id = p.chat_id AND s.user_tg_id = t.user_id "
-        "WHERE t.session_id = ? AND NOT COALESCE(t.dossier_sent, FALSE) AND t.verdict IS NULL "
+        "WHERE t.session_id = ? AND NOT COALESCE(t.dossier_sent, FALSE) AND t.verdict IS NULL AND t.decision_state IN ('idle','failed') "
         "AND NOT (t.user_id = ANY(?::bigint[])) "
         "ORDER BY t.msg_count - COALESCE(t.required_norm, 0), t.msg_count, t.user_id LIMIT ?",
         (session_id, [int(u) for u in skip], limit),
@@ -148,7 +148,8 @@ async def sessions_with_unsent(db) -> list[dict]:
     async with db.execute(
         "SELECT s.id, s.chat_id, s.dest_chat_id, COALESCE(c.chat_title, '') AS chat_title FROM purge_sessions s "
         "LEFT JOIN chat_settings c ON c.chat_id = s.chat_id WHERE s.status = 'active' AND EXISTS "
-        "(SELECT 1 FROM purge_targets t WHERE t.session_id = s.id AND NOT COALESCE(t.dossier_sent, FALSE) AND t.verdict IS NULL) ORDER BY s.id"
+        "(SELECT 1 FROM purge_targets t WHERE t.session_id = s.id AND NOT COALESCE(t.dossier_sent, FALSE) AND t.verdict IS NULL "
+        "AND t.decision_state IN ('idle','failed')) ORDER BY s.id"
     ) as c:
         return [dict(r) for r in await c.fetchall()]
 

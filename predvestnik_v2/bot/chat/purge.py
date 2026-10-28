@@ -43,7 +43,9 @@ MAX_NORM = 100000   # норма в сообщениях; больше не по
 PURGE_MUTE = timedelta(hours=1)
 DOSSIER_PAUSE_SEC = 0.4    # между досье: админ-чат не захлёбывается, а троттлер держит 1 сообщение в секунду на чат
 DOSSIER_BATCH = 20
-DOSSIER_ATTEMPTS = 3       # столько раз за запуск очереди пробуем одно досье, потом оно ждёт следующего запуска
+DOSSIER_ATTEMPTS = 3       # столько раз подряд пробуем одно досье, потом оно ждёт следующего круга
+DOSSIER_RETRY_SEC = 60     # пауза перед новым кругом для досье, которые не ушли (Telegram недоступен, админ-чат пропал)
+DOSSIER_ROUNDS = 30        # кругов за запуск очереди; дальше — до следующего старта процесса
 MEMBER_CACHE_SEC = 45      # статус участника в Telegram для просмотра и статуса; перед бан/кик/мут — всегда заново
 DELETE_BUFFER_SEC = 0.4    # сообщения закрытого чата удаляются пачкой раз в столько секунд
 DELETE_BATCH = 100         # больше Telegram за один deleteMessages не принимает
@@ -321,6 +323,7 @@ async def resume_dossiers(bot: Bot) -> int:
 
 async def _dossier_queue(bot: Bot, session_id: int, chat_id: int, chat_title: str, dest: int) -> None:
     failures: dict[int, int] = {}
+    rounds = 0
     while True:
         given_up = [uid for uid, n in failures.items() if n >= DOSSIER_ATTEMPTS]
         async with _background_db() as db:
@@ -329,9 +332,16 @@ async def _dossier_queue(bot: Bot, session_id: int, chat_id: int, chat_title: st
                 return
             batch = await purge_sessions.unsent_targets(db, session_id, DOSSIER_BATCH, skip=given_up)
         if not batch:
-            if given_up:
-                logger.warning(f"purge dossiers {session_id}: {len(given_up)} not sent this run, will retry on restart")
-            return
+            if not given_up:
+                return
+            rounds += 1
+            if rounds >= DOSSIER_ROUNDS:
+                logger.warning(f"purge dossiers {session_id}: {len(given_up)} not sent, next try after a restart")
+                return
+            logger.warning(f"purge dossiers {session_id}: {len(given_up)} not sent, retry in {DOSSIER_RETRY_SEC} s")
+            failures.clear()
+            await asyncio.sleep(DOSSIER_RETRY_SEC)
+            continue
         for row in batch:
             uid = int(row["user_id"])
             try:
@@ -371,11 +381,16 @@ async def _send_dossier(bot: Bot, session_id: int, chat_id: int, chat_title: str
         violator.tag = tag
     await bot.send_message(dest, dossier_text(violator, chat_title), parse_mode="HTML",
                            reply_markup=dossier_kb(session_id, uid))
+    # Отправлено: отметка сразу, иначе сбой ниже повторил бы досье. Тег — дополнение, его ошибка досье не повторяет.
     async with _background_db() as db:
-        if state == "ok":
-            await member_tags.observe(db, chat_id, uid, tag)
         await purge_sessions.mark_sent(db, session_id, uid, violator.tag)
     live_changed(chat_id)
+    if state == "ok":
+        try:
+            async with _background_db() as db:
+                await member_tags.observe(db, chat_id, uid, tag)
+        except Exception as exc:
+            logger.warning(f"purge dossier {session_id}/{uid}: tag not saved: {exc}")
     return True
 
 
@@ -500,7 +515,7 @@ async def finish(ctx: Ctx) -> None:
         return
     counts = await verdict_counts(ctx.db, int(s[0]))
     try:
-        await authorize_shared(ctx.bot, ctx.db, chat_id, ctx.user_id, action="read")
+        await authorize_shared(ctx.bot, ctx.db, chat_id, ctx.user_id, action="read", fresh=True)
         await purge_flow.complete(ctx.db, chat_id=chat_id, actor=ctx.user_id)
     except purge_flow.PurgeConflict as error:
         await ctx.reply(str(error)); return
@@ -595,7 +610,7 @@ async def on_verdict(call: CallbackQuery, callback_data: PurgeCB, bot: Bot, db) 
 # Статусы участников в Telegram на MEMBER_CACHE_SEC: просмотр и опрос хода чистки не ходят в Telegram каждый раз.
 # Перед бан/кик/мут и запуском чистки права актёра, бота и цели спрашиваются заново, без кэша (и параллельно).
 _members = TtlCache(MEMBER_CACHE_SEC, max_entries=4096)
-FRESH_ACTIONS = frozenset({None, "ban", "kick", "mute"})
+FRESH_ACTIONS = frozenset({None, "ban", "kick", "mute", "warn"})
 
 
 async def _member(bot, chat_id: int, user_id: int, *, fresh: bool):
@@ -607,14 +622,16 @@ async def _member(bot, chat_id: int, user_id: int, *, fresh: bool):
     return member
 
 
-async def authorize_shared(bot, db, chat_id: int, actor: int, target: int | None = None, action: str | None = None) -> None:
+async def authorize_shared(bot, db, chat_id: int, actor: int, target: int | None = None, action: str | None = None,
+                           *, fresh: bool = False) -> None:
+    """fresh=True — без кэша и для «read» (завершение чистки, сверка исполнения)."""
     try:
-        await asyncio.wait_for(_authorize_shared(bot,db,chat_id,actor,target,action),timeout=8)
+        await asyncio.wait_for(_authorize_shared(bot,db,chat_id,actor,target,action,fresh),timeout=8)
     except TimeoutError:
         raise purge_flow.PurgeUnavailable("Проверка прав в Telegram затянулась. Попробуй ещё раз; решение не отправлено.") from None
 
 
-async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | None = None, action: str | None = None) -> None:
+async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | None, action: str | None, fresh: bool) -> None:
     """Current local delegation plus Telegram membership and bot capability (fresh before start and sanctions)."""
     await ranks.sync_owner(db, bot, chat_id)
     if not await ranks.can(db, chat_id, actor, "purge"):
@@ -624,7 +641,7 @@ async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | Non
         disabled = await feature_switches.disabled(db, feature_switches.command_features("чистка", "purge", None), chat_id)
         if disabled is not None:
             raise purge_flow.PurgeConflict("Чистка сейчас отключена настройками бота или чата.")
-    fresh = action in FRESH_ACTIONS
+    fresh = fresh or action in FRESH_ACTIONS
     check_target = target is not None and action != "forgive"
     try:
         me = await bot.me()

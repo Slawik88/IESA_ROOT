@@ -61,8 +61,9 @@ async def begin_with_receipt(db, *, chat_id: int, actor: int, norm: int, date_fr
         return {"session_id": sid, "created": True, "active": True}
 
 
-# Deliveries in flight in this process (bot and Mini App share it; one instance runs at a time).
-# Human reconciliation of such a target waits for the live Telegram request to return or time out.
+# Deliveries in flight in this process (bot and Mini App share it). Human reconciliation of such a target waits for the
+# live Telegram request to return or time out. Across processes (a deploy briefly runs two) the guard is the time rule:
+# a delivery gives up after DELIVERY_TIMEOUT, and a "sending" target can be reconciled only 2 minutes after its start.
 _delivering: set[tuple[int, int]] = set()
 
 
@@ -108,15 +109,22 @@ async def decide(db, *, session_id: int, user_id: int, actor: int, action: str, 
         except Exception:
             await repo.delivery_failed(db, session_id, user_id, action_id, attempt, "unknown", "Ответ не получен. Проверьте участника и журнал Telegram до повторной попытки.")
             raise PurgeConflict("Ответ Telegram не получен. Исход требует проверки, автоматического повтора не будет.") from None
-        async with db.connection.transaction():
-            await repo.lock_chat(db, cid)
-            target = await repo.get_target(db, session_id, user_id)
-            if (target["decision_state"] != "sending" or target["decision_key"] != action_id
-                    or target["decision_started_at"] != attempt):
-                raise PurgeConflict("Результат уже сверен. Обновите досье перед новым решением.")
-            await record(cid, user_id, action)
-            await repo.set_verdict(db, session_id, user_id, action, actor)
-            await repo.operation_state(db, session_id, user_id, "done")
+        try:
+            async with db.connection.transaction():
+                await repo.lock_chat(db, cid)
+                target = await repo.get_target(db, session_id, user_id)
+                if (target["decision_state"] != "sending" or target["decision_key"] != action_id
+                        or target["decision_started_at"] != attempt):
+                    raise PurgeConflict("Результат уже сверен. Обновите досье перед новым решением.")
+                await record(cid, user_id, action)
+                await repo.set_verdict(db, session_id, user_id, action, actor)
+                await repo.operation_state(db, session_id, user_id, "done")
+        except PurgeConflict:
+            raise
+        except Exception:
+            # Telegram accepted, the database did not: the outcome needs a human check, never a resend.
+            await repo.delivery_failed(db, session_id, user_id, action_id, attempt, "unknown", "Telegram выполнил действие, а запись не сохранилась. Проверьте участника и запишите сверку.")
+            raise PurgeConflict("Действие выполнено в Telegram, но не записалось. Нужна ручная сверка, повтора не будет.") from None
     finally:
         _delivering.discard(key)
     return {"ok": True, "verdict": action, "replayed": False}

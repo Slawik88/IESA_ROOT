@@ -21,6 +21,7 @@ _viewers: dict[int, dict[int, float]] = {}   # chat → viewer → monotonic dea
 _revisions: dict[int, int] = {}
 _last_push: dict[int, float] = {}
 _scheduled: dict[int, asyncio.TimerHandle] = {}
+_pushing: set[asyncio.Task] = set()   # running pushes, kept so they are not garbage-collected mid-way
 
 
 def watch(chat_id: int, user_id: int) -> None:
@@ -47,15 +48,24 @@ def revision(chat_id: int) -> int:
 def changed(chat_id: int) -> None:
     """Something in this chat's purge changed: bump its revision and tell the viewers (merged, see module doc)."""
     cid = int(chat_id)
+    if cid not in _viewers:   # nobody watches: no revision to keep
+        _revisions.pop(cid, None)
+        return
     _revisions[cid] = _revisions.get(cid, 0) + 1
-    if cid not in _viewers or cid in _scheduled:
+    if cid in _scheduled:
         return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:   # called outside the event loop (scripts): nobody can be watching
         return
     wait = _last_push.get(cid, 0.0) + PUSH_EVERY_SEC - time.monotonic()
-    _scheduled[cid] = loop.call_later(max(0.0, wait), lambda: loop.create_task(_push(cid)))
+    _scheduled[cid] = loop.call_later(max(0.0, wait), _start_push, loop, cid)
+
+
+def _start_push(loop: asyncio.AbstractEventLoop, chat_id: int) -> None:
+    task = loop.create_task(_push(chat_id), name=f"predvestnik:purge-live:{chat_id}")
+    _pushing.add(task)
+    task.add_done_callback(_pushing.discard)
 
 
 async def _push(chat_id: int) -> None:
@@ -67,6 +77,7 @@ async def _push(chat_id: int) -> None:
     if not viewers:
         _viewers.pop(chat_id, None)
         _last_push.pop(chat_id, None)
+        _revisions.pop(chat_id, None)
         return
     event = {"type": "data_changed", "scope": "purge", "chat_id": chat_id, "revision": revision(chat_id)}
     for uid in viewers:

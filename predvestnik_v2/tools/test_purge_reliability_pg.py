@@ -42,7 +42,7 @@ async def run(dsn):
         recorded.append(args)
     try:
         start = dict(chat_id=cid, actor=101, norm=10, date_from="2026-10-01", date_to="2026-10-07",
-                     destination=cid, action_id="start", targets=[dict(user_id=uid, count=0, days_in_chat=7, warns=0, required=10) for uid in (201,202,203)])
+                     destination=cid, action_id="start", targets=[dict(user_id=uid, count=0, days_in_chat=7, warns=0, required=10) for uid in (201,202,203,204)])
         sid = await purge.begin(a, **start)
         assert (await purge.existing_start(b, **{k:start[k] for k in ("chat_id","actor","norm","date_from","date_to","action_id")}))["session_id"] == sid
         entered, release = asyncio.Event(), asyncio.Event()
@@ -77,6 +77,15 @@ async def run(dsn):
             await refused(purge.decide(a, **third, deliver=timeout_effect), "Исход требует проверки")
         assert (await repo.get_target(b, sid, 203))["decision_state"] == "unknown"
         assert len(recorded) == 2, recorded
+        # Telegram accepted, the record failed: a clear "needs a check", never a 500 or a resend.
+        async def broken_record(*args):
+            raise RuntimeError("database went away")
+        await refused(purge.decide(a, **{**decision, "user_id": 204, "action_id": "record-lost", "record": broken_record}, deliver=effect),
+                      "не записалось")
+        lost = await repo.get_target(b, sid, 204)
+        assert lost["decision_state"] == "unknown" and lost["verdict"] is None, lost
+        await refused(purge.decide(b, **{**decision, "user_id": 204, "action_id": "record-lost"}, deliver=effect), "исход неизвестен")
+        await b.execute("UPDATE purge_targets SET decision_state='failed' WHERE session_id=? AND user_id=204", (sid,))
         async def verified(*args):
             return None
         old = await repo.get_target(b, sid, 203)
@@ -102,7 +111,7 @@ async def run(dsn):
         assert summary["completed"]["counts"]["decided"] == 2
         await refused(purge.reconcile(b, session_id=sid, user_id=203, actor=303, applied=False,
             reason="Проверен журнал Telegram, действия нет", authorize=authorize, materialize=verified), "завершена")
-        print("PASS: late delivery exclusion, no transaction over Telegram, independent moderators, bounded timeout, no record on timeout, generation-safe retry, closed session")
+        print("PASS: late delivery exclusion, no transaction over Telegram, independent moderators, bounded timeout, no record on timeout, lost record needs a check, generation-safe retry, closed session")
     finally:
         if task and not task.done():
             task.cancel()

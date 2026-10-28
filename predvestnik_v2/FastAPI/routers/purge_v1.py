@@ -48,9 +48,9 @@ class ReconcileBody(FinishBody):
     reason: str = Field(min_length=12, max_length=300)
 
 
-async def _authorize(db, user, cid: int, *, reading: bool = False):
+async def _authorize(db, user, cid: int, *, reading: bool = False, fresh: bool = False):
     try:
-        await bridge.authorize_shared(get_bot(), db, cid, int(user["id"]), action="read" if reading else None)
+        await bridge.authorize_shared(get_bot(), db, cid, int(user["id"]), action="read" if reading else None, fresh=fresh)
     except flow.PurgeUnavailable as error:
         raise HTTPException(503, str(error))
     except flow.PurgeConflict as error:
@@ -138,7 +138,7 @@ async def decision(cid: int, body: DecisionBody, db=Depends(get_db), user=Depend
 
 @router.post("/chats/{cid}/finish")
 async def finish(cid: int, body: FinishBody, db=Depends(get_db), user=Depends(require_tg_user)):
-    await _authorize(db, user, cid, reading=True)
+    await _authorize(db, user, cid, reading=True, fresh=True)
     try:
         result = await flow.complete(db, chat_id=cid, actor=int(user["id"]), expected_session=body.session_id)
     except flow.PurgeConflict as error:
@@ -152,7 +152,7 @@ async def reconcile(cid: int, body: ReconcileBody, db=Depends(get_db), user=Depe
     async def authorize(actual, target, action):
         if actual != cid:
             raise flow.PurgeConflict("Чистка относится к другому чату.")
-        await bridge.authorize_shared(get_bot(), db, cid, int(user["id"]), action="read")
+        await bridge.authorize_shared(get_bot(), db, cid, int(user["id"]), action="read", fresh=True)
     async def materialize(row, applied):
         await bridge.materialize_reconciled(get_bot(), db, cid, row, applied=applied)
     try:
