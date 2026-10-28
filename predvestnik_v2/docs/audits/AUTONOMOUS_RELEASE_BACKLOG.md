@@ -1,3 +1,16 @@
+## ROADMAP-S01 — HEALTH TELEMETRY, PUSHED TO MASTER (production not verified from the cloud)
+
+Measurements only, no fixes: in-process metrics (`core/ops_metrics.py`) for HTTP time per route template and 4xx/5xx (ASGI `FastAPI/ops_middleware.py`), DB pool wait (`get_db`, bot db middleware) and busy
+connections, event-loop lag, outbound-throttler wait; 5-minute aggregates in `ops_metrics_5m` (14 days). 401 reasons (`FastAPI/auth.py` check_* helpers, counted in `FastAPI/deps.py`; login behaviour
+unchanged). Anonymous Mini App telemetry `POST /telemetry` (no auth, open when the site switch is off, size/rate/daily caps, no Telegram id/initData/IP stored) fed by `static/support-diagnostics.js`.
+Bot handler errors via `dp.errors` in the shared `bot/dispatcher.py` (production and `tools/mafia_sim`), counted per handler, examples in `bot_handler_errors`, original exception still re-raised.
+`/api/health/deep` added; `/api/health` and `/api/ready` unchanged. Admin «Состояние» gets a «Здоровье» block (`/bot-admin/api/health/ops`). Owner alerts with one-hour cooldown.
+
+Verified locally (Python 3.12, PostgreSQL 16): `test_ops_metrics`, `test_ops_health_pg` (fresh DB), `test_bot_error_monitor_sim_pg` (simulator), `test_client_telemetry_browser` (Chromium),
+`test_bot_health_pg`, `test_bot_admin_metrics_pg`, `test_mafia_v1_sim_pg` 55/55, `test_support_reports_ui`/`_pg`, `ui_smoke --only profile`, `test_static_delivery_asgi`, `admin_stand --tabs health,metrics`
+(0 problems). Server overhead `bench_http_overhead.py` (10k ASGI requests): p50 1.25 ms before, 1.23 ms after. Pre-existing red on untouched master listed in `docs/roadmap/STATUS.md`.
+Not verified: production deploy, real traffic numbers, 7-day panel query on production volume.
+
 ## ROADMAP-S00 — DOCUMENTATION ONLY, PUSHED TO MASTER
 
 Session pipeline for the owner's 2026-10-27 work plan: `docs/roadmap/` (README protocol, STATUS journal, 26 session prompts S01-S25 and S23a, findings from the code survey, ENV.md and

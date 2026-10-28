@@ -72,6 +72,26 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/a
 **Сама сессия**, на шаге 5 «Протокола старта» (`README.md`): `bash predvestnik_v2/docs/roadmap/env-setup.sh` из корня репозитория. Скрипт идемпотентен: на уже собранном окружении он отрабатывает за секунды. **Владельцу ничего вставлять в настройки не нужно.**
 Авто-запуск хуком `SessionStart` возможен как улучшение (записано в «Находки по пути», `STATUS.md`): он ускорил бы старт, но затронет все облачные сессии репозитория, включая работу над сайтом.
 
+## Health-эндпоинты и «Здоровье» (с S01)
+
+| Адрес | Что значит | Кому |
+|---|---|---|
+| `/api/health` | процесс жив и слушает порт; базу **не трогает**, всегда `{"status":"ok"}` | проверка живости в панели DigitalOcean: медленная база не должна перезапускать контейнер |
+| `/api/ready` | запуск закончен и таблицы, которые читают первые запросы, есть (иначе 503) | проверка готовности |
+| `/api/health/deep` | пинг базы с таймаутом 2 с (503, если база недоступна) и свежесть метрик (`status: degraded`, если сборщик не работает) | людям и внешнему мониторингу; **не ставить** проверкой живости в панели |
+
+Цифры для владельца: админка → «Состояние» → блок «Здоровье» (1 ч / 24 ч / 7 дн, хранится 14 дней, перезапуск не обнуляет). Там: лаг сервера, ожидание и занятость пула, очередь в Telegram, самые медленные запросы, причины 401, ошибки у игроков в приложении (по типам, версиям, повторяющиеся), **ошибки бота по обработчикам**.
+Устройство: `core/ops_metrics.py` (счётчики в памяти), `services/ops_health.py` (сборщик, тревоги, сводка; пороги — константы в начале файла), `infrastructure/repositories/ops_telemetry.py` (таблицы `ops_metrics_5m`, `client_telemetry_events`, `bot_handler_errors`), приём ошибок Mini App — `POST /telemetry` (`FastAPI/routers/telemetry.py`, клиент — `FastAPI/static/support-diagnostics.js`), перехват ошибок бота — `bot/dispatcher.py` (общий для бота и симулятора).
+
+```bash
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_ops_metrics.py                                   # без базы: перцентили, лимиты, тревоги
+DSN=$(bash "$R/predvestnik_v2/docs/roadmap/env-setup.sh" --fresh-db pv_test_ops_health)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_ops_health_pg.py --dsn "$DSN"                    # 401, телеметрия, хранение, нагрузка, health
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_bot_error_monitor_sim_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod   # симулятор
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_client_telemetry_browser.py
+BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/bench_http_overhead.py   # серверная задержка /api/health, p50 ≈ 1,2 мс
+```
+
 ## Остановка и сброс
 
 ```bash
