@@ -40,7 +40,7 @@ async function purgeWebApi(path, options = {}) {
     const response = await fetch(BASE+path,{...options,headers:{...hdrs(),...(options.headers || {})},signal:controller.signal});
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      if (response.status === 401) handleAuthRefusal();
+      if (response.status === 401) handleAuthRefusal(response.headers.get('x-auth-reason') || '');
       const error = new Error(typeof data.detail==='string' ? data.detail : 'Не удалось выполнить действие. Проверь данные и попробуй снова.');
       error.status = response.status; throw error;
     }

@@ -116,10 +116,14 @@ if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback'
 <div id="login-ov" class="login-ov hidden">
   <div class="login-orb">🔮</div>
   <h1>Предвестник</h1>
-  <p>Откройте игру через Telegram, чтобы загрузить подписанные игровые данные.</p>
-  {{LOGIN_SURFACE}}
+  <!-- data-login: browser — вход виджетом в обычном браузере; telegram — внутри Telegram вход не удался (app.01.js, showLoginScreen) -->
+  <p data-login="browser">Откройте игру через Telegram, чтобы загрузить подписанные игровые данные.</p>
+  <div data-login="browser">{{LOGIN_SURFACE}}</div>
   <div id="login-err" class="v3-err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
-  <p style="font-size:10px;color:var(--muted)">Данные защищены подписью Telegram.</p>
+  <p data-login="browser" class="tos-gate-hint" style="font-size:10px;color:var(--muted)">Данные защищены подписью Telegram.</p>
+  <p data-login="telegram" id="login-reopen-why" class="hidden"></p>
+  <button type="button" data-login="telegram" id="login-reopen-close" class="v3-pill v3-pill--full hidden" style="max-width:290px" onclick="closeForReopen()">Закрыть Предвестник</button>
+  <p data-login="telegram" class="tos-gate-hint hidden">Потом открой его снова той же кнопкой в чате с ботом — вход обновится сам.</p>
 </div>
 
 <!-- ═══ МОДАЛКА → BOTTOM SHEET ═══ -->

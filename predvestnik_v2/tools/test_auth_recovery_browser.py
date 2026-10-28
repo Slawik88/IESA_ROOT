@@ -4,7 +4,8 @@ A real Chromium page against the real FastAPI app, launched the way Telegram lau
 URL hash):
 1. telegram.org does not load -> the app loads its own copy of the SDK;
 2. no SDK copy loads at all -> requests still carry the signed launch data, the login window stays closed;
-3. expired launch data -> the server answers 401 with the machine-readable reason ``stale_auth_date``;
+3. expired launch data -> the server answers 401 with the machine-readable reason ``stale_auth_date``, and inside
+   Telegram the app shows "close and reopen" with a working close button instead of the login widget;
 4. a dropped or "server busy" read is repeated, a dropped change (POST) is not, a timed-out read is not;
 5. the live-updates socket carries the credential in its first message, not in its address.
 
@@ -97,6 +98,20 @@ def main() -> None:
                 return [r.status, r.headers.get('x-auth-reason')];
             }""", stale)
             assert answer == [401, "stale_auth_date"], answer
+            page.close()
+
+            # 3b. Inside Telegram an expired launch shows "close and reopen", never the login widget.
+            page = browser.new_page(viewport={"width": 390, "height": 800})
+            page.route("**/telegram.org/**", lambda route: route.abort())
+            page.goto(root + launch_hash(stale), wait_until="domcontentloaded")
+            page.wait_for_function("!document.getElementById('login-ov').classList.contains('hidden')")
+            visible = page.evaluate("""() => [...document.querySelectorAll('#login-ov [data-login]')]
+                .filter(n => n.offsetParent !== null).map(n => n.dataset.login)""")
+            assert visible and set(visible) == {"telegram"}, visible
+            assert "сутки" in page.inner_text("#login-reopen-why")
+            page.evaluate("window.__closed = 0; Telegram.WebApp.close = () => { window.__closed++; }")
+            page.click("#login-reopen-close")
+            assert page.evaluate("window.__closed") >= 1, "the button closes the Mini App"
 
             # 4. Reads are repeated after a dropped connection or a busy server; changes and timeouts are not.
             calls = {"get": 0, "busy": 0, "post": 0, "slow": 0}
@@ -147,7 +162,7 @@ def main() -> None:
                 page.wait_for_timeout(100)
             assert sockets, "no socket opened"
             assert "init=" not in sockets[0].url and "token=" not in sockets[0].url, sockets[0].url
-            assert frames and json.loads(frames[0]) == {"type": "auth", "init": fresh}, frames[:1]
+            assert frames and json.loads(frames[0]) == {"type": "auth", "init": stale}, frames[:1]   # this page was launched with `stale`
             browser.close()
     finally:
         server.should_exit = True

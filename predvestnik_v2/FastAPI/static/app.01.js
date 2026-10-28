@@ -162,12 +162,30 @@ function _scheduleReactiveRefresh(){
     _reactiveSubs.forEach(fn=>{ try{ fn(); }catch(_){} });
   }, 350);
 }
+// The login screen has two faces: the Telegram login widget for a regular browser, and inside Telegram a plain
+// "close and reopen" (Telegram signs the launch data for one day; only a new launch renews it — the widget cannot).
+const _REOPEN_WHY = {
+  stale_auth_date: 'Вход устарел: Telegram подтверждает его только на сутки. Твой прогресс на месте.',
+  other: 'Telegram не подтвердил вход. Твой прогресс на месте.',
+};
+function showLoginScreen(mode, reason) {
+  const screen = el('login-ov'); if (!screen) return;
+  screen.querySelectorAll('[data-login]').forEach(node => node.classList.toggle('hidden', node.dataset.login !== mode));
+  if (mode === 'telegram') {
+    const why = el('login-reopen-why'); if (why) why.textContent = _REOPEN_WHY[reason] || _REOPEN_WHY.other;
+    el('login-reopen-close')?.classList.toggle('hidden', typeof window.Telegram?.WebApp?.close !== 'function');
+  }
+  screen.classList.remove('hidden');
+}
+function closeForReopen() { window.Telegram?.WebApp?.close?.(); }
 // A refused login (401): one place decides what the player sees (api(), purge and casino requests use it).
-function handleAuthRefusal() {
-  localStorage.removeItem(SK);
+// reason: the X-Auth-Reason header of the refusal (FastAPI/deps.py).
+function handleAuthRefusal(reason) {
   try{sessionStorage.removeItem('pv_preprod_ticket');}catch(_){}
   _localPreprodTicket='';
-  el('login-ov')?.classList.remove('hidden');
+  if (INIT_DATA) { showLoginScreen('telegram', reason); return 'Закрой Предвестник и открой его снова — вход обновится.'; }
+  localStorage.removeItem(SK);
+  showLoginScreen('browser');
   return 'Войдите снова.';
 }
 // Every request has a deadline. Only reads (GET) are repeated after a network failure or a busy
@@ -206,7 +224,7 @@ function api(path, opts={}) {
       if(r.status===401){
         // Newer Telegram launch data may have arrived (SDK copy, return to the app): one more read with it.
         if(method==='GET' && !reauthorized && refreshInitData()){ reauthorized=true; return send().then(handle); }
-        return Promise.reject(handleAuthRefusal());
+        return Promise.reject(handleAuthRefusal(r.headers.get('x-auth-reason')||''));
       }
       // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
       if(r.ok && method!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
@@ -266,7 +284,7 @@ window.onTelegramWidgetAuth = u => {
       else { try{ toast('Не получилось войти: '+err, false); }catch(_){} }
     });
 };
-if (!INIT_DATA && !sess() && !LOCAL_PREPROD_TEST) el('login-ov').classList.remove('hidden');
+if (!INIT_DATA && !sess() && !LOCAL_PREPROD_TEST) showLoginScreen('browser');
 // Явная смена Telegram-аккаунта в браузере (Настройки → Аккаунт). Внутри Telegram
 // кнопка скрыта — там аккаунт и так всегда актуальный (initData подписывается заново
 // при каждом запуске мини-аппа). В чистом браузере Telegram не даёт сайту узнать,
