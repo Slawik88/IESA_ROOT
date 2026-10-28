@@ -104,6 +104,18 @@ node tools/test_avatar_recovery_ui.js && node tools/test_leaderboard_avatar_ui.j
 Устройство: фото — `services/avatar_photos.py` (правила, состояния `ready/loading/absent/vip_only`), таблица `avatar_photos` (`infrastructure/repositories/avatar_photos.py`), Telegram — `infrastructure/telegram_photo.py`.
 Копия Telegram SDK — `FastAPI/static/vendor/telegram-web-app.js` (заменять целиком новой версией официального файла, не править).
 
+## Пул базы и троттлер Telegram (с S03)
+
+```bash
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_outbound_throttle.py                 # без базы: слот только для сообщений, отмена, приоритет админки, повтор после flood
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_pool_starvation_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod   # 10 зависших вызовов Telegram не трогают Mini App; ленивое соединение; блокировка и LISTEN вне пула
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_global_ban_job_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod    # бан во всех чатах фоновым заданием
+```
+
+Устройство: `infrastructure/lazy_db.py` (соединение берётся на первом SQL и отдаётся перед каждым вызовом Telegram, если нет открытой транзакции; это делают бот, `get_db`, `pool_db_factory`, обслуживание и цикл Мафии), `bot/middlewares/db.py` (`DbReleaseMiddleware`), `bot/dispatcher.attach_outbound` (порядок исходящих middleware, общий для бота и симулятора), `infrastructure/database.py` (`acquire_connection`, `PoolBusy` → HTTP 503, `connect_direct` для advisory lock и LISTEN).
+Переменные окружения: `DB_POOL_MAX_SIZE` — **всего** соединений процесса (не больше 10; два из них прямые: блокировка экземпляра и LISTEN, пул = остальное), `DB_ACQUIRE_TIMEOUT_SEC` — сколько ждать свободное соединение (по умолчанию 10 с). Задавать не обязательно.
+Сервер базы общий с сайтом IESA: число соединений всего сервера видно в «Здоровье» → «Сервер и база» (`pg_stat_activity`, соединения Предвестника подписаны `application_name=predvestnik`).
+
 ## Остановка и сброс
 
 ```bash
