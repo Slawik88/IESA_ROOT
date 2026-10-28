@@ -92,7 +92,7 @@ function loadActivitiesHub(){
   const host=el('game-hub'); if(!host)return;
   const chev='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   const open=_V3_GAMES.filter(g=>_sysFlags[g.flag]===true);
-  open.push({flag:'chat_word_chain',name:'Слова в чате',hint:'Против бота, одному или вместе · сообщения идут в норму',cta:'Как играть',open:'openWordChainHelp()'});
+  open.push({flag:'chat_word_chain',name:'Слова в чате',hint:'Против бота, одному или вместе · сообщения идут в норму',cta:'Как играть',open:"openGuide('words')"});
   const mine=++_hubSeq;
   if(!open.length){
     host.innerHTML=`<div class="v3-sec"><span class="v3-eyebrow">Играть</span>${v3GuideIcon('games')}</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:34px">Игры временно недоступны${v3GlintMark('Игры временно недоступны')}</div>
@@ -179,12 +179,3 @@ function openMafiaReview(id, page = 0) {
   }).catch(e => { if (seq === _mafiaReviewSeq && host?.isConnected) host.innerHTML = `<p class="v3-err" role="alert">${esc(String(e))}</p><button class="v3-link" onclick="openMafiaReview(${Number(id)},${page})">Повторить</button>`; });
 }
 
-function openWordChainHelp() {
-  OM('🔤 Слова в чате', `<div class="tr-grp"><p>Игра против бота: продолжай цепочку русских существительных. Можно играть одному или всем чатом.</p>
-    <ol><li>В своём чате с Предвестником напиши <code>бот слова</code>.</li><li>Telegram откроет ответ боту: напиши одно слово без команды. После каждого хода ответ откроется снова.</li><li>Бот продолжит цепочку. Тебе снова на последнюю букву его слова.</li></ol>
-    <p>При опечатке бот предложит до трёх слов на кнопках. Если ответ закрылся, выбери «Ответить» на слове бота. Остальные сообщения чата ходами не станут.</p>
-    <p>Ё = Е. В конце пропускаем Ь, Ъ, Ы и Й. Повторять слова нельзя. Между своими ходами — 3 секунды.</p>
-    <p>Твои сообщения идут в обычный учёт нормы. Ответы бота норму не увеличивают. Валюты и ставок нет.</p>
-    <p><code>бот слова, подсказка</code> · <code>бот слова, счёт</code> · <code>бот слова, стоп</code></p>
-    <p>После суток без ходов начни новую партию. В каждой теме чата своя игра.</p></div>`, [{l:'Понятно',f:'CM()'}]);
-}
