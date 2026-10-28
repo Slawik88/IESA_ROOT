@@ -146,6 +146,20 @@ node tools/test_purge_live_ui.js                                                
 Устройство: решение — `services/purge.py` (резерв → Telegram без транзакции → запись), очередь досье и запуск фоном — `bot/chat/purge.py` (`launch_dossiers`, `resume_dossiers` при старте, `launch_start`),
 живой ход — `FastAPI/purge_live.py` (зрители с `live=1`, событие `data_changed{scope:'purge'}` не чаще раза в секунду на чат), адрес — `FastAPI/routers/purge_v1.py` (`?live=1`, `?background=1`; без них — прежние ответы).
 
+## Быстрый запуск фронта (с S06)
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_cold_start.py --device mid --runs 3            # холодный старт: Slow 4G + CPU ×4, байты до готового профиля
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_cold_start.py --device mid --skin void         # то же в образе с картинками сцены
+BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_js_minify.py            # сжатие JS не меняет ни одного токена (нужен node с acorn из /opt/node-tools)
+BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_static_delivery_asgi.py   # gzip заранее, ETag/304, версия у каждого файла, «пробный деплой»
+```
+
+Устройство: `FastAPI/static_assets.py` (`prepare` — один раз при старте процесса: JS без комментариев и отступов (`minify_js`, переносы строк на месте, поэтому номера строк в ошибках те же), gzip, ETag, своя версия у каждого файла; `respond` — 304, `Content-Encoding`, `Vary`), список файлов — `_STORE` в `FastAPI/main.py`.
+Страница ссылается на `/static/<имя>?v=<хэш этого файла>`: деплой перекачивает у игрока только изменённые файлы. Версия выпуска (баннер «Доступно обновление», отчёты об ошибках) — в `<meta name="pv-release">`.
+**Правило:** новый CSS с картинками сцены образа подключается лениво (буква в `_SKIN_SCENE_ART`, `FastAPI/main.py`), а не ссылкой в `index.html`: сцена сама просит свой файл (`_scArt`, `app.35.js`), до прихода слой с картинкой невидим.
+Аварийный выключатель сжатия JS: переменная окружения `PV_MINIFY_JS=0` (отдаёт исходники как есть). Локальный стенд работает по HTTP/1.1 (6 соединений на адрес), прод — по HTTP/2: число запросов на проде стоит дешевле, чем в замере.
+
 ## Остановка и сброс
 
 ```bash

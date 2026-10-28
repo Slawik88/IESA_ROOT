@@ -1,3 +1,13 @@
+## ROADMAP-S06 — FAST FRONT-END START, PUSHED TO MASTER (production not verified from the cloud)
+
+Text assets are prepared once per process (`FastAPI/static_assets.py`, `_STORE` in `FastAPI/main.py`): gzip at start instead of GZip level 9 per request, ETag, `Vary`, 304 (weak validators
+too); the page, `/updates.json` (compacted) included. Every file has its own content hash in `?v=` (a deploy re-downloads only changed files; trial-deploy test); the release id moved to
+`<meta name="pv-release">` for the update banner and diagnostics. JS minified by a scanner that keeps every line break (same error line numbers) and copies strings/templates/regexes byte for
+byte; `tools/test_js_minify.py` compares acorn tokens of all 12 served scripts; `PV_MINIFY_JS=0` is the emergency switch. Scene picture CSS (`skin-scene-a..g`, ~830 KB) loaded on demand by
+`apScene` (hidden layers until their file arrives); `admin-legacy.css` deleted, its only live rules (`.btn*`, exchange confirm footer) moved verbatim to the end of `app.css`. Cold start
+(stand, Slow 4G, CPU x4): profile ready 11.1 → 9.6 s, bytes 721 → 521 KB. Pixel comparison of 16 screens and 10 looks: identical except baseline noise. Checked locally: static delivery
+(both mounts), minifier, skin scenes, visuals, nickname, navigation, patch notes, What's new; `ui_smoke --skins`. Remainder S06b (non-blocking screen CSS). Not verified: production deploy.
+
 ## ROADMAP-S05 — CHAT PURGE AS A BACKGROUND QUEUE, PUSHED TO MASTER (production not verified from the cloud; the new screen S05v waits for the owner's OK)
 
 Dossiers are sent by a durable queue over `purge_targets.dossier_sent` (batches of 20, 0.4 s apart, marked right after sending, failed ones retried every minute) and resumed at bot start
