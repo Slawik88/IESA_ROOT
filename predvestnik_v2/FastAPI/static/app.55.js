@@ -36,7 +36,7 @@ async function moHub(followActive=false){
   el('mo-root').innerHTML=`<div class="mo-hub">${v3Head('Мафия',{sub:'Игроки из разных чатов. Один город.',back:'CM()',end:''})}
     <section class="mo-city"><img src="${BASE}/static/mafia-art/city.webp" alt="" width="800" height="400"><div><span class="v3-eyebrow">Межчатовая</span><h2>Ночь зовёт</h2><p>Собери город. Найди свою сторону.</p></div></section>
     <button class="v3-pill v3-pill--full" id="mo-quick" disabled>Ищем город…</button><p id="mo-hub-state" class="mo-caption" role="status">Общий разговор · тайные роли · от 4 игроков</p>
-    <div class="mo-hub-tools"><button class="v3-link" onclick="moCreate()">Создать стол</button><button class="v3-link" onclick="moHelp()">Правила</button></div>
+    <div class="mo-hub-tools"><button class="v3-link" onclick="moCreate()">Создать стол</button><button class="v3-link" onclick="openGuide('mafia-online')">Правила</button></div>
     <p id="mo-error" class="mo-error" role="alert"></p><div class="v3-sec"><span class="v3-eyebrow">Открытые города</span><button class="v3-link" aria-label="Обновить список городов" onclick="moHubRefresh(MO.gen)">Обновить</button></div>
     <label class="mo-search-label" for="mo-hub-search">Найти стол</label><input class="mo-search" id="mo-hub-search" type="search" placeholder="Номер города или хозяин" autocomplete="off"><div class="mo-tables" id="mo-tables"></div>
     <div id="mo-history"></div><button class="v3-link mo-local" onclick="openMafiaStats()">Локальная мафия · моя история</button></div>`;
