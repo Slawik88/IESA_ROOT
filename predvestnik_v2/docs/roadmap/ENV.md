@@ -92,6 +92,18 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. DATABASE_UR
 BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/bench_http_overhead.py   # серверная задержка /api/health, p50 ≈ 1,2 мс
 ```
 
+## Вход и аватарки (с S02)
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod $PY tools/test_auth_recovery_browser.py   # копия SDK, вход без SDK, экран «открой заново», повтор только GET, сокет
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_avatar_pool_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod        # фото в базе: пул, перезапуск, VIP на прямом адресе, админка
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_avatar_recovery.py && BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_avatar_signed_photo.py          # без базы
+node tools/test_avatar_recovery_ui.js && node tools/test_leaderboard_avatar_ui.js
+```
+
+Устройство: фото — `services/avatar_photos.py` (правила, состояния `ready/loading/absent/vip_only`), таблица `avatar_photos` (`infrastructure/repositories/avatar_photos.py`), Telegram — `infrastructure/telegram_photo.py`.
+Копия Telegram SDK — `FastAPI/static/vendor/telegram-web-app.js` (заменять целиком новой версией официального файла, не править).
+
 ## Остановка и сброс
 
 ```bash

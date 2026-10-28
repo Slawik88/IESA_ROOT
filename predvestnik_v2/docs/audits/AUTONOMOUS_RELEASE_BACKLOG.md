@@ -1,3 +1,19 @@
+## ROADMAP-S02 — LOGIN AND AVATARS (incl. S02v screen approved by the owner), PUSHED TO MASTER (production not verified from the cloud)
+
+Login: 401 carries `X-Auth-Reason` (category only); initData lifetime unchanged (24 h). Client (`static/app.01.js`): initData re-read on return to the app and before one GET retry after 401,
+read from the signed launch hash when no SDK; vendored SDK copy `static/vendor/telegram-web-app.js` loaded by `index.html` only when telegram.org fails (telemetry `sdk_missing` «local copy loaded»);
+`api()` timeout 15 s (changes 30 s), retries only GET (network, 502/503/504), never after a timeout; WebSocket credential sent as the first message (`?init=`/`?token=` still accepted for old clients;
+5 s wait, at most 300 waiting sockets). Inside Telegram a refused login shows «Закрой и открой заново» with a close button instead of the browser login widget (S02v, owner «ок» on before/after shots).
+Avatars: table `avatar_photos` (128 px WebP by `file_unique_id`, survives deploys) via `services/avatar_photos.py`, shared `httpx.AsyncClient` (`infrastructure/telegram_photo.py`), background refresh
+with 8 s budget and no DB connection held; JSON carries `/profile/avatar/{ref}?v=…` + `avatar_state` (ready/loading/absent/vip_only) instead of data URIs; the image route checks VIP on every request,
+ETag/304, `max-age=300`. VIP rule unchanged; admin panel (`/bot-admin/avatar/{uid}`) shows every player's photo from the same cache.
+
+Verified locally (Python 3.12, PostgreSQL 16, Chromium): new `test_auth_recovery_browser`, `test_avatar_pool_pg` (pool isolation, restart, VIP on direct URL, admin sees non-VIP, idempotent schema),
+extended `test_ws_account_gates_pg`, rewritten `test_avatar_recovery`/`_signed_photo`/`_recovery_ui.js`/`test_leaderboard_avatar_ui.js`/`test_bot_admin_avatars` — red on the pre-S02 code, green now;
+`test_client_telemetry_browser`, `test_support_reports_ui`/`_pg`, profile/rhythm/minesweeper/top PG tests, contracts (patch notes, whatsnew, player copy), `ui_smoke --only profile,top` 320/390/430
+(warnings on «top» identical on the base revision). Independent read-only audit: 1 major (signed-URL photo erased by background refresh) and minors — fixed in the same release.
+Not verified: production deploy, real Telegram clients, 401 reasons on real traffic (S01 data not yet collected).
+
 ## ROADMAP-S01 — HEALTH TELEMETRY, PUSHED TO MASTER (production not verified from the cloud)
 
 Measurements only, no fixes: in-process metrics (`core/ops_metrics.py`) for HTTP time per route template and 4xx/5xx (ASGI `FastAPI/ops_middleware.py`), DB pool wait (`get_db`, bot db middleware) and busy
