@@ -146,6 +146,7 @@ function _showWelcome(){
 function _plSkip() {
   const pl = el('preloader');
   if(!pl || pl.classList.contains('pl-done')) return;
+  if(window.pvLateCss && !pvLateCss.ready()){ pvLateCss.then(_plSkip); return; }   // стили экранов ещё в пути (index.html): без них мелькнёт неоформленный экран
   pl.classList.add('pl-done');
   setTimeout(()=>{ const p=el('preloader'); if(p) p.remove(); }, 600);
 }
@@ -189,7 +190,7 @@ function _handleStartParam(){
   if(!p) return;
   const base=p.split('_')[0];
   if(base==='admin'){ openBotAdmin(); return; }   // ссылка «🛠 Открыть админку» из чата: сразу в админку, без показа приложения
-  const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
+  const run=fn=>setTimeout(()=>{ const go=()=>{ try{ fn(); }catch(e){} }; window.pvLateCss ? pvLateCss.then(go) : go(); }, 380);   // экран по ссылке строится, когда его стили пришли
   const settings=()=>{ switchPage('profile'); setTimeout(()=>{ try{ openSettingsModal(); }catch(e){} },260); };
   // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
   // Лениво: часть экранов (window.openQuestsV1 и др.) объявляется в более поздних частях скрипта, прямое обращение здесь роняло весь скрипт ReferenceError'ом.

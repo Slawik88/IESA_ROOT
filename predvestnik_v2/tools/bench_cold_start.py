@@ -5,7 +5,7 @@
 
 The network is throttled like the DevTools «Slow 4G» preset (562 ms round trip, 1.6 Mbit/s down) and the CPU 4× slower. telegram.org and Google Fonts are
 blocked (the sandbox has no internet; in production they come from their own CDN either way), so the numbers compare only what this app serves.
-Prints the median of the runs: first paint, DOMContentLoaded, profile ready (the app drew the player), bytes over the wire before the profile was ready
+Prints the median of the runs: first paint, DOMContentLoaded, profile ready (the app drew the player), splash gone (the player sees it), bytes over the wire before the profile was ready
 (all, CSS, JS) and how many stylesheets blocked the first paint. Needs PostgreSQL (see tools/ui_stand.py) and Chromium.
 """
 from __future__ import annotations
@@ -29,6 +29,8 @@ NETWORKS = {
 OUTSIDE = ("telegram.org", "fonts.googleapis.com", "fonts.gstatic.com")
 # the player's profile is drawn: the identity block replaced the skeleton of index.html
 READY = "() => typeof _profileData !== 'undefined' && !!_profileData && !!document.querySelector('#pro-main .v3-id')"
+# the player sees the app: the splash started to fade (app.02.js _plSkip)
+SPLASH_GONE = "() => { const p = document.getElementById('preloader'); return !p || p.classList.contains('pl-done'); }"
 
 
 def one_run(stand: Stand, browser, args) -> dict[str, float]:
@@ -49,6 +51,8 @@ def one_run(stand: Stand, browser, args) -> dict[str, float]:
     page.goto(stand.url, wait_until="domcontentloaded", timeout=120000)
     page.wait_for_function(READY, timeout=120000, polling=50)
     ready = page.evaluate("() => performance.now()")
+    page.wait_for_function(SPLASH_GONE, timeout=120000, polling=50)
+    splash = page.evaluate("() => performance.now()")
     by_kind = {"Stylesheet": 0.0, "Script": 0.0}
     for request_id, size in list(sizes.items()):
         kind = kinds.get(request_id, "")
@@ -61,7 +65,7 @@ def one_run(stand: Stand, browser, args) -> dict[str, float]:
         return {fcp: fcp ? fcp.startTime : -1, dcl: nav.domContentLoadedEventEnd, blocking};
     }""")
     ctx.close()
-    return {"first paint, ms": timing["fcp"], "DOMContentLoaded, ms": timing["dcl"], "profile ready, ms": ready,
+    return {"first paint, ms": timing["fcp"], "DOMContentLoaded, ms": timing["dcl"], "profile ready, ms": ready, "splash gone, ms": splash,
             "bytes before ready": sum(sizes.values()), "CSS bytes": by_kind["Stylesheet"], "JS bytes": by_kind["Script"],
             "render-blocking stylesheets": timing["blocking"]}
 

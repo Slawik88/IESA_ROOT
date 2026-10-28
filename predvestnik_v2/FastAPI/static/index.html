@@ -23,6 +23,19 @@ if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback'
 <meta name="pv-release" content="{{RELEASE}}"/>
 <script src="{{BASE}}/static/support-diagnostics.js?v={{ASSET_VER}}"></script>
 <script defer src="{{BASE}}/static/support-feedback.js?v={{ASSET_VER}}"></script>
+<script>
+// Стили экранов, которых нет на первом экране (media="print" и onload ниже), не держат первую отрисовку и запуск скрипта: грузятся параллельно.
+// Пока они не пришли, на <html> висит pv-css-wait: заставка не уходит, всплывающие окна прозрачны (app.css), ссылка из чата ждёт (pvLateCss.then).
+// Через 12 с ворота открываются сами: экран без этих стилей лучше вечной заставки. Новый стиль экрана подключается так же.
+(function(){var d=document.documentElement,parsed=false,open=false,q=[];d.classList.add('pv-css-wait');
+function go(){if(open)return;open=true;d.classList.remove('pv-css-wait');var ls=document.querySelectorAll('link[onload^="pvLateCss"]');for(var i=0;i<ls.length;i++)ls[i].media='all';while(q.length)try{q.shift()()}catch(e){}}
+function check(){if(!parsed||open)return;var ls=document.querySelectorAll('link[onload^="pvLateCss"]');for(var i=0;i<ls.length;i++)if(ls[i].media!=='all')return;go();}
+window.pvLateCss=function(l){l.media='all';check();};
+pvLateCss.then=function(f){open?f():q.push(f);};
+pvLateCss.ready=function(){return open;};
+document.addEventListener('DOMContentLoaded',function(){parsed=true;check();});
+setTimeout(go,12000);})();
+</script>
 <link rel="stylesheet" href="{{BASE}}/static/support-feedback.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -31,15 +44,15 @@ if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback'
 <link rel="stylesheet" href="{{BASE}}/static/shell-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skins-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/shell-v3-home.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/mafia-online-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/mafia-online-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <link rel="stylesheet" href="{{BASE}}/static/fx-tiers-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/nickname-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-holidays-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-ring-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-stage-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/looks-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/settings-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/looks-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/settings-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-signatures-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-signatures-2-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skins-exclusive-v3.css?v={{ASSET_VER}}"/>
@@ -51,27 +64,27 @@ if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback'
 <!-- Картинки сцен образов (skin-scene-a…g-v3.css) не подключаются здесь: сцена сама запрашивает свой файл (apScene, app.35.js). Новый файл картинок — только в _SKIN_SCENE_ART (FastAPI/main.py). -->
 <script>window.__pvSceneArt={{SCENE_ART}};</script>
 <link rel="stylesheet" href="{{BASE}}/static/public-card-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/collect-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/collect-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <link rel="stylesheet" href="{{BASE}}/static/toast-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/toast-gift-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/quests-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/toast-gift-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/quests-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <link rel="stylesheet" href="{{BASE}}/static/marks-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/inventory-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/promo-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/achievements-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/chests-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/trail-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/guide-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/news-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/pass-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/store-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/inventory-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/promo-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/achievements-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/chests-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/trail-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/guide-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/news-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/pass-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/store-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <link rel="stylesheet" href="{{BASE}}/static/motion-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/confirm-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/monolith-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/pets-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/confirm-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/monolith-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
+<link rel="stylesheet" href="{{BASE}}/static/pets-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <link rel="stylesheet" href="{{BASE}}/static/monolith-player-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/art-v3.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/casino-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/casino-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 </head>
 <body>
 
@@ -218,7 +231,7 @@ if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback'
   <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg><span>Ещё</span></button>
 </nav>
 
-<link rel="stylesheet" href="{{BASE}}/static/coin-market-v2.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/coin-market-v2.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <script src="{{BASE}}/static/coin-market-chart.js?v={{ASSET_VER}}"></script>
 <script src="{{BASE}}/static/coin-market-v2.js?v={{ASSET_VER}}"></script>
 <script src="{{BASE}}/static/nickname-v3.js?v={{ASSET_VER}}"></script>

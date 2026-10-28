@@ -257,6 +257,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   transition: opacity .55s ease;
 }
 #preloader.pl-done { opacity: 0; pointer-events: none; }
+/* Пока стили экранов в пути (pv-css-wait, index.html), окна поверх заставки не видны и не нажимаются; жалоба (.pv-support) — всегда */
+html.pv-css-wait dialog[open]:not(.pv-support) { opacity: 0; pointer-events: none; }
 .pl-core { position: relative; width: 92px; height: 92px; display: flex; align-items: center; justify-content: center; }
 /* Мягкое «дышащее» сияние за орбом — добавляет глубины */
 .pl-core::before {
