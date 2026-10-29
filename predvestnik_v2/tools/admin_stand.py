@@ -76,8 +76,8 @@ def handler(routes: dict):
             return route.fulfill(status=200, content_type=shared[0], body=shared[1])
         if name.startswith("admin") and name.endswith(".js"):
             return route.fulfill(status=200, content_type="text/javascript", body=read(name))
-        if name.endswith(".json"):   # данные справки (guide-admin.json, S09) и книга игрока в слое (/guide-v3.json Mini App)
-            return route.fulfill(status=200, content_type="application/json", body=read(name if path.startswith("/bot-admin/") else os.path.join("..", name)))
+        if name == "guide-v3.json":   # книга игрока в слое Путеводителя: /guide-v3.json Mini App
+            return route.fulfill(status=200, content_type="application/json", body=read(os.path.join("..", name)))
         if name.startswith("admin") and name.endswith(".css"):
             return route.fulfill(status=200, content_type="text/css", body=read(name))
         return route.fulfill(status=200, content_type="text/html", body=html)

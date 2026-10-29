@@ -48,7 +48,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         write(tmp, index_html=index, guide_html='<script src="{{BASE}}/bot-admin/guide-host.js?v={{VER}}"></script>', admin_js="console.log(1)", admin_css="body{}",
               **{**{name: "" for name in page._TYPES if name not in ("admin.js", "admin.css")},   # каждый файл страницы (их добавляют сессии)
-                 "admin-lists.js": "console.log('lists')", "admin-boot.js": "console.log('boot')", "guide-admin.json": "{}"})
+                 "admin-lists.js": "console.log('lists')", "admin-boot.js": "console.log('boot')"})
         page.load(tmp)
         first = version_in_page()
         assert "{{" not in page._PAGE

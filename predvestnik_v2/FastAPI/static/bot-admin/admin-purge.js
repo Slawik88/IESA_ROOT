@@ -51,7 +51,7 @@ async function purgeView(main, cid, title, from = null, back = null) {
     back: back || (() => window.back(main))});   // из карточки чата: «Назад» ведёт в неё (она в PEOPLE.stack)
   main.innerHTML = `<div class="bar"><button class="btn" id="pgback">← Назад</button></div>
     <div id="purgeview"><div class="card"><h3>🧹 Чистка · ${esc(title || cid)}</h3><div class="sub">Загружаю ход…</div></div></div>`;
-  const leave = () => { clearTimeout(PURGE.timer); purgeRememberDraft(); PURGE.main = null; PURGE.back(); };
+  const leave = () => { if (agBusy()) return; clearTimeout(PURGE.timer); purgeRememberDraft(); PURGE.main = null; PURGE.back(); };
   $('#pgback').onclick = leave;
   const bb = TG && TG.BackButton;   // «Назад» самого Telegram — туда же, а не из админки
   if (bb) { bb.offClick(goApp); if (PEOPLE.bb) bb.offClick(PEOPLE.bb); PEOPLE.bb = leave; bb.onClick(leave); bb.show(); }

@@ -3,6 +3,8 @@
 Показывает их тот же экран, что Путеводитель игрока (Mini App, app.57.js), поэтому данные приходят в его формате:
 группы → темы → блоки, словарь, вопросы. Роль видит только свои темы: с нужной ролью (`min_rank`) и из открытых ей
 разделов (`section`); владелец чата — только темы с `owner`. Кнопка темы ведёт в раздел админки: `where.admin`.
+Значок «?» и «Что это значит?» в админке находят тему по указателю `index` (раздел → тема, действие → тема) — из тех же тем
+читателя: сам файл наружу не отдаётся.
 """
 from __future__ import annotations
 
@@ -34,6 +36,14 @@ def for_reader(*, rank: int = 0, sections: set[str] | frozenset[str] = frozenset
     source = data()
     topics = [copy.deepcopy(t) for t in source["topics"] if _visible(t, rank=rank, sections=set(sections), owner=owner)]
     ids = {t["id"] for t in topics}
+    by_section: dict[str, list[dict]] = {}
+    for t in topics:
+        if t.get("section"):
+            by_section.setdefault(t["section"], []).append(t)
+    index = {   # «?» раздела — его общая тема (без действий), иначе первая; «Что это значит?» — тема действия
+        "sections": {key: next((t["id"] for t in group if not t.get("actions")), group[0]["id"]) for key, group in by_section.items()},
+        "actions": {a: t["id"] for t in reversed(topics) for a in t.get("actions", [])},
+    }
     for t in topics:
         where = t["where"]
         go = where.pop("go", "")
@@ -47,5 +57,5 @@ def for_reader(*, rank: int = 0, sections: set[str] | frozenset[str] = frozenset
         for key in ("min_rank", "section", "actions", "owner"):
             t.pop(key, None)
     groups = [{**g, "topics": [i for i in g["topics"] if i in ids]} for g in source["groups"]]
-    return {"version": source["version"], "groups": [g for g in groups if g["topics"]], "topics": topics,
+    return {"version": source["version"], "groups": [g for g in groups if g["topics"]], "topics": topics, "index": index,
             "glossary": [g for g in source["glossary"] if g["t"] in ids], "faq": [f for f in source["faq"] if f["t"] in ids]}

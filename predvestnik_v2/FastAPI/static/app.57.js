@@ -3,7 +3,7 @@
 // (что это · шаги · что даёт · слова · совет · где найти), «Читать по порядку», словарь и частые вопросы. Правила текстов — docs/PLAYER_COPY.md.
 // Ссылка на тему: ?startapp=guide_<id> или guide_<id>_<номер блока> (app.02.js), из подсказок и игр — openGuide('<id>'). Стили: guide-v3.css (префикс gv-).
 // Тема, открытая с другого экрана (💡, профиль, ссылка), помнит это: «Назад» сразу возвращает туда, а не на главную Путеводителя (_GV.ext).
-const _GV = { book: 'player', adminFrom: '', data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, origin: null, block: 0, missTimer: 0, missSent: new Set() };
+const _GV = { book: 'player', bookFrom: '', adminFrom: '', data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, origin: null, block: 0, missTimer: 0, missSent: new Set() };
 // Две книги одним экраном: Путеводитель игрока и Путеводитель администрации (темы для персонала и владельцев чатов,
 // данные bot-admin/guide-admin.json, сервер отдаёт только темы роли читателя: services/admin_guide.py).
 const _GV_BOOKS = {
@@ -91,9 +91,13 @@ function gvLoad() {
   // Путеводитель администрации — под роль читателя: сотрудник, иначе владелец чата; чужим сервер отвечает 403.
   const get = path => fetch(BASE + path, { cache: 'no-cache', signal: controller.signal, ...(admin ? { headers: hdrs() } : {}) });
   const request = admin ? get('/bot-admin/api/guide').then(r => r.status === 403 ? get('/bot-admin/api/owner/guide') : r) : get('/guide-v3.json');
-  _GV.pending = request.then(r => { if (r.status === 403) throw Object.assign(new Error('guide'), { denied: true }); if (!r.ok) throw new Error('guide'); return r.json(); })
+  _GV.pending = request.then(r => { if (r.status === 403) throw Object.assign(new Error('guide'), { denied: true }); if (!r.ok) throw Object.assign(new Error('guide'), { http: r.status }); return r.json(); })
     .then(d => { if (!_gvValid(d)) throw new Error('guide'); _GV.offline = false; try { localStorage.setItem(book.store, JSON.stringify(d)); } catch (_) {} return d; })
-    .catch(e => { if (e.denied) throw e; try { const d = JSON.parse(localStorage.getItem(book.store)); if (_gvValid(d)) { _GV.offline = true; return d; } } catch (_) {} throw new Error('guide'); })
+    .catch(e => {
+      // Книга администрации из памяти — только когда нет связи: сервер ответил отказом (роль сняли, вход истёк) — старую книгу не показываем.
+      if (admin && (e.denied || e.http)) { try { localStorage.removeItem(book.store); } catch (_) {} }
+      if (e.denied || admin && e.http) throw e;
+      try { const d = JSON.parse(localStorage.getItem(book.store)); if (_gvValid(d)) { _GV.offline = true; return d; } } catch (_) {} throw new Error('guide'); })
     .then(d => { _GV.data = d; _GV.index = null; _GV.vocab = null; return d; })
     .finally(() => { clearTimeout(timer); _GV.pending = null; });
   return _GV.pending;
@@ -217,7 +221,6 @@ function _gvHub(d) {
   // Группы свёрнуты, кроме «Начни отсюда» и той, где последняя прочитанная тема: 32 темы не растягиваются на три экрана.
   const lastGroup = last && _gvGroupOf(last.id);
   const groups = d.groups.map((g, i) => `<details class="v3-group gv-group" id="gv-group-${esc(g.id)}"${i === 0 || g === lastGroup ? ' open' : ''}><summary><h2 class="v3-eyebrow">${esc(g.icon)} ${esc(g.title)}</h2><p class="gv-sub">${esc(g.sub)} · ${g.topics.length}</p></summary>${g.topics.map(id => _gvRow(d.topics.find(t => t.id === id))).join('')}</details>`).join('');
-  // Персоналу и владельцам чатов — вход во вторую книгу; из неё — обратно в книгу игрока.
   // Вход персонала — сразу под поиском: к нему возвращаются часто; обратная ссылка в книгу игрока — внизу.
   const staff = _GV.book === 'player' && _gvStaff() ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('admin')"><small>Для персонала</small><b>🛡 Путеводитель администрации ›</b></button>` : '';
   const other = _GV.book === 'admin' ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('player')"><small>Как игру видят игроки</small><b>Путеводитель игрока ›</b></button>` : '';
@@ -340,7 +343,8 @@ function gvSearchFrom(input) {
 function gvBack() {
   const prev = _GV.history.pop();
   if (prev) { Object.assign(_GV, { view: prev.view, topic: prev.topic, faq: prev.faq, q: prev.q }); gvPaint(prev); return true; }
-  if (_GV.adminFrom) { gvAdmin(_GV.adminFrom); return true; }   // открыт из админки: «Назад» туда же, в тот раздел
+  if (_GV.bookFrom && _GV.view === 'hub') { const from = _GV.bookFrom; openGuideBook(from); _GV.bookFrom = ''; return true; }   // главная второй книги → в ту, откуда пришли
+  if (_GV.adminFrom) { gvAdmin(_GV.adminFrom); return true; }   // слой в админке: «Назад» с первого шага закрывает слой
   if (_GV.origin) {
     const origin = _GV.origin; _GV.origin = null;
     if (_activePage !== origin.page) {
@@ -371,9 +375,10 @@ function _gvUse(book) {
   if (_GV.book === book) return;
   Object.assign(_GV, { book, data: null, pending: null, index: null, vocab: null, q: '', offline: false });
 }
-function openGuideBook(book) { _gvUse(book); _GV.adminFrom = ''; _GV.history = []; _GV.ext = false; _GV.view = 'hub'; _GV.topic = ''; _GV.faq = -1; _haptic('select'); return gvShow().then(() => window.scrollTo(0, 0)); }
-// Путеводитель администрации: из Путеводителя игрока, из админки (значок «?», раздел «Путеводитель», «Что это значит?»:
-// ?startapp=adminguide_<тема>_<раздел>) и из бота. from — раздел админки, куда вернёт «Назад».
+// Переход в другую книгу запоминает, откуда: «Назад» с её главной вернёт в ту книгу, а не закроет Путеводитель.
+function openGuideBook(book) { _GV.bookFrom = _GV.book !== book ? _GV.book : _GV.bookFrom; _gvUse(book); _GV.history = []; _GV.ext = false; _GV.view = 'hub'; _GV.topic = ''; _GV.faq = -1; _haptic('select'); return gvShow().then(() => window.scrollTo(0, 0)); }
+// Путеводитель администрации: из Путеводителя игрока (персоналу) и в админке — слоем (bot-admin/guide.html, from = 'host':
+// «Назад» с первой темы закрывает слой). Без from «Назад» ведёт по обычным правилам Путеводителя.
 function openAdminGuide(id = '', from = '') { return openGuide(id, 0, null, 'admin', from); }
 // Кнопка темы и «Назад» в админку: раздел админки открывается сразу (тот же адрес, admin-boot.js читает pv_admin_tab).
 function gvAdmin(section) {
@@ -382,7 +387,7 @@ function gvAdmin(section) {
 }
 function openGuide(id, block, returnTo, book = 'player', adminFrom = '') {
   _gvUse(book);
-  _GV.adminFrom = adminFrom;
+  _GV.adminFrom = adminFrom; _GV.bookFrom = '';
   _GV.history = [];
   _GV.faq = -1;
   _GV.ext = !!id && _activePage !== 'help';

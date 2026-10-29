@@ -11,6 +11,7 @@ const _profileEsc = s => esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const hdrs = () => (ADM && typeof ADM.agHeaders === 'function' ? ADM.agHeaders() : {'x-init-data': (tg && tg.initData) || ''});
 const _backHooks = [];
 const _activePage = 'help';   // экран один: Путеводитель
+const _profileData = {is_staff: true};   // слой открывают только из админки: в книге игрока — обратный вход в книгу администрации
 function _haptic(kind) {
   const h = tg && tg.HapticFeedback; if (!h) return;
   try { kind === 'select' ? h.selectionChanged() : h.impactOccurred('light'); } catch (_) {}

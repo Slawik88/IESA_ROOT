@@ -149,10 +149,11 @@ for action in CHAT_ACTIONS:
 # ── Страница админки ──────────────────────────────────────────────────────────────────────────────────────────────────
 page = (ROOT / "FastAPI" / "routers" / "bot_admin" / "page.py").read_text(encoding="utf-8")
 index = (ADMIN / "index.html").read_text(encoding="utf-8")
-assert '"guide-admin.json"' in page and '"admin-guide.js"' in page and '"guide-host.js"' in page, "файлы Путеводителя отдаются страницей админки (_TYPES)"
+assert '"admin-guide.js"' in page and '"guide-host.js"' in page, "файлы Путеводителя отдаются страницей админки (_TYPES)"
+assert '"guide-admin.json"' not in page, "все темы администрации наружу не отдаются: роль получает свои через /bot-admin/api/guide"
 assert index.index("admin-guide.js") < index.index("admin-boot.js"), "справка подключена до старта админки"
 script = (ADMIN / "admin-guide.js").read_text(encoding="utf-8")
-assert "/bot-admin/guide#t=" in script and "min_rank" in script, "вкладка, «?» и «Что это значит?» открывают слой Путеводителя, тема — по роли"
+assert "/bot-admin/guide#t=" in script and "d.index[kind][key]" in script, "вкладка, «?» и «Что это значит?» открывают слой Путеводителя, тема — по указателю книги роли"
 assert "location.href" not in script, "Путеводитель не уводит из админки: открытая карточка и окно действия остаются под слоем"
 host = (ADMIN / "guide.html").read_text(encoding="utf-8")
 for shared in ("shell-v3.css", "guide-v3.css", "app.20.js", "app.57.js"):
@@ -176,6 +177,18 @@ for who, reader in readers.items():
                and "go" not in t["where"] and not ({"min_rank", "section", "actions", "owner"} & set(t)) for t in book["topics"]), f"{who}: формат Путеводителя игрока"
     assert all(t["where"]["admin"] in reader["sections"] for t in book["topics"] if "admin" in t["where"]), f"{who}: «Открыть» — только в свои разделы"
     assert all(x["t"] in ids for x in book["glossary"] + book["faq"]), f"{who}: словарь и вопросы — по своим темам"
+    # «?» и «Что это значит?»: указатель только на темы этой книги; у каждого открытого роли раздела с темой — его тема
+    pointer = book["index"]
+    assert set(pointer["sections"].values()) | set(pointer["actions"].values()) <= ids, f"{who}: указатель ведёт в чужие темы"
+    for key in reader["sections"]:
+        mine = [t for t in guide["topics"] if t.get("section") == key and t["id"] in ids]
+        if mine:
+            plain = [t["id"] for t in mine if not t.get("actions")]
+            assert pointer["sections"].get(key) == (plain or [mine[0]["id"]])[0], (who, key, pointer["sections"].get(key))
+    for t in guide["topics"]:
+        for a in t.get("actions", []):
+            if t["id"] in ids:
+                assert pointer["actions"].get(a) in ids, (who, a)
 assert counts["роль 2"] < counts["роль 4"] < counts["роль 5"] < counts["роль 6"] and counts["владелец чата"] < counts["роль 2"], counts
 assert not problems, "\n".join(problems)
 print(f"OK: admin guide {len(topics)} topics, {len(guide['glossary'])} terms, {len(guide['faq'])} answers; "

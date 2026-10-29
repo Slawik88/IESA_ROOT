@@ -101,6 +101,8 @@ def miniapp(stand: Stand, browser, rank: int, width: int, shots: str | None) -> 
         assert "gvAdmin(" in page.get_attribute(".gv-where .v3-pill", "onclick")
         fails = page.evaluate(GEOMETRY, width)
         assert not fails, (who, width, "тема", fails)
+        back = page.evaluate("() => { while (_GV.history.length) gvBack(); gvBack(); return _GV.book; }")
+        assert back == "player", "«Назад» с главной книги администрации — в Путеводитель игрока, а не из Путеводителя"
         if shots:
             page.screenshot(path=f"{shots}/{who}-{width}-topic.png", full_page=True)
         problems = probe.take()
@@ -191,6 +193,13 @@ def admin_entries(browser, width: int, shots: str | None) -> None:
     page.click("#sheet [data-go='guide']")
     shown("Путеводитель администрации")
     assert page.evaluate("() => currentSection()") == before, "вкладка не уводит из раздела"
+    frame().locator(".gv-book").last.click()   # «Путеводитель игрока ›» внизу книги администрации
+    inner = page.locator("#guide-layer iframe").element_handle().content_frame()
+    inner.wait_for_function("() => _GV.book === 'player'")
+    frame().locator(".gv-scope h1").first.wait_for(timeout=10000)
+    frame().locator(".v3-head-back").first.click()   # «Назад» с главной книги игрока — обратно в книгу администрации, слой открыт
+    inner.wait_for_function("() => _GV.book === 'admin' && !!_GV.data")
+    assert page.evaluate(layer_open)
     for word in ("заглушить", "пред", "разбан"):   # слова модераторов ведут к теме наказаний
         frame().locator(".gv-search input").fill(word)
         frame().locator("#gv-results .gv-row").first.wait_for(timeout=5000)
@@ -201,7 +210,7 @@ def admin_entries(browser, width: int, shots: str | None) -> None:
     frame().locator(".gv-where .v3-pill").first.click()
     page.wait_for_function(f"() => !({layer_open})() && currentSection() === 'reports'", timeout=5000)
 
-    assert left == [start] or not left[1:], f"админка не перезагружалась: {left}"
+    assert left == [start], f"админка не перезагружалась: {left}"
     # Кнопка из «бот админ помощь» в личке: админка открывается сразу со слоем, под ним — обычный раздел
     page.goto(f"{admin_stand.HOST}/bot-admin?open=guide")
     shown("Путеводитель администрации")
@@ -209,6 +218,71 @@ def admin_entries(browser, width: int, shots: str | None) -> None:
     assert not errors, errors
     ctx.close()
     print(f"OK admin page @{width}: «?», «Что это значит?», вкладка — слой поверх раздела; поиск, окно с суммой и «Отменить» на месте; «Открыть» — в раздел")
+
+
+# Кнопка «Назад» Telegram: как в SDK (telegram-web-app.js) — без повторов, обработчики вызываются по живому списку.
+FAKE_TG = """window.Telegram = {WebApp: (() => { const h = [];
+  const bb = {onClick: f => { if (!h.includes(f)) h.push(f); }, offClick: f => { const i = h.indexOf(f); if (i >= 0) h.splice(i, 1); }, show() {}, hide() {}};
+  return {initData: '', initDataUnsafe: {}, platform: 'unknown', BackButton: bb, ready() {}, expand() {}, onEvent() {}, isVersionAtLeast: () => true,
+    __press() { for (let i = 0; i < h.length; i++) h[i](); }, __handlers: h}; })()};"""
+
+
+def back_button(browser) -> None:
+    """«Назад» Telegram при открытом слое листает Путеводитель и закрывает его; раздел под слоем не двигается, даже если карточка
+    перерисовалась под слоем (отложенное действие) и поставила свой обработчик заново."""
+    me = {"user_id": 5000, "rank": 5, "rank_name": NAMES[5], "creator": False, "ranks": list(NAMES.values()),
+          "sections": [{"key": k, "title": k, "min_rank": 2} for k in ("mychats", *[s for s in sections(5) if s != "mychats"])]}
+    from services.admin_guide import for_reader
+    ctx = browser.new_context(viewport={"width": 390, "height": 800})
+    ctx.add_init_script(FAKE_TG)
+    ctx.route("**/*", admin_stand.handler({**ROUTES, "/me": me, "/guide": for_reader(rank=5, sections=sections(5))}))
+    page = ctx.new_page()
+    errors: list[str] = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(f"{admin_stand.HOST}/bot-admin/")
+    page.wait_for_selector("#tabs .nb", timeout=10000)
+    page.evaluate("() => open('people')")
+    page.wait_for_timeout(500)
+    page.evaluate("() => playerView($('#main'), 5000)")
+    page.wait_for_selector("#pacts", timeout=5000)
+    layer_open = "() => { const l = document.querySelector('#guide-layer'); return !!l && !l.hidden; }"
+    in_card = "() => !!document.querySelector('#pacts')"
+    page.click(".top .hbtn.help")
+    page.wait_for_function(layer_open)
+    page.frame_locator("#guide-layer iframe").locator(".gv-scope h1").first.wait_for(timeout=10000)
+    page.frame_locator("#guide-layer iframe").locator("body").evaluate("() => gvOpen('watch')")   # шаг внутри Путеводителя
+    page.evaluate("() => playerView($('#main'), 5000)")   # карточка перерисовалась под слоем и поставила свой «Назад»
+    page.wait_for_timeout(300)
+    page.evaluate("() => Telegram.WebApp.__press()")
+    page.wait_for_timeout(200)
+    assert page.evaluate(layer_open) and page.evaluate(in_card), "первое «Назад» — шаг в Путеводителе, карточка на месте"
+    page.evaluate("() => Telegram.WebApp.__press()")
+    page.wait_for_function(f"() => !({layer_open})()")
+    page.wait_for_timeout(200)
+    assert page.evaluate(in_card), "закрытие слоя не уводит из карточки"
+    assert page.evaluate("() => Telegram.WebApp.__handlers.length") == 1, "после слоя у «Назад» снова один обработчик — карточки"
+    page.evaluate("() => Telegram.WebApp.__press()")
+    page.wait_for_function("() => !document.querySelector('#pacts')", timeout=5000)
+
+    # Компьютер (горячие клавиши админки есть только с мышью): окно действия, готовое к отправке, под слоем; Ctrl+Enter ему не достаётся
+    page.evaluate("() => playerView($('#main'), 5000)")
+    page.wait_for_selector("[data-quick=balance]", timeout=5000)
+    page.click("[data-quick=balance]")
+    page.wait_for_selector("#sheet [data-ag-why]", timeout=5000)
+    page.locator("#sheet input").first.fill("777")
+    page.fill("#freason", "проверка")
+    page.click("#sheet [data-ag-why]")
+    page.wait_for_function(layer_open)
+    posts: list[str] = []
+    page.on("request", lambda r: r.method == "POST" and posts.append(r.url))
+    page.evaluate("() => document.querySelector('#freason').focus()")   # курсор под слой не ставится
+    page.keyboard.press("Control+Enter")
+    page.evaluate("() => document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', ctrlKey: true, bubbles: true}))")
+    page.wait_for_timeout(300)
+    assert not posts and page.evaluate("() => !document.querySelector('#sheet').hidden"), ("Ctrl+Enter дошёл до окна под слоем", posts)
+    assert not errors, errors
+    ctx.close()
+    print("OK Telegram «Назад»: шаг в Путеводителе, закрытие слоя, затем обратно из карточки; Ctrl+Enter не подтверждает окно под слоем")
 
 
 def main() -> None:
@@ -224,6 +298,7 @@ def main() -> None:
     with Stand(args.port, args.dsn, skin="void", tier="SSS", rich=True) as stand, sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=chromium_path())
         try:
+            back_button(browser)
             for width in args.widths:
                 admin_entries(browser, width, args.shots)
             for rank in (2, 4, 5, 0):   # роль 6 — только DEVELOPER_ID: её книгу (все темы) сверяет test_admin_guide_contract.py

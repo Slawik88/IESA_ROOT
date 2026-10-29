@@ -20,7 +20,7 @@ _TYPES = {"admin.js": "text/javascript; charset=utf-8", "admin-lists.js": "text/
           "admin-diagnostics.js": "text/javascript; charset=utf-8",
           "admin-patchnotes.js": "text/javascript; charset=utf-8", "admin-patchnotes-edit.js": "text/javascript; charset=utf-8",
           "admin-patchnotes-actions.js": "text/javascript; charset=utf-8",
-          "admin-guide.js": "text/javascript; charset=utf-8", "guide-admin.json": "application/json; charset=utf-8",   # справка (S09)
+          "admin-guide.js": "text/javascript; charset=utf-8",   # Путеводитель администрации (S09; темы — только по роли: /bot-admin/api/guide)
           "guide-host.js": "text/javascript; charset=utf-8",   # Путеводитель администрации слоем (S09b): страница guide.html
           "admin-boot.js": "text/javascript; charset=utf-8", "admin.css": "text/css; charset=utf-8"}
 # Путеводитель администрации — тот же экран, что у игрока: его стили и скрипты берутся из Mini App как есть (без копий)

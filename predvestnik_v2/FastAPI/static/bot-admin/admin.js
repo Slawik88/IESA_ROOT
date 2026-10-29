@@ -215,7 +215,7 @@ function moreSheet() {
 }
 
 // Кнопка «назад» на верхнем уровне ведёт обратно в Предвестник (внутри Telegram и в браузере одинаково).
-function goApp() { location.href = (BASE || '') + '/'; }
+function goApp() { if (agBusy()) return; location.href = (BASE || '') + '/'; }   // «Назад» Telegram, пока открыт Путеводитель, — его (admin-guide.js)
 function rootBack() {
   const bb = TG && TG.BackButton;
   if (!bb) return;
@@ -632,7 +632,7 @@ function nativeBack(main) {
   if (!bb) return;
   if (PEOPLE.bb) bb.offClick(PEOPLE.bb);
   bb.offClick(goApp);
-  PEOPLE.bb = () => back(main);
+  PEOPLE.bb = () => { if (!agBusy()) back(main); };
   bb.onClick(PEOPLE.bb); bb.show();
 }
 

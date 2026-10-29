@@ -2,22 +2,20 @@
 // Слой — страница bot-admin/guide (guide.html + guide-host.js) в рамке: экран и стили приходят из Mini App без копий,
 // а админка под слоем остаётся как была — открытая карточка, недописанное окно, отсчёт «Отменить» не прерываются.
 // Входы: вкладка «Путеводитель» (в доке или «Ещё»), значок «?» в шапке — тема раздела, где ты сейчас, «Что это значит?»
-// в окне опасного действия, ссылка из бота (?open=guide, startapp=admin_guide). Темы роли отдаёт сервер (services/admin_guide.py).
+// в окне опасного действия, ссылка из бота (?open=guide, startapp=admin_guide). Темы роли и указатель «раздел/действие → тема»
+// отдаёт сервер (services/admin_guide.py); файл тем guide-admin.json наружу не раздаётся.
 // Новая функция админки = тема в guide-admin.json в том же коммите (tools/test_admin_guide_contract.py сверит разделы, действия и пороги с кодом).
-const AG = {data: null, pending: null, want: '', open: false, ready: false};
+const AG = {data: null, pending: null, want: '', open: false, ready: false, closing: 0};
+// Пока открыт слой, «Назад» Telegram — его: обработчики разделов (карточка, «Чистка», выход из админки) молчат. Это касается и
+// обработчика, который раздел поставил заново, пока слой был открыт (карточка перерисовалась после отложенного действия).
+function agBusy() { return AG.open; }
 
-// Какая тема про раздел или действие: те же правила видимости, что на сервере (тему другой роли «?» не откроет).
-function agVisible(t) {
-  if (!ME) return false;
-  if (ME.owner) return !!t.owner;   // владелец чата: только про свои чаты
-  return ME.rank >= t.min_rank && (!t.section || t.section === 'mychats' || ME.sections.some(s => s.key === t.section));
-}
-const agTopics = () => (AG.data ? AG.data.topics.filter(agVisible) : []);
+// Какая тема про раздел или действие — указатель из книги этой роли (сервер: services/admin_guide.py, `index`):
+// тему, которой у роли нет, «?» не откроет; сам файл тем наружу не отдаётся.
 function agLoad() {
   if (AG.data) return Promise.resolve(AG.data);
-  if (!AG.pending) AG.pending = fetch(BASE + '/bot-admin/guide-admin.json', {cache: 'no-cache'})
-    .then(r => { if (!r.ok) throw new Error('Путеводитель не загрузился'); return r.json(); })
-    .then(d => { if (!d || !Array.isArray(d.topics)) throw new Error('Путеводитель повреждён'); AG.data = d; return d; })
+  if (!AG.pending) AG.pending = api(ME.owner ? '/owner/guide' : '/guide')
+    .then(d => { if (!d || !d.index) throw new Error('Путеводитель повреждён'); AG.data = d; return d; })
     .finally(() => { AG.pending = null; });
   return AG.pending;
 }
@@ -51,33 +49,37 @@ function agShow(topicId = '') {
   } else if (AG.ready) {
     try { agFrame().contentWindow.agHostOpen(AG.want); } catch (_) {}
   }
-  if (!AG.open) agBackButton(true);
+  if (AG.closing) { clearTimeout(AG.closing); AG.closing = 0; } else if (!AG.open) agBackButton(true);
   AG.open = true; layer.hidden = false;
   document.documentElement.classList.add('guide-open');
+  agInert(true);
   setTimeout(() => { try { agFrame().focus(); } catch (_) {} }, 50);
 }
 function agClose() {
   const layer = $('#guide-layer');
-  if (!AG.open || !layer) return;
-  AG.open = false; layer.hidden = true;
+  if (!AG.open || !layer || AG.closing) return;
+  layer.hidden = true;
   document.documentElement.classList.remove('guide-open');
-  agBackButton(false);
+  agInert(false);
+  // Слой «закрыт» для раздела только после того, как Telegram раздал это нажатие «Назад» всем обработчикам: иначе то же нажатие
+  // уведёт и раздел под слоем.
+  AG.closing = setTimeout(() => { AG.closing = 0; AG.open = false; agBackButton(false); });
 }
+// Админка под слоем недоступна касаниям, клавишам и фокусу (Ctrl+Enter не подтвердит окно, которого не видно);
+// открытой остаётся только полоса «Отменить» над слоем.
+function agInert(on) { ['.top', '#main', '#tabs', '#sheet'].forEach(sel => { const node = $(sel); if (node) node.inert = on; }); }
 // Кнопка темы «Открыть раздел»: окно действия под слоем закрывается — человек сознательно уходит в другой раздел.
 function agOpenSection(key) {
   agClose();
   const box = $('#sheet'); box.hidden = true; box.innerHTML = '';
   if (ME.sections.some(s => s.key === key)) open(key);
 }
-// Тема раздела (или главная, если её нет); данные не пришли — главная.
-function agOpenFor(pick) {
-  agLoad().then(() => agShow((agTopics().find(pick) || {}).id || '')).catch(() => agShow(''));
+// Тема раздела или действия (нет такой у роли — главная); указатель не пришёл — главная.
+function agOpenFor(kind, key) {
+  agLoad().then(d => agShow(d.index[kind][key] || '')).catch(() => agShow(''));
 }
-function agContext() {
-  const here = currentSection();
-  agOpenFor(t => t.section === here && !t.actions);
-}
-const agWhy = action => agOpenFor(t => (t.actions || []).includes(action));   // окно действия остаётся под слоем
+const agContext = () => agOpenFor('sections', currentSection());
+const agWhy = action => agOpenFor('actions', action);   // окно действия остаётся под слоем
 
 // Вкладка «Путеводитель» не уводит из раздела: открывает слой поверх него.
 document.addEventListener('click', e => {
@@ -90,8 +92,11 @@ document.addEventListener('click', e => {
   }
   const why = e.target.closest('[data-ag-why]'); if (why) agWhy(why.dataset.agWhy);
 }, true);
+// Клавиши, пока открыт слой (фокус в админке — например, после «Отменить»): Esc листает Путеводитель, остальное админке не достаётся.
 document.addEventListener('keydown', e => {
-  if (AG.open && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); agBackPress(); }
+  if (!AG.open || e.target.closest?.('.undobar')) return;
+  e.stopImmediatePropagation();
+  if (e.key === 'Escape') { e.preventDefault(); agBackPress(); }
 }, true);
 
 // Раздел «guide» сам не рисуется: старая сохранённая вкладка или ссылка открывают обычный раздел и слой над ним.
