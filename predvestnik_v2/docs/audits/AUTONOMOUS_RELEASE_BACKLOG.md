@@ -1,3 +1,7 @@
+## ROADMAP-S11 — повторная проверка и очередь Claude Code (2026-10-29; только документы)
+
+В существующей ветке S11 повторены 216 сценариев (0 ошибок), 11 задач admin_clicks, 15 сочетаний ролей/ширин справки, девять PG-наборов на свежих локальных PostgreSQL 17/ICU/UTC и целевые контракты. Новый независимый read-only аудит: блокеров нет; это не отдельная перепроверка Claude Code, она ожидается в очереди STATUS.md. S10/S10v на проде подтверждены владельцем. Визуальный код S11 и снимки остаются в feat/roadmap-S11-admin-look до согласования. В master — только документы. Известный shell-контракт одинаково красный на master и ветке; общий аудит ленты BLOCKED из-за неучтённого исключения для инструментов персонала (находка S25). Python 3.12, реальный Telegram и новый деплой здесь не проверены; после docs-пуша владелец проверяет Healthy, /api/health, /api/ready и открытие Mini App.
+
 ## ROADMAP-S10v — ADMIN QUICK ACTIONS, 10 S UNDO, PURGE INSIDE THE ADMIN, MERGED TO MASTER (owner's OK 2026-10-29; production not verified from the cloud)
 
 Player card quick actions (warn, mute, ban, message, balance), one-window actions with a summary, 10-second undo for chat sanctions (sent at once on close via `keepalive`),
