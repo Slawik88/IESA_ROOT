@@ -81,7 +81,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-path-row { display: grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap: 4px; margin-top: 4px; }
 .v3-aspect { flex: 1; min-width: 0; display: grid; justify-items: center; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--v3-dim); font: 500 10.5px/1.2 var(--v3-font); cursor: pointer; transition: transform .15s; }
 .v3-aspect > span:last-child { display: -webkit-box; max-width: 100%; overflow: hidden; text-align: center; hyphens: auto; -webkit-hyphens: auto; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-@media (max-width: 360px) { .v3-aspect { font-size: 9.5px; letter-spacing: -.01em; } }   /* «Мастер лагеря» — в две строки, а не «Мастер ла…» */
+@media (max-width: 360px) { .v3-aspect { font-size: 10px; letter-spacing: -.01em; } }   /* «Мастер лагеря» — в две строки, а не «Мастер ла…» */
 .v3-aspect-ring { position: relative; width: 44px; height: 44px; }
 .v3-aspect-ring svg { width: 44px; height: 44px; transform: rotate(-90deg); fill: none; stroke-width: 3; stroke-linecap: round; }
 .v3-aspect-ring b { position: absolute; inset: 0; display: grid; place-items: center; color: var(--v3-ink); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }

@@ -26,7 +26,7 @@ function _guideSheet(html) {
   // Подсказки из нативного окна тоже должны попасть в верхний слой браузера.
   const native = !!document.querySelector('dialog[open]');
   const host = document.createElement(native ? 'dialog' : 'div'); host.id = 'g-sheet'; host.className = 'lk-sheet-back';
-  host.innerHTML = `<section class="lk-sheet tr-sheet" role="dialog" aria-modal="true" aria-labelledby="g-sheet-t" tabindex="-1">${html}</section>`;
+  host.innerHTML = v3CurIn(`<section class="lk-sheet tr-sheet" role="dialog" aria-modal="true" aria-labelledby="g-sheet-t" tabindex="-1">${html}</section>`);
   host.addEventListener('click', e => { if (e.target === host) _guideClose(); });
   _guideKeys = e => {
     if (e.key === 'Escape') { e.preventDefault(); _guideClose(); return; }
@@ -47,7 +47,7 @@ function _guideTilesHtml(tiles) {
 function _guideApply(id, tiles) {   // тихая перерисовка открытого листа (дозапрос пришёл после показа)
   if (_guideCurrent !== id) return;
   const grid = document.querySelector('#g-sheet .g-grid'); if (!grid) return;
-  grid.innerHTML = _guideTilesHtml(tiles);
+  grid.innerHTML = v3CurIn(_guideTilesHtml(tiles));
 }
 function v3Guide(id) {
   const book = _GUIDE_BOOK[id]; if (!book) return;

@@ -6,7 +6,7 @@
     python tools/ui_smoke.py --only profile,top --widths 390 --shots /tmp/shots
 
 A run FAILS on: a JS error, an unexpected HTTP error, a widened layout viewport, horizontal overflow, a dock that is not pinned inside the screen,
-a screen opener that throws, a browser-default grey button. Reported as warnings (fail with --strict): controls under 32px, card-around-everything shells.
+a screen opener that throws, a browser-default grey button, a currency emoji left as text (🪙 💎 ✨ 💧 are drawn by v3Cur). Reported as warnings (fail with --strict): controls under 32px, card-around-everything shells.
 Needs PostgreSQL (see tools/ui_stand.py) and Chromium (PLAYWRIGHT_BROWSERS_PATH). Not part of the automatic test run. Admin screens are not covered.
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from ui_smoke_checks import (BLOCKS, BUDGET, CANDIDATES, MOTION, PAGES, PRESS, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, KNOWN_OPEN, SCREENS, SKIP_CLICK, TAP)  # noqa: E402
+from ui_smoke_checks import (BLOCKS, BUDGET, CANDIDATES, CURRENCY, MOTION, PAGES, PRESS, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, KNOWN_OPEN, SCREENS, SKIP_CLICK, TAP)  # noqa: E402
 from ui_stand import DEFAULT_DSN, PEER_ID, Stand, seed_persona, set_game_flags  # noqa: E402
 
 FREEZE = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
@@ -134,6 +134,7 @@ def check_screen(page, probe: Probe, name: str, js: str, width: int, shots: Path
     page.add_style_tag(content=FREEZE)
     for item in page.evaluate(BLOCKS):
         (fails if item.startswith("UA-DEFAULT") else warns).append(item)
+    fails += page.evaluate(CURRENCY)
     warns += ["small: " + x for x in page.evaluate(TAP)]
     warns += probe.take_known()
     fails += probe.take()
@@ -211,7 +212,7 @@ def sweep_crawl(stand, browser, args, results) -> None:
                     fails.append("click threw: " + str(exc).splitlines()[0][:100])
                 settle(page)
                 on_app = page.evaluate("() => !!document.querySelector('.nav')")        # a tap may open a game page or leave the app: those have no dock
-                fails += [g for g in page.evaluate(GEOMETRY, width) if on_app or "dock" not in g] + [x for x in page.evaluate(BLOCKS) if x.startswith("UA-DEFAULT")] + probe.take()
+                fails += [g for g in page.evaluate(GEOMETRY, width) if on_app or "dock" not in g] + [x for x in page.evaluate(BLOCKS) if x.startswith("UA-DEFAULT")] + probe.take() + (page.evaluate(CURRENCY) if on_app else [])
                 if fails:
                     results[f"{name} > {label[:40]} @{width}"] = (fails, [])
         ctx.close()

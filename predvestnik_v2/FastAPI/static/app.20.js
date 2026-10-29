@@ -28,6 +28,8 @@ function v3Head(title, { sub = '', back = '', end = '' } = {}) {
   const emb = typeof _V3_HEAD_EMB === 'object' && _V3_HEAD_EMB ? _V3_HEAD_EMB[title] : '';   // эмблема и созвездие вкладки (app.50.js)
   return `<header class="v3-head${emb ? ' v3-head--hero' : ''}">${emb ? V3_SKY : ''}${btn}${emb ? v3Emblem(emb) : ''}<div class="v3-head-tx"><h1 class="v3-title">${esc(title)}${v3GlintMark(title)}</h1>${sub ? `<p class="v3-head-s">${esc(sub)}</p>` : ''}</div>${end}</header>`;
 }
+// Скелетон загрузки вместо текста «Загрузка…»: n серых строк списка; подпись читает экранный диктор
+function v3Skel(label = 'Загружаем…', n = 3) { return `<div class="v3-skel" role="status" aria-label="${esc(label)}">${'<div class="sk sk-row"></div>'.repeat(n)}</div>`; }
 function apName(ap, html, plain) {
   if (!ap) return html;
   const text = plain ?? String(html).replace(/<[^>]*>/g, '').replace(/&(amp|lt|gt|quot|#39|#x27);/g, e => ({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&#39;':"'",'&#x27;':"'"}[e]));

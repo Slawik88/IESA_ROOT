@@ -6,7 +6,7 @@ let outcome='lost';
 const ctx=vm.createContext({_uid:101,UK:'uid',BASE:'/app',crypto:require('node:crypto').webcrypto,AbortSignal,AbortController,setTimeout,clearTimeout,console,
   localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},
   el,hdrs:()=>({'Content-Type':'application/json'}),toast(){},refreshCurrBar(){},esc:String,fmt:String,
-  vipName:x=>x,apName:(x,y)=>y,apFromLook:()=>({}),CM(){},OM:(title,body)=>modal.push({title,body}),
+  vipName:x=>x,apName:(x,y)=>y,apFromLook:()=>({}),CM(){},v3GuideIcon:()=>'',v3Skel:()=>'',v3Cur:k=>`<svg data-cur="${k}"></svg>`,v3CurIn:x=>x,OM:(title,body)=>modal.push({title,body}),
   api:async p=>p==='/marriage/'?{married:true,partner_name:'Партнёр',days:2,family_balance:50,family_balance_essence:7}:
       p==='/marriage/proposals'?{proposals:[]}:{root:0,nodes:[],edges:[]},
   fetch:async(url,opts)=>{calls.push(opts);if(outcome==='lost')throw Error('response lost');
@@ -18,7 +18,7 @@ const tick=async()=>{for(let i=0;i<30;i++)await Promise.resolve();};
 (async()=>{
   ctx.openFamilyTree();await tick();
   assert.match(modal[0].body,/id="pro-marriage-card"/,'family navigation must actually create the wallet host');
-  assert.match(el('pro-marriage-card').innerHTML,/value="essence"/);assert.match(el('pro-marriage-card').innerHTML,/Эссенция/);
+  assert.match(el('pro-marriage-card').innerHTML,/value="essence"/);assert.match(el('pro-marriage-card').innerHTML,/Эссенция/);assert.match(el('pro-marriage-card').innerHTML,/data-cur="essence"/,'family balances use the drawn currencies');
   el('bank-amt').value='25';el('bank-cur').value='essence';await ctx.familyBank('deposit');
   const first=calls[0];assert(memory.has('pv-family-bank:101'));
   // Even editing the requested action after a lost response retries the

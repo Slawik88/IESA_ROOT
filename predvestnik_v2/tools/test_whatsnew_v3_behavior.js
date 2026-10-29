@@ -7,6 +7,7 @@ const path = require('node:path');
 const STATIC = path.join(__dirname, '..', 'FastAPI', 'static');
 const SOURCE = fs.readFileSync(path.join(STATIC, 'app.42.js'), 'utf8');
 const ESCAPER = /^function _profileEsc\(.*$/m.exec(fs.readFileSync(path.join(STATIC, 'app.02.js'), 'utf8'));
+const V3HEAD = /^function v3Head\([\s\S]*?\n}$/m.exec(fs.readFileSync(path.join(STATIC, 'app.20.js'), 'utf8'))[0];   // настоящая шапка вкладок
 assert.ok(ESCAPER, 'app.02.js defines _profileEsc, app.42.js escapes everything through it');
 const NOW = new Date(2026, 9, 12, 12, 0, 0).getTime();   // 12 октября 2026, полдень по местному времени
 class FixedDate extends Date {
@@ -34,7 +35,7 @@ function boot(extra = {}) {
     console, Date: FixedDate, Math, JSON, Object, Array, Set, Promise, RegExp, String, Number,
     localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
     _sysFlags: {}, _navStack: [], _loaded: new Set(),
-    el: id => els[id] || null, v3EnterSync() {}, v3GlintMark: t => `<span class="ap-gl" aria-hidden="true"><span data-t="${t}"></span></span>`, _haptic() {},
+    el: id => els[id] || null, v3EnterSync() {}, v3CurIn: x => x, v3GlintMark: t => `<span class="ap-gl" aria-hidden="true"><span data-t="${t}"></span></span>`, _haptic() {},
     switchPage: p => calls.push(['switchPage', p]), navBack: () => calls.push(['navBack']),
     openLooksModal: () => calls.push(['openLooksModal']), openQuestsV1: () => calls.push(['openQuestsV1']), openChestsV1: () => calls.push(['openChestsV1']),
     openPetsV1: () => calls.push(['openPetsV1']), openTopV3: () => calls.push(['openTopV3']), openInventory: () => calls.push(['openInventory']),
@@ -43,6 +44,7 @@ function boot(extra = {}) {
     _wnFetch: () => Promise.resolve([]), _wnSeenId: () => '', _wnMarkSeen: list => calls.push(['mark', list.length]),
   }, extra));
   vm.runInContext(ESCAPER[0], ctx);
+  vm.runInContext(`var esc = _profileEsc;\n${V3HEAD}`, ctx);
   vm.runInContext(SOURCE + `
 ;globalThis.__wn = { _WN_AREA, _WN_GO, _WN_GROUPS, _wnSplit, _wnDetail, _wnDayLabel, _wnEntry, _wnArea, _wnKind, _wnGroupOf, _wnRender, _wnHistory, _wnChips, _wnPaint,
   _wnTabDots, _wnTabVisit, _wnLinkTerms, _wnGoTo, _wnGo, _wnFilter, _wnTermTap, get state() { return _wn; } };`, ctx);

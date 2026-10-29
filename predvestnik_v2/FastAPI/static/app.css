@@ -443,18 +443,13 @@ html.pv-css-wait dialog[open]:not(.pv-support) { opacity: 0; pointer-events: non
 
 .dev-freeze-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; margin-bottom: 8px; border-radius: 9px; font-size: 11px; background: var(--s); border: 1px solid var(--border2); }
 .dev-freeze-bar.on { background: linear-gradient(90deg, rgba(120,180,255,.14), rgba(120,180,255,.03)); border-color: rgba(120,180,255,.4); color: #bcd8ff; }
-/* ШАГ1: история кошелька «Было → Изменение → Стало (причина)» */
-.wtx { padding: 8px 0; border-bottom: 1px solid var(--border2); }
-.wtx-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-.wtx-label { font-size: 12px; font-weight: 600; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wtx-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
-.wtx-line { display: flex; align-items: center; gap: 5px; font-size: 11px; flex-wrap: wrap; line-height: 1.7; }
 
-.family-fold {  }
-.family-wallet-head { display:grid;gap:2px;padding:10px 1px 8px}.family-wallet-head span{color:var(--bright);font-size:12px;font-weight:800}.family-wallet-head small{color:var(--muted);font-size:10px}
-.family-balances{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.family-balance{display:grid;grid-template-columns:24px minmax(0,1fr);gap:1px 5px;padding:9px;}.family-balance>span{grid-row:1/3;font-size:17px}.family-balance>b{color:var(--bright);font-size:12px}.family-balance>small{color:var(--muted);font-size:10px}
-.family-bank-form{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:6px;margin-top:9px}.family-bank-form .v3-field{width:100%;margin:0}.family-bank-form .v3-pill{min-height:44px}
-.family-gifts{display:grid;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border2)}.family-gifts>small{color:var(--muted);font-size:10px;text-transform:uppercase}.family-gift{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:7px;padding:8px;border-radius:10px;background:rgba(255,255,255,.025)}.family-gift>b{color:var(--text);font-size:11px}.family-gift>small{color:var(--muted);font-size:10px}
+/* «Моя семья» (app.06.js): форма перевода семейного кошелька и развод внизу, остальное — общие .v3-sec/.v3-row */
+.fam-bank { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 12px; }
+.fam-bank .v3-field { margin: 0; min-width: 0; }
+.fam-offer .v3-end { flex-wrap: wrap; justify-content: flex-end; }
+.fam-divorce { display: flex; margin: 22px 0 4px auto; }
+#family-tree-section { margin-top: 8px; }
 
 /* Родословная: тот же язык, что на «Профиле» и в «Магазине» — карточка человека
    (.v3-id) с общим созвездием сайта, ряды родственников (.v3-row), секции со
@@ -482,7 +477,6 @@ html.pv-css-wait dialog[open]:not(.pv-support) { opacity: 0; pointer-events: non
 .fam-mini:focus-visible, .fam-person:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }
 .fam-fold { margin-top: 16px; }
 .fam-fold .v3-dim { margin-top: 8px; }
-.wallet-fold{}.wallet-fold .profile-fold-body{display:grid;gap:6px;padding-top:8px}.wallet-fold .wtx{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:8px;padding:9px;}.wtx-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;font-size:15px;font-weight:900}.wtx.is-income .wtx-mark{color:#72d4ad;background:rgba(114,212,173,.1)}.wtx.is-expense .wtx-mark{color:#e59a9a;background:rgba(229,154,154,.09)}.wtx.is-exchange .wtx-mark{color:#9faff4;background:rgba(126,145,224,.11)}.wtx-values{display:flex;flex-wrap:wrap;gap:4px}.wallet-fold .wtx-line{padding:3px 6px;border-radius:7px;background:rgba(255,255,255,.035);color:var(--text);font-size:10px}.wallet-fold .wtx-line.is-gain{color:#88dabb}.wallet-fold .wtx-line.is-spend{color:#e8aaaa}
 /* ══ Артефакт СЕТ (block 10 v2) — переосмыслено: владелец справедливо указал, что
    v1 (просто новые box-shadow/drop-shadow/частицы) технически неотличим от
    legendary/mythic — те же приёмы, другой цвет. Настоящее отличие редкости выше

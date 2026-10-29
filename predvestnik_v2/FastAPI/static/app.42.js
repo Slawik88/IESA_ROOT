@@ -151,8 +151,7 @@ function _wnRender(list, seen) {
   const sub = !known ? 'Всё, что менялось в приложении. Сверху самое свежее.'
     : count ? `С прошлого раза: ${count} ${_wnWord(count, 'обновление', 'обновления', 'обновлений')}. «Открыть» ведёт сразу на нужный экран.`
     : 'Вы в курсе всех обновлений. Новое появится здесь.';
-  const head = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="wnBack()" aria-label="Назад">‹ Назад</button></div>
-    <header class="v3-screen-head v3-hero">${typeof V3_SKY === 'string' ? V3_SKY : ''}${typeof v3Emblem === 'function' ? v3Emblem('comet') : ''}<div class="v3-hero-tx"><span class="v3-eyebrow">Обновления Предвестника</span><h1 class="v3-title">Что нового${v3GlintMark('Что нового')}</h1><p class="v3-sub">${_profileEsc(sub)}</p></div></header>`;
+  const head = v3Head('Что нового', { sub, back: 'wnBack()' });
   if (!list.length) { root.innerHTML = head + '<div class="v3-empty"><b>Пока тихо</b>Обновления появятся здесь.</div>'; v3EnterSync(root); return; }
   const fresh = _wn.hero.length ? `<section class="wn-sec wn-sec--fresh" aria-labelledby="wn-h-fresh"><div class="v3-sec"><span class="v3-eyebrow" id="wn-h-fresh">${known ? `Новое для вас · ${count}` : 'Последние обновления'}</span></div>${_wn.hero.map(u => _wnEntry(u, { fresh: true, isNew: known, day: _wnKind(u) === 'fix' ? '' : _wnDayShort(u.date) })).join('')}</section>` : '';
   const h = _wnHistory(), rows = _wnRows().length;

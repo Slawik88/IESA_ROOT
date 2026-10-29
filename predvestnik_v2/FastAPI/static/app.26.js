@@ -2,24 +2,24 @@
 // Секции без карточек: внешний вид, приватность («был(а) в сети»), уведомления, документы, вход, аккаунт.
 // Всё сохраняется сразу; опасное (удаление аккаунта) вынесено вниз и идёт через подтверждения (_acc* в app.02.js).
 const _ST = { presence: null, notif: null, warps: null, account: null, failed: {}, busy: '' };
-// Значки строк: свой цвет у каждой (--ri), чтобы нужное находилось глазами, а не чтением
+// Значки строк: один нейтральный цвет (правило «один акцент на экран»), красный только у удаления аккаунта
 const _ST_ICO = {
-  look: ['#c9a2ff', '<path d="M12 3.5l2.2 5.1 5.3.5-4 3.6 1.2 5.3L12 15.2 7.3 18l1.2-5.3-4-3.6 5.3-.5z"/>'],
-  calm: ['#8fb8ff', '<path d="M19.5 14.6A7.8 7.8 0 1 1 9.4 4.5a6.3 6.3 0 0 0 10.1 10.1z"/>'],
-  easy: ['#8fdc9c', '<path d="M9 11.5V5.8a1.6 1.6 0 0 1 3.2 0v5"/><path d="M12.2 10.3V9a1.6 1.6 0 0 1 3.2 0v2.3M15.4 10.6a1.6 1.6 0 0 1 3.1.4v3.2a6.3 6.3 0 0 1-6.3 6.3h-.6a5.9 5.9 0 0 1-4.5-2.1L4.6 15a1.6 1.6 0 0 1 2.4-2.1L9 14.7"/>'],
-  oled: ['#b0b6c6', '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor"/>'],
-  big: ['#ffbf5e', '<path d="M3.5 18.5L8 6.5l4.5 12M5.2 14h5.6"/><path d="M14.5 18.5l3-7.5 3 7.5M15.6 16h3.8"/>'],
-  eye: ['#5ee6d6', '<path d="M2.8 12s3.3-6 9.2-6 9.2 6 9.2 6-3.3 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.8"/>'],
-  bell: ['#ffd36e', '<path d="M6.3 16.5V11a5.7 5.7 0 0 1 11.4 0v5.5l1.6 1.8H4.7z"/><path d="M10 20.3a2.2 2.2 0 0 0 4 0"/>'],
-  warp: ['#ff9fb6', '<path d="M12 19.5s-7.5-4.4-7.5-9.6A4.1 4.1 0 0 1 12 7.6a4.1 4.1 0 0 1 7.5 2.3c0 5.2-7.5 9.6-7.5 9.6z"/>'],
-  promo: ['#ff9fb6', '<path d="M4 8.2V6.5h16v1.7a2.2 2.2 0 0 0 0 4.3v1.7a2.2 2.2 0 0 0 0 4.3v1.7H4v-1.7a2.2 2.2 0 0 0 0-4.3v-1.7a2.2 2.2 0 0 0 0-4.3z" transform="translate(0 -1.2)"/><path d="M14 6v12" stroke-dasharray="1.6 2"/>'],
-  doc: ['#8fb8ff', '<path d="M6.5 3.5h7.5l4 4v13h-11.5z"/><path d="M13.5 3.5V8h4.5M9.5 12h5M9.5 15.5h5"/>'],
-  shield: ['#8fdc9c', '<path d="M12 3.5l7 2.6v5.6c0 4.4-3 7.6-7 8.8-4-1.2-7-4.4-7-8.8V6.1z"/><path d="M9 12.2l2.2 2.2 4-4.2"/>'],
-  key: ['#f5cf73', '<circle cx="8" cy="14" r="3.8"/><path d="M10.8 11.3l8.2-8.1M16.3 6l2.4 2.4M14 8.3l2 2"/>'],
-  clock: ['#b9a7ff', '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'],
-  trash: ['#ff8a8a', '<path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l.9 13h9.2l.9-13M10.3 10.5v6M13.7 10.5v6"/>'],
+  look: '<path d="M12 3.5l2.2 5.1 5.3.5-4 3.6 1.2 5.3L12 15.2 7.3 18l1.2-5.3-4-3.6 5.3-.5z"/>',
+  calm: '<path d="M19.5 14.6A7.8 7.8 0 1 1 9.4 4.5a6.3 6.3 0 0 0 10.1 10.1z"/>',
+  easy: '<path d="M9 11.5V5.8a1.6 1.6 0 0 1 3.2 0v5"/><path d="M12.2 10.3V9a1.6 1.6 0 0 1 3.2 0v2.3M15.4 10.6a1.6 1.6 0 0 1 3.1.4v3.2a6.3 6.3 0 0 1-6.3 6.3h-.6a5.9 5.9 0 0 1-4.5-2.1L4.6 15a1.6 1.6 0 0 1 2.4-2.1L9 14.7"/>',
+  oled: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor"/>',
+  big: '<path d="M3.5 18.5L8 6.5l4.5 12M5.2 14h5.6"/><path d="M14.5 18.5l3-7.5 3 7.5M15.6 16h3.8"/>',
+  eye: '<path d="M2.8 12s3.3-6 9.2-6 9.2 6 9.2 6-3.3 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.8"/>',
+  bell: '<path d="M6.3 16.5V11a5.7 5.7 0 0 1 11.4 0v5.5l1.6 1.8H4.7z"/><path d="M10 20.3a2.2 2.2 0 0 0 4 0"/>',
+  warp: '<path d="M12 19.5s-7.5-4.4-7.5-9.6A4.1 4.1 0 0 1 12 7.6a4.1 4.1 0 0 1 7.5 2.3c0 5.2-7.5 9.6-7.5 9.6z"/>',
+  promo: '<path d="M4 8.2V6.5h16v1.7a2.2 2.2 0 0 0 0 4.3v1.7a2.2 2.2 0 0 0 0 4.3v1.7H4v-1.7a2.2 2.2 0 0 0 0-4.3v-1.7a2.2 2.2 0 0 0 0-4.3z" transform="translate(0 -1.2)"/><path d="M14 6v12" stroke-dasharray="1.6 2"/>',
+  doc: '<path d="M6.5 3.5h7.5l4 4v13h-11.5z"/><path d="M13.5 3.5V8h4.5M9.5 12h5M9.5 15.5h5"/>',
+  shield: '<path d="M12 3.5l7 2.6v5.6c0 4.4-3 7.6-7 8.8-4-1.2-7-4.4-7-8.8V6.1z"/><path d="M9 12.2l2.2 2.2 4-4.2"/>',
+  key: '<circle cx="8" cy="14" r="3.8"/><path d="M10.8 11.3l8.2-8.1M16.3 6l2.4 2.4M14 8.3l2 2"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  trash: '<path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l.9 13h9.2l.9-13M10.3 10.5v6M13.7 10.5v6"/>',
 };
-const _stIco = name => { const [c, d] = _ST_ICO[name] || _ST_ICO.doc; return `<span class="st-ico" style="--ri:${c}" aria-hidden="true"><svg viewBox="0 0 24 24">${d}</svg></span>`; };
+const _stIco = name => `<span class="st-ico${name === 'trash' ? ' st-ico--danger' : ''}" aria-hidden="true"><svg viewBox="0 0 24 24">${_ST_ICO[name] || _ST_ICO.doc}</svg></span>`;
 // Секция: подпись над группой, строки — в одной карточке, пояснение под ней
 const _stSec = (title, body, hint, mod) => `<section class="st-sec"><div class="v3-sec"><span class="v3-eyebrow">${title}</span></div><div class="st-card${mod ? ` st-card--${mod}` : ''}">${body}</div>${hint ? `<p class="st-hint">${hint}</p>` : ''}</section>`;
 const _stLine = (n = 3) => Array.from({ length: n }, () => '<div class="sk" style="height:44px;border-radius:12px;margin:8px 14px"></div>').join('');

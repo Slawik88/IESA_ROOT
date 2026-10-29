@@ -43,7 +43,7 @@ function openBotAdmin(){
 function _legalUrl(slug){ return BASE+'/legal/'+slug; }   // прямая публичная ссылка
 function openLegalDoc(slug){
   const t={tos:'📖 Пользовательское соглашение',privacy:'🔒 Политика конфиденциальности'};
-  OM(t[slug]||'Документ','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'ghost',f:'CM()'}]);
+  OM(t[slug]||'Документ',v3Skel('Загружаем документ…', 6),[{l:'Закрыть',c:'ghost',f:'CM()'}]);
   api('/legal/'+slug+'/text').then(d=>{
     el('mb').innerHTML=`<div class="legal-doc">${d.html}</div>
       <div class="legal-link">Прямая ссылка: <a href="${_legalUrl(slug)}" target="_blank" rel="noopener">${_legalUrl(slug)}</a></div>`;

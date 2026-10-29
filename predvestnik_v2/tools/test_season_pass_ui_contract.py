@@ -71,7 +71,7 @@ for number in (rules.LEVELS, rules.POINTS_PER_LEVEL, rules.MORA_PER_LEVEL, rules
 assert "claimed_level" in script and "per_level" in script and "claimable_levels" in script, "the screen reads the numbers the server sends"
 
 # Escaping: every text of the answer goes through the escaper, markup comes only from the script.
-assert script.count("_profileEsc(") >= 15 and "innerHTML = String(" not in script and "eval(" not in script and "new Function" not in script and "location" not in code
+assert script.count("_profileEsc(") + script.count("v3Head(") >= 15 and "innerHTML = String(" not in script and "eval(" not in script and "new Function" not in script and "location" not in code
 assert "insertAdjacentHTML('beforeend', '<i class=\"sr-only sp-sr\">, есть награда пропуска</i>')" in script
 
 # Styles: every sp-* class the script writes has a rule; motion is only opacity and transform and has the three off switches; no costly effects.

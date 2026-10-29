@@ -44,7 +44,7 @@ function mafiaHowTo(){
 
 function mafiaDate(v){ if(!v) return ''; const d=new Date(v); return isNaN(d)?'':d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}); }
 function openMafiaStats(){
-  OM('🕵️ Мафия — моя история','<div class="loader">Загружаем историю…</div>',[{l:'Закрыть',f:'CM()'}]);
+  OM('🕵️ Мафия — моя история',v3Skel('Загружаем историю…'),[{l:'Закрыть',f:'CM()'}]);
   api('/mafia-v1/me').then(d=>{
     const s=d.stats||{}, played=Number(s.played||0), wins=Number(s.wins||0);
     const role={citizen:['🧑','Мирный житель'],mafia:['🔫','Мафия'],don:['🎩','Дон'],doctor:['💉','Доктор'],detective:['🔎','Детектив']};

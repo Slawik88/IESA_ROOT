@@ -7,6 +7,7 @@ const path = require('node:path');
 const STATIC = path.join(__dirname, '..', 'FastAPI', 'static');
 const SOURCE = fs.readFileSync(path.join(STATIC, 'app.43.js'), 'utf8');
 const ESCAPER = /^function _profileEsc\(.*$/m.exec(fs.readFileSync(path.join(STATIC, 'app.02.js'), 'utf8'));
+const V3HEAD = /^function v3Head\([\s\S]*?\n}$/m.exec(fs.readFileSync(path.join(STATIC, 'app.20.js'), 'utf8'))[0];   // настоящая шапка вкладок
 assert.ok(ESCAPER, 'app.02.js defines _profileEsc, app.43.js escapes every server string through it');
 const NOW = Date.UTC(2026, 9, 13, 12, 0, 0);   // 13 октября 2026, полдень по UTC: идёт сезон 1 (с 11 октября 2026 до 11 мая 2027)
 class FixedDate extends Date {
@@ -57,7 +58,7 @@ function boot(extra = {}) {
     },
     console, Date: FixedDate, Math, JSON, Object, Array, Set, Promise, RegExp, String, Number,
     _sysFlags: { season_pass_v1: true }, _navStack: [], _loaded: new Set(),
-    el: id => els[id] || null, v3EnterSync() {}, v3GlintMark: t => `<span class="ap-gl" data-t="${t}"></span>`, _haptic: kind => log.push('haptic:' + kind),
+    el: id => els[id] || null, v3EnterSync() {}, v3CurIn: x => x, v3GlintMark: t => `<span class="ap-gl" data-t="${t}"></span>`, _haptic: kind => log.push('haptic:' + kind),
     fmt: n => Number(n).toLocaleString('ru'),
     switchPage: p => { calls.push(['switchPage', p]); if (!ctx._loaded.has(p)) { ctx._loaded.add(p); if (p === 'pass') ctx.loadSeasonPass(); } },   // как в app.01.js: страница помечается загруженной до вызова загрузчика
     navBack: () => calls.push(['navBack']),
@@ -70,6 +71,7 @@ function boot(extra = {}) {
     },
   }, extra));
   vm.runInContext(ESCAPER[0], ctx);
+  vm.runInContext(`var esc = _profileEsc;\n${V3HEAD}`, ctx);
   vm.runInContext(SOURCE + `
 ;globalThis.__sp = { _spWord, _spLevels, _spPoints, _spDate, _spGain, _spSeasons, _spReady, _spCanClaim, _spLoad, _spDock, _spDockSync, _spHubHtml, _spRender, _spRepaint,
   _spClaimBlock, _spTrack, _spHow, _spShowError, _spCelebrate, passCheck, passHubRow, openSeasonPass, loadSeasonPass, spBack, spClaim, get state() { return _sp; } };`, ctx);
@@ -119,8 +121,8 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
 
   await section('Страница: обычный день, три уровня к получению', () => {
     const t = boot(), html = render(t, answer());
-    assert.match(html, /<div class="eyebrow-row"><button type="button" class="v3-link" onclick="spBack\(\)" aria-label="Назад">‹ Назад<\/button><\/div>/);
-    assert.match(html, /<span class="v3-eyebrow">Сезон 1 · до 11 мая 2027<\/span>/);
+    assert.match(html, /<button type="button" class="v3-head-back" onclick="spBack\(\)" aria-label="Назад">‹<\/button>/, 'общая шапка v3Head');
+    assert.match(html, /<p class="v3-head-s">Сезон 1 до 11 мая 2027\. Очки дают Ритм и Сапёр, Пропуск бесплатный\.<\/p>/);
     assert.match(html, /<h1 class="v3-title">Пропуск сезона<span class="ap-gl" data-t="Пропуск сезона"><\/span><\/h1>/);
     assert.match(html, /<section class="sp-sec sp-hero" aria-label="Уровень 6 из 30">/);
     assert.match(html, /<b>6<\/b><span>из 30 уровней<\/span>/);
@@ -204,7 +206,7 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
     const prev = (o = {}) => season({ season: 1, current: false, level: 11, points: 3410, points_to_next: 190, claimed_level: 4, claimable_levels: 7, claimable: { mora: 280, essence: 70 }, ends_at: '2026-10-03T00:00:00+00:00', claim_until: '2026-11-12T00:00:00+00:00', ...o });
     const cur = season({ season: 2, points: 640, level: 2, points_to_next: 260, claimed_level: 2, claimable_levels: 0, claimable: { mora: 0, essence: 0 } });
     let html = render(t, answer({}, prev(), cur));
-    assert.match(html, /<span class="v3-eyebrow">Сезон 2 · до 11 мая 2027<\/span>/, 'шапка про текущий сезон');
+    assert.match(html, /<p class="v3-head-s">Сезон 2 до 11 мая 2027\./, 'шапка про текущий сезон');
     assert.match(html, /<b>2<\/b>/);
     assert.match(html, /<span class="v3-eyebrow" id="sp-h-prev">Сезон 1 закончился<\/span>/);
     assert.match(text(html), /Не забранные награды лежат до 12 ноября\. Пройдено 11 уровней из 30\./);
@@ -241,7 +243,7 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
       t.sp.state.me = me; t.sp._spRender();
       const html = flat(t.page.innerHTML);
       assert.match(html, /<b>Пропуск пока закрыт<\/b>Загляните позже/, JSON.stringify(me));
-      assert.match(html, /<span class="v3-eyebrow">Сезон игр<\/span>/);
+      assert.match(html, /<p class="v3-head-s">Очки дают Ритм и Сапёр/);
       assert.ok(!html.includes('spClaim('));
     }
     const lonely = boot({ el: () => null });

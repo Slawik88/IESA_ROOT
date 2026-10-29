@@ -146,7 +146,7 @@
       + ` aria-pressed="${chatTracker.sort === key}" onclick="chatTrackerSort('${key}')">${label}</button>`
     )).join('');
 
-    root.innerHTML = `<div class="chat-tracker-head">
+    root.innerHTML = v3CurIn(`<div class="chat-tracker-head">
         <button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button>
         <div><span class="v3-eyebrow">Ваша активность</span><h1>Трекер чатов</h1><p>Прогресс и история в каждом чате.</p></div>
       </div>
@@ -162,7 +162,7 @@
       </section>
       <section class="chat-tracker-list">${rows || chatTrackerEmptyState(hasQuery)}</section>
       ${chatTracker.error && rows ? `<div class="chat-tracker-page-error" role="alert"><span>Следующую страницу загрузить не удалось.</span><button type="button" onclick="chatTrackerLoadMore()">Повторить</button></div>` : ''}
-      ${chatTracker.nextOffset !== null ? `<button type="button" data-chat-more="true" class="chat-tracker-more" onclick="chatTrackerLoadMore()" ${chatTracker.busy ? 'disabled' : ''}>${chatTracker.busy ? 'Загружаем…' : 'Показать ещё'}</button>` : ''}`;
+      ${chatTracker.nextOffset !== null ? `<button type="button" data-chat-more="true" class="chat-tracker-more" onclick="chatTrackerLoadMore()" ${chatTracker.busy ? 'disabled' : ''}>${chatTracker.busy ? 'Загружаем…' : 'Показать ещё'}</button>` : ''}`);
 
     v3EnterSync(root);
     restoreChatTrackerFocus(root, focusState);
@@ -227,7 +227,7 @@
     switchPage('chat-tracker');
     const root = el('pg-chat-tracker');
     if (!root) return;
-    root.innerHTML = '<div class="loader" style="margin-top:44px">Собираем статистику чатов…</div>';
+    root.innerHTML = v3Skel('Собираем статистику чатов…', 5);
     loadChatTracker();
   };
   const PET_ACTIVITY_KINDS = Object.freeze(['trek', 'expedition']);
@@ -436,10 +436,10 @@
     _petData = data;
     const pets = data.pets || [];
     const ownedTab = _petPanel === 'owned';
-    root.innerHTML = `<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🐾 Питомцы</div></div>
+    root.innerHTML = v3CurIn(`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🐾 Питомцы</div></div>
       <div class="pet-tabs" role="tablist"><button type="button" role="tab" aria-selected="${ownedTab}" onclick="showPetPanel('owned',this)">Мои питомцы <small>${pets.length}</small></button><button type="button" role="tab" aria-selected="${!ownedTab}" onclick="showPetPanel('bestiary',this)">Бестиарий <small>${data.bestiary_owned || 0}/${data.bestiary_total || 0}</small></button></div>
       <div data-pet-panel="owned" ${ownedTab ? '' : 'hidden'}>${petOwnedPanel(data)}</div>
-      <div data-pet-panel="bestiary" ${ownedTab ? 'hidden' : ''}>${petDex(data)}</div>`;
+      <div data-pet-panel="bestiary" ${ownedTab ? 'hidden' : ''}>${petDex(data)}</div>`);
     if (_petDexFilter !== 'all') window.petDexFilter(_petDexFilter);
     petPassLine(root);
   }
@@ -457,7 +457,7 @@
 
   function petRefreshOwned() {
     const panel = el('pg-pets').querySelector('[data-pet-panel="owned"]');
-    if (panel && _petData) panel.innerHTML = petOwnedPanel(_petData);
+    if (panel && _petData) panel.innerHTML = v3CurIn(petOwnedPanel(_petData));
   }
   window.petSelect = function (id) { _petSel = Number(id); petRefreshOwned(); };
   window.petKind = function (kind) { _petKind = kind; petRefreshOwned(); };
@@ -465,7 +465,7 @@
   window.openPetsV1 = async function () {
     switchPage('pets');
     const root = el('pg-pets');
-    root.innerHTML = '<div class="loader" style="margin-top:44px">Загрузка питомцев…</div>';
+    root.innerHTML = v3Skel('Загрузка питомцев…', 5);
     try {
       renderPetsV1(root, await api('/pets-v1/me'));
     } catch (error) {
@@ -525,9 +525,9 @@
     const body = petInfoBody(sp, mine, data);
     const wrap = document.createElement('div');
     wrap.className = 'pt-sheet-wrap';
-    wrap.innerHTML = `<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${esc(sp.name)}">`
+    wrap.innerHTML = v3CurIn(`<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${esc(sp.name)}">`
       + `<span class="pt-ic" aria-hidden="true">${esc(sp.icon)}</span><small>${esc(petRarityName(sp.rarity))}${sp.owned ? '' : ' · не найден'}</small><h3>${esc(sp.name)}</h3>${body}`
-      + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>';
+      + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>');
     root.appendChild(wrap);
     wrap.querySelector('.pt-main').focus();
     document.addEventListener('keydown', _petSheetKey);
@@ -682,7 +682,7 @@
       return `<div class="ch-row"><span class="ch-tx"><b>${esc(o.name)} ${o.key_tier}★+</b><small>${left}</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost chest-offer" data-offer="${esc(o.offer_id)}" onclick="chestsV1AskOffer(this.dataset.offer,this)" ${busy||Number(o.remaining)<1?'disabled':''}>${chestPriceText(o.price)}</button></div>`;
     }).join(''):'';
     const loot=`${owned}/12 питомцев · ${fmt(cards)} карт · ${fmt(food)} еды · ${fmt(jokers)} джокеров`;
-    root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}
+    root.innerHTML=v3CurIn(`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}
       ${_chestsV1Prepared?'':chestsScene(chestRevealArt(0),_chestsV1Tier,tierBal,shelf?`${esc(tierName)} ключ${_chestsV1Tier>1?` · звёзд от ${_chestsV1Tier}`:''}`:_chestsV1Tier>1?`${esc(tierName)} ${_chestsV1Tier}★+`:achievementWord(tierBal,'ключ','ключа','ключей'),!!shelf)}
       ${shelf}<div class="ch-action">${action}</div>${result}
       ${offers?`<div class="v3-sec"><span class="v3-eyebrow">Ключи по звёздам</span></div><p class="ch-hint">Тот же сундук, но звёзды ниже N становятся N.</p><div class="ch-list">${offers}</div>`:''}
@@ -693,7 +693,7 @@
         <section class="chest-reward-tiers"><h2>Основная награда</h2>${d.provisions?`<p>${esc(d.provisions)}</p>`:''}${rewards}</section>
         ${d.tiers_enabled?'<p>Ключ уровня N поднимает звёзды ниже N до N.</p>':''}
         ${d.message?`<p>${esc(d.message)}</p>`:''}<p><b>Карты не пропадут.</b> ${esc(d.surplus_policy||'Лишние карты сохраняются в инвентаре.')}</p>
-      </details>`;
+      </details>`);
     v3EnterSync(root);
   }
   // Повторный вызов при открытом экране (после открытия, покупки, раскрытия) только перечитывает: без switchPage и без заглушки
@@ -809,7 +809,7 @@
       body=`${goal||`<p class="qs-state">${sum.done}/${sum.total} · за все ${questRewardValue(items[period])}</p>`}${rows?`<div class="qs-list">${rows}</div>`:'<div class="v3-empty"><b>Нет доступных заданий</b><span>Задания появятся, как только откроется доступная игра.</span> <button type="button" class="v3-link" onclick="openQuestsV1()">Обновить</button></div>'}`;
     }
     const tab=(id,label)=>`<button type="button" id="quest-tab-${id}" class="v3-tab${_questsV1Tab===id?' on':''}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" aria-controls="quest-panel" onclick="questsV1SetTab('${id}')">${label}</button>`;
-    root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю',end:v3GuideBtn('quests')})}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`;
+    root.innerHTML=v3CurIn(`${v3Head('Задания',{sub:'Цели на день и неделю',end:v3GuideBtn('quests')})}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`);
     v3EnterSync(root);
     if(typeof v3QuestsDone==='function')v3QuestsDone(root);
   }
@@ -1002,8 +1002,8 @@
     const sub = `${fmt(total)} из ${fmt(max)} уровней · получено ${fmt(summary.claimed_mora || 0)} 🪙`;
     // Карточка общего пути: кольцо открытых уровней и полученная Мора рисованной монетой (app.50.js); без неё — строка под заголовком
     const card = _achievementsV1Filter !== 'casino' && typeof v3GoalCard === 'function' ? v3GoalCard({ done: total, total: max, label: 'Открыто уровней · получено за них', reward: { amount_mora: summary.claimed_mora || 0 } }) : '';
-    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub: _achievementsV1Filter === 'casino' ? 'Значки за партии · прошлые игры тоже учитываются' : card ? 'Игры, приключения, развитие и чат' : sub, end: v3GuideBtn('ach') })}${card}${achievementTabs()}
-      ${badgeNote}${_achievementsV1Data.history_sync?.games_pending ? '<p class="ach-note" role="status">Восстанавливаем прошлые партии. Счёт обновится сам.</p>' : ''}<div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
+    root.innerHTML = v3CurIn(`${v3Head('Достижения', { back: 'achievementsV1Back()', sub: _achievementsV1Filter === 'casino' ? 'Значки за партии · прошлые игры тоже учитываются' : card ? 'Игры, приключения, развитие и чат' : sub, end: v3GuideBtn('ach') })}${card}${achievementTabs()}
+      ${badgeNote}${_achievementsV1Data.history_sync?.games_pending ? '<p class="ach-note" role="status">Восстанавливаем прошлые партии. Счёт обновится сам.</p>' : ''}<div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`);
     const tab = root.querySelector('.ach-tabs .v3-tab.on'), nav = tab?.parentElement;
     if (nav) { const t = tab.getBoundingClientRect(), n = nav.getBoundingClientRect(); nav.scrollLeft += Math.max(0, t.right - n.right) + Math.min(0, t.left - n.left); }
     v3EnterSync(root);

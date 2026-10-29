@@ -94,6 +94,11 @@ SCREENS = [
     ("marks", "v3MarksOpenOwn()"),
     ("mafia", "openMafiaStats()"),
     ("gifts", "openPartnerGifts()"),
+    # «Моя семья» (S13): у персоны стенда брака нет, второй сценарий — брак и предложение на подставленном ответе (на сервер ничего не уходит)
+    ("family", "openFamilyTree()"),
+    ("family-married", "const realApi = api; window.api = (p, o) => p === '/marriage/' ? Promise.resolve({married: true, partner_name: 'Лира', days: 41, family_balance: 12500, "
+                       "family_balance_diamonds: 3, family_balance_essence: 140, family_balance_zarniki: 25, received_gifts: [{name: 'Букет', sent_at: '2026-10-20'}]}) "
+                       ": p === '/marriage/proposals' ? Promise.resolve({proposals: [{id: 9, proposer_id: 77, proposer_name: 'Северин'}]}) : realApi.call(null, p, o); openFamilyTree()"),
     ("confirm", "v3Confirm({title:'Покупка', name:'Образ', sub:'Описание', price:300, icon:'✨', have:1200, cta:'Купить'})"),
     ("gift-toast", "v3GiftToast([{label:'VIP', amount:7, unit:'дн.', kind:'vip', glyph:'👑'}], ()=>{})"),
     ("toast", "toast('Готово, всё сохранено')"),
@@ -177,6 +182,14 @@ BLOCKS = """() => { const out = []; const allow = /(^|\\s)(nav|nb|v3-bar|v3-bar-
   document.querySelectorAll('button, input[type=button], input[type=submit], select').forEach(e => { const r = e.getBoundingClientRect(); if (!r.width || !r.height) return; const cs = getComputedStyle(e);
     if (cs.backgroundColor === ua && cs.backgroundImage === 'none' && cs.appearance !== 'none') out.push('UA-DEFAULT ' + e.tagName.toLowerCase() + '.' + String(e.className).trim().split(/\\s+/).slice(0, 3).join('.') + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)); });
   return out.slice(0, 60); }"""
+
+# Currency emoji left as text on screen (S13): the house style draws 🪙 💎 ✨ 💧 with v3Cur (app.50.js, v3CurIn for ready markup). Text-only places are exempt:
+# <option>, <textarea>, <title>, attributes (aria-label) and the canvas of a game page.
+CURRENCY = """() => { const out = []; const re = /🪙|💎|✨|💧/u; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let t = w.nextNode(); t; t = w.nextNode()) { if (!re.test(t.data)) continue; const p = t.parentElement; if (!p || p.closest('option, textarea, title, script, style, template')) continue;
+    if (!p.getClientRects().length || getComputedStyle(p).visibility === 'hidden') continue;
+    out.push('EMOJI-CURRENCY ' + p.tagName.toLowerCase() + (typeof p.className === 'string' && p.className ? '.' + p.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + ' «' + t.data.trim().slice(0, 40) + '»'); }
+  return [...new Set(out)].slice(0, 20); }"""
 
 # Labels of controls the crawler never presses: they spend, delete or leave the account in another state.
 SKIP_CLICK = r"подтверд|удалить|отправить|принять и|выйти|сбросить|оплат|продолжить и|да, |забрать|выбрать (осторожный|ровный|рискованный)|улучшить|перековать|сдать|дать|начать|сохранить сборку|открыть за одно очко"

@@ -84,7 +84,7 @@ function _trRender() {
   const opened = same ? [...root.querySelectorAll('details[data-detail][open]')].map(n => n.dataset.detail) : [];
   const focus = same && root.contains(document.activeElement) ? document.activeElement?.dataset?.f : null;
   const view = _TR_VIEWS[_tr.view] || _TR_VIEWS.hub;
-  root.innerHTML = `${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}${_tr.view === 'hub' && _tr.me.star_dust?.enabled ? `<section class="tr-grp"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 ${fmt(_tr.me.star_dust.balance)} пыли · VIP за игру ›</button></section>` : ''}`;
+  root.innerHTML = v3CurIn(`${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}${_tr.view === 'hub' && _tr.me.star_dust?.enabled ? `<section class="tr-grp"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 ${fmt(_tr.me.star_dust.balance)} пыли · VIP за игру ›</button></section>` : ''}`);
   root.dataset.trView = `${_tr.view}:${_tr.pet}:${_tr.tab || ''}`;
   opened.forEach(key => root.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open', ''));
   v3EnterSync(root);
@@ -286,7 +286,7 @@ function _trSheet(html) {
   const keep = document.getElementById('tr-sheet') ? _tr.opener : document.activeElement;
   trailClose(true); _tr.opener = keep;
   const host = document.createElement('div'); host.id = 'tr-sheet'; host.className = 'lk-sheet-back';
-  host.innerHTML = `<section class="lk-sheet tr-sheet" role="dialog" aria-modal="true" aria-labelledby="tr-sheet-t" tabindex="-1">${html}</section>`;
+  host.innerHTML = v3CurIn(`<section class="lk-sheet tr-sheet" role="dialog" aria-modal="true" aria-labelledby="tr-sheet-t" tabindex="-1">${html}</section>`);
   host.addEventListener('click', e => { if (e.target === host) trailClose(); });
   _trKeys = e => {
     if (document.getElementById('cf-sheet')) return;   // сверху окно подтверждения: клавиши принадлежат ему
@@ -304,7 +304,7 @@ function _trRepaint(html) {
   const sheet = document.querySelector('#tr-sheet .tr-sheet'); if (!sheet) return _trSheet(html);
   const body = sheet.querySelector('.tr-sbody'), top = body ? body.scrollTop : 0, key = document.activeElement?.dataset?.f;
   const opened = [...sheet.querySelectorAll('details[data-detail][open]')].map(n=>n.dataset.detail);
-  sheet.innerHTML = html;
+  sheet.innerHTML = v3CurIn(html);
   opened.forEach(key=>sheet.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open',''));
   const next = sheet.querySelector('.tr-sbody'); if (next) next.scrollTop = top;
   (key && sheet.querySelector(`[data-f="${key}"]`) || sheet).focus({ preventScroll: true });

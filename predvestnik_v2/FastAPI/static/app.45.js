@@ -50,7 +50,7 @@ function _giftCard(g) {
 }
 
 function _giftsTab() {
-  const d = _gifts.me; if (!d) return '<div class="loader">Загрузка…</div>';
+  const d = _gifts.me; if (!d) return v3Skel('Загружаем подарки…');
   const who = d.recipient ? `Кому: <b>${_profileEsc(d.recipient.name)}</b>` : _profileEsc(d.unavailable_reason || 'Подарки пока можно дарить только супругу.');
   const tiers = (d.tiers || []).map(t => `<section class="gift-tier gt${_giftTier(t.tier)}" aria-label="${_profileEsc(t.name)}">
       <h3><span class="gift-gem" aria-hidden="true"></span>${_profileEsc(t.name)}</h3>
@@ -137,11 +137,11 @@ function giftsShelfRender() {
   const shelves = (s.tiers || []).map(t => `<div class="gift-shelf gt${_giftTier(t.tier)}"><span class="gift-shelf-name">${_profileEsc(t.name)}</span><div class="gift-slots">${(t.slots || []).map(x => x.count > 0
     ? `<button type="button" class="gift-slot gt${_giftTier(t.tier)} is-on" onclick="giftSlot('${_profileEsc(x.gift_id)}')" aria-label="${_profileEsc(x.name)}: ${fmt(x.count)}"><span aria-hidden="true">${_profileEsc(x.icon)}</span>${x.count > 1 ? `<b>×${fmt(x.count)}</b>` : ''}</button>`
     : `<span class="gift-slot is-empty" role="img" aria-label="${_profileEsc(x.name)}: ещё нет"><span aria-hidden="true">${_profileEsc(x.icon)}</span></span>`).join('')}</div></div>`).join('');
-  host.innerHTML = `<div class="v3-sec"><span class="v3-eyebrow">Подарки</span><button type="button" class="v3-link" onclick="openGiftHistory()">История</button></div>
+  host.innerHTML = v3CurIn(`<div class="v3-sec"><span class="v3-eyebrow">Подарки</span><button type="button" class="v3-link" onclick="openGiftHistory()">История</button></div>
     <div class="gift-counts"><span>Получено <b>${fmt(c.received || 0)}</b></span><span>Отправлено <b>${fmt(c.sent || 0)}</b></span></div>
     ${(s.pinned || []).length ? `<div class="gift-showcase" aria-label="Витрина"><span class="gift-shelf-name">Витрина</span><div class="gift-slots">${_giftPinned(s.pinned)}</div></div>` : ''}
     ${c.received ? '' : '<p class="v3-empty gift-empty">Пока нет подарков</p>'}
-    <div class="gift-shelves">${shelves}</div>`;
+    <div class="gift-shelves">${shelves}</div>`);
   const name = document.querySelector('#pro-main .v3-name');   // значок за легендарный подарок рядом с именем
   if (name) { name.querySelector('.gift-badge')?.remove(); name.insertAdjacentHTML('beforeend', giftBadgeHtml(s.top_badge)); }
 }
@@ -156,11 +156,11 @@ function _giftRow(h, box) {
 }
 // Тап по подарку на полке: кто, когда, записка, тир и звезда «на витрину» (не больше трёх).
 function giftSlot(giftId) {
-  OM('Подарок', '<div class="loader">Загрузка…</div>', [{ l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
+  OM('Подарок', v3Skel('Загружаем подарки…'), [{ l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
   _gifts.slot = giftId;
   api(`/gifts-v2/history?box=received&gift_id=${encodeURIComponent(giftId)}`).then(r => {
     const rows = r.items || [];
-    el('mb').innerHTML = rows.length ? `<p class="v3-sub">Звезда ставит подарок на витрину: её видят другие игроки (до ${fmt(_gifts.me?.pin_max || 3)}).</p><ul class="gift-list">${rows.map(h => _giftRow(h, 'received')).join('')}</ul>` : '<p class="v3-empty">Пока нет подарков</p>';
+    el('mb').innerHTML = v3CurIn(rows.length ? `<p class="v3-sub">Звезда ставит подарок на витрину: её видят другие игроки (до ${fmt(_gifts.me?.pin_max || 3)}).</p><ul class="gift-list">${rows.map(h => _giftRow(h, 'received')).join('')}</ul>` : '<p class="v3-empty">Пока нет подарков</p>');
   }).catch(e => { el('mb').innerHTML = `<p class="v3-empty">${_profileEsc(typeof e === 'string' ? e : _GIFT_OFFLINE)}</p>`; });
 }
 function giftPin(sendId, pinned) {
@@ -174,7 +174,7 @@ function giftPin(sendId, pinned) {
 // История: получено / отправлено, фильтр по тиру.
 function openGiftHistory() {
   _gifts.histOpen = true; _gifts.slot = null;
-  OM('История подарков', '<div id="gift-hist"><div class="loader">Загрузка…</div></div>', [{ l: 'Закрыть', c: 'ghost', f: 'CM();_gifts.histOpen=false' }]);
+  OM('История подарков', `<div id="gift-hist">${v3Skel('Загружаем историю…')}</div>`, [{ l: 'Закрыть', c: 'ghost', f: 'CM();_gifts.histOpen=false' }]);
   _giftHistLoad();
 }
 function giftHist(box, tier) { if (box) _gifts.hist.box = box; if (tier != null) _gifts.hist.tier = tier; _giftHistLoad(); }
@@ -183,10 +183,10 @@ function _giftHistLoad() {
   const names = (_gifts.me?.tiers || []).map(t => [t.tier, t.name]);
   const head = `<div class="shop-switch" role="group" aria-label="Список">${[['received', 'Получено'], ['sent', 'Отправлено']].map(([k, l]) => `<button type="button" aria-pressed="${h.box === k}" onclick="giftHist('${k}')">${l}</button>`).join('')}</div>
     <div class="gift-filter" role="group" aria-label="Тир">${[[0, 'Все'], ...names].map(([t, l]) => `<button type="button" class="v3-chip" aria-pressed="${h.tier === t}" onclick="giftHist(null,${t})">${_profileEsc(l)}</button>`).join('')}</div>`;
-  if (host()) host().innerHTML = `${head}<div class="loader">Загрузка…</div>`;
+  if (host()) host().innerHTML = `${head}${v3Skel('Загружаем историю…')}`;
   api(`/gifts-v2/history?box=${h.box}${h.tier ? `&tier=${h.tier}` : ''}`).then(r => {
     const rows = r.items || [];
-    if (host()) host().innerHTML = `${head}${rows.length ? `<ul class="gift-list">${rows.map(x => _giftRow(x, h.box)).join('')}</ul>` : '<p class="v3-empty">Пока нет подарков</p>'}`;
+    if (host()) host().innerHTML = v3CurIn(`${head}${rows.length ? `<ul class="gift-list">${rows.map(x => _giftRow(x, h.box)).join('')}</ul>` : '<p class="v3-empty">Пока нет подарков</p>'}`);
   }).catch(e => { if (host()) host().innerHTML = `${head}<p class="v3-empty">${_profileEsc(typeof e === 'string' ? e : _GIFT_OFFLINE)}</p>`; });
 }
 
