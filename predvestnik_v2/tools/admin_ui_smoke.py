@@ -20,6 +20,8 @@ OPENERS = {"admin-purge": f"purgeView(document.querySelector('#main'), {CHAT['id
            **{f"admin-{tab}": f"open('{tab}')" for tab in ("reports", "journal", "broadcast", "access", "metrics")}}
 PROBE = """() => {
   const fails = [], w = innerWidth;
+  const native = document.createElement('button'); document.body.append(native);
+  const nativeBg = getComputedStyle(native).backgroundColor; native.remove();
   const visible = n => n.getClientRects().length && !n.closest('[hidden],details:not([open]) > :not(summary)');
   const scrollParent = n => { for (let p=n.parentElement;p && p!==document.body;p=p.parentElement) {
     if (['auto','scroll'].includes(getComputedStyle(p).overflowX) && p.scrollWidth>p.clientWidth) return p;
@@ -29,6 +31,7 @@ PROBE = """() => {
     const r=n.getBoundingClientRect(), css=getComputedStyle(n), scroll=scrollParent(n);
     if (r.width && !scroll && (r.left < -1 || r.right > w+1)) fails.push('overflow '+n.tagName+'.'+n.className);
     const interactive=n.matches('button,a[href],input,select,textarea,summary,[onclick],[role=button]') || (typeof n.onclick==='function' && !n.matches('div,section,main,nav'));
+    if (n.matches('button') && !n.disabled && css.backgroundColor === nativeBg) fails.push('native button '+n.className);
     if (interactive && !n.disabled && (r.width <43.5 || r.height <43.5)) fails.push('target '+n.tagName+'.'+n.className+' '+Math.round(r.width)+'x'+Math.round(r.height));
     if (n.matches('input,select,textarea') && parseFloat(css.fontSize)<16) fails.push('font '+n.tagName+' '+css.fontSize);
   }

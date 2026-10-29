@@ -514,7 +514,10 @@ a[href="#"], a.ag-link { display: inline-flex; align-items: center; overflow-wra
 summary { display: flex; align-items: center; cursor: pointer; gap: 8px; color: var(--v3-dim); }
 summary::before { content: '›'; }
 details[open] > summary::before { transform: rotate(90deg); }
-button.chip, .chip[onclick] { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; }
+button.chip, .chip[onclick] { appearance: none; display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; background: transparent; box-shadow: none; font-family: inherit; cursor: pointer; }
+.filters .chip { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 4px; color: var(--v3-dim); }
+.filters .chip.ok { border-bottom-color: var(--v3-acc); color: var(--v3-ink); font-weight: 600; }
+.filters .chip:hover { color: var(--v3-ink); }
 .top { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px 44px; gap: 4px; padding: calc(8px + var(--v3-safe-t)) 16px 4px; max-width: 900px; margin: auto; }
 .top .brand { font-size: 18px; }
 .top .who { grid-row: 2; grid-column: 2 / -1; margin: -4px 0 0; font-size: 12px; }
