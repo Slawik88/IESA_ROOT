@@ -52,12 +52,19 @@ async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db), _
             "punish": [{"key": k, "title": people.ACTIONS[k][0]} for k in PUNISH if user["rank"] >= people._min(user, k)]}
 
 
-async def _finish(db, user: dict, report: dict, status: str, note: str) -> None:
+async def _live_badge(db) -> None:
+    """Значок «Жалобы» у других сотрудников — сразу. Только сигнал: без него значок обновится сам через минуту."""
+    try:
+        notify_many(await reports_service.staff_watchers(db), reports_service.LIVE_EVENT)
+    except Exception as exc:
+        logger.warning(f"report live badge skipped: {exc}")
+
+
+async def _finish(db, user: dict, report: dict, status: str, note: str, *, live: bool = True) -> None:
     """Сменить статус жалобы, записать в журнал и написать автору, чем закончилось."""
     rid = report["id"]
     if not await reports_service.set_status(db, rid, status, user["id"], note):
         raise HTTPException(409, "Жалоба уже закрыта.")
-    notify_many(await reports_service.staff_watchers(db), reports_service.LIVE_EVENT)   # значок у других сотрудников — сразу
     await admin_people.audit(db, user["id"], f"report_{status}", user_id=report["target_id"], chat_id=report["chat_id"],
                              details={"report": rid, "reason": note} if note else {"report": rid})
     if status in NOTICE:
@@ -65,6 +72,8 @@ async def _finish(db, user: dict, report: dict, status: str, note: str) -> None:
             await get_bot().send_message(report["reporter_id"], NOTICE[status].format(id=rid))
         except Exception as exc:   # игрок не открывал личку с ботом
             logger.debug(f"report {rid} notice failed: {exc}")
+    if live:
+        await _live_badge(db)
 
 
 @router.post("/reports/bulk")   # раньше «/reports/{rid}»: иначе «bulk» разбирался бы как номер жалобы
@@ -104,12 +113,14 @@ async def reports_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
                 raise HTTPException(409, "Жалоба уже закрыта.")
             if status == "in_work" and report["status"] == "in_work":
                 raise HTTPException(409, "Жалоба уже в работе.")
-            await _finish(db, user, report, status, note)
+            await _finish(db, user, report, status, note, live=False)
             done += 1
         except HTTPException as exc:
             failed.append({"id": rid, "reason": str(exc.detail)})
         finally:
             _busy.discard(rid)
+    if done:
+        await _live_badge(db)   # один сигнал на всю пачку
     return {"ok": True, "done": done, "failed": failed,
             "message": f"Готово: {done} из {len(ids)}. {reports_service.STATUS_TITLES[status]}."}
 

@@ -473,6 +473,13 @@ async def _check_private(db, rewards: list[dict], max_act: int, users: list[int]
 
 
 async def set_active(db, code: str, active: bool, *, actor_id: int) -> dict:
+    if active:   # включить код с Зарниками или образом — та же выдача, что и создать его: права те же
+        item = await get_code(db, code)
+        if not item:
+            raise PromoError("Промокод не найден.")
+        rewards = [r for r in item.get("rewards") or [] if isinstance(r, dict)]
+        await require_zarniki_rights(db, rewards, actor_id)
+        await require_skin_rights(db, rewards, actor_id)
     async with db.execute("UPDATE promocodes SET is_active = ?::int, updated_by = ?, updated_at = NOW() "
                           "WHERE upper(code) = ? RETURNING 1", (active, actor_id, normalize_code(code))) as cur:
         if not await cur.fetchone():

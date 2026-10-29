@@ -77,6 +77,7 @@ async def prepare():
         await db.execute("INSERT INTO chat_blacklist (chat_id, user_id, reason) VALUES (-100, ?, 'спам')", (P3,))
         await db.execute("UPDATE user_chat_stats SET muted_until = NOW() + INTERVAL '1 hour' WHERE user_tg_id = ? AND chat_tg_id IN (-100, -200)", (P1,))
         await db.execute("INSERT INTO moderation_logs (chat_id, user_id, admin_id, action, reason) VALUES (-100, 0, ?, 'purge_start', 'норма 10')", (HELPER,))
+        await db.execute("INSERT INTO moderation_logs (chat_id, user_id, admin_id, action, reason) VALUES (-100, ?, ?, 'warn', '=HYPERLINK(1)')", (P1, HELPER))
 
 
 async def checks():
@@ -119,8 +120,12 @@ async def checks():
     assert [p["id"] for p in active1["players"]] == [P1], active1
     silent = await get(HELPER, "/search?filter=silent&paged=1")
     assert {DEV, HELPER, CODER, SILENT} <= {p["id"] for p in silent["players"]} and P1 not in {p["id"] for p in silent["players"]}, silent
-    linked = await get(HELPER, f"/search?filter=linked:{P1}&paged=1")
+    linked = await get(CODER, f"/search?filter=linked:{P1}&paged=1")
     assert [p["id"] for p in linked["players"]] == [P3] and linked["filter_title"] == f"Связи игрока id{P1}", linked
+    hidden = await get(HELPER, f"/search?filter=linked:{P1}&paged=1")   # связи видят со старшего хелпера, как в карточке
+    assert "filter_title" not in hidden and len(hidden["players"]) > 1, hidden
+    unpaged = await get(HELPER, "/search?filter=idle:30")   # старый экран фильтр с числом не знает: и подписи нет
+    assert "filter_title" not in unpaged, unpaged
     both = await get(HELPER, "/search?q=анна&filter=active:1&paged=1")
     assert [p["id"] for p in both["players"]] == [P1] and both["chats"] == [], both
     for bad in ("idle:0", "idle:9999", "active:x", "linked:", "nope"):
@@ -152,8 +157,8 @@ async def checks():
                           json={"action": "balance", "currency": "mora", "amount": "250", "reason": "приз"})
     assert r.status_code == 200, r.text
     card = await get(HELPER, f"/player/{P1}")
-    assert [(w["code"], w["delta"]) for w in card["wallet"][:2]] == [("mora", 250.0), ("essence", 30.0)], card["wallet"]
-    assert card["wallet"][0]["reason"] == "Выдано и списано из админки" and card["wallet"][0]["after"] == 250.0, card["wallet"]
+    assert [(w["code"], w["delta"]) for w in card["wallet"][:2]] == [("mora", "250"), ("essence", "30")], card["wallet"]
+    assert card["wallet"][0]["reason"] == "Выдано и списано из админки" and card["wallet"][0]["after"] == "250", card["wallet"]
     assert card["skins"] == {"equipped": None, "items": []}, card["skins"]
     assert "skin_revoke" in card["confirm_rules"]["actions"], card["confirm_rules"]
 
@@ -207,6 +212,11 @@ async def checks():
     assert r.status_code == 400 and "только создатель" in r.json()["detail"], r.text   # обход через правку своего кода
     r = await client.post("/bot-admin/api/promo", headers=h[DEV], json={"code": "SKIN-OK", "max_activations": 1, "rewards": [skin_reward]})
     assert r.status_code == 200, r.text
+    assert (await client.post("/bot-admin/api/promo/SKIN-OK/active", headers=h[DEV], json={"active": False})).status_code == 200
+    r = await client.post("/bot-admin/api/promo/SKIN-OK/active", headers=h[CODER], json={"active": True})   # включить = выдать
+    assert r.status_code == 400 and "только создатель" in r.json()["detail"], r.text
+    assert (await client.post("/bot-admin/api/promo/SKIN-OK/active", headers=h[CODER], json={"active": False})).status_code == 200
+    assert (await client.post("/bot-admin/api/promo/MORA-X/active", headers=h[CODER], json={"active": True})).status_code == 200
 
     # ── Журнал: «Чистка» в ленте, фильтр по игроку и чату, выгрузка ──
     feed = await get(CODER, "/journal?kind=purge")
@@ -218,6 +228,7 @@ async def checks():
     r = await client.get(f"/bot-admin/api/journal/export?days=500&user_id={P1}", headers=h[CODER])
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv"), r.text
     assert r.text.startswith("﻿Когда (UTC);Действие") and "Баланс" in r.text and "журнал" not in r.text.lower().split("\n")[1], r.text[:300]
+    assert "'=HYPERLINK(1)" in r.text and ";=HYPERLINK" not in r.text, "текст из чата не становится формулой"
     assert (await client.get("/bot-admin/api/journal/export", headers=h[HELPER])).status_code == 403   # журнал — с роли 4
     latest = (await get(CODER, "/journal?kind=settings"))["items"][0]
     assert latest["action"] == "journal_export" and latest["text"].startswith("за 90 дней"), latest
@@ -234,6 +245,13 @@ async def checks():
         await db.execute("UPDATE user_chat_stats SET muted_until = NOW() + INTERVAL '1 hour' WHERE user_tg_id = ? AND chat_tg_id = -100", (P2,))
     body = (await client.post("/bot-admin/api/players/bulk", headers=h[HELPER], json={"action": "unmute_all", "ids": [P2, CODER]})).json()
     assert body["done"] == 1 and body["message"] == "Готово: 1 из 2. Снято мутов: 1." and body["failed"][0]["id"] == CODER, body   # роль выше
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        await db.execute("UPDATE user_chat_stats SET muted_until = NOW() + INTERVAL '1 hour' WHERE user_tg_id = ? AND chat_tg_id IN (-100, -200)", (P1,))
+    body = (await client.post("/bot-admin/api/players/bulk", headers=h[HELPER], json={"action": "unmute_all", "ids": [P1]})).json()
+    assert body["done"] == 0 and "Не везде" in body["failed"][0]["reason"] and "Чат без прав" in body["failed"][0]["reason"], body
+    async with get_pool().acquire() as conn:   # отказ в одном чате не остановил другой
+        assert await conn.fetchval("SELECT muted_until IS NULL FROM user_chat_stats WHERE user_tg_id = $1 AND chat_tg_id = -100", P1)
     assert (await client.post("/bot-admin/api/players/bulk", headers=h[P1], json={"action": "unmute_all", "ids": [P2]})).status_code == 403
 
     # ── Живой значок жалоб: персонал онлайн получает сигнал, игрок — нет ──

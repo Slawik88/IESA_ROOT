@@ -306,13 +306,16 @@ async def _mark_search(db, q: str, flt: str, offset: int) -> dict:
             "next_offset": offset + FILTER_LIMIT if offset + FILTER_LIMIT < total else None}
 
 
-async def search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0, paged: bool = False) -> dict:
+async def search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0, paged: bool = False, linked_ok: bool = True) -> dict:
     """Поиск людей и чатов; к найденным людям — подписанная ссылка на фото (у всех игроков) и бан/мут/варны сейчас.
-    paged — страницы у любого поиска и фильтра (total, offset, next_offset); без него ответ прежний."""
+    paged — страницы у любого поиска и фильтра (total, offset, next_offset); без него ответ прежний.
+    linked_ok — можно ли «связи игрока» (их видят со старшего хелпера, как в карточке); нельзя — фильтр не применяется."""
+    if flt.startswith("linked:") and not linked_ok:
+        flt = ""
     data = await _search(db, q, limit=limit, flt=flt, offset=offset, paged=paged)
     await _with_status(db, data.get("players") or [])
     admin_avatars.attach(data.get("players") or [])
-    if data.get("players") is not None and flt and is_known_filter(flt):
+    if flt and (flt in FILTERS or (paged and is_known_filter(flt))):   # подпись — только у фильтра, который применился
         data["filter_title"] = filter_title(flt)
     return data
 
@@ -610,14 +613,18 @@ async def export_csv(db, *, kind: str = "", actor_id: int | None = None, user_id
                             limit=EXPORT_MAX_ROWS)
     names = await _names(db, [r[0] for r in rows] + [r[2] for r in rows])
     titles = await _chat_titles(db, [r[3] for r in rows])
+    def cell(value) -> str:   # текст игроков и чатов не должен стать формулой в Excel
+        text = str(value)
+        return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
     out = io.StringIO()
     table = csv.writer(out, delimiter=";")
     table.writerow(["Когда (UTC)", "Действие", "Суть", "Причина", "Кто", "ID кто", "Игрок", "ID игрока", "Чат", "ID чата"])
     for actor, action, uid, cid, extra, at in rows:
         details = _details(extra)
-        table.writerow([at.strftime("%Y-%m-%d %H:%M:%S") if at else "", ACTION_TITLES.get(action, action), describe(action, details),
-                        str(details.get("reason") or ""), names.get(int(actor)) or "" if actor else "бот", actor or "",
-                        names.get(int(uid)) or "" if uid else "", uid or "", titles.get(int(cid)) or "" if cid else "", cid or ""])
+        table.writerow([at.strftime("%Y-%m-%d %H:%M:%S") if at else "", ACTION_TITLES.get(action, action), cell(describe(action, details)),
+                        cell(details.get("reason") or ""), cell(names.get(int(actor)) or "" if actor else "бот"), actor or "",
+                        cell(names.get(int(uid)) or "" if uid else ""), uid or "", cell(titles.get(int(cid)) or "" if cid else ""), cid or ""])
     return "\ufeff" + out.getvalue(), len(rows)   # BOM: Excel открывает русский текст без кракозябр
 
 
@@ -712,6 +719,12 @@ _WALLET_CURRENCIES = {"mora": "🪙 Мора", "diamonds": "💎 Алмазы", 
                       "essence": "🔮 Эссенция"}
 
 
+def _amount(value) -> str:
+    """Сумма строкой без лишних нулей (деньги не через float): 250.000000 → «250», 1.50 → «1.5»."""
+    text = format(value, "f") if not isinstance(value, str) else value
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
 async def wallet(db, uid: int, limit: int = WALLET_LIMIT) -> list[dict]:
     """Последние движения валют игрока (общий журнал валют и журнал Эссенции): когда, сколько, откуда. Только чтение."""
     from services.bot_metrics import reason_title
@@ -725,7 +738,7 @@ async def wallet(db, uid: int, limit: int = WALLET_LIMIT) -> list[dict]:
                 continue
         async with db.execute(sql, (uid, limit)) as cur:
             rows = await cur.fetchall()
-        out += [{"currency": _WALLET_CURRENCIES.get(str(c), str(c)), "code": str(c), "delta": float(d), "after": float(a),
+        out += [{"currency": _WALLET_CURRENCIES.get(str(c), str(c)), "code": str(c), "delta": _amount(d), "after": _amount(a),
                  "reason": reason_title(str(r)), "at": _iso(at)} for c, d, a, r, at in rows]
     out.sort(key=lambda x: x["at"] or "", reverse=True)
     return out[:limit]

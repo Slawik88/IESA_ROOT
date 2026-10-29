@@ -165,7 +165,7 @@ def _tg_error(exc: Exception) -> HTTPException:
 @router.get("/search")
 async def search(q: str = "", filter: str = "", offset: int = Query(0, ge=0, le=1_000_000), paged: bool = False,
                  user=Depends(_user), db=Depends(get_db)):
-    return await admin_people.search(db, q, flt=filter, offset=offset, paged=paged)
+    return await admin_people.search(db, q, flt=filter, offset=offset, paged=paged, linked_ok=user["rank"] >= LINKED_MIN_RANK)
 
 
 @router.get("/my-chats")
@@ -312,6 +312,7 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
         raise HTTPException(400, "Укажите причину — она попадёт в журнал.")
     admin_security.rate_limit(user, action, len(ids))
     done, warns, unmuted, failed = 0, 0, 0, []
+    unmute_errors: list[str] = []
     names = await admin_people._names(db, ids)
 
     for uid in ids:
@@ -333,7 +334,10 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
                 for cid in chats:
                     warns += await moderation.revoke_all_warns(db, cid, uid, actor)
             elif action == "unmute_all":
-                unmuted += await _unmute_everywhere(db, uid, actor)
+                lifted, errors = await _unmute_everywhere(db, uid, actor)
+                unmuted += lifted
+                if errors:
+                    raise HTTPException(409, "Не везде: " + "; ".join(errors))
             elif action == "watch":
                 if await staff_watch.add(db, uid, actor, reason):
                     await admin_people.audit(db, actor, "watch_add", user_id=uid, details={"reason": reason})
@@ -352,17 +356,21 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
     return {"ok": True, "done": done, "failed": failed, "message": message}
 
 
-async def _unmute_everywhere(db, uid: int, actor: int) -> int:
-    """Снять мут во всех чатах, где он действует сейчас. Telegram отказал в одном чате — игрок уходит в «не вышло» с причиной."""
-    async with db.execute("SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? AND muted_until > NOW()", (uid,)) as cur:
-        chats = [int(r[0]) for r in await cur.fetchall()]
+async def _unmute_everywhere(db, uid: int, actor: int) -> tuple[int, list[str]]:
+    """Снять мут во всех чатах, где он действует сейчас. Отказ Telegram в одном чате не останавливает остальные:
+    (сколько снято, причины отказов по чатам)."""
+    async with db.execute("SELECT s.chat_tg_id, c.chat_title FROM user_chat_stats s LEFT JOIN chat_settings c ON c.chat_id = s.chat_tg_id "
+                          "WHERE s.user_tg_id = ? AND s.muted_until > NOW()", (uid,)) as cur:
+        chats = [(int(r[0]), r[1] or str(r[0])) for r in await cur.fetchall()]
+    lifted, errors = 0, []
     with outbound_throttle.urgent():
-        for cid in chats:
+        for cid, title in chats:
             try:
                 await moderation.do_unmute(get_bot(), db, cid, uid, actor)
+                lifted += 1
             except Exception as exc:
-                raise _tg_error(exc)
-    return len(chats)
+                errors.append(f"«{title}»: {_tg_error(exc).detail}")
+    return lifted, errors
 
 
 @router.get("/chat/{cid}")

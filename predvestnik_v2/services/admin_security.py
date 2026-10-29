@@ -37,7 +37,8 @@ BALANCE_CONFIRM = {"mora": Decimal(100_000), "diamonds": Decimal(100), "essence"
 
 # ── Лимиты частоты (на одного сотрудника, в памяти процесса) ──
 SENSITIVE_ACTIONS = frozenset({"balance", "vip", "rank", "global_ban", "global_unban", "mark_grant", "mark_revoke", "block",
-                               "unblock", "message", "dm", "skin_grant", "skin_revoke", "leave", "revoke_sessions", "promo_create", "promo_update", "promo_bulk", "broadcast"})
+                               "unblock", "message", "dm", "skin_grant", "skin_revoke", "leave", "revoke_sessions", "promo_create", "promo_update", "promo_bulk", "broadcast",
+                               "journal_export"})
 LIMITS = {"moderation": (60, 300), "sensitive": (60, 3600)}   # сколько действий за сколько секунд
 _hits: dict[tuple[int, str], deque] = defaultdict(deque)
 
