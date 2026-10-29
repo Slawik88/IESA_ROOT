@@ -188,3 +188,9 @@ BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_db_hot_queries.py --dsn "$DSN" --inde
 runuser -u postgres -- /usr/lib/postgresql/16/bin/pg_ctl -D /var/lib/postgresql/preprod-16 stop     # остановить базу
 rm -rf /var/lib/postgresql/preprod-16                                                               # полный сброс (потом снова env-setup.sh)
 ```
+
+## Админка на телефоне (S11)
+
+`tools/ui_smoke.py --only admin-search,admin-player,admin-reports,admin-journal,admin-broadcast,admin-access,admin-purge,admin-metrics --widths 320,390,430` запускает 216 сценариев на фикстурах без базы и Telegram. Восемь образов, 44 px/16 px, контраст, листы и клавиатура. Снимки: `--shots DIR`. `admin_stand.py --tabs people,player,journal,reports,access,broadcast,purge` снимает отдельные разделы; `--static DIR` позволяет сравнить старую папку bot-admin.
+
+Windows: `env-setup.sh` рассчитан на Linux и без python3.12 не запускается. В S11 использованы установленные Python 3.11 и Chromium, отдельный тестовый PostgreSQL 17 на локальном порту 55411, доверенная аутентификация только localhost. Тестовые базы создавались с ICU (`und`) и UTC: libc C не сравнивает кириллицу без учёта регистра, а не-UTC с наивными timestamps даёт неверное число дней VIP. На прод ничего из этого не переносится.
