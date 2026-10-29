@@ -168,9 +168,10 @@ function purgePost(cid, path, body, keepalive = false) {
   const send = async () => {
     PURGE.busy = true; clearTimeout(PURGE.timer);
     try { const res = await purgeApi(`/chats/${cid}/${path}`, {method: 'POST', body: JSON.stringify(body), keepalive}); return res.data; }
-    catch (e) { toast(e.message, true); return null; }
-    finally { PURGE.busy = false; PURGE.etag = ''; if (cid === PURGE.cid) purgeLoad(true); }
+    finally { PURGE.busy = false; PURGE.etag = ''; if (!keepalive && cid === PURGE.cid) purgeLoad(true); }
   };
+  // При закрытии все запросы должны начаться до уничтожения страницы: ждать ответа предыдущего уже нельзя.
+  if (keepalive) return send();
   const done = PURGE.chain.then(send);
   PURGE.chain = done.catch(() => null);
   return done;
@@ -213,7 +214,7 @@ function purgeOpen(uid) {
         if (res && res.ok) { purgeForget(name); if (res.replayed) toast('Другой админ уже решил. Показано его решение.'); }
       };
       // санкция — с 10 секундами на отмену; одно решение на участника в очереди
-      if (action === 'forgive') send(); else undoLater(`${b.querySelector('b').textContent} · ${purgeName(t)}`, send, `purge:${cid}:${v.session.id}:${uid}`);
+      if (action === 'forgive') send().catch(e => toast(e.message, true)); else undoLater(`${b.querySelector('b').textContent} · ${purgeName(t)}`, send, `purge:${cid}:${v.session.id}:${uid}`);
     });
   }
   const card = $('#sheet').querySelector('[data-pgcard]');

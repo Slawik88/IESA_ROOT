@@ -132,3 +132,9 @@ matrix, access, chats_reports, owner, promo, metrics), `tools/admin_stand.py`.
 ### Вливание S10v (2026-10-29)
 
 «Ок» владельца без замечаний. Ветка уже стояла на текущем master (перебазирование не понадобилось). Перед пушем повторены: `test_bot_admin_s10_pg`, `test_bot_admin_people_pg`, `test_bot_admin_security_pg` (свежие базы), `test_purge_queue_pg` и `test_global_ban_job_pg` (свежие базы + `bootstrap_test_db.py`), `test_skins_v3_pg` (общая база), `test_bot_admin_ui_contract`, `test_admin_guide_contract`, `test_admin_guide_ui`, `test_bot_admin_access_guard`, `test_bot_admin_page`, `test_player_copy_contract`, `admin_stand.py --tabs people,journal,reports` (0 проблем), `admin_clicks.py` (11 задач, цифры как в таблице). Прод из облака не проверен. S09b (ждёт «ок») при вливании сводится с этой работой: темы S10v в `guide-admin.json`.
+
+### Дополнительная проверка качества S10 (2026-10-29)
+
+По просьбе владельца независимый read-only аудит нашёл два сбоя «Чистки»: при закрытии страницы второй keepalive-запрос ждал первого ответа и мог не начаться; ошибка решения превращалась в null и не доходила до постоянной полосы отказа. Исправлено: при закрытии все запросы начинаются сразу, в обычном режиме очередь сохранена; отказ передаётся в существующую полосу «не выполнено».
+
+Проверено: `test_admin_purge_queue.js` (обрыв, два запроса до первого ответа, обычная очередь), `admin_clicks.py` (11 сценариев), `test_bot_admin_s10_pg.py` на свежей локальной PostgreSQL 17 с ICU (права, образы, деньги, поиск и журнал), `test_bot_admin_ui_contract.py`, стенд people/journal/reports на 320/390/430 в двух темах. Внешний вид не менялся. Патч-нот не нужен: исправление инструмента персонала по docs/PATCH_NOTES.md. Прод проверяет владелец.
