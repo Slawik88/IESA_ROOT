@@ -8,8 +8,10 @@
    the entry «Путеводитель администрации»; the admin book has exactly the topics of the role (the rule of services/admin_guide.py computed
    here from the code), search with a typo, a topic with «Открыть» into its admin section; nothing is wider than the screen.
    A player without a role gets «this book is for staff», not an error.
-2. Admin page on the fixture stand (tools/admin_stand.py): «?» opens the Mini App topic of the current section, «Что это значит?» of a
-   dangerous action opens its topic, the «Путеводитель» tab opens the hub; «Назад» there returns to that section (pv_admin_tab).
+2. Admin page on the fixture stand (tools/admin_stand.py): the same screen as a layer over the admin (bot-admin/guide.html). «?» opens the
+   topic of the current section, «Что это значит?» of a dangerous action — its topic, the «Путеводитель» tab — the hub; «Назад» and Esc
+   close the layer and what was under it is untouched (search text, the half-filled window, the undo countdown above the layer);
+   «Открыть» of a topic switches the admin section; the admin page never reloads.
 """
 from __future__ import annotations
 
@@ -20,7 +22,6 @@ import os
 import sys
 import threading
 from pathlib import Path
-from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -77,7 +78,7 @@ def miniapp(stand: Stand, browser, rank: int, width: int, shots: str | None) -> 
             assert "для персонала" in page.inner_text(".gv-scope .v3-empty"), page.inner_text(".gv-scope")
             print(f"OK player @{width}: no entry, the admin book answers «для персонала»")
             return
-        assert entry.count() == 1, "персоналу — вход в Путеводитель администрации внизу Путеводителя игрока"
+        assert entry.count() == 1, "персоналу — вход в Путеводитель администрации сверху Путеводителя игрока"
         entry.click()
         page.wait_for_function("() => _GV.book === 'admin' && _GV.data && document.querySelector('.gv-scope h1')?.textContent.includes('администрации')", timeout=10000)
         settle(page)
@@ -109,65 +110,105 @@ def miniapp(stand: Stand, browser, rank: int, width: int, shots: str | None) -> 
         ctx.close()
 
 
-def admin_entries(browser) -> None:
-    """The admin page only opens the Mini App book: the address and the section to come back to."""
-    me = {"user_id": 5000, "rank": 4, "rank_name": NAMES[4], "creator": False, "ranks": list(NAMES.values()),
-          "sections": [{"key": k, "title": k, "min_rank": 2} for k in ("mychats", *[s for s in sections(4) if s != "mychats"])]}
-    routes = {**ROUTES, "/me": me}
-    html = admin_stand.read("index.html").replace("{{BASE}}", admin_stand.HOST).replace("{{VER}}", "stand")
-    leaving: list[str] = []
-
-    def handle(route):
-        url = urlparse(route.request.url)
-        if url.netloc != "stand.local":
-            return route.abort()
-        if "startapp=adminguide" in url.query:
-            leaving.append(url.query)
-            return route.fulfill(status=200, content_type="text/html", body="<p>mini app</p>")
-        if url.path.startswith("/bot-admin/api/"):
-            key = url.path[len("/bot-admin/api"):]
-            body = routes.get(key)
-            if body is None:
-                return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
-            status, body = body if isinstance(body, tuple) else (200, body)
-            return route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
-        name = url.path.rsplit("/", 1)[-1]
-        if name.endswith(".json"):
-            return route.fulfill(status=200, content_type="application/json", body=admin_stand.read(name))
-        if name.startswith("admin") and name.endswith((".js", ".css")):
-            return route.fulfill(status=200, content_type="text/javascript" if name.endswith(".js") else "text/css", body=admin_stand.read(name))
-        return route.fulfill(status=200, content_type="text/html", body=html)
-
-    ctx = browser.new_context(viewport={"width": 390, "height": 800})
-    ctx.route("**/*", handle)
+def admin_entries(browser, width: int, shots: str | None) -> None:
+    """The admin page shows the book as a layer over itself: what was open under it (a card, a half-filled window, the undo countdown) stays."""
+    me = {"user_id": 5000, "rank": 5, "rank_name": NAMES[5], "creator": False, "ranks": list(NAMES.values()),   # баланс в карточке — с роли 5
+          "sections": [{"key": k, "title": k, "min_rank": 2} for k in ("mychats", *[s for s in sections(5) if s != "mychats"])]}
+    from services.admin_guide import for_reader
+    routes = {**ROUTES, "/me": me, "/guide": for_reader(rank=5, sections=sections(5))}
+    ctx = browser.new_context(viewport={"width": width, "height": 800}, has_touch=True, is_mobile=True)
+    ctx.add_init_script("window.ADMIN_UNDO_MS = 4000")
+    ctx.route("**/*", admin_stand.handler(routes))
     page = ctx.new_page()
     errors: list[str] = []
     page.on("pageerror", lambda e: errors.append(str(e)))
+    left: list[str] = []
+    page.on("framenavigated", lambda f: f == page.main_frame and left.append(f.url))
+    frame = lambda: page.frame_locator("#guide-layer iframe")  # noqa: E731
+    layer_open = "() => { const l = document.querySelector('#guide-layer'); return !!l && !l.hidden; }"
 
-    def start(section: str) -> None:
-        page.goto(f"{admin_stand.HOST}/bot-admin/")
-        page.wait_for_selector("#tabs .nb", timeout=10000)
-        page.evaluate(f"() => open('{section}')")
-        page.wait_for_function(f"() => currentSection() === '{section}' && !document.querySelector('.admin-load')", timeout=10000)
+    def shown(title_part: str) -> None:
+        page.wait_for_function(layer_open, timeout=5000)
+        frame().locator(".gv-scope h1").first.wait_for(timeout=10000)
+        page.wait_for_function("t => { const f = document.querySelector('#guide-layer iframe'); const h = f && f.contentDocument.querySelector('.gv-scope h1');"
+                               " return h && h.textContent.includes(t); }", arg=title_part, timeout=10000)
 
-    def leave(action: str) -> tuple[str, str]:
-        with page.expect_navigation(timeout=10000):
-            page.evaluate(action)
-        return leaving[-1], page.evaluate("() => localStorage.getItem('pv_admin_tab')")
+    def back() -> None:
+        frame().locator(".v3-head-back").first.click()
+        page.wait_for_function(f"() => !({layer_open})()", timeout=5000)
 
-    start("people")
-    assert page.locator(".top .hbtn.help").count() == 1, "значок «?» в шапке"
-    query, tab = leave("() => document.querySelector('.top .hbtn.help').click()")
-    assert "startapp=adminguide_find_people" in query and tab == "people", (query, tab)
-    start("reports")
-    query, tab = leave("() => agWhy('ban')")
-    assert "startapp=adminguide_sanctions_reports" in query and tab == "reports", (query, tab)
-    start("journal")
-    query, tab = leave("() => document.querySelector('#tabs [data-tab=\"guide\"], #tabs [data-more]').click() || document.querySelector('[data-go=\"guide\"]')?.click()")
-    assert "startapp=adminguide__journal" in query and tab == "journal", (query, tab)
+    page.goto(f"{admin_stand.HOST}/bot-admin/")
+    page.wait_for_selector("#tabs .nb", timeout=10000)
+    page.wait_for_function("() => currentSection() === 'mychats' || currentSection() === 'people'")
+    page.evaluate("() => open('people')")
+    page.wait_for_function("() => currentSection() === 'people' && !document.querySelector('.admin-load')")
+    start = page.url
+    titles = {t["id"]: t["title"] for t in GUIDE["topics"]}
+
+    # «?» в разделе — его тема одним касанием; поиск в разделе под слоем не трогается
+    field = page.locator("#main input").first
+    field.fill("анна")
+    page.click(".top .hbtn.help")
+    shown(titles["find"])
+    fails = frame().locator("body").evaluate("() => document.documentElement.scrollWidth > innerWidth ? ['шире экрана'] : []")
+    assert not fails, fails
+    if shots:
+        page.screenshot(path=f"{shots}/layer-find-{width}.png")
+    back()
+    assert field.input_value() == "анна", "раздел под слоем остался как был"
+
+    # «Что это значит?» в окне опасного действия: окно с набранным остаётся под слоем
+    page.evaluate("() => playerView($('#main'), 5000)")
+    page.wait_for_selector("[data-quick=balance]", timeout=5000)
+    page.click("[data-quick=balance]")
+    page.wait_for_selector("#sheet [data-ag-why]", timeout=5000)
+    amount = page.locator("#sheet input").first
+    amount.fill("777")
+    page.click("#sheet [data-ag-why]")
+    shown(titles["player-power"])
+    if shots:
+        page.screenshot(path=f"{shots}/layer-why-{width}.png")
+    frame().locator("body").press("Escape")   # клавиша Esc на компьютере — тот же «Назад»
+    page.wait_for_function(f"() => !({layer_open})()", timeout=5000)
+    assert not page.locator("#sheet").is_hidden() and amount.input_value() == "777", "окно действия и введённое не потерялись"
+    page.click("#scancel")
+
+    # Отсчёт «Отменить» виден поверх слоя и не прерывается
+    page.click("[data-quick=mute]")
+    page.wait_for_selector("#sok", timeout=5000)
+    page.click("#sok")
+    page.wait_for_selector(".undobar .undo", timeout=5000)
+    page.click(".top .hbtn.help")
+    page.wait_for_function(layer_open, timeout=5000)
+    box = page.locator(".undobar .undo").first.bounding_box()
+    on_top = page.evaluate("([x, y]) => !!document.elementFromPoint(x, y)?.closest('.undobar')", [box["x"] + 10, box["y"] + box["height"] / 2])
+    assert on_top, "полоса «Отменить» под слоем не видна"
+    back()
+
+    # Вкладка «Путеводитель» (здесь — в «Ещё»): главная книги, раздел не меняется; кнопка темы «Открыть» ведёт в раздел админки
+    before = page.evaluate("() => currentSection()")
+    page.click("#tabs [data-more]")
+    page.click("#sheet [data-go='guide']")
+    shown("Путеводитель администрации")
+    assert page.evaluate("() => currentSection()") == before, "вкладка не уводит из раздела"
+    for word in ("заглушить", "пред", "разбан"):   # слова модераторов ведут к теме наказаний
+        frame().locator(".gv-search input").fill(word)
+        frame().locator("#gv-results .gv-row").first.wait_for(timeout=5000)
+        assert titles["sanctions"] in frame().locator("#gv-results").inner_text(), word
+    frame().locator(".gv-search input").fill("жалоба")
+    frame().locator("#gv-results .gv-row").first.wait_for(timeout=5000)
+    frame().locator("body").evaluate("() => gvOpen('reports')")
+    frame().locator(".gv-where .v3-pill").first.click()
+    page.wait_for_function(f"() => !({layer_open})() && currentSection() === 'reports'", timeout=5000)
+
+    assert left == [start] or not left[1:], f"админка не перезагружалась: {left}"
+    # Кнопка из «бот админ помощь» в личке: админка открывается сразу со слоем, под ним — обычный раздел
+    page.goto(f"{admin_stand.HOST}/bot-admin?open=guide")
+    shown("Путеводитель администрации")
+    assert page.evaluate("() => currentSection()") not in ("", "guide")
     assert not errors, errors
     ctx.close()
-    print("OK admin page: «?» → topic of the section, «Что это значит?» → topic of the action, tab «Путеводитель» → hub; «Назад» returns to the section")
+    print(f"OK admin page @{width}: «?», «Что это значит?», вкладка — слой поверх раздела; поиск, окно с суммой и «Отменить» на месте; «Открыть» — в раздел")
 
 
 def main() -> None:
@@ -183,7 +224,8 @@ def main() -> None:
     with Stand(args.port, args.dsn, skin="void", tier="SSS", rich=True) as stand, sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=chromium_path())
         try:
-            admin_entries(browser)
+            for width in args.widths:
+                admin_entries(browser, width, args.shots)
             for rank in (2, 4, 5, 0):   # роль 6 — только DEVELOPER_ID: её книгу (все темы) сверяет test_admin_guide_contract.py
                 for width in args.widths:
                     miniapp(stand, browser, rank, width, args.shots)

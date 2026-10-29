@@ -46,7 +46,7 @@ def main():
     index = ('<link href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/><script src="{{BASE}}/bot-admin/admin.js?v={{VER}}"></script>'
              '<script src="{{BASE}}/bot-admin/admin-lists.js?v={{VER}}"></script><script src="{{BASE}}/bot-admin/admin-boot.js?v={{VER}}"></script>')
     with tempfile.TemporaryDirectory() as tmp:
-        write(tmp, index_html=index, admin_js="console.log(1)", admin_css="body{}",
+        write(tmp, index_html=index, guide_html='<script src="{{BASE}}/bot-admin/guide-host.js?v={{VER}}"></script>', admin_js="console.log(1)", admin_css="body{}",
               **{**{name: "" for name in page._TYPES if name not in ("admin.js", "admin.css")},   # каждый файл страницы (их добавляют сессии)
                  "admin-lists.js": "console.log('lists')", "admin-boot.js": "console.log('boot')", "guide-admin.json": "{}"})
         page.load(tmp)
@@ -94,6 +94,15 @@ def main():
         # Файл изменился: полный ответ
         assert asset(name, '"stale"').status_code == 200
     assert asset("secret.py").status_code == 404 and asset("..").status_code == 404
+
+    # Путеводитель администрации (S09b): своя страница той же версии; стили и скрипты экрана — файлы Mini App как есть
+    guide = asyncio.run(page.admin_guide_page())
+    assert guide.headers["cache-control"] == "no-store" and "{{" not in page._GUIDE_PAGE
+    assert set(re.findall(r"\?v=([0-9a-f]+)", page._GUIDE_PAGE)) == {ver}, "страница Путеводителя и админка — одна выкладка"
+    for name in page._SHARED:
+        assert f"/bot-admin/{name}?v={ver}" in page._GUIDE_PAGE, name
+        with open(os.path.join(REAL_DIR, "..", name), "rb") as f:
+            assert asset(name).body == f.read(), f"{name}: отдаётся не файл Mini App"
 
     # В отданной странице нет несобранных меток и обязательный каркас на месте (нижняя панель скрыта до загрузки разделов)
     assert "{{" not in page._PAGE and 'id="tabs"' in page._PAGE and 'id="main"' in page._PAGE

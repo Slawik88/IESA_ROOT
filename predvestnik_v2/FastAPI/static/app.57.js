@@ -8,7 +8,10 @@ const _GV = { book: 'player', adminFrom: '', data: null, pending: null, view: 'h
 // данные bot-admin/guide-admin.json, сервер отдаёт только темы роли читателя: services/admin_guide.py).
 const _GV_BOOKS = {
   player: { title: 'Путеводитель', sub: 'Всё об игре: найди нужное или читай по порядку', store: 'pv_guide_v1', last: 'pv_guide_last', example: 'мора', hint: '«опыт», «ключи», «питомец» или «VIP»', start: ['first-day', 'map', 'welcome'] },
-  admin: { title: 'Путеводитель администрации', sub: 'Как модерировать и работать в админке', store: 'pv_guide_admin_v1', last: 'pv_guide_admin_last', example: 'мут', hint: '«мут», «бан», «жалобы» или «права»', start: ['first-day', 'roles', 'situations'] },
+  admin: { title: 'Путеводитель администрации', sub: 'Как модерировать и работать в админке', store: 'pv_guide_admin_v1', last: 'pv_guide_admin_last', example: 'мут', hint: '«мут», «бан», «жалобы» или «права»', start: ['first-day', 'roles', 'situations'],
+    // Как говорят модераторы → слово из тем администрации
+    alias: { пред: 'варн', преды: 'варн', предупредить: 'варн', заглушить: 'мут', замьютить: 'мут', мьют: 'мут', размут: 'мут', размьют: 'мут', разбан: 'бан', бань: 'бан', банить: 'бан',
+      выгнать: 'кик', выкинуть: 'кик', репорт: 'жалоба', репорты: 'жалоба', спамер: 'спам', спамеры: 'спам', рекламщик: 'реклама', рейдеры: 'рейд', админка: 'раздел', твинки: 'твинк' } },
 };
 const _gvBook = () => _GV_BOOKS[_GV.book] || _GV_BOOKS.player;
 const _gvStaff = () => !!(typeof _profileData === 'object' && _profileData && (_profileData.is_staff || _profileData.is_developer));
@@ -46,7 +49,7 @@ function _gvLeave(path, what) {
 const _gvRating = () => _gvLeave('/league?game=rhythm', 'Рейтинг');
 const _gvNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/18\s*\+/g, ' 18plus ').replace(/[^a-zа-я0-9 ]+/g, ' ');   // «18+» — одно слово поиска
 const _gvStem = w => w.length >= 7 ? w.slice(0, 5) : w.length >= 5 ? w.slice(0, w.length - 2) : w.length >= 4 ? w.slice(0, w.length - 1) : w;
-const _gvWords = s => _gvNorm(s).split(/\s+/).flatMap(w => (_GV_ALIAS[w] || (/^скин/.test(w) ? 'образ' : /^корм/.test(w) ? 'еда' : w)).split(' ')).filter(w => w.length > 2 && !_GV_STOP.has(w));
+const _gvWords = s => _gvNorm(s).split(/\s+/).flatMap(w => (_gvBook().alias?.[w] || _GV_ALIAS[w] || (/^скин/.test(w) ? 'образ' : /^корм/.test(w) ? 'еда' : w)).split(' ')).filter(w => w.length > 2 && !_GV_STOP.has(w));
 const _gvText = b => [b.h, b.text, ...(b.items || []).flatMap(i => [i.h, i.p, i.w, i.plus, i.minus]), ...(b.a ? [b.a.h, ...b.a.items] : []), ...(b.b ? [b.b.h, ...b.b.items] : [])].filter(Boolean).join(' ');
 function _gvValid(d) {
   if (!d || d.version !== 1 || !['topics', 'groups', 'glossary', 'faq'].every(k => Array.isArray(d[k])) || !d.topics.length) return false;
@@ -140,7 +143,7 @@ function gvSuggest(q) {
   const raw = _gvNorm(String(q || '').toLowerCase().replace(/[a-z\[\];',.`]/g, c => _GV_KEYS[c] || c));
   const vocab = _gvVocab(), known = w => [...vocab.keys()].some(v => v.startsWith(_gvStem(w)));
   const fix = (/[a-z]/.test(_gvNorm(q)) && raw !== _gvNorm(q) ? raw : _gvNorm(q)).split(/\s+/).filter(Boolean).map(w => {
-    if (w.length < 4 || _GV_STOP.has(w) || _GV_ALIAS[w] || known(w)) return w;
+    if (w.length < 4 || _GV_STOP.has(w) || _GV_ALIAS[w] || _gvBook().alias?.[w] || known(w)) return w;
     const max = w.length >= 7 ? 2 : 1;
     let best = '', bestD = max + 1, bestW = 0;
     for (const [v, weight] of vocab) {
@@ -163,6 +166,7 @@ function gvNear(q) {
 // Запрос без ответа — анонимно в «Здоровье» админки (S01, тип guide_miss): так видно, каких тем не хватает. Один раз на запрос, после паузы в наборе.
 function _gvMiss(q) {
   clearTimeout(_GV.missTimer);
+  if (_GV.book !== 'player') return;   // «Здоровье» считает вопросы игроков; поиски персонала их не смешивают
   const text = _gvNorm(q).replace(/\s+/g, ' ').trim().slice(0, 60);
   if (text.length < 3 || _GV.missSent.has(text) || _GV.missSent.size >= 3) return;   // не больше трёх на открытие: общий лимит телеметрии нужен ошибкам
   _GV.missTimer = setTimeout(() => {
@@ -214,13 +218,13 @@ function _gvHub(d) {
   const lastGroup = last && _gvGroupOf(last.id);
   const groups = d.groups.map((g, i) => `<details class="v3-group gv-group" id="gv-group-${esc(g.id)}"${i === 0 || g === lastGroup ? ' open' : ''}><summary><h2 class="v3-eyebrow">${esc(g.icon)} ${esc(g.title)}</h2><p class="gv-sub">${esc(g.sub)} · ${g.topics.length}</p></summary>${g.topics.map(id => _gvRow(d.topics.find(t => t.id === id))).join('')}</details>`).join('');
   // Персоналу и владельцам чатов — вход во вторую книгу; из неё — обратно в книгу игрока.
-  const other = _GV.book === 'admin'
-    ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('player')"><small>Для всех игроков</small><b>Путеводитель игрока ›</b></button>`
-    : _gvStaff() ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('admin')"><small>Для персонала и владельцев чатов</small><b>🛡 Путеводитель администрации ›</b></button>` : '';
+  // Вход персонала — сразу под поиском: к нему возвращаются часто; обратная ссылка в книгу игрока — внизу.
+  const staff = _GV.book === 'player' && _gvStaff() ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('admin')"><small>Для персонала</small><b>🛡 Путеводитель администрации ›</b></button>` : '';
+  const other = _GV.book === 'admin' ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('player')"><small>Как игру видят игроки</small><b>Путеводитель игрока ›</b></button>` : '';
   return `${v3Head(book.title, { sub: book.sub, back: 'navBack()' })}
     ${_gvSearchBox('gvSearch', _GV.q)}
     <div id="gv-results" hidden aria-live="polite"></div>
-    <div id="gv-home">${resume}<div class="gv-cta"><button type="button" class="v3-pill" onclick="gvOpen('${esc(d.topics[0].id)}')">Читать по порядку ›</button><button type="button" class="v3-pill v3-pill--ghost" onclick="gvView('terms')">Словарь</button><button type="button" class="v3-pill v3-pill--ghost" onclick="gvView('faq')">Все вопросы</button></div>
+    <div id="gv-home">${staff}${resume}<div class="gv-cta"><button type="button" class="v3-pill" onclick="gvOpen('${esc(d.topics[0].id)}')">Читать по порядку ›</button><button type="button" class="v3-pill v3-pill--ghost" onclick="gvView('terms')">Словарь</button><button type="button" class="v3-pill v3-pill--ghost" onclick="gvView('faq')">Все вопросы</button></div>
       <h2 class="v3-eyebrow gv-eb">Выбери раздел</h2>${sections}<h2 class="v3-eyebrow gv-eb">Быстрые ответы</h2><div class="gv-chips">${quick}</div>${groups}${other}</div>`;
 }
 function _gvTerms(d) {

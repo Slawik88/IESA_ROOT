@@ -207,7 +207,6 @@ function _handleStartParam(){
     vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
     casino:()=>openCasino(), exchange:()=>openPlayerExchangeV1(), exch:()=>openPlayerExchangeV1(), crypto:()=>openPlayerExchangeV1(), birzha:()=>openPlayerExchangeV1(),
     guide:()=>openGuide(p.split('_')[1]||'',p.split('_')[2]||0), help:()=>openGuide(p.split('_')[1]||'',p.split('_')[2]||0),   // guide_<тема>_<номер блока>: сразу к нужному месту длинной темы
-    adminguide:()=>openAdminGuide(p.split('_')[1]||'',p.split('_')[2]||''),   // Путеводитель администрации: adminguide_<тема>_<раздел админки, куда вернёт «Назад»>
     notifications:settings, notifprefs:settings, settings:()=>openSettingsModal(), top:()=>openTopV3(), news:()=>openWhatsNew(), pass:()=>openSeasonPass(), season:()=>openSeasonPass(), bp:()=>openSeasonPass(), battlepass:()=>openSeasonPass(),
   };
   if(base==='public'){

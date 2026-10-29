@@ -9,7 +9,8 @@
 - the bot roles, the configurable bounds (services/admin_access.py) and the limits in the text are the numbers of the code;
 - texts follow docs/PLAYER_COPY.md (reader: a new moderator): short paragraphs and steps, «what» first;
 - the page loads the data and the script (FastAPI/routers/bot_admin/page.py, index.html);
-- the Mini App Guide screen shows it (admin book): every reader gets only their topics, in the player Guide format (services/admin_guide.py).
+- the player Guide screen shows it (admin book): in the Mini App and as a layer over the admin (bot-admin/guide.html runs app.57.js as is);
+  every reader gets only their topics, in the player Guide format (services/admin_guide.py).
 """
 from __future__ import annotations
 
@@ -148,15 +149,19 @@ for action in CHAT_ACTIONS:
 # ── Страница админки ──────────────────────────────────────────────────────────────────────────────────────────────────
 page = (ROOT / "FastAPI" / "routers" / "bot_admin" / "page.py").read_text(encoding="utf-8")
 index = (ADMIN / "index.html").read_text(encoding="utf-8")
-assert '"guide-admin.json"' in page and '"admin-guide.js"' in page, "файлы справки отдаются страницей админки (_TYPES)"
+assert '"guide-admin.json"' in page and '"admin-guide.js"' in page and '"guide-host.js"' in page, "файлы Путеводителя отдаются страницей админки (_TYPES)"
 assert index.index("admin-guide.js") < index.index("admin-boot.js"), "справка подключена до старта админки"
 script = (ADMIN / "admin-guide.js").read_text(encoding="utf-8")
-assert "startapp=adminguide_" in script and "min_rank" in script, "вкладка, «?» и «Что это значит?» ведут в Путеводитель Mini App, тема — по роли"
+assert "/bot-admin/guide#t=" in script and "min_rank" in script, "вкладка, «?» и «Что это значит?» открывают слой Путеводителя, тема — по роли"
+assert "location.href" not in script, "Путеводитель не уводит из админки: открытая карточка и окно действия остаются под слоем"
+host = (ADMIN / "guide.html").read_text(encoding="utf-8")
+for shared in ("shell-v3.css", "guide-v3.css", "app.20.js", "app.57.js"):
+    assert f"/bot-admin/{shared}?v=" in host and f'"{shared}"' in page, f"слой показывает экран игрока его же файлом {shared}, без копии"
+assert host.index("guide-host.js") < host.index("app.57.js"), "хозяин даёт экрану помощники до его загрузки"
 
 # ── Показ: экран Путеводителя игрока (app.57.js), книга администрации под роль читателя ─────────────────────────────
 from services import admin_guide  # noqa: E402
 static = ROOT / "FastAPI" / "static"
-assert "adminguide:" in (static / "app.02.js").read_text(encoding="utf-8"), "ссылка ?startapp=adminguide_<тема>_<раздел> открывает книгу администрации"
 assert "/bot-admin/api/guide" in (static / "app.57.js").read_text(encoding="utf-8"), "Путеводитель Mini App читает книгу администрации у сервера"
 readers = {f"роль {r}": dict(rank=r, sections={k for k, (_t, need) in SECTIONS.items() if r >= need} | {"mychats"}) for r in (2, 3, 4, 5, 6)}
 readers["владелец чата"] = dict(owner=True, sections={"mychats"})

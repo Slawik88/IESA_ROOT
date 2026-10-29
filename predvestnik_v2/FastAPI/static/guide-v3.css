@@ -152,3 +152,4 @@
 dialog#g-sheet { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; color: inherit; }
 dialog#g-sheet::backdrop { background: transparent; }
 .gv-book { margin-top: 18px; }
+#gv-home > .gv-book:first-child { margin: 0 0 10px; }   /* вход персонала в книгу администрации — над «Продолжить чтение» */

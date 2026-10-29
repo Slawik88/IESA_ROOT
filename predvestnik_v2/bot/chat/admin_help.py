@@ -1,26 +1,34 @@
 """«бот админ помощь» — что в этом чате можно с какого ранга, и вход в Путеводитель администрации (S09).
 
 В группе — пороги именно этого чата (их меняет владелец командой «бот права») и твой ранг; в личке — пороги по умолчанию.
-Персоналу бота (роль от младшего хелпера) — кнопка «Путеводитель администрации» (экран Путеводителя в Mini App, app.57.js).
+Персоналу бота (роль от младшего хелпера) — кнопка «Путеводитель администрации»: админка открывается сразу с ним
+(тот же экран, что Путеводитель игрока, слоем поверх админки: FastAPI/static/bot-admin/admin-guide.js).
 Обычному участнику команда отвечает, где искать обычную помощь: справка для модераторов ему не нужна."""
 from __future__ import annotations
 
 import html
+import os
 
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from bot.chat import ranks
 from bot.chat.framework import Ctx, registry
 from bot.chat.global_ranks import get_bot_rank
-from bot.chat.site import site_keyboard
+from bot.chat.site import admin_url
 from core.chat_rank_policy import ACTIONS, rank_name
 
 STAFF_RANK = 2   # младший хелпер: с этой роли открывается админка (FastAPI/routers/bot_admin/auth.py)
 
 
-def _guide_keyboard(chat_type: str, bot_username: str) -> InlineKeyboardMarkup | None:
-    # Тот же экран, что Путеводитель игрока, книга администрации (app.57.js, ?startapp=adminguide)
-    return site_keyboard(chat_type, bot_username, "adminguide", "📘 Путеводитель администрации")
+def _guide_keyboard(private: bool, bot_username: str) -> InlineKeyboardMarkup | None:
+    label = "📘 Путеводитель администрации"
+    if private:
+        url = admin_url()
+        return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=label, web_app=WebAppInfo(url=url + "?open=guide"))]]) if url else None
+    short = os.getenv("MINIAPP_SHORT_NAME", "")
+    if short and bot_username:   # в группе Web App кнопки нельзя: прямая ссылка открывает админку внутри Telegram (index.html: startapp=admin_*)
+        return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=label, url=f"https://t.me/{bot_username}/{short}?startapp=admin_guide")]])
+    return None
 
 
 def rights_text(rights: dict[str, int], my_rank: int | None) -> str:
@@ -52,4 +60,4 @@ async def cmd_admin_help(ctx: Ctx) -> None:
             return
         text = (f"🛡 <b>Админ-помощь · этот чат</b>\nТвой ранг: {html.escape(rank_name(my_rank))}\n\n{rights_text(rights, my_rank)}\n\n"
                 "✅ — тебе доступно. Наказания: «бот мут, @ник 2ч причина», «бот бан, @ник 5д». Полный список — «бот помощь» › «Модерация».")
-    await ctx.reply(text, reply_markup=_guide_keyboard(ctx.message.chat.type, me.username or "") if staff else None)
+    await ctx.reply(text, reply_markup=_guide_keyboard(private, me.username or "") if staff else None)

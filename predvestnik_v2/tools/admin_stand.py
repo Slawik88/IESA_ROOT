@@ -39,6 +39,51 @@ def read(name: str) -> str:
         return f.read()
 
 
+# Слой Путеводителя администрации (S09b): страница guide.html и файлы экрана игрока, которые отдаёт страница админки (page._SHARED).
+SHARED = ("shell-v3.css", "shell-v3-home.css", "guide-v3.css", "app.20.js", "app.57.js")
+
+
+def guide_file(name: str):
+    """(тип, текст) для страницы слоя и её файлов или None."""
+    if name == "guide":
+        return "text/html", read("guide.html").replace("{{BASE}}", HOST).replace("{{VER}}", "stand")
+    if name == "guide-host.js":
+        return "text/javascript", read(name)
+    if name in SHARED:
+        return ("text/css" if name.endswith(".css") else "text/javascript"), read(os.path.join("..", name))
+    return None
+
+
+def handler(routes: dict):
+    """Ответы стенда: фикстуры API, файлы админки и слоя Путеводителя с диска, всё внешнее — отказ (его же берёт tools/test_admin_guide_ui.py)."""
+    html = read("index.html").replace("{{BASE}}", HOST).replace("{{VER}}", "stand")
+
+    def handle(route):
+        url = urlparse(route.request.url)
+        if url.netloc != "stand.local":
+            return route.abort()
+        path = url.path
+        if path.startswith("/bot-admin/api/"):
+            key = path[len("/bot-admin/api"):]
+            if key in routes:
+                status, body = routes[key] if isinstance(routes[key], tuple) else (200, routes[key])
+                return route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
+            return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
+        # После разделения ядра на admin*.js стенд должен отдавать все части, а не только admin.js.
+        name = path.rsplit("/", 1)[-1]
+        shared = guide_file(name) if path.startswith("/bot-admin/") else None
+        if shared:
+            return route.fulfill(status=200, content_type=shared[0], body=shared[1])
+        if name.startswith("admin") and name.endswith(".js"):
+            return route.fulfill(status=200, content_type="text/javascript", body=read(name))
+        if name.endswith(".json"):   # данные справки (guide-admin.json, S09) и книга игрока в слое (/guide-v3.json Mini App)
+            return route.fulfill(status=200, content_type="application/json", body=read(name if path.startswith("/bot-admin/") else os.path.join("..", name)))
+        if name.startswith("admin") and name.endswith(".css"):
+            return route.fulfill(status=200, content_type="text/css", body=read(name))
+        return route.fulfill(status=200, content_type="text/html", body=html)
+    return handle
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="admin-stand-out")
@@ -49,30 +94,8 @@ def main() -> int:
     os.makedirs(args.out, exist_ok=True)
     from playwright.sync_api import sync_playwright
 
-    html = read("index.html").replace("{{BASE}}", HOST).replace("{{VER}}", "stand")
     problems: list[str] = []
-
-    def handle(route):
-        url = urlparse(route.request.url)
-        if url.netloc != "stand.local":
-            return route.abort()
-        path = url.path
-        if path.endswith("/bot-admin/api/export") or path.startswith("/bot-admin/api/"):
-            key = path[len("/bot-admin/api"):]
-            routes = OWNER_ROUTES if args.owner else ROUTES
-            if key in routes:
-                status, body = routes[key] if isinstance(routes[key], tuple) else (200, routes[key])
-                return route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
-            return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
-        # После разделения ядра на admin*.js стенд должен отдавать все части, а не только admin.js.
-        name = path.rsplit("/", 1)[-1]
-        if name.startswith("admin") and name.endswith(".js"):
-            return route.fulfill(status=200, content_type="text/javascript", body=read(name))
-        if name.endswith(".json"):   # данные справки (guide-admin.json, S09)
-            return route.fulfill(status=200, content_type="application/json", body=read(name))
-        if name.startswith("admin") and name.endswith(".css"):
-            return route.fulfill(status=200, content_type="text/css", body=read(name))
-        return route.fulfill(status=200, content_type="text/html", body=html)
+    handle = handler(ROUTES if not args.owner else OWNER_ROUTES)
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH") or None)

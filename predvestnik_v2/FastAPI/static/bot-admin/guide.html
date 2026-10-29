@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Путеводитель администрации</title>
+<!-- Экран Путеводителя игрока в слое админки (admin-guide.js): те же стили и скрипты, что в Mini App, без копий (guide-host.js) -->
+<link rel="stylesheet" href="{{BASE}}/bot-admin/shell-v3.css?v={{VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/bot-admin/shell-v3-home.css?v={{VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/bot-admin/guide-v3.css?v={{VER}}"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'"/>
+<!-- База, которую экран получает в Mini App из app.css (весь app.css ему не нужен); нижнего меню здесь нет -->
+<style>* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; } html { font-size: 14px; } ::-webkit-scrollbar { width: 0; height: 0; } body { margin: 0; --v3-dock-clear: 28px; }</style>
+</head>
+<body>
+<div id="pg-help" class="page active"></div>
+<script>const BASE = "{{BASE}}";</script>
+<script src="{{BASE}}/bot-admin/guide-host.js?v={{VER}}"></script>
+<script src="{{BASE}}/bot-admin/app.20.js?v={{VER}}"></script>
+<script src="{{BASE}}/bot-admin/app.57.js?v={{VER}}"></script>
+</body>
+</html>

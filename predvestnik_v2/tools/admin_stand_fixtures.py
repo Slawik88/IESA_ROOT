@@ -5,6 +5,11 @@
 from __future__ import annotations
 
 import base64
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from services.admin_guide import for_reader  # noqa: E402  (книга администрации: services/admin_guide.py, без базы)
 
 SECTIONS = [
     {"key": "people", "title": "Игроки и чаты"}, {"key": "reports", "title": "Жалобы"}, {"key": "metrics", "title": "Метрики"},
@@ -271,6 +276,8 @@ BROADCAST = {
 }
 ROUTES["/broadcasts"] = BROADCAST
 ROUTES["/broadcasts/preview"] = {"count": 98765, "title": "Все игроки"}
+# Книга администрации создателя — все темы (S09b)
+ROUTES["/guide"] = for_reader(rank=6, sections={s["key"] for s in SECTIONS} | {"mychats", "diagnostics", "patchnotes"})
 ROUTES["/player/5000"] = PLAYER
 ROUTES["/skins/catalog"] = SKIN_CATALOG
 ROUTES[f"/chat/{CHAT['id']}"] = CHAT
