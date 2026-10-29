@@ -1,3 +1,10 @@
+## ROADMAP-S05v — CHAT PURGE PAGE MERGED TO MASTER (owner's OK 2026-10-29; production not verified from the cloud)
+
+The purge page replaces the old sheet: back button, «preparing the list», «sending dossier N of M», decisions in a sheet, retry; live updates over the WebSocket.
+Replayed onto current master; conflicts in `app.57.js` (Guide «Открыть» targets), `updates.json` and the day's patch note resolved by union; the patch note and
+«Что нового» entry moved to 2026-10-29. Checked locally: `test_purge_live_ui.js`, player copy, guide navigation and coverage, patch notes and «Что нового»
+contracts, admin guide contract, `ui_smoke` purge screens, help and more at 320/390 (18 scenarios, 0 failed). Not checked: production (owner).
+
 ## ROADMAP-S08v + ROADMAP-S09 — HOW-TO FROM THE GUIDE, ADMIN GUIDE, PUSHED TO MASTER (owner's OK; production not verified from the cloud)
 
 S08v: «Слова в чате» in the games hub and «Правила» in the online-Mafia hub open guide topics instead of their own windows (`openWordChainHelp`
