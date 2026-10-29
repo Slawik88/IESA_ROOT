@@ -10,7 +10,7 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_rank
 from infrastructure.preprod import require_preprod_user
-from services import admin_access, admin_people, admin_security
+from services import admin_access, admin_guide, admin_people, admin_security
 
 # Минимальная глобальная роль для раздела (1 тестер … 5 разработчик, 6 создатель).
 # Порядок — это порядок нижней панели: сначала ежедневное (люди, жалобы, журнал, рассылка),
@@ -105,6 +105,20 @@ async def badges(user=Depends(staff_user), db=Depends(get_db)):
     return out
 
 
+def open_sections(user: dict) -> list[dict]:
+    """Разделы, открытые этому сотруднику («Мои чаты» — вместе с «Игроками»), в порядке нижней панели."""
+    people = admin_access.min_rank(user, "section:people", SECTIONS["people"][1])
+    return ([{"key": "mychats", "title": "Мои чаты", "min_rank": people}] if user["rank"] >= people else []) + [
+        {"key": k, "title": t, "min_rank": admin_access.min_rank(user, f"section:{k}", r)} for k, (t, r) in SECTIONS.items()
+        if user["rank"] >= admin_access.min_rank(user, f"section:{k}", r)]
+
+
+@router.get("/guide")
+async def guide(user=Depends(staff_user)):
+    """Путеводитель администрации для этой роли: его показывает экран Путеводителя в Mini App."""
+    return admin_guide.for_reader(rank=user["rank"], sections={s["key"] for s in open_sections(user)})
+
+
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for", "")
     return (forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else ""))
@@ -127,9 +141,7 @@ async def me(request: Request, response: Response, user=Depends(staff_user), db=
                             samesite="none", path=(os.getenv("ROOT_PATH", "").rstrip("/") or "/"))
     return {
         "user_id": user["id"], "rank": user["rank"], "rank_name": bot_rank_name(user["rank"]),
-        "sections": ([{"key": "mychats", "title": "Мои чаты", "min_rank": admin_access.min_rank(user, "section:people", SECTIONS["people"][1])}]
-                     if user["rank"] >= admin_access.min_rank(user, "section:people", SECTIONS["people"][1]) else []) + [{"key": k, "title": t, "min_rank": admin_access.min_rank(user, f"section:{k}", r)} for k, (t, r) in SECTIONS.items()
-                     if user["rank"] >= admin_access.min_rank(user, f"section:{k}", r)],
+        "sections": open_sections(user),
         "ranks": [bot_rank_name(i) for i in range(len(BOT_RANKS))], "creator": user["rank"] >= CREATOR,
     }
 
