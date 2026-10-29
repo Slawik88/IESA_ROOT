@@ -134,3 +134,5 @@ html[data-theme="light"] body:not(.skin-v3) { --lg-cell: linear-gradient(180deg,
 .lgl-pod>.lb-avatar { width:42px;height:42px;border-radius:50%;margin:3px auto; }
 .lgl-player { display:flex;align-items:center;gap:7px;min-width:0; }
 .lgl-player>.lb-avatar { width:28px;height:28px;flex:0 0 28px;border-radius:50%; }
+.lgl-player-n { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }   /* длинный ник — многоточием в своей строке */
+.lgl-pod>b { max-width:100%; }
