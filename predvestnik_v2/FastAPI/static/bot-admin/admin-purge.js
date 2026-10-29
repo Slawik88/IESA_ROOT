@@ -168,7 +168,7 @@ function purgePost(cid, path, body, keepalive = false) {
   const send = async () => {
     PURGE.busy = true; clearTimeout(PURGE.timer);
     try { const res = await purgeApi(`/chats/${cid}/${path}`, {method: 'POST', body: JSON.stringify(body), keepalive}); return res.data; }
-    finally { PURGE.busy = false; PURGE.etag = ''; if (!keepalive && cid === PURGE.cid) purgeLoad(true); }
+    finally { PURGE.busy = false; PURGE.etag = ''; if (cid === PURGE.cid) purgeLoad(true); }
   };
   // При закрытии все запросы должны начаться до уничтожения страницы: ждать ответа предыдущего уже нельзя.
   if (keepalive) return send();
