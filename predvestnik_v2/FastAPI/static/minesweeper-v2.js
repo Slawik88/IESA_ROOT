@@ -19,19 +19,11 @@
   if('serviceWorker' in navigator)navigator.serviceWorker.register(base+'/local-games-sw.js',{scope:base+'/'}).catch(()=>{});
   fetch(base+'/skins-v3/me',{headers:{'Content-Type':'application/json',...(window.GameMode?.headers()||headers)}}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function format(ms){const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}
-  const profileLink=player=>{const a=document.createElement('a');a.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!a.innerHTML)a.textContent=player.display_name||'Игрок';a.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');a.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));return a;};
-  // Тройка лидеров — подиум, остальные строками (как в рейтинге и в обычном Ритме)
+  // Тройка лидеров — подиум, остальные строками: тот же подиум и те же строки, что «Топ» в Mini App (top-board.js)
   function drawBoard(top){
     const podium=$('leaderboard-podium'),list=$('leaderboard-list');podium.replaceChildren();list.replaceChildren();
     if(!top.length){emptyLeaderboard('Пока нет побед.');return;}
-    [top.find(r=>r.place===2),top.find(r=>r.place===1),top.find(r=>r.place===3)].filter(Boolean).forEach(row=>{
-      const item=document.createElement('li'),medal=document.createElement('span'),name=profileLink(row.player||{}),score=document.createElement('small'),pillar=document.createElement('i');
-      item.className='lgl-pod is-p'+row.place+(row.is_me?' is-me':'');medal.className='lgl-medal-ico is-p'+row.place;medal.textContent=row.place;name.className='lgl-nick';score.textContent=formatRank(row.best_elapsed_ms);pillar.setAttribute('aria-hidden','true');
-      item.append(medal,name,score,pillar);podium.append(item);
-    });
-    const rest=top.filter(row=>row.place>3);
-    rest.forEach(row=>{const item=document.createElement('li'),place=document.createElement('span'),result=document.createElement('b');place.textContent='#'+row.place;result.textContent=formatRank(row.best_elapsed_ms);if(row.is_me)item.className='is-me';item.append(place,profileLink(row.player||{}),result);list.append(item);});
-    if(rest.length)list.setAttribute('start',String(rest[0].place));
+    gameTopBoardV3(podium,list,top.map(gameTopRowV3),r=>formatRank(r.raw.best_elapsed_ms));
   }
   function formatRank(ms){return ms>0&&ms<1000?`0:00.${String(Math.floor(ms)).padStart(3,'0')}`:format(ms);}
   function unrankedWin(){return run?.status==='won'&&(run.opened_actions<2||!(run.elapsed_ms>0));}

@@ -274,13 +274,6 @@ function updateCurrBar(data) {
 // loading — фото ещё качается (спросить позже), absent и vip_only — фото не будет, не спрашивать.
 let _vipAvatar = null, _vipAvatarLoading = null, _vipAvatarRetryAt = 0;
 const _AVATAR_FINAL_STATES = new Set(['absent', 'vip_only']);
-function _validAvatar(value) {
-  return typeof value === 'string' && (/^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
-    || /^\/profile\/avatar\/[A-Za-z0-9_-]{16,64}\?v=[0-9a-f]{16}$/.test(value));
-}
-function _avatarSrc(value) {
-  return value.startsWith('/') ? BASE + value : value;
-}
 async function _requestVipAvatar(ref, current = () => true) {
   // Bounded recovery while the server is still fetching the photo. Leaving a card stops its retries;
   // "no photo" and "not a VIP" are answers, not errors, and end the loop at once.

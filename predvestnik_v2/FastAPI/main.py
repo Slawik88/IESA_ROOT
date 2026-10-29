@@ -570,7 +570,7 @@ _APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 
 # Shell V3 stylesheets (loaded after app.css, in this order); each is served at /static/<name>.
 _SHELL_V3_CSS = ("support-feedback.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "mafia-online-v3.css", "fx-tiers-v3.css", "appearance-v3.css",
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "skin-scene-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
-                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "guide-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css", "desktop-v3.css")
+                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "guide-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "top-board-v3.css", "art-v3.css", "casino-v3.css", "desktop-v3.css")
 
 # The scene pictures of the looks (tools/scene_art.py, ~830 KB) are never linked from index.html: a scene asks for a file when it draws a layer with one
 # of its pictures (apScene, app.35.js), so a player in the default look downloads none of them. A new scene picture file goes here, not into index.html.
@@ -578,8 +578,12 @@ _SKIN_SCENE_ART = tuple(f"skin-scene-{letter}-v3.css" for letter in "abcdefg")
 
 # Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
 # The page look, the «Обычный | Рейтинг» switch and the shared header come from the League assets (/static/league-demo/…, FastAPI/game_shell.py).
-_GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
-                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js", "page-transitions.js")
+_GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-scene-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
+                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "top-board-v3.css",
+                      "nickname-v3.js", "game-board-v3.js", "top-board.js", "page-transitions.js")
+# Their leaderboard is the Mini App's own top: top-board.js is the game-page shim (top-board-v3.js) followed by the very same app parts that draw
+# «Топ» and «Топ-10» (row 17, look/nick/avatar 20, ornaments 22, mark 29, scenes and signature details 32–38/48/53, podium 50). Not a copy: a change to the Mini App top reaches the games too.
+_TOP_BOARD_PARTS = ("top-board-v3.js", *(f"app.{i:02d}.js" for i in (17, 20, 22, 29, 32, 33, 34, 35, 36, 37, 38, 48, 50, 53)))   # in the order of app.js
 
 TELEGRAM_SDK_FALLBACK = "vendor/telegram-web-app.js"
 
@@ -589,7 +593,7 @@ _ASSET_SOURCES = tuple(dict.fromkeys((
     *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", TELEGRAM_SDK_FALLBACK, "app.css", *_SHELL_V3_CSS, *_SKIN_SCENE_ART,
     "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html", "game-shell-v3.html",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
-    "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
+    "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *(n for n in _GAME_BOARD_ASSETS if n != "top-board.js"), *_TOP_BOARD_PARTS,
 )))
 # The release: the «update available» banner and error reports name it (<meta name="pv-release"> in index.html).
 _ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
@@ -599,7 +603,7 @@ app.state.asset_version = _ASSET_VER
 # /static/<name>?v=<that hash>, so a deploy makes clients download again only the files whose bytes changed (FastAPI/static_assets.py).
 _JS = "application/javascript; charset=utf-8"
 _CSS = "text/css; charset=utf-8"
-_JS_SOURCES = {"app.js": "".join(_read_static(p) for p in _APP_JS_PARTS), **{name: _read_static(name) for name in (
+_JS_SOURCES = {"app.js": "".join(_read_static(p) for p in _APP_JS_PARTS), "top-board.js": "".join(_read_static(p) for p in _TOP_BOARD_PARTS), **{name: _read_static(name) for name in (
     "page-transitions.js", "support-diagnostics.js", "support-feedback.js", "nickname-v3.js", "game-board-v3.js", "skin-runtime-v3.js",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "coin-market-chart.js", "coin-market-v2.js")}}
 _STORE: dict[str, StaticAsset] = {name: prepare(minify_js(source), _JS) for name, source in _JS_SOURCES.items()}
@@ -655,6 +659,7 @@ def _game_page(source: str, *, title: str, game: str, script: str) -> str:
 
 
 def _with_game_board_assets(html: str) -> str:
+    html = html.replace("{{SCENE_ART}}", _scene_art())   # the scene of a look asks for its picture file by this map (apScene, app.35.js), as in index.html
     for name in _GAME_BOARD_ASSETS:
         attr = "src" if name.endswith(".js") else "href"
         html = html.replace(f'{attr}="/static/{name}"', f'{attr}="{_ASSET_BASE}/static/{name}?v={_STORE[name].version}"')

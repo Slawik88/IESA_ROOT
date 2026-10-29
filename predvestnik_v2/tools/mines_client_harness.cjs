@@ -19,6 +19,8 @@ module.exports=function boot({blockedStorage=false,status='active',size=9,restor
   const requests=[],net={offline:false,leader:null,mono:100};
   const response=data=>({ok:true,json:async()=>data});
   const context=vm.createContext({document,window:{Telegram:{WebApp:{initData:'telegram-proof',ready(){},expand(){}}},addEventListener(){}},navigator:{onLine:true},location:{pathname:'/app/minesweeper'},
+    // the table itself is the Mini App top (top-board.js, tools/test_game_board_layout_ui.py); here only its text matters
+    gameTopRowV3:r=>({place:r.place,name:r.player?.display_name||'Игрок',raw:r}),gameTopBoardV3:(podium,list,rows,value)=>{podium.textContent=rows.filter(r=>r.place<=3).map(r=>r.name+' '+value(r)).join(' ');list.textContent=rows.filter(r=>r.place>3).map(r=>r.name+' '+value(r)).join(' ');},
     localStorage:{getItem(k){if(blockedStorage)throw Error('SecurityError');return memory.get(k)||(restored&&k.startsWith('pv-local-v1:')?JSON.stringify({active:{packet,state,first:packet.first_cell,journal:[]},outbox:[]}):null);},setItem(k,v){if(blockedStorage)throw Error('SecurityError');memory.set(k,v);},removeItem:k=>memory.delete(k)},
     crypto:require('node:crypto').webcrypto,TextEncoder,Uint8Array,DataView,BigInt,AbortSignal,AbortController,Date,performance:{now:()=>net.mono},console,
     setInterval:()=>1,clearInterval(){},setTimeout:f=>{timers.set(++nextTimer,f);return nextTimer;},clearTimeout:id=>timers.delete(id),

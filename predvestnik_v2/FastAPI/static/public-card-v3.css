@@ -35,5 +35,3 @@
 .v3-lock { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; color: var(--v3-dim); font-size: 13px; }
 .v3-lock svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
 .v3-tier { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: var(--v3-faint); color: var(--v3-acc); font: 700 10px/1.6 var(--v3-font); letter-spacing: .06em; }
-.v3-rowbtn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: opacity .15s; }
-.v3-rowbtn:active { opacity: .55; }

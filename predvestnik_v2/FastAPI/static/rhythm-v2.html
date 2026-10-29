@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-demo.css?v={{VER}}">
   <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-games.css?v={{VER}}">
   <link rel="stylesheet" href="{{BASE}}/static/league-demo/casual-games-v3.css?v={{VER}}">
-  <link rel="stylesheet" href="/static/fx-tiers-v3.css"><link rel="stylesheet" href="/static/appearance-v3.css"><link rel="stylesheet" href="/static/skin-signatures-v3.css"><link rel="stylesheet" href="/static/skin-signatures-2-v3.css"><link rel="stylesheet" href="/static/skins-exclusive-v3.css"><link rel="stylesheet" href="/static/skin-sig-a-v3.css"><link rel="stylesheet" href="/static/skin-sig-b-v3.css"><link rel="stylesheet" href="/static/skin-sig-c-v3.css"><link rel="stylesheet" href="/static/skin-sig-d-v3.css"><link rel="stylesheet" href="/static/marks-v3.css"><link rel="stylesheet" href="/static/nickname-v3.css">
+  <link rel="stylesheet" href="/static/fx-tiers-v3.css"><link rel="stylesheet" href="/static/appearance-v3.css"><link rel="stylesheet" href="/static/appearance-ring-v3.css"><link rel="stylesheet" href="/static/appearance-stage-v3.css"><link rel="stylesheet" href="/static/skin-scene-v3.css"><link rel="stylesheet" href="/static/top-board-v3.css"><link rel="stylesheet" href="/static/skin-signatures-v3.css"><link rel="stylesheet" href="/static/skin-signatures-2-v3.css"><link rel="stylesheet" href="/static/skins-exclusive-v3.css"><link rel="stylesheet" href="/static/skin-sig-a-v3.css"><link rel="stylesheet" href="/static/skin-sig-b-v3.css"><link rel="stylesheet" href="/static/skin-sig-c-v3.css"><link rel="stylesheet" href="/static/skin-sig-d-v3.css"><link rel="stylesheet" href="/static/marks-v3.css"><link rel="stylesheet" href="/static/nickname-v3.css">
 </head>
 <body data-app-base="{{BASE}}">
   <main class="lg-shell">
@@ -22,8 +22,8 @@
       <p class="cg-sub">Забег без конца: чем дольше держишься, тем больше очков. Сердца кончились — забег окончен.</p>
       <h3 class="lg-eyebrow" id="leaderboard-title">Лидеры сезона</h3>
       <div class="cg-board">
-        <ol id="leaderboard-podium" class="lgl-podium" aria-label="Тройка лидеров"></ol>
-        <ol id="leaderboard-list" class="lg-top" start="4" aria-live="polite"><li class="is-empty">Загружаем результаты…</li></ol>
+        <div id="leaderboard-podium"></div>
+        <ol id="leaderboard-list" class="v3-top-list" start="4" aria-live="polite"><li class="is-empty">Загружаем результаты…</li></ol>
         <div id="leaderboard-more" class="cg-more"></div>
       </div>
       <details class="lg-help"><summary>Награды сезона<span id="season-top" class="lg-sub"></span></summary>
@@ -79,5 +79,5 @@
     </section>
     <p id="error" class="cg-error" role="alert"></p>
   </main>
-  <script src="https://telegram.org/js/telegram-web-app.js" onload="Telegram.WebApp.ready();Telegram.WebApp.expand()"></script><script src="/static/skin-runtime-v3.js"></script><script src="/static/nickname-v3.js"></script><script src="/static/game-board-v3.js"></script><script src="{{BASE}}/static/league-demo/league-art.js?v={{VER}}"></script><script src="{{BASE}}/static/league-demo/league-fx.js?v={{VER}}"></script><script src="/static/local-games-v1.js"></script><script src="{{BASE}}/static/league-demo/game-mode-v3.js?v={{VER}}"></script><script src="{{BASE}}/static/league-demo/game-shell-v3.js?v={{VER}}"></script><script src="/static/rhythm-v2.js" defer></script>
+  <script src="https://telegram.org/js/telegram-web-app.js" onload="Telegram.WebApp.ready();Telegram.WebApp.expand()"></script><script src="/static/skin-runtime-v3.js"></script><script src="/static/nickname-v3.js"></script><script src="/static/game-board-v3.js"></script><script>window.__pvSceneArt={{SCENE_ART}};</script><script src="/static/top-board.js"></script><script src="{{BASE}}/static/league-demo/league-art.js?v={{VER}}"></script><script src="{{BASE}}/static/league-demo/league-fx.js?v={{VER}}"></script><script src="/static/local-games-v1.js"></script><script src="{{BASE}}/static/league-demo/game-mode-v3.js?v={{VER}}"></script><script src="{{BASE}}/static/league-demo/game-shell-v3.js?v={{VER}}"></script><script src="/static/rhythm-v2.js" defer></script>
 </body></html>

@@ -66,6 +66,21 @@ function apWho(row) {
   return `<span class="v3-who"><span>${ap ? apName(ap, _profileEsc(row.name)) : `<span class="ap-plain">${_profileEsc(row.name)}</span>`}${row.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}${v3MarkDot(row.mark)}</span>${apTitle(ap)}</span>`;
 }
 
+// ── Аватар: фото VIP или личное созвездие. Здесь, а не в профиле: тот же аватар рисуют топы страниц игр (top-board-v3.js) ──
+function _validAvatar(value) {
+  return typeof value === 'string' && (/^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+    || /^\/profile\/avatar\/[A-Za-z0-9_-]{16,64}\?v=[0-9a-f]{16}$/.test(value));
+}
+function _avatarSrc(value) {
+  return value.startsWith('/') ? BASE + value : value;
+}
+function _v3Avatar(d) {
+  const constellation = _v3Constellation(d.seed ?? d.user_id ?? d.display_name ?? d.username, d.account_level ?? d.level, !!d.is_vip);   // без фото: личное созвездие (app.20.js)
+  if (!_validAvatar(d.avatar)) return constellation;
+  // The photo address can fail (VIP ended, network): the image then turns back into the constellation.
+  return `<img src="${_profileEsc(_avatarSrc(d.avatar))}" alt="" decoding="async" data-fallback="${_profileEsc(constellation)}" onerror="this.outerHTML=this.dataset.fallback">`;
+}
+
 // ── Аватар без фото: личное созвездие ──────────────────────────────────────────────
 // У каждого игрока своё созвездие: рисунок задаёт id (одно и то же на любом устройстве), число звёзд растёт с уровнем аккаунта (4 → 9), а звёзды,
 // уже появившиеся, не двигаются. Цвета берутся из токенов образа, поэтому созвездие всегда в тон. Главная звезда у VIP золотая.

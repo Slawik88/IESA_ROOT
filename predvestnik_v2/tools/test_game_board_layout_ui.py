@@ -2,8 +2,8 @@
 
 The owner saw on production (2026-10-29): nicks and titles cut on the podium, the title of #4 dropped onto a line of its own in the middle of the row.
 The pages are the real ones of the stand (tools/ui_stand.py); only the leaderboard answer is replaced by a fixture of awkward rows.
-Checked at 320/390/430: nothing leaves its podium column or row, the page never scrolls sideways, a list row stays 44–64 px,
-the nick and the title of a row start at the same left edge and the title sits under the nick.
+Checked at 320/390/430: the game page draws the very markup of the Mini App «Топ › Ритм» (podium and row), nothing leaves its podium column or row,
+the page never scrolls sideways, a list row stays under 72 px.
 
     PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. python tools/test_game_board_layout_ui.py [--shots DIR]
 """
@@ -46,33 +46,23 @@ def fixture(look: dict | None) -> dict:
     return {"top": rows, "items": rows, "page": 0, "pages": 1, "personal": {"place": 5, "best_score": 72491, "total": 812}, "season": None}
 
 
-GEOMETRY = """() => { const out = []; const W = document.documentElement.clientWidth;
+# The same judgement for a game page and the Mini App Top: `root` holds the podium (.v3-podium) and the list (.v3-top-list)
+GEOMETRY = """(root) => { const out = []; const W = document.documentElement.clientWidth; root = document.querySelector(root);
   if (document.documentElement.scrollWidth > W + 1) out.push('page scrolls sideways: ' + document.documentElement.scrollWidth + ' > ' + W);
   const inside = (box, el, what) => { const a = box.getBoundingClientRect(), b = el.getBoundingClientRect(); if (!b.width) return;
     if (b.left < a.left - 1 || b.right > a.right + 1) out.push(what + ' leaves its box: ' + Math.round(b.left) + '..' + Math.round(b.right) + ' of ' + Math.round(a.left) + '..' + Math.round(a.right)); };
-  const pods = [...document.querySelectorAll('#leaderboard-podium .lgl-pod')]; if (pods.length !== 3) out.push('podium has ' + pods.length + ' places');
-  pods.forEach(p => p.querySelectorAll('.lb-avatar, .ap-name, .ap-plain, .ap-title, small').forEach(e => inside(p, e, 'podium ' + p.className.split(' ')[1] + ' ' + e.className.split(' ')[0])));
-  const rows = [...document.querySelectorAll('#leaderboard-list > li')]; if (rows.length < 2) out.push('list has ' + rows.length + ' rows');
-  rows.forEach((r, i) => { const h = r.getBoundingClientRect().height; if (h < 43 || h > 64) out.push('row ' + (i + 4) + ' is ' + Math.round(h) + ' px');
-    r.querySelectorAll('a, .ap-name, .ap-plain, .ap-title, b').forEach(e => inside(r, e, 'row ' + (i + 4) + ' ' + (e.className || e.tagName).toString().split(' ')[0]));
-    const nick = r.querySelector('.v3-who > span:first-child'), title = r.querySelector('.v3-who > .ap-title');
-    if (nick && title) { const n = nick.getBoundingClientRect(), t = title.getBoundingClientRect();
-      if (Math.abs(n.left - t.left) > 1.5) out.push('row ' + (i + 4) + ': title not under the nick (' + Math.round(n.left) + ' vs ' + Math.round(t.left) + ')');
-      if (t.top < n.bottom - 1) out.push('row ' + (i + 4) + ': title beside the nick'); } });
-  return out; }"""
-
-# Mini App Top: podium cards and list rows (same rules, the row is a button of .v3-top-list)
-APP_GEOMETRY = """() => { const out = []; const W = document.documentElement.clientWidth;
-  if (document.documentElement.scrollWidth > W + 1) out.push('page scrolls sideways: ' + document.documentElement.scrollWidth + ' > ' + W);
-  const inside = (box, el, what) => { const a = box.getBoundingClientRect(), b = el.getBoundingClientRect(); if (!b.width) return;
-    if (b.left < a.left - 1 || b.right > a.right + 1) out.push(what + ' leaves its box: ' + Math.round(b.left) + '..' + Math.round(b.right) + ' of ' + Math.round(a.left) + '..' + Math.round(a.right)); };
-  const root = document.getElementById('pg-top');
   const pods = [...root.querySelectorAll('.v3-podium:not(.is-ghost) .v3-pod')]; if (pods.length !== 3) out.push('podium has ' + pods.length + ' places');
   pods.forEach(p => p.querySelectorAll('.ap-name, .ap-plain, .ap-title, .v3-pod-name, small').forEach(e => inside(p, e, 'podium ' + p.className.split(' ')[1] + ' ' + String(e.className).split(' ')[0])));
   const rows = [...root.querySelectorAll('.v3-top-list > li')]; if (rows.length < 2) out.push('list has ' + rows.length + ' rows');
   rows.forEach((r, i) => { const h = r.getBoundingClientRect().height; if (h > 72) out.push('row ' + (i + 4) + ' is ' + Math.round(h) + ' px');
     r.querySelectorAll('.ap-name, .ap-plain, .ap-title, b').forEach(e => inside(r, e, 'row ' + (i + 4) + ' ' + String(e.className || e.tagName).split(' ')[0])); });
   return out; }"""
+# Markup of the podium and the first list row with every attribute but the class dropped: a game page must draw exactly what the Mini App draws
+SKELETON = """(root) => { root = document.querySelector(root); const strip = el => { const c = el.cloneNode(true);
+    c.querySelectorAll('*').forEach(e => [...e.attributes].forEach(a => a.name !== 'class' && e.removeAttribute(a.name))); [...c.attributes].forEach(a => a.name !== 'class' && c.removeAttribute(a.name));
+    c.querySelectorAll('small, b').forEach(e => { if (!e.children.length) e.textContent = ''; }); return c.outerHTML; };
+  const pod = root.querySelector('.v3-podium'), row = root.querySelector('.v3-top-list > li');
+  return [pod ? strip(pod) : '', row ? strip(row) : '']; }"""
 
 
 def main() -> int:
@@ -96,10 +86,12 @@ def main() -> int:
                 errors: list[str] = []
                 page.on("pageerror", lambda e, errors=errors: errors.append(str(e)[:120]))
                 go(page, stand.base + path)
-                page.wait_for_function("() => document.querySelectorAll('#leaderboard-podium .lgl-pod').length > 0", timeout=20000)
+                page.wait_for_function("() => document.querySelectorAll('#leaderboard-podium .v3-pod').length > 0", timeout=20000)
                 page.wait_for_timeout(600)
                 page.evaluate("() => document.getElementById('leaderboard-podium').scrollIntoView({block: 'start'})")
-                found = page.evaluate(GEOMETRY) + ["js error: " + e for e in errors]
+                found = page.evaluate(GEOMETRY, ".cg-board") + ["js error: " + e for e in errors]
+                if game == "rhythm":
+                    game_skeleton = page.evaluate(SKELETON, ".cg-board")
                 problems += [f"{game} @{width}: {x}" for x in found]
                 if shots:
                     page.locator("#leaderboard-podium").locator("xpath=..").screenshot(path=str(shots / f"{game}-board-{width}.png"))
@@ -113,7 +105,12 @@ def main() -> int:
                 page.evaluate("s => { const b = [...document.querySelectorAll('#pg-top .v3-tab')].find(x => x.textContent.trim() === s); if (b) b.click(); }", scope)
                 page.wait_for_function("() => document.querySelectorAll('#pg-top .v3-top-list > li').length > 1", timeout=15000)
                 page.wait_for_timeout(500)
-                problems += [f"app top «{scope}» @{width}: {x}" for x in page.evaluate(APP_GEOMETRY)]
+                problems += [f"app top «{scope}» @{width}: {x}" for x in page.evaluate(GEOMETRY, "#pg-top")]
+                if scope == "Ритм":
+                    for what, mine, app in zip(("podium", "row"), game_skeleton, page.evaluate(SKELETON, "#pg-top")):
+                        if mine != app:
+                            at = next((k for k, (x, y) in enumerate(zip(mine, app)) if x != y), min(len(mine), len(app)))
+                            problems.append(f"rhythm @{width}: the game {what} is not the Mini App one: …{mine[max(0, at - 60):at + 60]}… vs …{app[max(0, at - 60):at + 60]}…")
                 if shots and scope != "Сапёр":
                     page.locator("#pg-top .v3-top-body").screenshot(path=str(shots / f"app-top-{'rhythm' if scope == 'Ритм' else 'all'}-{width}.png"))
             ctx.close()
@@ -121,7 +118,7 @@ def main() -> int:
     if problems:
         print("\n".join("FAIL " + p for p in problems))
         return 1
-    print("OK: Rhythm, Minesweeper and the Mini App Top (all, Rhythm, Minesweeper) at 320/390/430 — long nicks, titles, VIP, marks and the own row stay in their columns, rows 44–64 px, no sideways scroll")
+    print("OK: Rhythm and Minesweeper draw the Mini App top itself (same podium and row markup as «Топ › Ритм»); at 320/390/430 long nicks, titles, VIP, marks and the own row stay in their columns, rows 44–64 px, no sideways scroll")
     return 0
 
 

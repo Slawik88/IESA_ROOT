@@ -82,5 +82,5 @@ function _v3RowAva(row) {
 }
 function _v3RowButton(row, value) {
   const open = row.ref && /^[A-Za-z0-9_-]{16,64}$/.test(row.ref) ? ` onclick="openPublicProfile('${row.ref}')"` : ' disabled';
-  return `<button type="button" class="v3-rowbtn"${open} aria-label="Профиль игрока ${_profileEsc(row.name)}"><i>${row.place}</i>${_v3RowAva(row)}<span>${apWho(row)}</span><b>${fmt(value)}</b></button>`;
+  return `<button type="button" class="v3-rowbtn"${open} aria-label="Профиль игрока ${_profileEsc(row.name)}"><i>${row.place}</i>${_v3RowAva(row)}<span>${apWho(row)}</span><b>${typeof value === 'string' ? _profileEsc(value) : fmt(value)}</b></button>`;   // value: число или готовая строка (время Сапёра)
 }

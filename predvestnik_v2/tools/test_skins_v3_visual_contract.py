@@ -84,7 +84,7 @@ assert re.search(r"@keyframes aptsheen \{[^}]*opacity[^}]*transform", names_css)
 assert re.search(r"\.v3-who \.ap-name \{[^}]*white-space: nowrap; text-overflow: ellipsis", names_css) and ".ap-plain {" in names_css
 assert re.search(r"\.v3-name \.ap-name, \.pp-name \.ap-name, \.lk-name \.ap-name \{[^}]*-webkit-line-clamp: 2[^}]*overflow-wrap: anywhere", names_css)
 assert "white-space: nowrap" not in css["looks-v3.css"].split(".lk-name {", 1)[1].split("}", 1)[0], "the looks hero name may wrap"
-home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
+home_css = (STATIC / "top-board-v3.css").read_text(encoding="utf-8")   # строки топа: общий файл Mini App и страниц игр (S13)
 assert re.search(r"\.v3-top-list \.v3-rowbtn > span \{[^}]*padding: 14px 24px; margin: -14px -24px", home_css), "top list rows clip the glow of a look"
 
 # The renderer never trusts the payload: palette and kinds are validated before they reach a class or a style.
@@ -101,9 +101,9 @@ for skin_id, skin in SKINS.items():
     assert contrast(a, bg) >= 5.0, f"{skin_id}: title text colour must clear 4.5:1 with margin"
 # Placeholder avatar (no photo): a personal constellation, not a glyph; one twinkle class, only under .ap-anim.
 assert "function _v3Constellation(" in renderer and "_cnRand" in renderer and "Math.min(9, 4 +" in renderer, "the star count grows with the level up to nine"
-shell_css = (STATIC / "shell-v3.css").read_text(encoding="utf-8")
+shell_css = (STATIC / "top-board-v3.css").read_text(encoding="utf-8")   # созвездие аватара: общий файл топов (S13)
 assert ".ap-anim .cn-tw" in shell_css and not re.search(r"(?<!\.ap-anim )\.cn-tw[^{]*\{[^}]*animation", shell_css), "the constellation twinkles only under .ap-anim"
-assert "_v3Constellation(" in (STATIC / "app.15.js").read_text(encoding="utf-8") and "seed: d.ref" in (STATIC / "app.21.js").read_text(encoding="utf-8")
+assert "_v3Constellation(" in (STATIC / "app.20.js").read_text(encoding="utf-8") and "seed: d.ref" in (STATIC / "app.21.js").read_text(encoding="utf-8")
 # Personal skins draw their own SVG layer (bows, sparkles, drips, splashes): every one has ornaments in app.22.js, CSS keyed by its id, and every gradient or filter the CSS names is defined once in the page.
 assert "_apSk(ap)" in renderer and "apOrn(ap)" in renderer and "apFrameOrn(ap)" in renderer, "layers carry data-sk and the stage and frame ask for ornaments"
 for sid, skin in SKINS.items():

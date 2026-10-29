@@ -4,9 +4,9 @@ const src=fs.readFileSync(path.join(__dirname,'../FastAPI/static/game-board-v3.j
 let calls=0;
 const ctx=vm.createContext({window:{},console,setTimeout:f=>{f();return 1},document:{createElement:()=>({})},api:async()=>{calls++;return {vip:true,avatar:photo}}});
 vm.runInContext(src,ctx);
-const rendered=ctx.window.gameWhoV3({display_name:'<admin>',profile_ref:ref,is_vip:true});
-assert.match(rendered,/&lt;admin&gt;/);assert.match(rendered,/data-lb-avatar/);
-assert.doesNotMatch(ctx.window.gameWhoV3({display_name:'Plain',profile_ref:ref,is_vip:false,avatar:photo}),/data:image/);
+const rendered=ctx.window.leaderboardAvatar({display_name:'<admin>',profile_ref:ref,is_vip:true});
+assert.match(rendered,/&lt;/);assert.match(rendered,/data-lb-avatar/);
+assert.doesNotMatch(ctx.window.leaderboardAvatar({display_name:'Plain',profile_ref:ref,is_vip:false,avatar:photo}),/data:image/);
 const node=()=>({isConnected:true,dataset:{lbAvatar:ref},images:[],querySelector(){return this.images[0]},append(img){this.images.push(img)}});
 const a=node(),b=node(),host={isConnected:true,querySelectorAll:()=>[a,b]};
 (async()=>{
@@ -16,7 +16,7 @@ const a=node(),b=node(),host={isConnected:true,querySelectorAll:()=>[a,b]};
  const late=node();late.dataset.lbAvatar='qrstuvwxyzabcdef';let done;ctx.api=()=>new Promise(resolve=>{done=resolve});
  const old={isConnected:true,querySelectorAll:()=>[late]};ctx.window.hydrateLeaderboardAvatars(old);old.isConnected=false;done({vip:true,avatar:photo});
  await new Promise(setImmediate);assert.equal(late.images.length,0,'late response cannot change a detached board');
- assert.doesNotMatch(ctx.window.gameWhoV3({display_name:'Unsafe',is_vip:true,avatar:'data:image/svg+xml;base64,AAAA'}),/<img/);
+ assert.doesNotMatch(ctx.window.leaderboardAvatar({display_name:'Unsafe',is_vip:true,avatar:'data:image/svg+xml;base64,AAAA'}),/<img/);
  // Standalone pages use fetch rather than the shell's api(). HTTP failures must retry.
  for(const status of [401,429,500]){
    let tries=0;
@@ -34,11 +34,11 @@ const a=node(),b=node(),host={isConnected:true,querySelectorAll:()=>[a,b]};
  // Server photo addresses (roadmap S02): shown with the app base; final states never ask again.
  const address='/profile/avatar/'+ref+'?v=0123456789abcdef';
  ctx.BASE='/predvestnik';
- const shown=ctx.window.gameWhoV3({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:address,avatar_state:'ready'});
+ const shown=ctx.window.leaderboardAvatar({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:address,avatar_state:'ready'});
  assert.match(shown,/src="\/predvestnik\/profile\/avatar\//);assert.doesNotMatch(shown,/data-lb-avatar/,'a row with its photo needs no request');
- for(const state of ['absent','vip_only'])assert.doesNotMatch(ctx.window.gameWhoV3({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:null,avatar_state:state}),/data-lb-avatar/,state);
- assert.match(ctx.window.gameWhoV3({display_name:'Vip',profile_ref:'loadingloadingload',is_vip:true,avatar:null,avatar_state:'loading'}),/data-lb-avatar/);
- assert.doesNotMatch(ctx.window.gameWhoV3({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:'/profile/avatar/'+ref+'?v=bad"x'}),/<img/);
+ for(const state of ['absent','vip_only'])assert.doesNotMatch(ctx.window.leaderboardAvatar({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:null,avatar_state:state}),/data-lb-avatar/,state);
+ assert.match(ctx.window.leaderboardAvatar({display_name:'Vip',profile_ref:'loadingloadingload',is_vip:true,avatar:null,avatar_state:'loading'}),/data-lb-avatar/);
+ assert.doesNotMatch(ctx.window.leaderboardAvatar({display_name:'Vip',profile_ref:ref,is_vip:true,avatar:'/profile/avatar/'+ref+'?v=bad"x'}),/<img/);
  let finalCalls=0;ctx.api=async()=>{finalCalls++;return {vip:true,avatar:null,avatar_state:'absent'}};
  const quiet=node();quiet.dataset.lbAvatar='zyxwvutsrqponmlk';ctx.window.hydrateLeaderboardAvatars({isConnected:true,querySelectorAll:()=>[quiet]});
  await new Promise(setImmediate);await new Promise(setImmediate);
