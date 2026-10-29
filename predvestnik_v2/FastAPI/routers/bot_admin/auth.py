@@ -10,7 +10,7 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_rank
 from infrastructure.preprod import require_preprod_user
-from services import admin_access, admin_people, admin_security
+from services import skins_v3, admin_access, admin_people, admin_security
 
 # Минимальная глобальная роль для раздела (1 тестер … 5 разработчик, 6 создатель).
 # Порядок — это порядок нижней панели: сначала ежедневное (люди, жалобы, журнал, рассылка),
@@ -126,6 +126,7 @@ async def me(request: Request, response: Response, user=Depends(staff_user), db=
         response.set_cookie(DEV_COOKIE, create_session_token(user["id"]), httponly=True, secure=True,
                             samesite="none", path=(os.getenv("ROOT_PATH", "").rstrip("/") or "/"))
     return {
+        "look": await skins_v3.own_look(db, user["id"]),
         "user_id": user["id"], "rank": user["rank"], "rank_name": bot_rank_name(user["rank"]),
         "sections": ([{"key": "mychats", "title": "Мои чаты", "min_rank": admin_access.min_rank(user, "section:people", SECTIONS["people"][1])}]
                      if user["rank"] >= admin_access.min_rank(user, "section:people", SECTIONS["people"][1]) else []) + [{"key": k, "title": t, "min_rank": admin_access.min_rank(user, f"section:{k}", r)} for k, (t, r) in SECTIONS.items()
