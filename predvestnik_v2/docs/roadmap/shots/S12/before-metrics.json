@@ -1,0 +1,416 @@
+[
+  {
+    "width": 320,
+    "exchange": false,
+    "dock": [
+      {
+        "label": "Профиль",
+        "fullyVisible": true,
+        "x": 11,
+        "width": 56
+      },
+      {
+        "label": "Игры",
+        "fullyVisible": true,
+        "x": 67,
+        "width": 56
+      },
+      {
+        "label": "Питомцы",
+        "fullyVisible": true,
+        "x": 123,
+        "width": 56
+      },
+      {
+        "label": "Задания",
+        "fullyVisible": true,
+        "x": 179,
+        "width": 56
+      },
+      {
+        "label": "Образы",
+        "fullyVisible": true,
+        "x": 235,
+        "width": 56
+      },
+      {
+        "label": "Сундуки",
+        "fullyVisible": false,
+        "x": 291,
+        "width": 56
+      },
+      {
+        "label": "Инвентарь",
+        "fullyVisible": false,
+        "x": 347,
+        "width": 56
+      },
+      {
+        "label": "Топ",
+        "fullyVisible": false,
+        "x": 403,
+        "width": 56
+      },
+      {
+        "label": "Кошелёк",
+        "fullyVisible": false,
+        "x": 459,
+        "width": 56
+      },
+      {
+        "label": "Ещё",
+        "fullyVisible": false,
+        "x": 515,
+        "width": 56
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "exchange": false,
+    "dock": [
+      {
+        "label": "Профиль",
+        "fullyVisible": true,
+        "x": 11,
+        "width": 56
+      },
+      {
+        "label": "Игры",
+        "fullyVisible": true,
+        "x": 67,
+        "width": 56
+      },
+      {
+        "label": "Питомцы",
+        "fullyVisible": true,
+        "x": 123,
+        "width": 56
+      },
+      {
+        "label": "Задания",
+        "fullyVisible": true,
+        "x": 179,
+        "width": 56
+      },
+      {
+        "label": "Образы",
+        "fullyVisible": true,
+        "x": 235,
+        "width": 56
+      },
+      {
+        "label": "Сундуки",
+        "fullyVisible": true,
+        "x": 291,
+        "width": 56
+      },
+      {
+        "label": "Инвентарь",
+        "fullyVisible": false,
+        "x": 347,
+        "width": 56
+      },
+      {
+        "label": "Топ",
+        "fullyVisible": false,
+        "x": 403,
+        "width": 56
+      },
+      {
+        "label": "Кошелёк",
+        "fullyVisible": false,
+        "x": 459,
+        "width": 56
+      },
+      {
+        "label": "Ещё",
+        "fullyVisible": false,
+        "x": 515,
+        "width": 56
+      }
+    ]
+  },
+  {
+    "width": 430,
+    "exchange": false,
+    "dock": [
+      {
+        "label": "Профиль",
+        "fullyVisible": true,
+        "x": 11,
+        "width": 56
+      },
+      {
+        "label": "Игры",
+        "fullyVisible": true,
+        "x": 67,
+        "width": 56
+      },
+      {
+        "label": "Питомцы",
+        "fullyVisible": true,
+        "x": 123,
+        "width": 56
+      },
+      {
+        "label": "Задания",
+        "fullyVisible": true,
+        "x": 179,
+        "width": 56
+      },
+      {
+        "label": "Образы",
+        "fullyVisible": true,
+        "x": 235,
+        "width": 56
+      },
+      {
+        "label": "Сундуки",
+        "fullyVisible": true,
+        "x": 291,
+        "width": 56
+      },
+      {
+        "label": "Инвентарь",
+        "fullyVisible": true,
+        "x": 347,
+        "width": 56
+      },
+      {
+        "label": "Топ",
+        "fullyVisible": false,
+        "x": 403,
+        "width": 56
+      },
+      {
+        "label": "Кошелёк",
+        "fullyVisible": false,
+        "x": 459,
+        "width": 56
+      },
+      {
+        "label": "Ещё",
+        "fullyVisible": false,
+        "x": 515,
+        "width": 56
+      }
+    ]
+  },
+  {
+    "width": 320,
+    "exchange": true,
+    "dock": [
+      {
+        "label": "Профиль",
+        "fullyVisible": true,
+        "x": 11,
+        "width": 56
+      },
+      {
+        "label": "Игры",
+        "fullyVisible": true,
+        "x": 67,
+        "width": 56
+      },
+      {
+        "label": "Биржа",
+        "fullyVisible": true,
+        "x": 123,
+        "width": 56
+      },
+      {
+        "label": "Питомцы",
+        "fullyVisible": true,
+        "x": 179,
+        "width": 56
+      },
+      {
+        "label": "Задания",
+        "fullyVisible": true,
+        "x": 235,
+        "width": 56
+      },
+      {
+        "label": "Образы",
+        "fullyVisible": false,
+        "x": 291,
+        "width": 56
+      },
+      {
+        "label": "Сундуки",
+        "fullyVisible": false,
+        "x": 347,
+        "width": 56
+      },
+      {
+        "label": "Инвентарь",
+        "fullyVisible": false,
+        "x": 403,
+        "width": 56
+      },
+      {
+        "label": "Топ",
+        "fullyVisible": false,
+        "x": 459,
+        "width": 56
+      },
+      {
+        "label": "Кошелёк",
+        "fullyVisible": false,
+        "x": 515,
+        "width": 56
+      },
+      {
+        "label": "Ещё",
+        "fullyVisible": false,
+        "x": 571,
+        "width": 56
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "exchange": true,
+    "dock": [
+      {
+        "label": "Профиль",
+        "fullyVisible": true,
+        "x": 11,
+        "width": 56
+      },
+      {
+        "label": "Игры",
+        "fullyVisible": true,
+        "x": 67,
+        "width": 56
+      },
+      {
+        "label": "Биржа",
+        "fullyVisible": true,
+        "x": 123,
+        "width": 56
+      },
+      {
+        "label": "Питомцы",
+        "fullyVisible": true,
+        "x": 179,
+        "width": 56
+      },
+      {
+        "label": "Задания",
+        "fullyVisible": true,
+        "x": 235,
+        "width": 56
+      },
+      {
+        "label": "Образы",
+        "fullyVisible": true,
+        "x": 291,
+        "width": 56
+      },
+      {
+        "label": "Сундуки",
+        "fullyVisible": false,
+        "x": 347,
+        "width": 56
+      },
+      {
+        "label": "Инвентарь",
+        "fullyVisible": false,
+        "x": 403,
+        "width": 56
+      },
+      {
+        "label": "Топ",
+        "fullyVisible": false,
+        "x": 459,
+        "width": 56
+      },
+      {
+        "label": "Кошелёк",
+        "fullyVisible": false,
+        "x": 515,
+        "width": 56
+      },
+      {
+        "label": "Ещё",
+        "fullyVisible": false,
+        "x": 571,
+        "width": 56
+      }
+    ]
+  },
+  {
+    "width": 430,
+    "exchange": true,
+    "dock": [
+      {
+        "label": "Профиль",
+        "fullyVisible": true,
+        "x": 11,
+        "width": 56
+      },
+      {
+        "label": "Игры",
+        "fullyVisible": true,
+        "x": 67,
+        "width": 56
+      },
+      {
+        "label": "Биржа",
+        "fullyVisible": true,
+        "x": 123,
+        "width": 56
+      },
+      {
+        "label": "Питомцы",
+        "fullyVisible": true,
+        "x": 179,
+        "width": 56
+      },
+      {
+        "label": "Задания",
+        "fullyVisible": true,
+        "x": 235,
+        "width": 56
+      },
+      {
+        "label": "Образы",
+        "fullyVisible": true,
+        "x": 291,
+        "width": 56
+      },
+      {
+        "label": "Сундуки",
+        "fullyVisible": true,
+        "x": 347,
+        "width": 56
+      },
+      {
+        "label": "Инвентарь",
+        "fullyVisible": false,
+        "x": 403,
+        "width": 56
+      },
+      {
+        "label": "Топ",
+        "fullyVisible": false,
+        "x": 459,
+        "width": 56
+      },
+      {
+        "label": "Кошелёк",
+        "fullyVisible": false,
+        "x": 515,
+        "width": 56
+      },
+      {
+        "label": "Ещё",
+        "fullyVisible": false,
+        "x": 571,
+        "width": 56
+      }
+    ]
+  }
+]

@@ -27,11 +27,11 @@ STATIC = ROOT / "FastAPI" / "static"
 guide = json.loads((STATIC / "guide-v3.json").read_text(encoding="utf-8"))
 topics = {t["id"]: t for t in guide["topics"]}
 
-# ── Нижняя полоса: data-page → тема (у «Кошелька» нет data-page, он сверен отдельно) ───────────────────────────────────────
+# ── Нижняя полоса: data-page → тема (Кошелёк — лист с собственным активным состоянием) ────────────────────────────────────
 TABS = {"profile": "profile", "arena": "games", "exchange-v1": "market", "pets": "pets", "questlog": "quests", "looks": "looks", "chests": "keys",
-        "inventory": "inventory", "top": "profile", "more": "map"}
+        "inventory": "inventory", "top": "profile", "wallet": "wallet", "more": "map"}
 # ── «Ещё»: data-nav-key → тема или причина, почему темы нет ───────────────────────────────────────────────────────────────
-MORE = {"chats": "profile", "top": "profile", "inventory": "inventory", "chests": "keys", "looks": "looks", "promo": "promo", "wallet": "wallet",
+MORE = {"chats": "profile", "promo": "promo",
         "zarniki": "zarniki", "vip": "vip", "settings": "settings", "purge": "chat-admin", "guide": "",
         "support": "", "news": "", "community-link": "", "updates-link": "", "refresh": "", "admin": ""}
 MORE_EXCEPT = {"guide": "это и есть Путеводитель", "support": "окно жалобы объясняет себя само", "news": "«Что нового» — лента обновлений, а не механика",

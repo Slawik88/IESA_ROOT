@@ -1,0 +1,179 @@
+{
+  "date": "2026-10-29",
+  "runtime_navigation": {
+    "passed": 24,
+    "cases": [
+      {
+        "width": 320,
+        "exchange": false,
+        "pets": false,
+        "chests": false
+      },
+      {
+        "width": 320,
+        "exchange": false,
+        "pets": false,
+        "chests": true
+      },
+      {
+        "width": 320,
+        "exchange": false,
+        "pets": true,
+        "chests": false
+      },
+      {
+        "width": 320,
+        "exchange": false,
+        "pets": true,
+        "chests": true
+      },
+      {
+        "width": 320,
+        "exchange": true,
+        "pets": false,
+        "chests": false
+      },
+      {
+        "width": 320,
+        "exchange": true,
+        "pets": false,
+        "chests": true
+      },
+      {
+        "width": 320,
+        "exchange": true,
+        "pets": true,
+        "chests": false
+      },
+      {
+        "width": 320,
+        "exchange": true,
+        "pets": true,
+        "chests": true
+      },
+      {
+        "width": 390,
+        "exchange": false,
+        "pets": false,
+        "chests": false
+      },
+      {
+        "width": 390,
+        "exchange": false,
+        "pets": false,
+        "chests": true
+      },
+      {
+        "width": 390,
+        "exchange": false,
+        "pets": true,
+        "chests": false
+      },
+      {
+        "width": 390,
+        "exchange": false,
+        "pets": true,
+        "chests": true
+      },
+      {
+        "width": 390,
+        "exchange": true,
+        "pets": false,
+        "chests": false
+      },
+      {
+        "width": 390,
+        "exchange": true,
+        "pets": false,
+        "chests": true
+      },
+      {
+        "width": 390,
+        "exchange": true,
+        "pets": true,
+        "chests": false
+      },
+      {
+        "width": 390,
+        "exchange": true,
+        "pets": true,
+        "chests": true
+      },
+      {
+        "width": 430,
+        "exchange": false,
+        "pets": false,
+        "chests": false
+      },
+      {
+        "width": 430,
+        "exchange": false,
+        "pets": false,
+        "chests": true
+      },
+      {
+        "width": 430,
+        "exchange": false,
+        "pets": true,
+        "chests": false
+      },
+      {
+        "width": 430,
+        "exchange": false,
+        "pets": true,
+        "chests": true
+      },
+      {
+        "width": 430,
+        "exchange": true,
+        "pets": false,
+        "chests": false
+      },
+      {
+        "width": 430,
+        "exchange": true,
+        "pets": false,
+        "chests": true
+      },
+      {
+        "width": 430,
+        "exchange": true,
+        "pets": true,
+        "chests": false
+      },
+      {
+        "width": 430,
+        "exchange": true,
+        "pets": true,
+        "chests": true
+      }
+    ]
+  },
+  "mockups": {
+    "passed": 48,
+    "receipt": "checks.json"
+  },
+  "screens": {
+    "scenarios": 207,
+    "failures": 0,
+    "warnings": 83
+  },
+  "crawl": {
+    "screen_visits": 195,
+    "controls": 390,
+    "failures": 0,
+    "max_controls_per_screen": 2,
+    "full_14_control_sweep": false
+  },
+  "edges": {
+    "widths": [
+      320,
+      430,
+      768,
+      1280
+    ],
+    "passed": true
+  },
+  "real_telegram": false,
+  "production_verified": false
+}

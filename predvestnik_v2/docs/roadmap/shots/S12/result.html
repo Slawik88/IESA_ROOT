@@ -1,0 +1,13 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Предвестник · Готовый вариант Б</title><link rel="stylesheet" href="preview.css"><body>
+<header class="intro"><p class="eyebrow">S12 / ВЫБРАН ВАРИАНТ Б</p><h1>Привычное меню. «Ещё» всегда видно.</h1>
+<p>Снимки настоящего приложения с вымышленным игроком. «Ещё» закреплено справа, рядом листаются прежние разделы. В «Ещё» есть поиск, повторяющиеся пункты убраны.</p>
+<div class="controls"><label>Ширина телефона <select id="width"><option>320</option><option selected>390</option><option>430</option></select></label><a href="preview.html">Посмотреть исходные варианты</a></div></header>
+<main class="variants">
+<article><div class="variant-title" style="min-height:100px"><p class="eyebrow">ДО</p><h2>«Ещё» за краем экрана</h2></div><img id="before" style="width:390px;max-width:100%;border-radius:16px" alt="Профиль до изменений"></article>
+<article><div class="variant-title" style="min-height:100px"><p class="eyebrow">ГОТОВЫЙ Б / ПРОФИЛЬ</p><h2>«Ещё» закреплено справа</h2></div><img id="profile" style="width:390px;max-width:100%;border-radius:16px" alt="Настоящий профиль с новым нижним меню"></article>
+<article><div class="variant-title" style="min-height:100px"><p class="eyebrow">ГОТОВЫЙ Б / ЕЩЁ</p><h2>Поиск и оставшиеся разделы</h2></div><img id="more" style="width:390px;max-width:100%;border-radius:16px" alt="Настоящий экран Ещё с поиском"></article>
+</main><section class="evidence"><p>Кошелёк подсвечивается, пока открыт. «Назад» сначала закрывает окно; после закрытия возвращается подсветка прежнего раздела. Биржа появляется по прежним правилам. Путеводитель обновлён.</p>
+<p>Готовый вариант Б одобрен владельцем 29.10. Отметка для отдельной проверки Claude Code — в журнале.</p></section>
+<script>function show(){const w=document.getElementById('width').value;for(const [id,file] of [['before','before-profile'],['profile','final-profile'],['more','final-more']]){const img=document.getElementById(id);img.src=`${file}-${w}.webp`;img.style.width=`${w}px`;}}document.getElementById('width').addEventListener('change',show);show();</script>
+</body></html>

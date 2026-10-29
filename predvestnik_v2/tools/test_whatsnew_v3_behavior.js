@@ -328,7 +328,7 @@ const count = (html, needle) => html.split(needle).length - 1;
     const expected = {
       support: ['openSupport'],
       games: ['switchPage', 'arena'], pass: ['openSeasonPass'], looks: ['openLooksModal'], quests: ['openQuestsV1'], chests: ['openChestsV1'], pets: ['openPetsV1'], top: ['openTopV3'],
-      profile: ['switchPage', 'profile'], family: ['openFamilyTree'], inventory: ['openInventory'], achievements: ['openAchievementsV1'], promo: ['openPromoSheet'],
+      profile: ['switchPage', 'profile'], more: ['switchPage', 'more'], family: ['openFamilyTree'], inventory: ['openInventory'], achievements: ['openAchievementsV1'], promo: ['openPromoSheet'],
       zarniki: ['openStoreV3', 'zarniki'], vip: ['openStoreV3', 'vip'], settings: ['openSettingsModal'], chats: ['openChatTracker'], help: ['openGuide'],
     };
     assert.deepEqual(Object.keys(plain(wn._WN_GO)).sort(), Object.keys(expected).sort(), 'таблица переходов и тест описывают одни и те же ключи');

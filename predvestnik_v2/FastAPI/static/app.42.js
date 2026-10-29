@@ -41,6 +41,7 @@ const _WN_GO = {
   pets:         { cta: 'Открыть Питомцы', tab: 'pets', run: () => openPetsV1() },
   top:          { cta: 'Открыть Топ', tab: 'top', run: () => openTopV3() },
   profile:      { cta: 'Открыть Профиль', tab: 'profile', run: () => switchPage('profile') },
+  more:         { cta: 'Открыть «Ещё»', tab: 'more', run: () => switchPage('more') },
   family:       { cta: 'Открыть Мою семью', tab: 'profile', run: () => openFamilyTree() },
   inventory:    { cta: 'Открыть Инвентарь', tab: 'inventory', run: () => openInventory() },
   achievements: { cta: 'Открыть Достижения', run: () => openAchievementsV1() },

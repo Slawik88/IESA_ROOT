@@ -102,6 +102,7 @@
 | `pets` | Открыть Питомцы | `openPetsV1()` (Тропа при включённом `pets_v2`) | `pets` |
 | `top` | Открыть Топ | `openTopV3()` | `top` |
 | `profile` | Открыть Профиль | `switchPage('profile')` | `profile` |
+| `more` | Открыть «Ещё» | `switchPage('more')` | `more` |
 | `family` | Открыть Мою семью | `openFamilyTree()` | `profile` |
 | `inventory` | Открыть Инвентарь | `openInventory()` | |
 | `achievements` | Открыть Достижения | `openAchievementsV1()` | |

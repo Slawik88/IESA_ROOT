@@ -36,7 +36,7 @@ DEVICES = {
     "low": "Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>4});Object.defineProperty(navigator,'deviceMemory',{get:()=>2});",
 }
 HEIGHT = 780
-PROFILE_READY = "() => typeof _profileData !== 'undefined' && _profileData && _profileData.look"
+PROFILE_READY = "() => typeof _profileData !== 'undefined' && _profileData && !!document.querySelector('#pro-main .v3-id') && pvLateCss.ready()"
 
 
 def chromium_path() -> str | None:
@@ -85,6 +85,8 @@ class Probe:
 
 def open_app(stand: Stand, browser, width: int, device: str | None = None):
     ctx = browser.new_context(viewport={"width": width, "height": HEIGHT}, device_scale_factor=1, has_touch=True, is_mobile=True)
+    # The isolated stand authenticates a synthetic player; remote SDK/fonts must not stall each crawl reload.
+    ctx.route("**/*", lambda route: route.abort() if any(host in route.request.url for host in ("telegram.org", "fonts.g")) else route.continue_())
     page = ctx.new_page()
     page.add_init_script(INIT + stand.browser_init + (";localStorage.setItem('v3_lite','0');" + DEVICES[device] if device else ""))
     probe = Probe(page)
@@ -192,6 +194,7 @@ def sweep_crawl(stand, browser, args, results) -> None:
             go(page, page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
             run_js(page, js); settle(page)
             labels = page.evaluate(CANDIDATES, SKIP_CLICK)[: args.taps]
+            print(f"crawl {name} @{width}: {len(labels)} controls", flush=True)
             for index, label in labels:
                 try:
                     go(page, page.home); page.wait_for_function(PROFILE_READY, timeout=20000)

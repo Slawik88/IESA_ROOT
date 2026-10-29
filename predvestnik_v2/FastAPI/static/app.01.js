@@ -1,8 +1,8 @@
 // Higher priorities appear first. Stable IDs keep ordering independent of wording.
 const _NAV_PRIORITY = Object.freeze({
   groups: Object.freeze({management:100, help:95, community:90, collection:80, shop:60, account:50}),   // «Помощь» с Путеводителем — первой группой у игрока (S07)
-  items: Object.freeze({purge:110, admin:90, chats:100, top:90, inventory:100, chests:95, looks:90, promo:80,
-    guide:120, support:110, news:90, 'community-link':80, 'updates-link':70, refresh:10, wallet:100, zarniki:70, vip:60, settings:100})
+  items: Object.freeze({purge:110, admin:90, chats:100, promo:80,
+    guide:120, support:110, news:90, 'community-link':80, 'updates-link':70, refresh:10, zarniki:70, vip:60, settings:100})
 });
 function orderNavigation() {
   const sort = (parent, selector, priorities, key) => {
@@ -14,8 +14,49 @@ function orderNavigation() {
   const more = document.getElementById('pg-more');
   sort(more, '[data-nav-group]', _NAV_PRIORITY.groups, 'navGroup');
   more?.querySelectorAll('[data-nav-group]').forEach(group => sort(group, '[data-nav-key]', _NAV_PRIORITY.items, 'navKey'));
+  filterMoreNavigation();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', orderNavigation); else orderNavigation();
+
+function filterMoreNavigation() {
+  const more = document.getElementById('pg-more'); if (!more) return;
+  const query = (document.getElementById('more-search')?.value || '').trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
+  let found = false;
+  more.querySelectorAll('[data-nav-group]').forEach(group => {
+    let matches = false;
+    group.querySelectorAll('[data-nav-key]').forEach(row => {
+      const text = row.textContent.toLocaleLowerCase('ru').replace(/ё/g,'е');
+      const match = !query || text.includes(query);
+      row.classList.toggle('nav-filtered', !match);
+      if (match && !row.hidden) matches = true;
+    });
+    group.classList.toggle('nav-filtered', !matches);
+    if (matches && !group.hidden) found = true;
+  });
+  const empty = document.getElementById('more-search-empty'); if (empty && empty.hidden !== found) empty.hidden = found;
+}
+function updateDockScroll() {
+  const rail = document.querySelector('.nav-rail'), track = document.querySelector('.nav-scrollbar');
+  if (!rail || !track) return;
+  const ratio = Math.min(1, rail.clientWidth / Math.max(1, rail.scrollWidth));
+  track.classList.toggle('nav-scrollbar--off', ratio >= 1);
+  const thumb = track.firstElementChild; if (!thumb) return;
+  thumb.style.width = `${ratio * 100}%`;
+  thumb.style.transform = `translateX(${Math.max(0, rail.scrollLeft) / Math.max(1, rail.scrollWidth) * track.clientWidth}px)`;
+}
+function setupDockNavigation() {
+  document.getElementById('more-search')?.addEventListener('input', filterMoreNavigation);
+  const more = document.getElementById('pg-more'), rail = document.querySelector('.nav-rail');
+  rail?.addEventListener('scroll', updateDockScroll, {passive:true});
+  window.addEventListener('resize', updateDockScroll);
+  if (rail) {
+    new ResizeObserver(updateDockScroll).observe(rail);
+    new MutationObserver(updateDockScroll).observe(rail, {subtree:true, attributes:true, attributeFilter:['hidden']});
+  }
+  if (more) new MutationObserver(filterMoreNavigation).observe(more, {subtree:true, childList:true, attributes:true, attributeFilter:['hidden']});
+  updateDockScroll();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupDockNavigation); else setupDockNavigation();
 
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }  // setHeaderColor removed — deprecated in TG WebApp v6.0
@@ -570,9 +611,10 @@ _overlayScrollObserver.observe(el('modal'), { attributes: true, attributeFilter:
 let _modalReturnFocus=null;
 // Кнопки подвала окна: primary / ghost / danger. Окна консоли и модерации ещё передают старые имена btn-gold / btn-ghost / btn-red: такой подвал рисуется по-старому целиком.
 const _MF_VARIANT={primary:'',ghost:' v3-pill--ghost',danger:' v3-pill--danger'};
-function OM(title,body,btns=[]) {
+function OM(title,body,btns=[],{navPage}={}) {
   _modalReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
   el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');
+  el('modal').dataset.navPage = navPage || '';
   el('mt').textContent=title;
   el('mb').innerHTML=body;
   // Кавычки в onclick-строке (JSON.stringify-аргументы и т.п.) рвали HTML-атрибут —
@@ -581,6 +623,8 @@ function OM(title,body,btns=[]) {
   el('mf').innerHTML=btns.map(b=>`<button class="${legacyFoot?`btn btn-sm ${b.c||'btn-ghost'}`:`v3-pill${_MF_VARIANT[b.c]??' v3-pill--ghost'}`}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
   el('modal').showModal();
   document.body.classList.add('modal-open');
+  _dockActive(navPage || _activePage);
+  _syncBackButton();
 }
 const CM=()=>{
   el('modal').close();el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');
@@ -594,6 +638,7 @@ const CM=()=>{
   requestAnimationFrame(()=>{if(returnFocus?.isConnected) returnFocus.focus();});
 };
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
+el('modal').addEventListener('close',()=>{if(!el('modal').open){_dockActive(_activePage);_syncBackButton();}});
 el('modal').addEventListener('cancel',()=>{el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);const returnFocus=_modalReturnFocus;_modalReturnFocus=null;requestAnimationFrame(()=>{if(returnFocus?.isConnected)returnFocus.focus();});});
 
 // EPIC6: базовый haptic на КАЖДОЙ кнопке .btn — один делегированный листенер
@@ -699,7 +744,8 @@ function _showMaintenance(pg) {
 }
 
 function _dockReveal(button) {
-  const nav=button.parentElement;
+  const nav=button.closest('.nav-rail');
+  if(!nav)return;   // «Ещё» закреплено отдельно от ленты
   if(nav.scrollWidth<=nav.clientWidth)return;
   const left=Math.max(0,button.offsetLeft-(nav.clientWidth-button.offsetWidth)/2);
   nav.scrollTo({left,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
@@ -709,6 +755,8 @@ function _dockReveal(button) {
 // чтобы появление или исчезновение гейтнутой вкладки (флаги приходят позже диплинка) могло пересобрать
 // подсветку без перезагрузки: скрытая вкладка подсветку не ловит, её берёт «Ещё».
 function _dockActive(name) {
+  const modal = el('modal');
+  if(modal?.open && modal.dataset.navPage) name = modal.dataset.navPage;
   document.querySelectorAll('.nb').forEach(b=>{
     b.classList.remove('active');
     b.removeAttribute('aria-current');
@@ -765,7 +813,7 @@ function switchPage(name, _btn, _viaBack) {
 // ── Кнопка «Назад»: возвращает на предыдущую страницу без ручного поиска вкладки ──
 let _tgBackWired=false;
 function _syncBackButton(){
-  const has=_navStack.length>0;
+  const has=_navStack.length>0 || !!el('modal')?.open;
   // Нативную Telegram BackButton используем ТОЛЬКО реально внутри Telegram
   // (непустой initData): в обычном браузере объект tg.BackButton существует, но
   // не работает — там показываем свою кнопку-фолбэк.
@@ -790,6 +838,7 @@ function _syncBackButton(){
   if(btn) btn.classList.toggle('hidden', !has || inTg || suppressBrowserBack);
 }
 function navBack(){
+  if(el('modal')?.open){CM();return;}
   if(_backHooks.some(fn=>{ try{ return fn()===true; }catch(_){ return false; } })) return;   // подэкран внутри страницы (Тропа питомцев) сначала закрывает себя
   if(!_navStack.length) return;
   const prev=_navStack.pop();

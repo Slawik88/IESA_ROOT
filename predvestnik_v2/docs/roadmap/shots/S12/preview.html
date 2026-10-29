@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Предвестник · Выбор меню S12</title>
+<link rel="stylesheet" href="preview.css">
+<body>
+<header class="intro"><p class="eyebrow">ПРЕДВЕСТНИК / S12</p><h1>«Ещё» всегда под рукой</h1>
+<p>Три варианта навигации. Нажимай разделы, открывай «Ещё», проверяй поиск и возврат. Это отдельный макет: игровые действия здесь не выполняются.</p>
+<div class="controls"><label>Ширина телефона <select id="width"><option>320</option><option selected>390</option><option>430</option></select></label>
+<label><input id="exchange" type="checkbox"> Биржа доступна</label><label><input id="admin" type="checkbox"> Входы администрации</label>
+<button id="reset" type="button">Начать с профиля</button></div></header>
+<main class="variants">
+<article><div class="variant-title"><p class="eyebrow">А / РЕКОМЕНДУЮ</p><h2>Пять кнопок внизу</h2><p>Профиль · Игры · Задания · Питомцы · Ещё. Остальные разделы — в «Ещё», без повторов. На 320 px помещается целиком.</p>
+<label class="extra"><input id="six" type="checkbox"> Сравнить: добавить «Образы» шестой кнопкой</label></div><iframe title="Вариант А" data-variant="a"></iframe><p class="tradeoff">До сундуков, образов и топа — два нажатия. Зато меню не нужно листать. Шесть кнопок тоже показаны по заданию, но на узком экране им теснее.</p></article>
+<article><div class="variant-title"><p class="eyebrow">Б / БЛИЖЕ К ПРИВЫЧНОМУ</p><h2>«Ещё» закреплено справа</h2><p>Прежние разделы остаются в нижней ленте. «Ещё» всегда видно. Полоса под лентой показывает, что её можно листать.</p></div><iframe title="Вариант Б" data-variant="b"></iframe><p class="tradeoff">Сохраняет прямые входы. На 320 px слева видны три полных пункта и часть четвёртого; к дальним разделам нужен свайп. Пункты ленты не повторяются в «Ещё».</p></article>
+<article><div class="variant-title"><p class="eyebrow">В / БЫСТРЫЕ РАЗДЕЛЫ СВЕРХУ</p><h2>Главное внизу, вещи сверху</h2><p>Нижние пять кнопок как в А. Сверху — Сундуки, Образы, Инвентарь и Топ. Быстрые разделы видны на всех экранах макета.</p></div><iframe title="Вариант В" data-variant="c"></iframe><p class="tradeoff">Четыре верхних раздела открываются одним нажатием. Панель занимает 52 px высоты и находится дальше от большого пальца. На 320 px подписи читаются в пределах своих кнопок.</p></article>
+</main>
+<section class="evidence"><h2>До изменений</h2><p>Настоящие экраны локального приложения с вымышленным игроком. Меню из 11 пунктов, из них Биржа может быть скрыта. «Ещё» из профиля без прокрутки не видно.</p>
+<div class="before"><figure><img src="before-profile-320.webp" alt="Профиль до изменений, 320 пикселей"><figcaption>320 px</figcaption></figure><figure><img src="before-profile-390.webp" alt="Профиль до изменений, 390 пикселей"><figcaption>390 px</figcaption></figure><figure><img src="before-profile-430.webp" alt="Профиль до изменений, 430 пикселей"><figcaption>430 px</figcaption></figure></div>
+<h2>Сколько действий до раздела</h2><p>Через основное меню из профиля, лента в начале, Биржа скрыта. В В учитывается верхняя панель. Н — нажатие; ↔ — прокрутка меню; ↕ — прокрутка страницы. Подробности и снимки «Ещё» — <a href="REPORT.md">в отчёте</a>.</p>
+<div class="table-wrap"><table><thead><tr><th>Цель</th><th>Сейчас</th><th>А</th><th>Б</th><th>В</th></tr></thead><tbody>
+<tr><td>Игры</td><td>1 Н</td><td>1 Н</td><td>1 Н</td><td>1 Н</td></tr><tr><td>Питомцы</td><td>1 Н</td><td>1 Н</td><td>1 Н</td><td>1 Н</td></tr><tr><td>Задания</td><td>1 Н</td><td>1 Н</td><td>1 Н + ↔ на 320</td><td>1 Н</td></tr>
+<tr><td>Сундуки</td><td>1 Н + ↔ на 320</td><td>2 Н + ↕</td><td>1 Н + ↔</td><td>1 Н</td></tr><tr><td>Образы</td><td>1 Н</td><td>2 Н + ↕</td><td>1 Н + ↔ на 320/390</td><td>1 Н</td></tr><tr><td>Инвентарь</td><td>1 Н + ↔ на 320/390</td><td>2 Н + ↕</td><td>1 Н + ↔</td><td>1 Н</td></tr><tr><td>Топ</td><td>1 Н + ↔</td><td>2 Н + ↕</td><td>1 Н + ↔</td><td>1 Н</td></tr>
+<tr><td>Кошелёк</td><td>1 Н + ↔</td><td>2 Н + ↕</td><td>1 Н + ↔</td><td>2 Н + ↕</td></tr><tr><td>Путеводитель</td><td>2 Н + ↔</td><td>2 Н</td><td>2 Н</td><td>2 Н</td></tr></tbody></table></div>
+<p>Прежние короткие пути сохраняются во всех вариантах: Кошелёк и Образы — одно нажатие по верхнему балансу. Из профиля Путеводитель, Сундуки и Инвентарь — одно нажатие после вертикальной прокрутки. Их прежнюю доступность не считаем улучшением меню.</p>
+<p class="decision">Выбери А, Б или В и желаемый порядок нижних кнопок. После выбора — реализация и проверка настоящих переходов, «Назад» и подсказок. Перед выпуском покажу готовый результат.</p>
+</section>
+<script src="preview.js"></script>
+</body></html>

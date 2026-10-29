@@ -336,7 +336,7 @@ function showCurrModal() {
     <div class="wallet-assets">${[['mora','Мора','Игры и задания'],['diamonds','Алмазы','Редкие награды'],['essence','Эссенция','Развитие образов']].map(([id,name,sub])=>`<div class="wallet-asset">${_walletIcon(id)}<span><b>${name}</b><small>${sub}</small></span><strong id="cm-bal-${id}">${fmtF(d[id] || 0)}</strong></div>`).join('')}</div>
     <section class="wallet-exchange" id="wallet-exchange" aria-live="polite"><p class="v3-sub">Загружаем актуальные курсы…</p></section>
     <details class="wallet-help"><summary>Как устроен обмен</summary><p>Зарники можно обменять на Мору, Алмазы или Эссенцию. Курс один для кошелька, магазина и «Образов».</p><p>Мору и Алмазы можно менять в любом количестве и в любой день. Эссенция продаётся готовыми наборами — такими же, как в «Образах».</p><p>Обмен нельзя отменить: обратно в Зарники ничего не превратится.</p></details>
-  </div>`, [{l:'Пополнить Зарники',c:'ghost',f:'CM();openZarnikiTopup()'},{l:'Закрыть',c:'ghost',f:'CM()'}]);
+  </div>`, [{l:'Пополнить Зарники',c:'ghost',f:'CM();openZarnikiTopup()'},{l:'Закрыть',c:'ghost',f:'CM()'}], {navPage:'wallet'});
   api('/wallet/exchange-policy').then(p => {
     if (mine !== _walletSeq || !el('modal')?.open || !el('wallet-exchange')) return;
     if (!Array.isArray(p?.routes) || !p.routes.length) throw new Error('Курсы временно недоступны');
