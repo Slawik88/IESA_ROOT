@@ -59,7 +59,7 @@ def run(browser, rank: int | None, width: int, shots: str | None) -> None:
         name = url.path.rsplit("/", 1)[-1]
         if name.endswith(".json"):
             return route.fulfill(status=200, content_type="application/json", body=admin_stand.read(name))
-        if name.startswith("admin") and name.endswith((".js", ".css")):
+        if (name.startswith("admin") or name in admin_stand.SHARED) and name.endswith((".js", ".css")):
             return route.fulfill(status=200, content_type="text/javascript" if name.endswith(".js") else "text/css", body=admin_stand.read(name))
         return route.fulfill(status=200, content_type="text/html", body=html)
 

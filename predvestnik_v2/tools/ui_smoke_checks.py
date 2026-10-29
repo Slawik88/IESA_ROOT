@@ -116,6 +116,10 @@ SCREENS = [
                                    + ",counts:{total:38,sent:38,decided:21,blocked:1},items:ITEMS}", "purgeOpen(2);")),
 ]
 
+# Отдельная SPA админки: собственный стенд без базы, тот же общий запуск ui_smoke.py.
+ADMIN_SCREENS = ("admin-search", "admin-player", "admin-reports", "admin-journal", "admin-broadcast", "admin-access", "admin-purge", "admin-metrics")
+SCREENS += [(name, "") for name in ADMIN_SCREENS]
+
 # Standalone pages outside the single-page app (no dock): the two games and the public legal pages.
 PAGES = ("/rhythm-v2", "/minesweeper", "/legal/tos", "/legal/privacy")
 

@@ -98,14 +98,15 @@ def main():
     # В отданной странице нет несобранных меток и обязательный каркас на месте (нижняя панель скрыта до загрузки разделов)
     assert "{{" not in page._PAGE and 'id="tabs"' in page._PAGE and 'id="main"' in page._PAGE
 
-    # Тема: по умолчанию как в Telegram, светлая и тёмная выбираются вручную, тема применяется до отрисовки без мигания
-    js = open(os.path.join(REAL_DIR, "admin.js"), encoding="utf-8").read()
-    css = open(os.path.join(REAL_DIR, "admin.css"), encoding="utf-8").read()
-    assert "PREFS.get('theme', 'auto')" in js and "TG.onEvent('themeChanged'" in js and "data-theme-pick" in js
-    assert "TG.platform !== 'unknown'" in js, "вне Telegram SDK всегда говорит «светлая»: его схему нельзя брать вслепую"
-    assert ':root[data-theme="light"]' in css and "color-scheme: light" in css
-    assert "dataset.theme" in page._PAGE and page._PAGE.index("dataset.theme") < page._PAGE.index("admin.css"), "тема выбирается до загрузки стилей"
-    print("OK: admin page versions follow content, assets revalidate by ETag, theme follows Telegram")
+    # S11: единые исходники Mini App, тема образа и строгий вариант вместо собственной палитры.
+    js = open(os.path.join(REAL_DIR, "admin-look.js"), encoding="utf-8").read()
+    assert "PREFS.get('admin.look', 'own')" in js and 'adminThemeFallback' in js
+    assert 'data-look="strict"' in js and 'data-look="own"' in js
+    assert page._SHARED["appearance-core.js"] == "../app.20.js"
+    assert page._SHARED["shell-v3.css"] == "../shell-v3.css"
+    assert "shell-v3.css" in page._PAGE and "admin-look.js" in page._PAGE
+    print("OK: admin assets ETag, shared appearance and theme switch")
 
 
-main()
+if __name__ == "__main__":
+    main()

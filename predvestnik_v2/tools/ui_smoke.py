@@ -7,7 +7,7 @@
 
 A run FAILS on: a JS error, an unexpected HTTP error, a widened layout viewport, horizontal overflow, a dock that is not pinned inside the screen,
 a screen opener that throws, a browser-default grey button. Reported as warnings (fail with --strict): controls under 32px, card-around-everything shells.
-Needs PostgreSQL (see tools/ui_stand.py) and Chromium (PLAYWRIGHT_BROWSERS_PATH). Not part of the automatic test run. Admin screens are not covered.
+Needs PostgreSQL (see tools/ui_stand.py) and Chromium (PLAYWRIGHT_BROWSERS_PATH). Not part of the automatic test run. Admin screens run on fixtures without PostgreSQL.
 """
 from __future__ import annotations
 
@@ -164,6 +164,8 @@ def sweep_screens(stand, browser, args, results) -> None:
         # What the profile underneath always shows is judged on the profile only, not repeated under every sheet.
         baseline = set(check_screen(page, probe, "profile", "switchPage('profile')", width, None)[1])
         for name, js in SCREENS:
+            if name.startswith("admin-"):
+                continue
             if args.only and name not in args.only:
                 continue
             fails, warns = check_screen(page, probe, name, js, width, shots)
@@ -187,6 +189,8 @@ def sweep_crawl(stand, browser, args, results) -> None:
     for width in args.widths:
         ctx, page, probe = open_app(stand, browser, width)
         for name, js in SCREENS:
+            if name.startswith("admin-"):
+                continue
             if args.only and name not in args.only:
                 continue
             go(page, page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
@@ -303,6 +307,17 @@ def main() -> int:
         Path(args.shots).mkdir(parents=True, exist_ok=True)
     from playwright.sync_api import sync_playwright
     results: dict[str, tuple[list[str], list[str]]] = {}
+    from admin_ui_smoke import ADMIN_SCREENS, run_admin_smoke
+    admin_only = set(ADMIN_SCREENS) if not args.only else args.only.intersection(ADMIN_SCREENS)
+    if admin_only:
+        results.update(run_admin_smoke(args.widths, admin_only, args.shots))
+    if args.only and args.only.issubset(ADMIN_SCREENS):
+        for name, (fails, _) in results.items():
+            if fails:
+                print(f"FAIL {name}: {fails[:8]}")
+        failed = sum(bool(fails) for fails, _ in results.values())
+        print(f"{len(results)} scenarios: {failed} failed")
+        return int(bool(failed))
     asyncio.run(set_game_flags(args.dsn, args.flags == "on"))
     if args.flags == "off":
         EXPECTED_HTTP.append(("", 403))      # a closed module answers 403 "temporarily disabled"; the screen must show that, not break

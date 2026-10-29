@@ -16,6 +16,7 @@ import sys
 from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(__file__))
+from admin_stand import SHARED
 from admin_stand_fixtures import CHAT, PURGE_VIEW, ROUTES  # noqa: E402
 
 HOST = "http://stand.local"
@@ -58,7 +59,7 @@ CHECKS = {
 
 
 def read(static: str, name: str) -> str:
-    with open(os.path.join(static, name), encoding="utf-8") as f:
+    with open(os.path.join(static, SHARED.get(name, name)), encoding="utf-8") as f:
         return f.read()
 
 
@@ -92,11 +93,11 @@ def main() -> int:
         if path.startswith(f"/purge-v1/chats/{CID}"):
             return route.fulfill(status=200, content_type="application/json", body=json.dumps(PURGE_VIEW))
         name = path.rsplit("/", 1)[-1]
-        if name.startswith("admin") and name.endswith(".js") and os.path.exists(os.path.join(args.static, name)):
+        if (name.startswith("admin") or name in SHARED) and name.endswith(".js") and os.path.exists(os.path.join(args.static, SHARED.get(name, name))):
             return route.fulfill(status=200, content_type="text/javascript", body=read(args.static, name))
         if name.endswith(".json") and os.path.exists(os.path.join(args.static, name)):
             return route.fulfill(status=200, content_type="application/json", body=read(args.static, name))
-        if name.startswith("admin") and name.endswith(".css"):
+        if (name.startswith("admin") or name in SHARED) and name.endswith(".css"):
             return route.fulfill(status=200, content_type="text/css", body=read(args.static, name))
         return route.fulfill(status=200, content_type="text/html", body=html)
 
