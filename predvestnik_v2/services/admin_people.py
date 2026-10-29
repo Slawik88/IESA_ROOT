@@ -49,6 +49,7 @@ ACTION_TITLES = {
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена или отменена",
     "broadcast_resume": "Рассылка продолжена", "broadcast_template": "Шаблон рассылки",
+    "journal_export": "Выгрузка журнала", "purge_start": "Чистка начата", "purge_finish": "Чистка закончена", "purge_reconcile": "Чистка: решение сверено с Telegram",
 }
 
 
@@ -150,6 +151,93 @@ FILTERS = {
     "staff": "Персонал",
 }
 FILTER_LIMIT = 30
+SEARCH_PAGE = 20
+# Фильтры с числом или игроком: «idle:30» — не писал 30+ дней, «active:7» — писал за 7 дней,
+# «silent» — ни разу не писал в чатах с ботом, «linked:<id>» — возможные связи игрока (как в его карточке).
+PARAM_FILTERS = {"idle": "Не писали {n}+ дн.", "active": "Писали за {n} дн.", "linked": "Связи игрока id{n}"}
+FILTER_DAYS_MAX = 366
+
+
+def _uses_last(flt: str) -> bool:
+    """Фильтр по последнему сообщению (s.last из общей статистики игрока)."""
+    parsed = _param_filter(flt)
+    return bool(parsed and parsed[0] in ("idle", "active"))
+
+
+def _param_filter(flt: str) -> tuple[str, int] | None:
+    """«idle:30» → ("idle", 30); чужое или вне границ → None."""
+    kind, _, raw = flt.partition(":")
+    if kind not in PARAM_FILTERS or not raw.isdecimal() or len(raw) > 15:
+        return None
+    n = int(raw)
+    if kind != "linked" and not 1 <= n <= FILTER_DAYS_MAX:
+        return None
+    return kind, n
+
+
+def filter_title(flt: str) -> str:
+    if flt in FILTERS:
+        return FILTERS[flt]
+    if flt == "silent":
+        return "Ни разу не писали"
+    parsed = _param_filter(flt)
+    return PARAM_FILTERS[parsed[0]].format(n=parsed[1]) if parsed else ""
+
+
+def is_known_filter(flt: str) -> bool:
+    return flt in FILTERS or flt == "silent" or _param_filter(flt) is not None
+
+
+async def _filter_cond(db, flt: str) -> tuple[str, tuple]:
+    """Условие любого фильтра (кроме регалий): именованные — из _filter_sql, с числом — здесь."""
+    if flt == "silent":
+        return ("NOT EXISTS (SELECT 1 FROM user_chat_stats x WHERE x.user_tg_id = u.user_tg_id "
+                "AND COALESCE(x.user_messages_count_all_time, 0) > 0)"), ()
+    parsed = _param_filter(flt)
+    if not parsed:
+        return _filter_sql(flt)
+    kind, n = parsed
+    if kind == "idle":
+        return "s.last < NOW() - make_interval(days => ?)", (n,)
+    if kind == "active":
+        return "s.last >= NOW() - make_interval(days => ?)", (n,)
+    found = await linked(db, n)
+    ids = {u["id"] for key in ("same_username", "same_name") for u in found[key]} | {u["id"] for u in found["invited"]["items"]}
+    if found["invited_by"]:
+        ids.add(found["invited_by"]["id"])
+    return "u.user_tg_id = ANY(?::bigint[])", (sorted(ids),)
+
+
+async def _with_status(db, players: list[dict]) -> list[dict]:
+    """К найденным — бан, мут и варны сейчас: видно в списке, не открывая карточку. Пачкой по всем найденным."""
+    ids = [p["id"] for p in players]
+    for p in players:
+        p["status"] = {"ban": False, "global_ban": False, "mute": False, "warns": 0}
+    if not ids:
+        return players
+    by_id = {p["id"]: p["status"] for p in players}
+    async with db.execute(
+        "SELECT user_id, bool_or(chat_id = ?), bool_or(chat_id <> ?) FROM chat_blacklist WHERE user_id = ANY(?::bigint[]) "
+        "AND (expires_at IS NULL OR expires_at > NOW()) GROUP BY user_id",
+        (global_moderation.GLOBAL_CHAT, global_moderation.GLOBAL_CHAT, ids)) as cur:
+        for uid, global_ban, ban in await cur.fetchall():
+            by_id[int(uid)].update(global_ban=bool(global_ban), ban=bool(ban))
+    async with db.execute(
+        "SELECT DISTINCT user_tg_id FROM user_chat_stats WHERE user_tg_id = ANY(?::bigint[]) AND muted_until > NOW()",
+        (ids,)) as cur:
+        for (uid,) in await cur.fetchall():
+            by_id[int(uid)]["mute"] = True
+    async with db.execute(
+        "SELECT user_id, COUNT(*) FROM user_warnings WHERE user_id = ANY(?::bigint[]) AND revoked_at IS NULL "
+        "AND (expires_at IS NULL OR expires_at > NOW()) GROUP BY user_id", (ids,)) as cur:
+        for uid, n in await cur.fetchall():
+            by_id[int(uid)]["warns"] = int(n)
+    return players
+
+
+def _page(players: list[dict], total: int, offset: int, limit: int) -> dict:
+    return {"players": players, "chats": [], "total": total, "offset": offset, "limit": limit,
+            "next_offset": offset + limit if offset + limit < total else None}
 
 
 def _filter_sql(flt: str) -> tuple[str, tuple]:
@@ -218,23 +306,83 @@ async def _mark_search(db, q: str, flt: str, offset: int) -> dict:
             "next_offset": offset + FILTER_LIMIT if offset + FILTER_LIMIT < total else None}
 
 
-async def search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -> dict:
-    """Поиск людей и чатов; к найденным людям добавляет подписанную ссылку на фото."""
-    data = await _search(db, q, limit=limit, flt=flt, offset=offset)
+async def search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0, paged: bool = False) -> dict:
+    """Поиск людей и чатов; к найденным людям — подписанная ссылка на фото (у всех игроков) и бан/мут/варны сейчас.
+    paged — страницы у любого поиска и фильтра (total, offset, next_offset); без него ответ прежний."""
+    data = await _search(db, q, limit=limit, flt=flt, offset=offset, paged=paged)
+    await _with_status(db, data.get("players") or [])
     admin_avatars.attach(data.get("players") or [])
+    if data.get("players") is not None and flt and is_known_filter(flt):
+        data["filter_title"] = filter_title(flt)
     return data
 
 
-async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -> dict:
+async def _paged_search(db, q: str, flt: str, offset: int) -> dict:
+    """Страница игроков по фильтру и/или тексту: 30 по фильтру без текста, 20 по тексту. Чаты — только без фильтра.
+    Всего найдено считается в том же запросе (COUNT(*) OVER()): второй проход по 100k игроков стоил столько же, сколько поиск."""
+    cond, cparams = await _filter_cond(db, flt) if flt else ("", ())
+    where, params, order = [cond] if cond else [], list(cparams), "s.last DESC NULLS LAST, u.user_tg_id"
+    chats: list[dict] = []
+    if q:
+        digits = q.lstrip("-")
+        if digits.isdecimal() and len(digits) <= 15:
+            where.append("u.user_tg_id = ?")
+            params.append(int(digits))
+        else:
+            name = q.lstrip("@")
+            where.append("(u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
+                         "OR EXISTS (SELECT 1 FROM user_chat_stats t WHERE t.user_tg_id = u.user_tg_id AND t.member_tag ILIKE ?))")
+            params += [_like(name), _like(q), _like(q)]
+            order = ("lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
+                     "COALESCE(s.total, 0) DESC, u.user_tg_id")
+        if not flt:
+            chats = await _find_chats(db, q)
+    elif not flt:
+        return await _search(db, q)
+    limit = SEARCH_PAGE if q else FILTER_LIMIT
+    sql_where = " AND ".join(where) or "TRUE"
+    # «Не писал / писал за N дней» отбирают по последнему сообщению: один проход по статистике дешевле, чем по игроку отдельно.
+    base = _PLAYER_SQL if _uses_last(flt) else _FOUND_PLAYER_SQL
+    order_params = (q.lstrip("@"), q) if order.startswith("lower") else ()
+    async with db.execute(base.replace(" FROM users u ", ", COUNT(*) OVER() FROM users u ", 1) +
+                          f"WHERE {sql_where} ORDER BY {order} LIMIT ? OFFSET ?", (*params, *order_params, limit, offset)) as cur:
+        rows = await cur.fetchall()
+    if rows:
+        total = int(rows[0][6])
+    else:   # страница за концом списка: сколько всего, узнаём отдельно
+        async with db.execute(f"SELECT COUNT(*) FROM ({base}WHERE {sql_where}) q", tuple(params)) as cur:
+            total = int((await cur.fetchone())[0])
+    players = await _with_tags(db, [_player_row(r) for r in rows])
+    return {**_page(players, total, offset, limit), "chats": chats}
+
+
+async def _find_chats(db, q: str, limit: int = 20) -> list[dict]:
+    """Чаты по ID (любая запись: -100…, -…, без минуса) или по куску названия."""
+    digits = q.lstrip("-")
+    if digits.isdecimal() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
+        n = int(digits)
+        ids = {n, -n} | ({-1000000000000 - n} if not q.startswith("-100") else set())
+        marks = ", ".join("?" for _ in ids)
+        async with db.execute(_CHAT_SQL + f"WHERE c.chat_id IN ({marks})", tuple(ids)) as cur:
+            return [_chat_row(r) for r in await cur.fetchall()]
+    async with db.execute(
+        _CHAT_SQL + "WHERE c.chat_title ILIKE ? ORDER BY COALESCE(s.total, 0) DESC LIMIT ?", (_like(q), limit)) as cur:
+        return [_chat_row(r) for r in await cur.fetchall()]
+
+
+async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0, paged: bool = False) -> dict:
     """Игроки и чаты по ID, @нику (можно кусок), имени из Telegram или нику в чате; чаты по названию.
     Пустой запрос — самые свежие по активности. flt — быстрый фильтр игроков (FILTERS): чаты тогда не ищутся."""
     q = (q or "").strip()
+    offset = max(0, min(int(offset), 1_000_000))
     if is_mark_filter(flt):
-        return await _mark_search(db, q, flt, max(0, min(int(offset), 1_000_000)))
+        return await _mark_search(db, q, flt, offset)
+    if flt and is_known_filter(flt):
+        await staff_watch.ensure_once(db)   # фильтр «на контроле» читает таблицу, которой на свежей базе ещё может не быть
+    if paged:
+        return await _paged_search(db, q, flt if is_known_filter(flt) else "", offset)
     flt = flt if flt in FILTERS else ""
     cond, cparams = _filter_sql(flt)
-    if flt:
-        await staff_watch.ensure_once(db)   # фильтр «на контроле» читает таблицу, которой на свежей базе ещё может не быть
     if not q:
         where = cond or "s.last IS NOT NULL"
         async with db.execute(_PLAYER_SQL + f"WHERE {where} ORDER BY s.last DESC NULLS LAST, u.user_tg_id LIMIT ?",
@@ -249,16 +397,9 @@ async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -
     tail = f" AND {cond}" if cond else ""
     digits = q.lstrip("-")
     if digits.isdecimal() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
-        n = int(digits)
-        ids = {n, -n} | ({-1000000000000 - n} if not q.startswith("-100") else set())
-        marks = ", ".join("?" for _ in ids)
-        async with db.execute(_FOUND_PLAYER_SQL + "WHERE u.user_tg_id = ?" + tail, (n, *cparams)) as cur:
+        async with db.execute(_FOUND_PLAYER_SQL + "WHERE u.user_tg_id = ?" + tail, (int(digits), *cparams)) as cur:
             players = await _with_tags(db, [_player_row(r) for r in await cur.fetchall()])
-        chats = []
-        if not flt:
-            async with db.execute(_CHAT_SQL + f"WHERE c.chat_id IN ({marks})", tuple(ids)) as cur:
-                chats = [_chat_row(r) for r in await cur.fetchall()]
-        return {"players": players, "chats": chats}
+        return {"players": players, "chats": [] if flt else await _find_chats(db, q, limit)}
     name = q.lstrip("@")
     async with db.execute(
         _FOUND_PLAYER_SQL + "WHERE (u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
@@ -266,12 +407,7 @@ async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -
         " ORDER BY lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
         "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), *cparams, name, q, limit)) as cur:
         players = await _with_tags(db, [_player_row(r) for r in await cur.fetchall()])
-    chats = []
-    if not flt:
-        async with db.execute(
-            _CHAT_SQL + "WHERE c.chat_title ILIKE ? ORDER BY COALESCE(s.total, 0) DESC LIMIT ?", (_like(q), limit)) as cur:
-            chats = [_chat_row(r) for r in await cur.fetchall()]
-    return {"players": players, "chats": chats}
+    return {"players": players, "chats": [] if flt else await _find_chats(db, q, limit)}
 
 
 # ── Журнал ───────────────────────────────────────────────────────────────────
@@ -329,6 +465,8 @@ def describe(action: str, d: dict) -> str:
         return f"№{d.get('broadcast', '')}, осталось {d.get('left', 0)}"
     if action == "broadcast_template":
         return ("удалён №" + str(d.get("template", ""))) if d.get("removed") else f"«{d.get('title', '')}»"
+    if action == "journal_export":
+        return f"за {_days(d.get('days', 0))}, строк: {d.get('rows', 0)}"
     if action == "broadcast_stop":
         return f"№{d.get('broadcast', '')}"
     return ""
@@ -382,29 +520,27 @@ FEED_KINDS = {
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
     "switches": ("Функции", ("switch",)),
-    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke", "grant", "owner_access", "owner_block")),
+    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke", "grant", "owner_access", "owner_block", "journal_export")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
+    "purge": ("Чистка", ("purge_start", "purge_finish", "purge_reconcile")),
 }
+FEED_DAYS_MAX = 90
+EXPORT_MAX_ROWS = 5000
 
 
-async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7, before: str = "", limit: int = 30) -> dict:
-    """Лента всех действий персонала за период. before — время последней записи прошлой страницы."""
+async def _feed_rows(db, *, kind: str, actor_id: int | None, user_id: int | None, chat_id: int | None, days: int,
+                     cursor: datetime | None, limit: int) -> list:
+    """Строки ленты: действия из админки и модерация из чатов вместе, новые сверху."""
     actions = FEED_KINDS[kind][1] if kind in FEED_KINDS else tuple(a for _, acts in FEED_KINDS.values() for a in acts)
-    days = max(1, min(int(days or 7), 90))
     marks = ", ".join("?" for _ in actions)
-    limit = max(1, min(int(limit or 30), 100))
-    cursor = None
-    if before:   # asyncpg ждёт datetime, а не строку; битый курсор — ValueError, роутер начнёт с начала
-        cursor = datetime.fromisoformat(before.replace("Z", "+00:00").replace(" ", "+"))   # «+» в адресе без кодирования приходит пробелом
-        if cursor.tzinfo is None:
-            cursor = cursor.replace(tzinfo=timezone.utc)
 
     def cond(actor_col: str, cast: str = "") -> tuple[str, list]:
         sql, args = f"action IN ({marks}) AND created_at > (NOW() - make_interval(days => ?)){cast}", [*actions, days]
-        if actor_id:
-            sql += f" AND {actor_col} = ?"
-            args.append(actor_id)
+        for col, value in ((actor_col, actor_id), ("user_id", user_id), ("chat_id", chat_id)):
+            if value:
+                sql += f" AND {col} = ?"
+                args.append(value)
         if cursor:
             sql += f" AND created_at < ?::timestamptz{cast}"
             args.append(cursor)
@@ -416,8 +552,23 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
     async with db.execute(
         f"SELECT actor_id, action, user_id, chat_id, details::text, created_at FROM bot_admin_actions WHERE {c1} "
         f"UNION ALL SELECT admin_id, action, user_id, chat_id, reason, created_at::timestamptz FROM moderation_logs "
-        f"WHERE {c2} ORDER BY 6 DESC LIMIT ?", (*a1, *a2, limit + 1)) as cur:
-        rows = await cur.fetchall()
+        f"WHERE {c2} ORDER BY 6 DESC LIMIT ?", (*a1, *a2, limit)) as cur:
+        return await cur.fetchall()
+
+
+async def feed(db, *, kind: str = "", actor_id: int | None = None, user_id: int | None = None, chat_id: int | None = None,
+               days: int = 7, before: str = "", limit: int = 30) -> dict:
+    """Лента всех действий персонала за период; можно сузить до игрока или чата (из их карточки — одним касанием).
+    before — время последней записи прошлой страницы."""
+    days = max(1, min(int(days or 7), FEED_DAYS_MAX))
+    limit = max(1, min(int(limit or 30), 100))
+    cursor = None
+    if before:   # asyncpg ждёт datetime, а не строку; битый курсор — ValueError, роутер начнёт с начала
+        cursor = datetime.fromisoformat(before.replace("Z", "+00:00").replace(" ", "+"))   # «+» в адресе без кодирования приходит пробелом
+        if cursor.tzinfo is None:
+            cursor = cursor.replace(tzinfo=timezone.utc)
+    rows = await _feed_rows(db, kind=kind, actor_id=actor_id, user_id=user_id, chat_id=chat_id, days=days, cursor=cursor,
+                            limit=limit + 1)
     more = len(rows) > limit
     rows = rows[:limit]
     names = await _names(db, [r[0] for r in rows] + [r[2] for r in rows])
@@ -447,6 +598,27 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
     return {"items": items, "more": more, "next": items[-1]["at"] if more and items else "",
             "kinds": [{"key": k, "title": t} for k, (t, _) in FEED_KINDS.items()],
             "actors": sorted(({"id": i, "username": actor_names.get(i)} for i in actor_ids), key=lambda a: (a["username"] or "~", a["id"]))}
+
+
+async def export_csv(db, *, kind: str = "", actor_id: int | None = None, user_id: int | None = None,
+                     chat_id: int | None = None, days: int = 7) -> tuple[str, int]:
+    """Журнал за период (до 90 дней, до 5000 строк) таблицей CSV для Excel: текст и сколько строк вошло."""
+    import csv
+    import io
+    days = max(1, min(int(days or 7), FEED_DAYS_MAX))
+    rows = await _feed_rows(db, kind=kind, actor_id=actor_id, user_id=user_id, chat_id=chat_id, days=days, cursor=None,
+                            limit=EXPORT_MAX_ROWS)
+    names = await _names(db, [r[0] for r in rows] + [r[2] for r in rows])
+    titles = await _chat_titles(db, [r[3] for r in rows])
+    out = io.StringIO()
+    table = csv.writer(out, delimiter=";")
+    table.writerow(["Когда (UTC)", "Действие", "Суть", "Причина", "Кто", "ID кто", "Игрок", "ID игрока", "Чат", "ID чата"])
+    for actor, action, uid, cid, extra, at in rows:
+        details = _details(extra)
+        table.writerow([at.strftime("%Y-%m-%d %H:%M:%S") if at else "", ACTION_TITLES.get(action, action), describe(action, details),
+                        str(details.get("reason") or ""), names.get(int(actor)) or "" if actor else "бот", actor or "",
+                        names.get(int(uid)) or "" if uid else "", uid or "", titles.get(int(cid)) or "" if cid else "", cid or ""])
+    return "\ufeff" + out.getvalue(), len(rows)   # BOM: Excel открывает русский текст без кракозябр
 
 
 # ── Карточка игрока ──────────────────────────────────────────────────────────
@@ -533,6 +705,30 @@ async def player(db, uid: int) -> dict | None:
         "names": await name_history.of_user(db, uid, 20),
         "tag_history": await member_tags.history(db, uid, 20),
     }
+
+
+WALLET_LIMIT = 20
+_WALLET_CURRENCIES = {"mora": "🪙 Мора", "diamonds": "💎 Алмазы", "dark_mora": "🌑 Тёмная мора", "zarniki": "✨ Зарники",
+                      "essence": "🔮 Эссенция"}
+
+
+async def wallet(db, uid: int, limit: int = WALLET_LIMIT) -> list[dict]:
+    """Последние движения валют игрока (общий журнал валют и журнал Эссенции): когда, сколько, откуда. Только чтение."""
+    from services.bot_metrics import reason_title
+    out: list[dict] = []
+    for table, sql in (("economic_ledger", "SELECT currency, delta, balance_after, reason_code, created_at FROM economic_ledger "
+                                           "WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?"),
+                       ("skins_v3_essence_ledger", "SELECT 'essence', delta, balance_after, reason, created_at FROM skins_v3_essence_ledger "
+                                                   "WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?")):
+        async with db.execute("SELECT to_regclass(?) IS NOT NULL", (table,)) as cur:
+            if not (await cur.fetchone())[0]:   # на свежей базе журнала ещё нет: карточка открывается без истории
+                continue
+        async with db.execute(sql, (uid, limit)) as cur:
+            rows = await cur.fetchall()
+        out += [{"currency": _WALLET_CURRENCIES.get(str(c), str(c)), "code": str(c), "delta": float(d), "after": float(a),
+                 "reason": reason_title(str(r)), "at": _iso(at)} for c, d, a, r, at in rows]
+    out.sort(key=lambda x: x["at"] or "", reverse=True)
+    return out[:limit]
 
 
 LINKED_LIMIT = 10

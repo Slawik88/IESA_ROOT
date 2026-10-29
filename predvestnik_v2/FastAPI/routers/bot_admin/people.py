@@ -23,7 +23,8 @@ from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_ran
 from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
-from services import admin_access, admin_people, admin_security, broadcasts, feature_switches, global_moderation, staff_notes, staff_watch
+from services import admin_access, admin_people, admin_security, broadcasts, feature_switches, global_moderation, promo_v2, staff_notes, staff_watch
+from services import skins_v3 as skins_v3_service
 from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
@@ -61,7 +62,9 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
 }
 LINKED_MIN_RANK = 4
 BULK_MAX = 50
-BULK_ACTIONS = {"mark_grant": "player", "mark_revoke": "player", "unwarn_all": "member", "watch": "", "unwatch": ""}
+BULK_ACTIONS = {"mark_grant": "player", "mark_revoke": "player", "unwarn_all": "member", "watch": "", "unwatch": "",
+                "unmute_all": "member"}
+BULK_RIGHTS = {"unmute_all": "unmute"}   # массовое действие проверяется правом одиночного
 BALANCE_CURRENCIES = {"mora": ("🪙 Мора", 0), "diamonds": ("💎 Алмазы", 2), "essence": ("🔮 Эссенция", 0), "zarniki": ("✨ Зарники", 0)}
 CREATOR_ONLY_CURRENCIES = ("zarniki",)   # платная валюта: менять баланс может только создатель
 
@@ -160,8 +163,9 @@ def _tg_error(exc: Exception) -> HTTPException:
 # ── Поиск и карточки ─────────────────────────────────────────────────────────
 
 @router.get("/search")
-async def search(q: str = "", filter: str = "", offset: int = Query(0, ge=0, le=1_000_000), user=Depends(_user), db=Depends(get_db)):
-    return await admin_people.search(db, q, flt=filter, offset=offset)
+async def search(q: str = "", filter: str = "", offset: int = Query(0, ge=0, le=1_000_000), paged: bool = False,
+                 user=Depends(_user), db=Depends(get_db)):
+    return await admin_people.search(db, q, flt=filter, offset=offset, paged=paged)
 
 
 @router.get("/my-chats")
@@ -210,7 +214,22 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card["confirm_rules"] = admin_security.rules()
     # Возможные связи между аккаунтами видят старшие хелперы и выше: это подсказка, а не доказательство.
     card["linked"] = await admin_people.linked(db, uid) if user["rank"] >= LINKED_MIN_RANK else None
+    card["wallet"] = await admin_people.wallet(db, uid)
+    card["skins"] = await skins_v3_service.inventory(db, uid)   # что у игрока есть и что надето; выдаёт и забирает только создатель
     return card
+
+
+def _is_creator(user: dict) -> bool:
+    """Образы выдаёт и забирает только создатель (решение владельца): порог не настраивается в «Правах», владелец чата не проходит."""
+    return admin_access.is_staff(user) and user["rank"] >= CREATOR
+
+
+@router.get("/skins/catalog")
+async def skin_catalog(user=Depends(_user), db=Depends(get_db)):
+    """Все образы для окна выдачи: обычные и личные (у личного видно, у кого он сейчас)."""
+    if not _is_creator(user):
+        raise HTTPException(403, "Образы выдаёт и забирает только создатель.")
+    return {"skins": promo_v2.skin_choices(), "private_skins": await promo_v2.private_skins_state(db)}
 
 
 # ── Заметки персонала ────────────────────────────────────────────────────────
@@ -276,7 +295,7 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
     if action not in BULK_ACTIONS:
         raise HTTPException(400, "Это действие для нескольких игроков недоступно.")
     if BULK_ACTIONS[action]:
-        _check(user, action, BULK_ACTIONS[action])
+        _check(user, BULK_RIGHTS.get(action, action), BULK_ACTIONS[action])
     raw = data.get("ids")
     if not isinstance(raw, list):
         raise HTTPException(400, "Выберите игроков.")
@@ -292,13 +311,13 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
     if action in ("mark_grant", "mark_revoke") and not reason:
         raise HTTPException(400, "Укажите причину — она попадёт в журнал.")
     admin_security.rate_limit(user, action, len(ids))
-    done, warns, failed = 0, 0, []
+    done, warns, unmuted, failed = 0, 0, 0, []
     names = await admin_people._names(db, ids)
 
     for uid in ids:
         try:
             await _known_user(db, uid)
-            if action in ("mark_grant", "mark_revoke", "unwarn_all"):
+            if action in ("mark_grant", "mark_revoke", "unwarn_all", "unmute_all"):
                 await _guard_target(db, user, uid)
             if action == "mark_grant":
                 title = await marks_service.grant(db, uid, mark, actor, reason)
@@ -313,6 +332,8 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
                     chats = [int(r[0]) for r in await cur.fetchall()]
                 for cid in chats:
                     warns += await moderation.revoke_all_warns(db, cid, uid, actor)
+            elif action == "unmute_all":
+                unmuted += await _unmute_everywhere(db, uid, actor)
             elif action == "watch":
                 if await staff_watch.add(db, uid, actor, reason):
                     await admin_people.audit(db, actor, "watch_add", user_id=uid, details={"reason": reason})
@@ -326,8 +347,22 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
             failed.append({"id": uid, "username": names.get(uid), "reason": str(exc)})
     if done and action in ("mark_grant", "mark_revoke"):
         await admin_security.after_action(db, user, action)
-    message = f"Готово: {done} из {len(ids)}." + (f" Снято варнов: {warns}." if action == "unwarn_all" else "")
+    message = f"Готово: {done} из {len(ids)}." + (f" Снято варнов: {warns}." if action == "unwarn_all" else "") + (
+        f" Снято мутов: {unmuted}." if action == "unmute_all" else "")
     return {"ok": True, "done": done, "failed": failed, "message": message}
+
+
+async def _unmute_everywhere(db, uid: int, actor: int) -> int:
+    """Снять мут во всех чатах, где он действует сейчас. Telegram отказал в одном чате — игрок уходит в «не вышло» с причиной."""
+    async with db.execute("SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? AND muted_until > NOW()", (uid,)) as cur:
+        chats = [int(r[0]) for r in await cur.fetchall()]
+    with outbound_throttle.urgent():
+        for cid in chats:
+            try:
+                await moderation.do_unmute(get_bot(), db, cid, uid, actor)
+            except Exception as exc:
+                raise _tg_error(exc)
+    return len(chats)
 
 
 @router.get("/chat/{cid}")

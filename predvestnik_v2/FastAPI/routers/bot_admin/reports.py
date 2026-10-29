@@ -10,6 +10,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from loguru import logger
 
 from FastAPI.deps import get_db
+from FastAPI.notifications import notify_many
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin import people
 from FastAPI.routers.bot_admin.people import get_bot
@@ -56,6 +57,7 @@ async def _finish(db, user: dict, report: dict, status: str, note: str) -> None:
     rid = report["id"]
     if not await reports_service.set_status(db, rid, status, user["id"], note):
         raise HTTPException(409, "Жалоба уже закрыта.")
+    notify_many(await reports_service.staff_watchers(db), reports_service.LIVE_EVENT)   # значок у других сотрудников — сразу
     await admin_people.audit(db, user["id"], f"report_{status}", user_id=report["target_id"], chat_id=report["chat_id"],
                              details={"report": rid, "reason": note} if note else {"report": rid})
     if status in NOTICE:

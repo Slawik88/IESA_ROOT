@@ -110,3 +110,13 @@ async def cmd_report(ctx: Ctx) -> None:
                        "<i>Она анонимна: автора видит только персонал с доступом. Результат придёт сюда.</i>",
                   "📨 Жалоба принята.", hidden)
     await _notify(ctx, rid, target.label(), reason, text, quoted.message_id if quoted else None, hidden)
+    await _live_badge(ctx.db)
+
+
+async def _live_badge(db) -> None:
+    """Значок «Жалобы» у персонала в админке обновляется сразу (бот и Mini App живут в одном процессе)."""
+    try:
+        from FastAPI.notifications import notify_many
+        notify_many(await reports_service.staff_watchers(db), reports_service.LIVE_EVENT)
+    except Exception as exc:   # жалоба уже принята: без живого сигнала значок обновится сам через минуту
+        logger.warning(f"report live badge skipped: {exc}")

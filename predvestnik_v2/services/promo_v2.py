@@ -413,9 +413,19 @@ async def require_zarniki_rights(db, rewards: list[dict], actor_id: int) -> None
         raise PromoError("Зарники в промокод кладёт только создатель.")
 
 
+async def require_skin_rights(db, rewards: list[dict], actor_id: int) -> None:
+    """Образ в промокоде — это выдача образа: её делает только создатель (решение владельца 2026-10-27)."""
+    if not any(r["type"] == "skin" for r in rewards):
+        return
+    from bot.chat.global_ranks import CREATOR, get_bot_rank
+    if await get_bot_rank(db, actor_id) < CREATOR:
+        raise PromoError("Образ в промокод кладёт только создатель.")
+
+
 async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
     parsed = _parse(data)
     await require_zarniki_rights(db, parsed.rewards, actor_id)
+    await require_skin_rights(db, parsed.rewards, actor_id)
     code, rewards, max_act, start, end, chats, users, note = (
         parsed.code, parsed.rewards, parsed.max_act, parsed.start, parsed.end, parsed.chats, parsed.users, parsed.note)
     await _check_private(db, rewards, max_act, users, code=None if create else code)
@@ -572,6 +582,7 @@ async def bulk_create(db, data: dict, *, actor_id: int) -> dict:
         raise PromoError("Пачка одноразовых не привязывается к игрокам: для одного игрока создайте обычный именной код.")
     parsed = _parse({**data, "code": prefix + "AAAA" if len(prefix) < 3 else prefix, "max_activations": 1})
     await require_zarniki_rights(db, parsed.rewards, actor_id)
+    await require_skin_rights(db, parsed.rewards, actor_id)
     if any(r["type"] == "skin" and SKINS.get(r["id"], {}).get("exclusive") for r in parsed.rewards):
         raise PromoError("Личный образ нельзя раздавать пачкой: он достаётся одному игроку. Создайте обычный код на один раз.")
     note = parsed.note or f"Пачка из {count} одноразовых кодов"

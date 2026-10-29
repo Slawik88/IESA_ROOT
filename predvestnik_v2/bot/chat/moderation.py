@@ -470,34 +470,28 @@ async def cmd_shield(ctx: Ctx) -> None:
     dur, _ = _parse_duration(rest, usage)
     if not isinstance(dur, timedelta):
         raise UsageError(usage + "\nНужен срок: 2ч, 5д, 1н. Навсегда — это «бот иммунитет».")
-    chat_id = ctx.message.chat.id
-    await ctx.db.execute(
-        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, immune_until) VALUES (?, ?, NOW() + (? * INTERVAL '1 second')) "
-        "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET immune_until = EXCLUDED.immune_until",
-        (target.user_id, chat_id, int(dur.total_seconds())))
-    await log(ctx.db, chat_id, target.user_id, ctx.user_id, "shield", human(dur))
-    await commit(ctx.db)
+    await do_shield(ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id, dur)
     await ctx.reply(f"🛡 {esc(target.label())} защищён от чистки на {human(dur)}.")
 
 
 @moderation_command("снять защиту", usage="бот снять защиту, @ник", summary="Убрать защиту от чистки.")
 async def cmd_unshield(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "shield", "бот снять защиту, @ник", punish=False)
-    await _set_flag(ctx, target, "immune_until = NULL", "unshield")
+    await set_protection(ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id, "unshield")
     await ctx.reply(f"✅ С {esc(target.label())} снята защита.")
 
 
 @moderation_command("иммунитет", usage="бот иммунитет, @ник", summary="Защита от чистки навсегда, пока не снимут.")
 async def cmd_immune(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "immune", "бот иммунитет, @ник", punish=False)
-    await _set_flag(ctx, target, "is_immune = TRUE", "immune")
+    await set_protection(ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id, "immune")
     await ctx.reply(f"💠 {esc(target.label())} получает иммунитет к чистке.")
 
 
 @moderation_command("снять иммунитет", usage="бот снять иммунитет, @ник", summary="Убрать иммунитет.")
 async def cmd_unimmune(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "immune", "бот снять иммунитет, @ник", punish=False)
-    await _set_flag(ctx, target, "is_immune = FALSE", "unimmune")
+    await set_protection(ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id, "unimmune")
     await ctx.reply(f"✅ С {esc(target.label())} снят иммунитет.")
 
 
@@ -546,15 +540,27 @@ async def cmd_protected(ctx: Ctx) -> None:
     await ctx.reply("\n".join(parts))
 
 
-async def _set_flag(ctx: Ctx, target: Target, assignment: str, action: str) -> None:
-    chat_id = ctx.message.chat.id
-    await ctx.db.execute(
-        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
-        (target.user_id, chat_id))
-    await ctx.db.execute(
-        f"UPDATE user_chat_stats SET {assignment} WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, target.user_id))
-    await log(ctx.db, chat_id, target.user_id, ctx.user_id, action)
-    await commit(ctx.db)
+async def do_shield(db, chat_id: int, user_id: int, admin_id: int, dur: timedelta) -> None:
+    """Защита от чистки на срок (команда «бот защита» и админка)."""
+    await db.execute(
+        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, immune_until) VALUES (?, ?, NOW() + (? * INTERVAL '1 second')) "
+        "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET immune_until = EXCLUDED.immune_until",
+        (user_id, chat_id, int(dur.total_seconds())))
+    await log(db, chat_id, user_id, admin_id, "shield", human(dur))
+    await commit(db)
+
+
+_PROTECTION = {"unshield": "immune_until = NULL", "immune": "is_immune = TRUE", "unimmune": "is_immune = FALSE"}
+
+
+async def set_protection(db, chat_id: int, user_id: int, admin_id: int, action: str) -> None:
+    """Снять защиту, дать или снять иммунитет (команды бота и админка)."""
+    await db.execute(
+        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?) ON CONFLICT DO NOTHING", (user_id, chat_id))
+    await db.execute(
+        f"UPDATE user_chat_stats SET {_PROTECTION[action]} WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
+    await log(db, chat_id, user_id, admin_id, action)
+    await commit(db)
 
 
 # ── Закрытый чат ──────────────────────────────────────────────────────────

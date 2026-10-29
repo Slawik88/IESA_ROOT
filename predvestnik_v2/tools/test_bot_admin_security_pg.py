@@ -105,7 +105,7 @@ async def checks():
 
     # ── Подтверждение ID ──
     card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[CODER])).json()
-    assert card["confirm_rules"]["actions"] == ["global_ban", "rank"] and card["confirm_rules"]["balance"]["mora"] == 100000, card["confirm_rules"]
+    assert card["confirm_rules"]["actions"] == ["global_ban", "rank", "skin_revoke"] and card["confirm_rules"]["balance"]["mora"] == 100000, card["confirm_rules"]
     r = await act(CODER, P1, action="global_ban", reason="спам")
     assert r.status_code == 400 and "введите ID" in r.json()["detail"], r.text
     r = await act(CODER, P1, action="global_ban", reason="спам", confirm="2003")

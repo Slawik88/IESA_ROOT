@@ -131,6 +131,10 @@ async def notify(user_id: int, event: dict, *, forget_profile: bool = True) -> b
     forget_profile=False — событие не о самом игроке (ход «Чистки»): снимок его профиля остаётся."""
     if forget_profile:
         profile_snapshot.forget(user_id)   # live event about the player: their profile snapshot is no longer current
+    return _deliver(user_id, event)
+
+
+def _deliver(user_id: int, event: dict) -> bool:
     queues = tuple(_queues.get(user_id, ()))
     delivered = False
     for q in queues:
@@ -145,6 +149,11 @@ async def notify(user_id: int, event: dict, *, forget_profile: bool = True) -> b
                 overflowed.set()
             logger.warning(f"WS queue overflow for user {user_id}: connection dropped")
     return delivered
+
+
+def notify_many(user_ids, event: dict) -> int:
+    """Одно событие нескольким людям (только тем, кто сейчас онлайн), без сброса их профиля. Сколько получили."""
+    return sum(1 for uid in user_ids if _deliver(int(uid), event))
 
 
 def register(user_id: int, q: asyncio.Queue) -> None:

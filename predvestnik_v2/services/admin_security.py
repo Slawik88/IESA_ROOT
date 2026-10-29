@@ -32,12 +32,12 @@ STATEMENTS = (
 )
 
 # ── Подтверждение опасных действий ──
-CONFIRM_ACTIONS = ("global_ban", "rank")
+CONFIRM_ACTIONS = ("global_ban", "rank", "skin_revoke")
 BALANCE_CONFIRM = {"mora": Decimal(100_000), "diamonds": Decimal(100), "essence": Decimal(500), "zarniki": Decimal(100)}
 
 # ── Лимиты частоты (на одного сотрудника, в памяти процесса) ──
 SENSITIVE_ACTIONS = frozenset({"balance", "vip", "rank", "global_ban", "global_unban", "mark_grant", "mark_revoke", "block",
-                               "unblock", "message", "leave", "revoke_sessions", "promo_create", "promo_update", "promo_bulk", "broadcast"})
+                               "unblock", "message", "dm", "skin_grant", "skin_revoke", "leave", "revoke_sessions", "promo_create", "promo_update", "promo_bulk", "broadcast"})
 LIMITS = {"moderation": (60, 300), "sensitive": (60, 3600)}   # сколько действий за сколько секунд
 _hits: dict[tuple[int, str], deque] = defaultdict(deque)
 

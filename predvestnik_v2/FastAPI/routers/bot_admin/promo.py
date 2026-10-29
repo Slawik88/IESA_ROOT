@@ -30,7 +30,7 @@ async def promo_options(user=Depends(_user), db=Depends(get_db)):
         {"type": "essence", "title": "🔮 Эссенция", "field": "amount"},
         *([{"type": "zarniki", "title": "✨ Зарники", "field": "amount"}] if user["rank"] >= CREATOR else []),
         {"type": "vip", "title": "👑 VIP, дней", "field": "days"},
-        {"type": "skin", "title": "✨ Образ", "field": "id"},
+        *([{"type": "skin", "title": "✨ Образ", "field": "id"}] if user["rank"] >= CREATOR else []),   # образы выдаёт только создатель
     ]
     return {
         "rewards": rewards,

@@ -4,9 +4,10 @@ Seeds an EMPTY loopback database once (~1M rows in daily_user_stats, 150k user_c
 then calls the real service functions and prints the median time of each, cold (no process cache):
 
     DSN=$(bash docs/roadmap/env-setup.sh --fresh-db pv_s04_bench)      # from the repository root
-    BOT_TOKEN=1:x PYTHONPATH=. python tools/bench_db_hot_queries.py --dsn "$DSN" [--indexes]
+    BOT_TOKEN=1:x PYTHONPATH=. python tools/bench_db_hot_queries.py --dsn "$DSN" [--indexes] [--users 100000]
 
 --indexes first builds the background indexes (infrastructure/db_indexes.py) the way production does.
+--users sets how many players to seed (default 30 000; S10 measures the admin search on 100 000) — use a fresh database per size.
 Run the same command with PYTHONPATH of an older checkout to compare before/after on the same data.
 """
 from __future__ import annotations
@@ -31,6 +32,10 @@ def local_dsn(value: str) -> str:
     return value
 
 
+def seed_sql(users: int) -> tuple[str, ...]:
+    return tuple(sql.replace(str(USERS), str(users)) for sql in SEED)
+
+
 SEED = (
     f"INSERT INTO users (user_tg_id, user_tg_username, user_tg_name) "
     f"SELECT i, 'player_' || i, 'Игрок ' || i FROM generate_series(1, {USERS}) i ON CONFLICT DO NOTHING",
@@ -50,14 +55,16 @@ SEED = (
 )
 
 
-async def seed(db) -> None:
+async def seed(db, users: int) -> None:
     async with db.execute("SELECT COUNT(*) FROM moderation_logs") as cursor:
         if int((await cursor.fetchone())[0]) >= LOG_ROWS:
             return
-    for sql in SEED:
+    await db.execute("SET statement_timeout = 0")   # 100k players take longer than the app's 30 s limit to seed
+    for sql in seed_sql(users):
         await db.execute(sql)
     for table in ("users", "chat_settings", "user_chat_stats", "daily_user_stats", "moderation_logs"):
         await db.execute(f"ANALYZE {table}")
+    await db.execute("RESET statement_timeout")
 
 
 async def timed(label: str, call, runs: int = 5) -> None:
@@ -74,7 +81,7 @@ async def timed(label: str, call, runs: int = 5) -> None:
     print(f"{label:<44} {statistics.median(samples):8.1f} ms")
 
 
-async def run(dsn: str, build_indexes: bool) -> None:
+async def run(dsn: str, build_indexes: bool, users: int) -> None:
     os.environ["DATABASE_URL"] = dsn
     from bot.chat.purge import Plan, find_violators
     from bot.chat.schema import ensure_chat_schema
@@ -91,7 +98,7 @@ async def run(dsn: str, build_indexes: bool) -> None:
     await ensure_runtime_schema(pool)
     async with pool.acquire() as connection:
         db = PGAdapter(connection)
-        await seed(db)
+        await seed(db, users)
         if build_indexes:
             from infrastructure import db_indexes
             await db_indexes.build_all(connection)
@@ -106,6 +113,13 @@ async def run(dsn: str, build_indexes: bool) -> None:
         await timed("top full: local week", lambda: leaderboards_v1.message_top_page(db, user_id=user, scope="local", period="week", chat_id=chat))
         await timed("admin: search by name part", lambda: admin_people.search(db, "player_1234"))
         await timed("admin: search empty (recent)", lambda: admin_people.search(db, ""))
+        if "paged" in admin_people.search.__code__.co_varnames:   # S10: pages, status and new filters
+            await timed("admin: search name part, paged", lambda: admin_people.search(db, "player_1234", paged=True))
+            await timed("admin: filter idle:30, paged", lambda: admin_people.search(db, "", flt="idle:30", paged=True))
+            await timed("admin: filter active:7, paged", lambda: admin_people.search(db, "", flt="active:7", paged=True))
+            await timed("admin: filter silent, paged", lambda: admin_people.search(db, "", flt="silent", paged=True))
+            await timed("admin: filter idle:30, page 50", lambda: admin_people.search(db, "", flt="idle:30", offset=1500, paged=True))
+            await timed("admin: player wallet", lambda: admin_people.wallet(db, user))
         await timed("admin: journal 7 days", lambda: admin_people.feed(db, days=7))
         await timed("admin: player history", lambda: admin_people.history(db, user_id=user))
         await timed("more: purge entry (chat listing)", lambda: moderation_chats.listing(db, user_id=user, purge_only=True))
@@ -120,9 +134,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dsn", required=True, type=local_dsn)
     parser.add_argument("--indexes", action="store_true")
+    parser.add_argument("--users", type=int, default=USERS)
     args = parser.parse_args()
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    asyncio.run(run(args.dsn, args.indexes))
+    asyncio.run(run(args.dsn, args.indexes, args.users))
 
 
 if __name__ == "__main__":

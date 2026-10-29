@@ -157,6 +157,21 @@ async def create(db, *, chat_id: int, reporter_id: int, target_id: int, reason: 
             return int((await cur.fetchone())[0])
 
 
+# Живой сигнал «очередь жалоб изменилась»: админка сразу перечитывает значок. Данных в нём нет — только повод перечитать.
+LIVE_EVENT = {"type": "data_changed", "scope": "admin_reports"}
+LIVE_MIN_RANK = 2   # раньше роли «мл. хелпер» раздел «Жалобы» не открывается ни при каких настройках прав
+
+
+async def staff_watchers(db) -> list[int]:
+    """Кому слать живой сигнал: персонал бота (создатель — всегда, даже без строки в users.bot_rank)."""
+    from bot.config import config
+    async with db.execute("SELECT user_tg_id FROM users WHERE COALESCE(bot_rank, 0) >= ?", (LIVE_MIN_RANK,)) as cur:
+        ids = {int(r[0]) for r in await cur.fetchall()}
+    if config.developer_id:
+        ids.add(int(config.developer_id))
+    return sorted(ids)
+
+
 async def counts(db) -> dict[str, int]:
     async with db.execute("SELECT status, COUNT(*) FROM bot_reports GROUP BY status") as cur:
         rows = {r[0]: int(r[1]) for r in await cur.fetchall()}

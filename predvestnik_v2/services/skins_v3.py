@@ -335,6 +335,54 @@ async def revoke_exclusive(db, user_id: int, skin_id: str, reason: str) -> str:
     return skin["name"]
 
 
+# ── Any skin by hand (bot admin, creator only — the route checks the role) ──────────────────────────────────────
+async def inventory(db, user_id: int) -> dict:
+    """What the player owns and wears, for the admin card: id, name, rarity, current tier, personal or not."""
+    await repo.ensure_tables(db)
+    owned = await repo.owned(db, user_id)
+    wearing = await repo.equipped(db, user_id)
+    items = [{"id": sid, "name": SKINS[sid]["name"], "rarity": SKINS[sid]["tier"], "tier": tier,
+              "exclusive": bool(SKINS[sid]["exclusive"]), "equipped": sid == wearing} for sid, tier in owned.items() if sid in SKINS]
+    return {"equipped": wearing if wearing in owned else None, "items": items}
+
+
+async def grant_by_hand(db, user_id: int, skin_id: str, reason: str) -> str:
+    """Give a skin at tier D, not put on. A personal skin goes through grant_exclusive (one holder); any other — like a promo code."""
+    skin = SKINS.get(str(skin_id or ""))
+    if not skin:
+        raise SkinConflict("Такого образа нет.")
+    if skin["exclusive"]:
+        return await grant_exclusive(db, user_id, skin_id, reason)
+    if not (reason or "").strip():
+        raise SkinConflict("Укажите причину: она попадёт в журнал.")
+    await repo.ensure_tables(db)
+    async with db.execute("SELECT 1 FROM users WHERE user_tg_id=?", (int(user_id),)) as c:
+        if not await c.fetchone():
+            raise SkinConflict("Такого игрока нет.")
+    async with db.connection.transaction():
+        await _lock_user(db, user_id)
+        if not await repo.grant(db, user_id, skin_id):
+            raise SkinConflict("Этот образ уже у игрока.")
+    return skin["name"]
+
+
+async def revoke_by_hand(db, user_id: int, skin_id: str, reason: str) -> str:
+    """Take any skin back. Essence spent on its tiers is not returned; if it was worn, the player is left without a skin."""
+    skin = SKINS.get(str(skin_id or ""))
+    if not skin:
+        raise SkinConflict("Такого образа нет.")
+    if skin["exclusive"]:
+        return await revoke_exclusive(db, user_id, skin_id, reason)
+    if not (reason or "").strip():
+        raise SkinConflict("Укажите причину: она попадёт в журнал.")
+    await repo.ensure_tables(db)
+    async with db.connection.transaction():
+        await _lock_user(db, user_id)
+        if not await repo.remove(db, user_id, skin_id):
+            raise SkinConflict("У игрока нет этого образа.")
+    return skin["name"]
+
+
 async def buy_essence(db, user_id: int, zarniki: int, *, idempotency_key: str) -> tuple[str, dict]:
     if int(zarniki) not in ESSENCE_PACKS:
         raise SkinConflict("Такого набора Эссенции нет.")
@@ -371,4 +419,4 @@ async def grant_essence_in_transaction(db, user_id: int, amount: int, *, reason:
     return int(amount) if applied else 0
 
 
-__all__ = ["SkinConflict", "state", "buy", "exclusive_view", "grant_exclusive", "revoke_exclusive", "equip", "upgrade", "buy_essence", "own_look", "look_payload", "grant_essence_in_transaction", "TIERS", "next_tier", "tier_index"]
+__all__ = ["SkinConflict", "state", "buy", "exclusive_view", "grant_exclusive", "revoke_exclusive", "inventory", "grant_by_hand", "revoke_by_hand", "equip", "upgrade", "buy_essence", "own_look", "look_payload", "grant_essence_in_transaction", "TIERS", "next_tier", "tier_index"]
