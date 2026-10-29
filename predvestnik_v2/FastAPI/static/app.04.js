@@ -13,8 +13,22 @@ const _ARENA_TABS=['game'];
 // Пока выбора не было, а Лига открыта, — рейтинг: с него начинается сезон, и переключиться можно сразу наверху экрана.
 function _ls(key){ try{ return localStorage.getItem(key); }catch(_){ return null; } }
 function _gameMode(game){ const open=_league?!!_league.allowed:_ls('pv_league_access')==='1'; return open&&_ls('pv_game_mode:'+game)!=='casual'?'ranked':'casual'; }
-function openRhythmV2Game(){ location.href=BASE+(_gameMode('rhythm')==='ranked'?'/league?game=rhythm':'/rhythm-v2'); }
-function openMinesweeperGame(){ location.href=BASE+(_gameMode('minesweeper')==='ranked'?'/league?game=minesweeper':'/minesweeper'); }
+// Метка соседней записи истории позволяет вернуться в живое приложение. Старый
+// WebView без Navigation API использует обычную ссылку из общей шапки игры.
+function leaveForGame(path, returnTo = 'games') {
+  try {
+    const nonce = crypto.randomUUID();
+    history.replaceState({...history.state, pvGameOrigin: nonce}, '');
+    window.navigation?.updateCurrentEntry({state: {...window.navigation.currentEntry.getState(), pvGameOrigin: nonce}});
+    sessionStorage.setItem('pv_game_return', JSON.stringify({nonce, url: location.origin + location.pathname, returnTo}));
+    sessionStorage.setItem('pv_game_pending', nonce);
+    if (/^guide_[a-z]+(-[a-z]+)*$/.test(returnTo)) sessionStorage.setItem('pv_back', returnTo);
+    else sessionStorage.removeItem('pv_back');
+  } catch (_) { /* Запрет памяти не мешает открыть игру и вернуться по ссылке. */ }
+  location.href = BASE + path;
+}
+function openRhythmV2Game(){ leaveForGame(_gameMode('rhythm')==='ranked'?'/league?game=rhythm':'/rhythm-v2'); }
+function openMinesweeperGame(){ leaveForGame(_gameMode('minesweeper')==='ranked'?'/league?game=minesweeper':'/minesweeper'); }
 
 // «Как играть» for people who have never played Mafia: plain steps + one line per role.
 // Keep the markup semantic (details/ol/dl); styling hooks are listed in docs/MAFIA_DESIGN_HANDOFF.md.
@@ -135,7 +149,7 @@ function _leagueCard(chev){
   const into=p?(p.level>=p.levels?p.xp_per_level:p.xp_per_level-p.xp_to_next):0;
   const lv=p?`<span class="v3-league-lv"><span>Уровень <i>${Number(p.level)}</i> из ${Number(p.levels)}</span></span><span class="v3-league-bar" aria-hidden="true"><i style="transform:scaleX(${(into/p.xp_per_level).toFixed(3)})"></i></span>`:'<small>Награды за рейтинг и обычные игры</small>';
   const go=ready?`<span class="v3-league-ready"><i class="v3-league-dot" aria-hidden="true"></i>К получению: ${ready}</span>`:'';
-  return `<button type="button" class="v3-game v3-league" data-game="league" onclick="location.href=BASE+'/league#pass'" aria-label="Пропуск сезона${p?`, уровень ${Number(p.level)} из ${Number(p.levels)}`:''}${ready?`, наград к получению: ${ready}`:''}">${_LEAGUE_SKY}<span class="v3-league-t"><small>${top}</small><b>Пропуск сезона</b>${lv}${go}</span>${ready?'':'<span class="v3-league-go">Открыть</span>'}${chev}</button>`;
+  return `<button type="button" class="v3-game v3-league" data-game="league" onclick="leaveForGame('/league#pass')" aria-label="Пропуск сезона${p?`, уровень ${Number(p.level)} из ${Number(p.levels)}`:''}${ready?`, наград к получению: ${ready}`:''}">${_LEAGUE_SKY}<span class="v3-league-t"><small>${top}</small><b>Пропуск сезона</b>${lv}${go}</span>${ready?'':'<span class="v3-league-go">Открыть</span>'}${chev}</button>`;
 }
 function leagueHubRow(host,chev){
   const paint=()=>{

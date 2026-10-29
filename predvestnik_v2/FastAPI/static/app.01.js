@@ -335,13 +335,13 @@ function switchTgAccount(){
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-let _ws=null, _wsTries=0, _wsTimer=0, _balanceEventTimer=0, _pendingBalanceEvent=null;
+let _ws=null, _wsTries=0, _wsTimer=0, _balanceEventTimer=0, _pendingBalanceEvent=null, _wsPageAway=false;
 let _dynamicEventTimer=0;
 const _dynamicScopes=new Set();
 // События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
 // Первым сообщением сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
 function connectWS() {
-  if (_ws || !_uid || typeof WebSocket === 'undefined' || (!INIT_DATA && !sess())) return;
+  if (_wsPageAway || _ws || !_uid || typeof WebSocket === 'undefined' || (!INIT_DATA && !sess())) return;
   let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}`); } catch (e) { return; }
   _ws = ws;
   ws.onopen = () => {
@@ -376,14 +376,36 @@ function connectWS() {
   };
   ws.onclose = (ev) => {
     window.PVDiagnostics?.record('websocket',{state:'closed',code:ev?.code||0});
-    if (_ws === ws) _ws = null;
+    if (_ws !== ws) return;
+    _ws = null;
     clearTimeout(_wsTimer);
+    if (_wsPageAway) return;
     if (ev && ev.code === 1008) return;   // account/credential not allowed: no reconnect loop; next visibility change retries once
     _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
   };
   ws.onerror = () => { window.PVDiagnostics?.record('websocket',{state:'error'}); try { ws.close(); } catch (e) { /* уже закрыт */ } };
 }
 setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
+window.addEventListener('pagehide', () => {
+  _wsPageAway = true;
+  clearTimeout(_wsTimer);
+  const socket = _ws; _ws = null;
+  if (socket) socket.close(1000, 'pagehide');
+});
+window.addEventListener('pageshow', event => {
+  _wsPageAway = false;
+  if (!event.persisted) return;
+  refreshInitData();
+  connectWS();
+  refreshCurrBar();
+  queueDynamicRefresh('profile');
+  if (_activePage === 'arena') { _leagueAt = 0; loadActivitiesHub(); }
+  if (_activePage === 'pets') {
+    if (_sysFlags.pets_v2 === true) { _trPassAt = 0; _trPassLoad(); }
+    else refreshClassicPetPass();
+  }
+  _syncBackButton();
+});
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   refreshInitData();

@@ -39,6 +39,7 @@
 
   function go(game, mode) {
     write(MODE + game, mode);
+    window.GameShell?.carryReturn();
     try { window.Telegram?.WebApp?.HapticFeedback?.selectionChanged(); } catch (_) { /* old client */ }
     try { sessionStorage.setItem('pv_mode_dir', mode === 'ranked' ? '1' : '-1'); } catch (_) { /* без памяти: страница просто появится */ }
     document.body.classList.add('gm-leaving', mode === 'ranked' ? 'gm-to-ranked' : 'gm-to-casual');

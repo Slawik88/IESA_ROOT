@@ -91,8 +91,8 @@ setTimeout(go,12000);})();
 <body>
 
 <!-- ═══ PRELOADER — эффектный холодный старт (БЛОК 9.2). Клик = пропустить ═══ -->
-<div id="preloader" onclick="_plSkip()" style="cursor:pointer">
-  <div class="pl-core"><div class="pl-orb">🔮</div><div class="pl-ring"></div></div>
+<div id="preloader" onclick="_plSkip()">
+  <div class="pl-core"><div class="pl-orb" aria-hidden="true"></div><div class="pl-ring"></div></div>
   <div id="pl-lines" class="pl-lines"></div>
   <div id="pl-welcome" class="pl-welcome"></div>
   <div class="pl-skip">нажми, чтобы пропустить</div>
@@ -124,15 +124,15 @@ setTimeout(go,12000);})();
 
 <!-- ═══ ЛОГИН ═══ -->
 <div id="login-ov" class="login-ov hidden">
-  <div class="login-orb">🔮</div>
+  <div class="login-orb" aria-hidden="true"></div>
   <h1>Предвестник</h1>
   <!-- data-login: browser — вход виджетом в обычном браузере; telegram — внутри Telegram вход не удался (app.01.js, showLoginScreen) -->
-  <p data-login="browser">Откройте игру через Telegram, чтобы загрузить подписанные игровые данные.</p>
+  <p data-login="browser">Открой игру из чата с ботом в Telegram — твой профиль загрузится сам.</p>
   <div data-login="browser">{{LOGIN_SURFACE}}</div>
-  <div id="login-err" class="v3-err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
-  <p data-login="browser" class="tos-gate-hint" style="font-size:10px;color:var(--muted)">Данные защищены подписью Telegram.</p>
+  <div id="login-err" class="v3-err hidden" role="alert"></div>
+  <p data-login="browser" class="tos-gate-hint">Данные защищены подписью Telegram.</p>
   <p data-login="telegram" id="login-reopen-why" class="hidden"></p>
-  <button type="button" data-login="telegram" id="login-reopen-close" class="v3-pill v3-pill--full hidden" style="max-width:290px" onclick="closeForReopen()">Закрыть Предвестник</button>
+  <button type="button" data-login="telegram" id="login-reopen-close" class="v3-pill v3-pill--full hidden" onclick="closeForReopen()">Закрыть Предвестник</button>
   <p data-login="telegram" class="tos-gate-hint hidden">Потом открой его снова той же кнопкой в чате с ботом — вход обновится сам.</p>
 </div>
 

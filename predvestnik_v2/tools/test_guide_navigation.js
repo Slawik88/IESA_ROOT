@@ -5,6 +5,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const staticDir = path.join(__dirname, '../FastAPI/static');
 const source = fs.readFileSync(path.join(staticDir, 'app.57.js'), 'utf8');
+const gameSource = fs.readFileSync(path.join(staticDir, 'app.04.js'), 'utf8');
+const leaveSource = gameSource.slice(gameSource.indexOf('function leaveForGame('), gameSource.indexOf('function openRhythmV2Game('));
 const data = JSON.parse(fs.readFileSync(path.join(staticDir, 'guide-v3.json'), 'utf8'));
 
 function fixture() {
@@ -20,6 +22,7 @@ function fixture() {
     v3Head: title => `<h1>${title}</h1>`, v3CurIn: html => html, location: { href: '' }, addEventListener() {},
   });
   vm.runInContext(source, ctx);
+  vm.runInContext(leaveSource, ctx);
   const run = code => vm.runInContext(code, ctx);
   return { ctx, run, storage, timers, nodes };
 }

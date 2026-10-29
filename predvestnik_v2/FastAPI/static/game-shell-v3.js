@@ -11,6 +11,43 @@
   const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) { /* приватный режим: оболочка живёт без памяти */ } };
   const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
 
+  // Возвращаемся только в доказанно соседнюю запись нашего приложения. Прямой
+  // вход, другая вкладка и старый WebView сохраняют обычную ссылку «К играм».
+  const backLink = $('lg-back-link');
+  let returnTo = 'games';
+  let trip = history.state?.pvGameTrip || null;
+  try {
+    const saved = readReturn();
+    const pending = sessionStorage.getItem('pv_game_pending');
+    sessionStorage.removeItem('pv_game_pending');
+    if (!trip && saved && saved.nonce === pending && new URL(saved.url).origin === location.origin) trip = saved;
+    if (trip) {
+      history.replaceState({...history.state, pvGameTrip: trip}, '');
+      if (trip.returnTo === 'pets' || /^guide_[a-z]+(-[a-z]+)*$/.test(trip.returnTo)) returnTo = trip.returnTo;
+    }
+  } catch (_) { /* Повреждённая память: ссылка ведёт в Игры. */ }
+  function readReturn() { return JSON.parse(sessionStorage.getItem('pv_game_return') || 'null'); }
+  function returnToApp(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
+        || !backLink || !event.target.closest('#lg-back-link')) return;
+    try {
+      const entry = window.navigation?.currentEntry;
+      const previous = window.navigation?.entries().find(item => item.index === entry?.index - 1);
+      if (!trip || !previous || new URL(previous.url).origin + new URL(previous.url).pathname !== trip.url
+          || previous.getState()?.pvGameOrigin !== trip.nonce) return;
+      event.preventDefault();
+      history.back();
+    } catch (_) { /* Ссылка работает без Navigation API и sessionStorage. */ }
+  }
+  if (backLink) {
+    backLink.href = `${base}/?startapp=${returnTo}`;
+    if (returnTo !== 'games') backLink.setAttribute('aria-label', returnTo === 'pets' ? 'Назад к питомцам' : 'Назад в Путеводитель');
+    document.addEventListener('click', returnToApp);
+  }
+  function carryReturn() {
+    try { if (trip) sessionStorage.setItem('pv_game_pending', trip.nonce); } catch (_) { /* Запасная ссылка остаётся. */ }
+  }
+
   // Ответ /pass → то, что рисуют шапка и полоска: текущий сезон, уровень, опыт до следующего, сколько наград ждёт, когда сезон кончится
   function summary(pass, demoPass = null) {
     const s = demoPass || (pass?.active && pass.seasons.find(x => x.current));
@@ -49,7 +86,7 @@
   const remember = sum => { if (sum) write(CACHE, sum); };
 
   // Страницы обычного режима: нарисовать из памяти сразу, потом спросить сервер
-  function mount({label, onOpen = () => { location.href = `${base}/league#pass`; }}) {
+  function mount({label, onOpen = () => { carryReturn(); location.replace(`${base}/league#pass`); }}) {
     const paint = sum => {
       const season = $('lg-eyebrow');
       if (season) season.textContent = sum?.season ? `Сезон ${sum.season} · ${label}` : label;
@@ -88,5 +125,5 @@
     return b;
   }
 
-  window.GameShell = {summary, daysLeft, paintDays, paintStrip, remember, mount, guarded, restartPill, plural, cached: () => read(CACHE)};
+  window.GameShell = {summary, daysLeft, paintDays, paintStrip, remember, mount, guarded, restartPill, plural, carryReturn, cached: () => read(CACHE)};
 })();

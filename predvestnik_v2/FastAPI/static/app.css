@@ -773,14 +773,18 @@ body.no-fx .loader::before, body.no-fx .loader::after { animation: none; }
 
 /* Вход и принятие документов: полноэкранный лист без рамки и плашки, заголовок крупно */
 .tos-gate, .login-ov { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--v3-wash), var(--v3-bg); }
-.tos-gate { z-index: 400; }
+.tos-gate { z-index: 400; overflow-y: auto; overscroll-behavior: contain; }
 .login-ov { z-index: 300; flex-direction: column; text-align: center; }
 .login-ov.hidden { display: none; }
 .tos-gate-box { width: 100%; max-width: 360px; text-align: center; }
-.tos-gate-emoji, .login-orb { margin-bottom: 14px; font-size: 44px; }
+.tos-gate-mark, .login-orb { display: grid; place-items: center; min-height: 56px; margin-bottom: 14px; }
+.login-orb .v3-emblem, .tos-gate-mark .v3-emblem, .pl-orb .v3-emblem { margin: 0; }
+#preloader { cursor: pointer; }
+#login-err { max-width: 280px; margin-top: 10px; }
+#login-reopen-close { max-width: 290px; }
 .tos-gate-title, .login-ov h1 { margin: 0 0 8px; color: var(--v3-ink); font: 600 26px/1.15 var(--v3-font); letter-spacing: -.02em; }
 .tos-gate-sub, .login-ov p { margin: 0 auto 18px; max-width: 290px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.55; }
-.tos-gate-links { display: flex; gap: 8px; margin-bottom: 12px; }
+.tos-gate-links { display: grid; gap: 8px; margin-bottom: 12px; }
 .tos-gate-links .v3-pill { flex: 1; font-size: 12.5px; }
 .tos-gate-hint, .login-ov .tos-gate-hint, .login-ov > p:last-child { margin: 14px auto 0; color: var(--v3-dim); font-size: 11px; line-height: 1.5; }
 .login-ov > * { animation: loginRise .4s var(--v3-ease) both; }
@@ -1417,10 +1421,6 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 
 /* Private chat activity tracker: compact controls stay reachable on phones. */
 #pg-chat-tracker { padding:0 12px calc(90px + var(--safe-b)); }
-.chat-tracker-head { position:sticky; top:0; z-index:12; min-height:58px; display:grid; grid-template-columns:44px minmax(0,1fr); align-items:center; gap:8px; padding:calc(5px + var(--safe-t)) 0 7px; background:linear-gradient(180deg,var(--bg) 82%,transparent); }
-.chat-tracker-head>div { min-width:0; }
-.chat-tracker-head h1 { margin:0; color:var(--bright); font-size:17px; line-height:1.2; }
-.chat-tracker-head p { overflow:hidden; margin:3px 0 0; color:var(--muted); font-size:11px; line-height:1.4; text-overflow:ellipsis; white-space:nowrap; }
 .chat-tracker-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:2px 0 12px; border-block:1px solid var(--border2); }
 .chat-tracker-summary>div { min-width:0; min-height:72px; display:grid; place-content:center; gap:3px; padding:8px 6px; text-align:center; }
 .chat-tracker-summary>div+div { border-left:1px solid var(--border2); }

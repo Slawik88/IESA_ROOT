@@ -41,7 +41,7 @@ for page, game, mode, title in (("rhythm-v2.html", "rhythm", "casual", "Ритм
         assert f'data-game-mode="{game}" data-gmode="casual" hidden' in done, f"{page}: место переключателя"
     end = '<button type="button" class="lgs" id="lg-strip" hidden></button>'
     head = done[done.index("<script>try{var d="):done.index(end) + len(end)]
-    sample[page] = re.sub(r'(<h1 id="lg-title">)[^<]*|data-game-mode="\w+" data-gmode="\w+" ', r"\1", head)
+    sample[page] = re.sub(r'(<h1 id="lg-title"[^>]*>)[^<]*|data-game-mode="\w+" data-gmode="\w+" ', r"\1", head)
 assert len(set(sample.values())) == 1, "шапка, переключатель и полоска одинаковы на всех трёх страницах"
 for page, script in (("rhythm-v2.html", "/static/rhythm-v2.js"), ("minesweeper-v2.html", "/static/minesweeper-v2.js")):
     html = read(page)
@@ -69,6 +69,6 @@ assert "window.GameShell" in league_js and "Shell().paintStrip" in league_js, "�
 hub = read("app.04.js")
 assert "_gameMode('rhythm')==='ranked'?'/league?game=rhythm':'/rhythm-v2'" in hub
 assert "_gameMode('minesweeper')==='ranked'?'/league?game=minesweeper':'/minesweeper'" in hub
-assert "location.href=BASE+'/league#pass'" in hub and "<b>Пропуск сезона</b>" in hub, "в меню одна карточка — Пропуск"
+assert "leaveForGame('/league#pass')" in hub and "<b>Пропуск сезона</b>" in hub, "в меню одна карточка — Пропуск, с возвратом в исходный экран"
 assert "localStorage.setItem('pv_league_access'" in hub
 print("OK: one «Обычный | Рейтинг» switch and one header in Rhythm, Minesweeper and the League; smooth hand-over; the menu opens the last mode")

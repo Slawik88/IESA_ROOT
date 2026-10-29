@@ -146,10 +146,7 @@
       + ` aria-pressed="${chatTracker.sort === key}" onclick="chatTrackerSort('${key}')">${label}</button>`
     )).join('');
 
-    root.innerHTML = v3CurIn(`<div class="chat-tracker-head">
-        <button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button>
-        <div><span class="v3-eyebrow">Ваша активность</span><h1>Трекер чатов</h1><p>Прогресс и история в каждом чате.</p></div>
-      </div>
+    root.innerHTML = v3CurIn(`${v3Head('Трекер чатов', {back: "goTo('profile')", sub: 'Твоя активность и история в каждом чате.'})}
       <section class="chat-tracker-summary" aria-label="Сводка">
         <div><b>${fmt(summary.chat_count || 0)}</b><span>активных чатов</span></div>
         <div><b>${fmt(summary.messages_week || 0)}</b><span>сообщений за неделю</span></div>
@@ -380,7 +377,7 @@
         <li><span>🪙 Мора</span><b>${fmt(Number(step.mora))}</b></li>
         ${Number(step.essence) > 0 ? `<li><span>🔮 Эссенция</span><b>${fmt(Number(step.essence))}</b></li>` : ''}
       </ul>
-      <button type="button" class="pt-main" onclick="petsV1LevelUp(${Number(pet.id)})" ${need.length ? 'disabled' : ''}>Улучшить</button>
+      <button type="button" class="pt-main v3-pill" onclick="petsV1LevelUp(${Number(pet.id)})" ${need.length ? 'disabled' : ''}>Улучшить</button>
       ${need.length ? `<p class="pt-note" role="status">Не хватает: ${need.join(', ')}.</p>` : ''}
     </section>`;
   }
@@ -397,15 +394,16 @@
     } else {
       const trip = data.activity && activePet
         ? '<p class="pt-note">Текущий питомец в пути: новый сможет выйти после его возвращения.</p>' : '';
-      action = `<section class="pt-sec"><button type="button" class="pt-main" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`
+      action = `<section class="pt-sec"><button type="button" class="pt-main v3-pill" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`
         + `<p class="pt-note">Смена стоит 5 выносливости у текущего активного питомца.</p>${trip}</section>`;
     }
     return `<section class="pt-hero ${petRarityClass(pet.rarity)}" aria-label="${esc(pet.name)}">
       <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
         <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
-      <button type="button" class="pt-more" onclick="petDexOpen('${esc(pet.species_id)}')">Всё об этом питомце</button>
-      ${lore ? `<p class="pt-lore">${esc(lore)}</p>` : ''}${petMeter(pet)}${petFoodButtons(pet, foods)}
-    </section>${petLevelUp(pet, data)}${action}`;
+      ${petMeter(pet)}
+    </section>${action}${petLevelUp(pet, data)}${petFoodButtons(pet, foods)}
+    <button type="button" class="pt-more" onclick="petDexOpen('${esc(pet.species_id)}')">Всё об этом питомце</button>
+    ${lore ? `<details class="pt-info"><summary>История питомца</summary><p>${esc(lore)}</p></details>` : ''}`;
   }
 
   function petOwnedPanel(data) {
@@ -426,17 +424,15 @@
     const strip = pets.length > 1
       ? `<div class="pt-strip" role="tablist" aria-label="Мои питомцы">${pets.map((p) => petAvatar(p, info(p).icon || '🐾', p.id === _petSel, p.id === awayId)).join('')}</div>`
       : '';
-    const lead = !data.active_pet_id
-      ? '<p class="pt-note pt-note--lead">Выбери активного питомца: только он ходит в походы.</p>' : '';
     const guide = '<details class="pt-info"><summary>Как работает выносливость</summary><p>Она уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу. Поход и экспедиция списывают выносливость при старте и дают ключ. В путь ходит один активный питомец.</p></details>';
-    return `${earned}${lead}${strip}${petDetail(sel, data, info(sel).icon || '🐾', sel.id === awayId, info(sel).lore)}${guide}`;
+    return `${earned}${petDetail(sel, data, info(sel).icon || '🐾', sel.id === awayId, info(sel).lore)}${strip}${guide}`;
   }
 
   function renderPetsV1(root, data) {
     _petData = data;
     const pets = data.pets || [];
     const ownedTab = _petPanel === 'owned';
-    root.innerHTML = v3CurIn(`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🐾 Питомцы</div></div>
+    root.innerHTML = v3CurIn(`${v3Head('Питомцы', {back: "goTo('profile')", sub: 'Выбери питомца и отправь его в путь.'})}
       <div class="pet-tabs" role="tablist"><button type="button" role="tab" aria-selected="${ownedTab}" onclick="showPetPanel('owned',this)">Мои питомцы <small>${pets.length}</small></button><button type="button" role="tab" aria-selected="${!ownedTab}" onclick="showPetPanel('bestiary',this)">Бестиарий <small>${data.bestiary_owned || 0}/${data.bestiary_total || 0}</small></button></div>
       <div data-pet-panel="owned" ${ownedTab ? '' : 'hidden'}>${petOwnedPanel(data)}</div>
       <div data-pet-panel="bestiary" ${ownedTab ? 'hidden' : ''}>${petDex(data)}</div>`);
@@ -447,13 +443,21 @@
   // С сезона 2 действия с питомцами дают опыт Пропуска (свой дневной предел): строка под шапкой, нажатие — Пропуск
   function petPassLine(root) {
     api('/league-demo/api/pass').then((p) => {
-      const head = root.querySelector('.looks-head');
-      if (!p || !p.active || !p.pets || !head || !root.isConnected || root.querySelector('.pet-pass')) return;
+      const head = root.querySelector('.v3-head');
+      if (!p || !p.active || !p.pets || !head || !root.isConnected) return;
       const full = Number(p.pets.today) >= Number(p.pets.cap);
-      head.insertAdjacentHTML('afterend', `<button type="button" class="pet-pass${full ? ' is-full' : ''}" onclick="location.href=BASE+'/league#pass'">
-        <span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`);
+      const html = `<button type="button" class="pet-pass${full ? ' is-full' : ''}" onclick="leaveForGame('/league#pass','pets')">
+        <span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`;
+      const old = root.querySelector('.pet-pass');
+      if (old) old.outerHTML = html;
+      else head.insertAdjacentHTML('afterend', html);
     }).catch(() => {});
   }
+  window.refreshClassicPetPass = function () {
+    const root = el('pg-pets');
+    if (!root) return;
+    petPassLine(root);
+  };
 
   function petRefreshOwned() {
     const panel = el('pg-pets').querySelector('[data-pet-panel="owned"]');
@@ -527,7 +531,7 @@
     wrap.className = 'pt-sheet-wrap';
     wrap.innerHTML = v3CurIn(`<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${esc(sp.name)}">`
       + `<span class="pt-ic" aria-hidden="true">${esc(sp.icon)}</span><small>${esc(petRarityName(sp.rarity))}${sp.owned ? '' : ' · не найден'}</small><h3>${esc(sp.name)}</h3>${body}`
-      + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>');
+      + '<button type="button" class="pt-main v3-pill" onclick="petDexClose()">Закрыть</button></div>');
     root.appendChild(wrap);
     wrap.querySelector('.pt-main').focus();
     document.addEventListener('keydown', _petSheetKey);

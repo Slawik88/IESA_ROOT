@@ -242,7 +242,7 @@ function _trPassHtml() {
   const p = _trPass;
   if (!p || !p.active || !p.pets) return '<div id="pet-pass-line" hidden></div>';
   const full = Number(p.pets.today) >= Number(p.pets.cap);
-  return `<button type="button" id="pet-pass-line" class="pet-pass${full ? ' is-full' : ''}" onclick="location.href=BASE+'/league#pass'"><span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`;
+  return `<button type="button" id="pet-pass-line" class="pet-pass${full ? ' is-full' : ''}" onclick="leaveForGame('/league#pass','pets')"><span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`;
 }
 function _trPassLoad() {
   if (Date.now() - _trPassAt < 3000) return;

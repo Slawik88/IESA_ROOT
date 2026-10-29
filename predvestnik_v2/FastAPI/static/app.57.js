@@ -35,7 +35,7 @@ function _gvLeave(path, what) {
   try { if (_GV.view === 'topic' && _GV.topic) sessionStorage.setItem('pv_back', 'guide_' + _GV.topic); } catch (_) {}
   const root = el('pg-help');
   if (root) root.innerHTML = `<div class="gv-scope">${v3Head(what, { sub: 'Открываем…' })}<div class="sk" style="height:220px;border-radius:18px"></div><p class="gv-sub">Кнопка «‹» в игре вернёт тебя в эту тему Путеводителя.</p></div>`;
-  location.href = BASE + path;
+  leaveForGame(path, _GV.view === 'topic' && _GV.topic ? 'guide_' + _GV.topic : 'games');
 }
 const _gvRating = () => _gvLeave('/league?game=rhythm', 'Рейтинг');
 const _gvNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/18\s*\+/g, ' 18plus ').replace(/[^a-zа-я0-9 ]+/g, ' ');   // «18+» — одно слово поиска

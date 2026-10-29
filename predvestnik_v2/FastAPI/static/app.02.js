@@ -96,34 +96,48 @@ function _toggleEasyInput(on){
   toast(on?'🧿 Упрощённый ввод включён':'Упрощённый ввод выключен');
 }
 // Блок-экран принятия документов (неубираемый оверлей) — для не принявших.
+function _tosTrap(event){
+  const g=el('tos-gate');
+  if(!g || event.key!=='Tab' || el('modal')?.open) return;
+  const buttons=[...g.querySelectorAll('button:not(:disabled)')];
+  const first=buttons[0], last=buttons[buttons.length-1];
+  if(!first) return;
+  if(event.shiftKey && (document.activeElement===first || !buttons.includes(document.activeElement))) { event.preventDefault(); last.focus(); }
+  else if(!event.shiftKey && (document.activeElement===last || !buttons.includes(document.activeElement))) { event.preventDefault(); first.focus(); }
+}
 function _tosGate(d){
   const ex=el('tos-gate');
-  if(d&&d.tos_accepted){ if(ex) ex.remove(); return; }
+  if(d&&d.tos_accepted){ if(ex) ex.remove(); document.removeEventListener('keydown',_tosTrap); return; }
   if(ex) return;
   const g=document.createElement('div');
   g.id='tos-gate'; g.className='tos-gate';
+  g.setAttribute('role','dialog'); g.setAttribute('aria-modal','true');
+  g.setAttribute('aria-labelledby','tos-gate-title'); g.tabIndex=-1;
   g.innerHTML=`<div class="tos-gate-box">
-    <div class="tos-gate-emoji">📋</div>
-    <div class="tos-gate-title">Добро пожаловать в PREDVESTNIK</div>
+    <div class="tos-gate-mark" aria-hidden="true">${v3Emblem("quests")}</div>
+    <h1 class="tos-gate-title" id="tos-gate-title">Добро пожаловать в Предвестник</h1>
     <div class="tos-gate-sub">Чтобы играть, прочитай и прими правила игры и политику конфиденциальности.</div>
     <div class="tos-gate-links">
-      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
-      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('tos')">Правила игры</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('privacy')">Конфиденциальность</button>
     </div>
-    <button class="v3-pill v3-pill--full" onclick="_tosAccept(this)">✅ Принять и играть</button>
+    <button class="v3-pill v3-pill--full" onclick="_tosAccept(this)">Принять и играть</button>
     <div class="tos-gate-hint">Нажимая «Принять», ты соглашаешься с Пользовательским соглашением и Политикой конфиденциальности.</div>
   </div>`;
   document.body.appendChild(g);
+  g.focus();
+  document.addEventListener('keydown',_tosTrap);
 }
 function _tosAccept(btn){
   if(btn){ btn.disabled=true; btn.textContent='Сохраняем…'; }
   api('/legal/accept',{method:'POST'}).then(()=>{
     const g=el('tos-gate'); if(g) g.remove();
+    document.removeEventListener('keydown',_tosTrap);
     toast('✅ Спасибо! Приятной игры.',true);
     if(_profileData) _profileData.tos_accepted=true;
     loadProfile();
     _showWelcome();
-  }).catch(e=>{ toast(e,false); if(btn){ btn.disabled=false; btn.textContent='✅ Принять и играть'; } });
+  }).catch(e=>{ toast(e,false); if(btn){ btn.disabled=false; btn.textContent='Принять и играть'; } });
 }
 // UX-аудит: единственный «welcome»-экран был юридическим гейтом без единого
 // слова о геймплее — новый игрок оставался один на один с пустым профилем.
@@ -156,14 +170,17 @@ function _plSkip() {
   setTimeout(()=>{ const p=el('preloader'); if(p) p.remove(); }, 600);
 }
 function _runPreloader() {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.pl-orb, .login-orb').forEach(node => { node.innerHTML = v3Emblem('compass'); });
+  }, {once:true});
   const pl = el('preloader'); if(!pl) return;
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const box = el('pl-lines');
   // UX_AUDIT С2: гостю без сессии нечего «синхронизировать» — честные нейтральные строки
   const _authed = !!(INIT_DATA || sess());
   const lines = _authed
-    ? ['🔌 Синхронизация с сервером…','🔍 Проверка сигнатур…','📦 Загрузка данных…']
-    : ['🌘 Открываем врата…','📦 Загрузка данных…'];
+    ? ['Открываем Предвестник…','Загружаем твой профиль…']
+    : ['Открываем Предвестник…','Готовим вход…'];
   let i = 0;
   const add = () => { if(!box || i>=lines.length) return; const d=document.createElement('div'); d.className='pl-line'; d.textContent=lines[i++]; box.appendChild(d); };
   add();
