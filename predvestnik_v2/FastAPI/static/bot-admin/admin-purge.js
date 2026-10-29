@@ -51,7 +51,7 @@ async function purgeView(main, cid, title, from = null, back = null) {
     back: back || (() => window.back(main))});   // из карточки чата: «Назад» ведёт в неё (она в PEOPLE.stack)
   main.innerHTML = `<div class="bar"><button class="btn" id="pgback">← Назад</button></div>
     <div id="purgeview"><div class="card"><h3>🧹 Чистка · ${esc(title || cid)}</h3><div class="sub">Загружаю ход…</div></div></div>`;
-  const leave = () => { clearTimeout(PURGE.timer); purgeRememberDraft(); PURGE.main = null; PURGE.back(); };
+  const leave = () => { if (adminCloseSheet()) return; clearTimeout(PURGE.timer); purgeRememberDraft(); PURGE.main = null; PURGE.back(); };
   $('#pgback').onclick = leave;
   const bb = TG && TG.BackButton;   // «Назад» самого Telegram — туда же, а не из админки
   if (bb) { bb.offClick(goApp); if (PEOPLE.bb) bb.offClick(PEOPLE.bb); PEOPLE.bb = leave; bb.onClick(leave); bb.show(); }
@@ -140,7 +140,7 @@ function purgeActive(v) {
   const empty = {pending: 'Все решения приняты. Можно завершать.', decided: 'Решений пока нет.', all: 'В этой чистке никого нет.'}[PURGE.mode];
   return `<div class="card" role="status">${state}<div class="meter" aria-hidden="true"><i style="width:${Math.round(100 * shown / Math.max(1, c.total))}%"></i></div></div>
     <div class="chips filters">${[['pending', `Ждут · ${num(waiting)}`], ['decided', 'Решённые'], ['all', 'Все']].map(([k, t]) =>
-      `<span class="chip ${PURGE.mode === k ? 'ok' : ''}" data-pgmode="${k}">${t}</span>`).join('')}</div>
+      `<button type="button" class="chip ${PURGE.mode === k ? 'ok' : ''}" data-pgmode="${k}">${t}</button>`).join('')}</div>
     <div class="card">${rows || `<div class="sub">${empty}</div>`}
       ${v.page || v.has_more ? `<div class="actions">${v.page ? '<button class="btn small" data-pgpage="-1">‹ Предыдущие</button>' : ''}${v.has_more ? '<button class="btn small" data-pgpage="1">Следующие ›</button>' : ''}</div>` : ''}</div>
     <div class="actions"><button class="btn" id="pgfinish" ${c.blocked ? 'disabled' : ''}>Завершить чистку</button></div>

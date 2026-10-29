@@ -215,7 +215,7 @@ function moreSheet() {
 }
 
 // Кнопка «назад» на верхнем уровне ведёт обратно в Предвестник (внутри Telegram и в браузере одинаково).
-function goApp() { location.href = (BASE || '') + '/'; }
+function goApp() { if (adminCloseSheet()) return; location.href = (BASE || '') + '/'; }
 function rootBack() {
   const bb = TG && TG.BackButton;
   if (!bb) return;
@@ -224,6 +224,7 @@ function rootBack() {
 }
 
 function open(key) {
+  adminCloseSheet();
   VIEW_SEQ++;
   rootBack();
   if (_viewAbort) { _viewRequest++; _viewAbort.abort(); _viewAbort = null; }
@@ -240,45 +241,13 @@ document.addEventListener('click', e => {
   if (e.target.closest('[data-more]')) moreSheet();
 });
 
-// ── Тема: тёмная (как Mini App), светлая или как в Telegram ─────────────────────
-
-const THEMES = [['auto', '📱 Как в Telegram', 'Сама меняется вслед за темой Telegram'], ['dark', '🌙 Тёмная', 'Как в Предвестнике'], ['light', '☀️ Светлая', 'Для яркого дня']];
-const PAGE_COLOR = {dark: '#08090c', light: '#f3f4f8'};
-const themePref = () => { const t = PREFS.get('theme', 'auto'); return THEMES.some(z => z[0] === t) ? t : 'auto'; };
-function resolveTheme(pref = themePref()) {
-  if (pref === 'light' || pref === 'dark') return pref;
-  // Вне Telegram SDK всегда отвечает «light», поэтому его схему берём только когда мы действительно внутри Telegram
-  const scheme = TG && TG.platform && TG.platform !== 'unknown' ? TG.colorScheme : '';
-  if (scheme === 'light' || scheme === 'dark') return scheme;
-  return window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
+// Палитра и выбор оформления — в admin-look.js.
 // Шапка, фон и нижняя полоса Telegram того же цвета, что страница.
 function paintTmaShell(color) {
   if (!TG) return;
   const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
   call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
 }
-function applyTheme() {
-  const theme = resolveTheme();
-  document.documentElement.dataset.theme = theme;
-  const meta = document.querySelector('meta[name=theme-color]');
-  if (meta) meta.setAttribute('content', PAGE_COLOR[theme]);
-  paintTmaShell(PAGE_COLOR[theme]);
-}
-function themeSheet() {
-  const current = themePref();
-  sheet('Оформление', `<div class="go-list">${THEMES.map(([key, title, sub]) =>
-    `<button type="button" data-theme-pick="${key}" class="${key === current ? 'here' : ''}"><span>${title}<small class="sub" style="display:block">${sub}</small></span></button>`).join('')}</div>
-    <div class="sub" style="margin-top:8px">Хранится на этом устройстве.</div>`, 'Готово', () => {}, {info: true});
-  $('#sheet').querySelectorAll('[data-theme-pick]').forEach(btn => btn.onclick = () => {
-    PREFS.set('theme', btn.dataset.themePick); applyTheme();
-    $('#sheet').querySelectorAll('[data-theme-pick]').forEach(b => b.classList.toggle('here', b === btn));
-  });
-}
-applyTheme();
-try { if (TG && TG.onEvent) TG.onEvent('themeChanged', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
-try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
-
 // Оболочка Telegram: смахивание вниз не закрывает админку посреди формы; лёгкий отклик на нажатия, как в приложении.
 (function initTmaShell() {
   if (!TG) return;
@@ -349,9 +318,10 @@ const tagSfx = tag => tag ? ` <span class="sub tag">[${esc(tag)}]</span>` : '';
 // Нет фото или ссылка устарела — остаётся цветной кружок с инициалом, без битой картинки.
 const pic = url => url ? esc(BASE + url) : '';
 function ava(p, cls = '') {
+  const ap = p.vip && p.look && typeof apFromLook === 'function' ? apFromLook(p.look) : null;
   const photo = p.avatar ? `<img src="${pic(p.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"/>` : '';
   const letter = (p.name || p.username || '?').replace(/^@+/, '').trim().charAt(0).toUpperCase() || '?';
-  return `<span class="ava ${cls}" aria-hidden="true">${photo}<b>${esc(letter)}</b></span>`;
+  return `<span class="ava ${cls}${ap ? ' has-look' : ''}" aria-hidden="true">${photo}<b>${esc(letter)}</b>${ap ? apFrame(ap) : ''}</span>`;
 }
 // Человек одной строкой: фото, имя, @ник. Для ленты, жалоб и списков, где важна не строка, а лицо.
 const pinline = (p, extra = '') => p && p.id
@@ -367,16 +337,19 @@ const statusChips = st => !st ? '' : [st.global_ban ? '<span class="chip bad">�
 
 function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
   const box = $('#sheet');
-  box.innerHTML = `<div class="sheet"><h3>${esc(title)}</h3>${body}
-    <div class="actions" style="margin-top:12px"><button class="btn primary" id="sok">${esc(submitText)}</button>
+  box.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${body}
+    <div class="actions sheet-actions"><button class="btn primary" id="sok">${esc(submitText)}</button>
       ${info ? '' : `<button class="btn" id="scancel">${esc(cancelText)}</button>`}</div></div>`;
   box.hidden = false;
-  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  const panel = box.firstElementChild, submit = $('#sok');
+  const current = () => box.firstElementChild === panel && !box.hidden;
+  const close = () => { if (current()) adminCloseSheet(); };
   if (!info) $('#scancel').onclick = close;
   box.onclick = e => { if (e.target === box) close(); };
-  $('#sok').onclick = async () => {
-    $('#sok').disabled = true;
-    try { if (await onSubmit(box) !== 'keep') close(); } catch (e) { toast(e.message, true); $('#sok').disabled = false; }
+  submit.onclick = async () => {
+    submit.disabled = true;
+    try { if (await onSubmit(box) !== 'keep') close(); }
+    catch (e) { toast(e.message, true); if (current()) submit.disabled = false; }
   };
 }
 
@@ -411,7 +384,7 @@ function actionForm(key, ctx) {
     case 'balance_quick': return actionForm('balance', ctx);
     case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
         <input id="fdays" type="number" min="1" max="3650" value="7"/>
-        <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
+        <div class="chips">${[7, 30, 90, 365].map(d => `<button type="button" class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</button>`).join('')}</div></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
     case 'local_rank': return [hint('Ранг действует только в выбранном чате. Владелец и глобальная роль этим действием не меняются.') + `<div class="field"><label>Ранг в чате</label><select id="flocalrank">${ctx.local_ranks.map(r=>`<option value="${r.rank}" ${r.rank===ctx.local_rank?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div>` + reasonField(true),()=>({rank:+v('flocalrank'),expected_rank:ctx.local_rank,reason:v('freason')})];
     case 'rank': return [hint('Роль открывает разделы админки и права в боте. Выдать можно только роль ниже своей. Понадобится ввести ID игрока.') + `<div class="field"><label>Новая роль</label><select id="frank">
@@ -632,7 +605,7 @@ function nativeBack(main) {
   if (!bb) return;
   if (PEOPLE.bb) bb.offClick(PEOPLE.bb);
   bb.offClick(goApp);
-  PEOPLE.bb = () => back(main);
+  PEOPLE.bb = () => { if (!adminCloseSheet()) back(main); };
   bb.onClick(PEOPLE.bb); bb.show();
 }
 
@@ -689,7 +662,7 @@ async function peopleSearch(main, query = '') {
   rootBack();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя, тег или название чата" value="${esc(query)}" autocomplete="off"/></div>
-    <div class="chips filters" id="pplf"></div>
+    <div class="chips filters" id="pplf" role="group" aria-label="Фильтры — листай в сторону"></div>
     <div class="field"><label for="pplmarks">Регалии</label><select id="pplmarks"><option value="">Все регалии</option></select></div>
     <div id="pplbulk"></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
@@ -698,7 +671,7 @@ async function peopleSearch(main, query = '') {
   $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   const drawFilters = () => {
     $('#pplf').innerHTML = PEOPLE_FILTERS.map(([key, title]) =>
-      `<span class="chip ${key === PEOPLE.filter ? 'ok' : ''}" data-flt="${key}">${esc(title)}</span>`).join('');
+      `<button type="button" class="chip ${key === PEOPLE.filter ? 'ok' : ''}" data-flt="${key}">${esc(title)}</button>`).join('');
     const marks = $('#pplmarks');
     if (marks) marks.value = [...marks.options].some(o => o.value === PEOPLE.filter) ? PEOPLE.filter : '';
   };
@@ -750,9 +723,9 @@ async function peopleSearch(main, query = '') {
     const pins = showAttn ? PREFS.get('pinned', []) : [];
     const recent = showAttn ? PREFS.get('recent', []).filter(r => !pins.some(x => x.id === r.id)) : [];
     const pinsHtml = pins.length ? `<div class="chips recent pins"><span class="sub">★ Закреплённые:</span>${pins.map(r =>
-      `<span class="chip ok" data-recent="${r.id}">${r.n ? esc(r.n) : r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
+      `<button type="button" class="chip ok" data-recent="${r.id}">${r.n ? esc(r.n) : r.u ? '@' + esc(r.u) : 'id' + r.id}</button>`).join('')}</div>` : '';
     const recentHtml = pinsHtml + (recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
-      `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '');
+      `<button type="button" class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</button>`).join('')}</div>` : '');
     const linkedHead = /^linked:/.test(PEOPLE.filter) ? `<div class="chips"><span class="chip ok">🔗 ${esc(title)}</span><button type="button" class="btn small" id="pplnolink">✕ Убрать</button></div>` : '';
     $('#pplres').innerHTML = recentHtml + linkedHead + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + head + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
@@ -1023,38 +996,37 @@ async function playerView(main, id, push = true, from = null) {
       <div class="profile-head">
         <div class="ava-wrap">${ava(p, 'lg')}</div>
         <div style="min-width:0">
-          <div class="pname">${title}</div>
+          <div class="pname" style="${adminNicknameStyle(p)}">${title}</div>
           <div class="pmeta">${p.username ? who(p.id, p.username) + ' · ' : ''}ID ${p.id}</div>
           <div class="chips">${chips}</div>
         </div>
       </div>
-      <div class="facts">
+      <div class="facts player-facts">
         <div class="fact"><span>Последняя активность</span><b style="font-size:13.5px">${lastSeen ? when(lastSeen) : 'не писал'}</b></div>
         <div class="fact"><span>Сообщений за 7 дней</span><b>${num(p.messages.week)}</b></div>
-        <div class="fact"><span>Чатов</span><b>${p.chats.length}</b></div>
-        <div class="fact"><span>Варнов в чатах</span><b>${warns}</b></div>
-        <div class="fact"><span>Жалоб</span><b>${rp.total}${rp.open ? `<small> · ${rp.open} откр.</small>` : ''}</b></div>
-        <div class="fact"><span>Заметок</span><b>${p.notes.total}</b></div>
       </div>
       <div class="stats balances">
         <div><span>🪙 Мора</span><b>${num(b.mora)}</b></div><div><span>💎 Алмазы</span><b>${num(b.diamonds)}</b></div>
         <div><span>🔮 Эссенция</span><b>${num(b.essence)}</b></div><div><span>✨ Зарники</span><b>${num(b.zarniki)}</b></div>
       </div>
-      <div class="sub" style="margin-top:8px">💬 сегодня ${num(p.messages.today)} · всего ${num(p.messages.total)} · 🔥 стрик ${p.streak.current} <small>(лучший ${p.streak.best})</small> · 🏆 достижения ${p.achievements.count} <small>(ур. ${p.achievements.levels})</small></div>
+      <details class="player-extra"><summary>Подробнее об игроке</summary>
+        <div class="facts"><div class="fact"><span>Чатов</span><b>${p.chats.length}</b></div>
+        <div class="fact"><span>Варнов в чатах</span><b>${warns}</b></div>
+        <div class="fact"><span>Жалоб</span><b>${rp.total}${rp.open ? `<small> · ${rp.open} откр.</small>` : ''}</b></div>
+        <div class="fact"><span>Заметок</span><b>${p.notes.total}</b></div></div><div class="sub" style="margin-top:8px">💬 сегодня ${num(p.messages.today)} · всего ${num(p.messages.total)} · 🔥 стрик ${p.streak.current} <small>(лучший ${p.streak.best})</small> · 🏆 достижения ${p.achievements.count} <small>(ур. ${p.achievements.levels})</small></div>
       ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
           ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
       ${p.watch ? `<div class="sub">На контроле: ${p.watch.reason ? esc(p.watch.reason) + ' · ' : ''}${who(p.watch.by.id, p.watch.by.username)}, ${when(p.watch.at)}</div>` : ''}
-      ${quick ? `<div class="qacts" role="group" aria-label="Быстрые действия">${quick}</div>` : ''}
+      </details>${quick ? `<div class="qacts" role="group" aria-label="Быстрые действия">${quick}</div>` : ''}
       <div class="actions" style="margin-top:10px"><button class="btn primary" id="pacts">Все действия</button>
         <button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 На контроль'}</button>
         <button class="btn small" id="ppin" aria-pressed="${pinned}">${pinned ? '★ Закреплён' : '☆ Закрепить'}</button>
         ${canJournal ? '<button class="btn small" id="pjournal">☰ Журнал игрока</button>' : ''}</div>
     </div>
-    ${skinsCard}
-    ${walletCard}
+    <details class="player-more"><summary>Образы и история кошелька</summary>${skinsCard}${walletCard}</details>
     ${marksCard}
     ${reportsCard}
     ${notesCard}
@@ -1381,10 +1353,9 @@ function section(key, title, body, {fold = false, open = true, count = null} = {
   const isOpen = FOLD.has(key) ? FOLD.get(key) : open;
   return `<details class="section" data-sec="${key}" ${isOpen ? 'open' : ''}><summary class="sec-h">${title}${cnt}</summary><div class="sec-body">${body}</div></details>`;
 }
-// Таблица: на узком экране, если колонок больше трёх, строки превращаются в карточки (подписи берутся из шапки).
+// На телефоне строки любой таблицы становятся карточками с подписями из шапки.
 function tbl(heads, rows) {
-  const cards = heads.length > 3 ? ' tbl-cards' : '';
-  return `<table class="tbl${cards}"><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r =>
+  return `<table class="tbl tbl-cards"><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r =>
     `<tr>${r.map((c, i) => `<td data-label="${esc(String(heads[i]).replace(/<[^>]*>/g, ''))}">${c}</td>`).join('')}</tr>`).join('')}</table>`;
 }
 
@@ -1541,7 +1512,7 @@ function pickerField(host, {hint, placeholder, search, items, onChange}) {
   const input = $('input', host), found = $('.found', host), chips = $('.chips', host);
   const draw = () => {
     chips.innerHTML = items.length
-      ? items.map((x, i) => `<span class="chip" data-un="${i}" title="Убрать">${x.avatar !== undefined ? ava(x) : ''}${esc(x.label)} ✕</span>`).join('')
+      ? items.map((x, i) => `<button type="button" class="chip" data-un="${i}" title="Убрать">${x.avatar !== undefined ? ava(x) : ''}${esc(x.label)} ✕</button>`).join('')
       : `<span class="sub">${esc(hint)}</span>`;
   };
   draw();
@@ -1973,7 +1944,7 @@ function skinPicker(currentId, onPick, {noPrivate = false} = {}) {
     return !q || hay.includes(q);
   };
   const draw = () => {
-    $('#skt').innerHTML = filters.map(([key, t]) => `<span class="chip ${key === filter ? 'ok' : ''}" data-f="${esc(key)}">${esc(t)}</span>`).join('');
+    $('#skt').innerHTML = filters.map(([key, t]) => `<button type="button" class="chip ${key === filter ? 'ok' : ''}" data-f="${esc(key)}">${esc(t)}</button>`).join('');
     const list = filter === 'private' ? [] : all.filter(match), tiers = [...new Set(list.map(k => k.tier))];
     const privList = ['all', 'private'].includes(filter) || q ? priv.filter(match) : [];
     $('#skg').innerHTML = (tiers.map(t => `<h3 class="sec">${esc(TIER_TITLES[t] || t)} · ${list.filter(k => k.tier === t).length}</h3>
@@ -2083,7 +2054,7 @@ async function promoEdit(main, p, {bulk = false} = {}) {
 
   function drawChats() {
     $('#fchats').innerHTML = state.chats.length
-      ? state.chats.map((c, i) => `<span class="chip" data-unchat="${i}" title="Убрать">${esc(c.title)} ✕</span>`).join('')
+      ? state.chats.map((c, i) => `<button type="button" class="chip" data-unchat="${i}" title="Убрать">${esc(c.title)} ✕</button>`).join('')
       : '<span class="sub">Во всех чатах и в личке с ботом</span>';
   }
   drawChats();
@@ -2112,7 +2083,7 @@ async function promoEdit(main, p, {bulk = false} = {}) {
   const users = ((p && p.allowed_users) || []).map(id => ({id: +id, label: 'id' + id}));
   const drawUsers = () => {
     $('#fusers').innerHTML = users.length
-      ? users.map((u, i) => `<span class="chip" data-unuser="${i}" title="Убрать">${esc(u.label)} ✕</span>`).join('')
+      ? users.map((u, i) => `<button type="button" class="chip" data-unuser="${i}" title="Убрать">${esc(u.label)} ✕</button>`).join('')
       : '<span class="sub">Для всех игроков</span>';
   };
   if (!bulk) {
@@ -2345,7 +2316,7 @@ function bindSecurityCard(main) {
 async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
-  main.innerHTML = `
+  main.innerHTML = `<div class="actions"><button type="button" class="btn" data-admin-theme>Тема админки</button></div>
     ${pageHead('⚙', 'Настройки', 'Переводы, жалобы и безопасность')}
     <div class="card"><h3>Переводы между игроками</h3>
       <div class="sub" style="margin-bottom:6px">Какие валюты можно отправить командой «бот перевод».</div>
@@ -2506,7 +2477,7 @@ async function ownerBoot() {
   try {
     const o = await api('/owner/me');
     OWNER.chats = o.chats; OWNER.chat = (o.chats.find(c => c.id === OWNER.chat) || o.chats[0]).id;
-    return {rank_name: 'Владелец чата', sections: [{key: 'mychats', title: 'Мои чаты'}], creator: false, owner: true};
+    return {look: o.look, rank_name: 'Владелец чата', sections: [{key: 'mychats', title: 'Мои чаты'}], creator: false, owner: true};
   } catch (e) { e.owner = true; throw e; }
 }
 const untilText = iso => iso ? 'до ' + new Date(iso).toLocaleString('ru', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : 'навсегда';

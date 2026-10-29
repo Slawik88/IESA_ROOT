@@ -22,6 +22,11 @@ _TYPES = {"admin.js": "text/javascript; charset=utf-8", "admin-lists.js": "text/
           "admin-patchnotes-actions.js": "text/javascript; charset=utf-8",
           "admin-guide.js": "text/javascript; charset=utf-8", "guide-admin.json": "application/json; charset=utf-8",   # справка (S09)
           "admin-boot.js": "text/javascript; charset=utf-8", "admin.css": "text/css; charset=utf-8"}
+# Общие компоненты читаются из единственного исходника Mini App.
+_SHARED = {"shell-v3.css": "../shell-v3.css", "appearance-core.js": "../app.20.js",
+           "appearance-ring-v3.css": "../appearance-ring-v3.css"}
+_TYPES.update({"admin-look.js": "text/javascript; charset=utf-8", "appearance-core.js": "text/javascript; charset=utf-8",
+               "shell-v3.css": "text/css; charset=utf-8", "appearance-ring-v3.css": "text/css; charset=utf-8"})
 router = APIRouter()
 
 _PAGE = ""
@@ -41,7 +46,7 @@ def load(directory: str | None = None) -> None:
     directory = directory or _DIR
     raw = {}
     for name in ("index.html", *_TYPES):
-        with open(os.path.join(directory, name), "rb") as f:
+        with open(os.path.join(directory, _SHARED.get(name, name) if directory == _DIR else name), "rb") as f:
             raw[name] = f.read()
     ver = _digest(*(raw[n] for n in ("index.html", *_TYPES)))
     _PAGE = raw["index.html"].decode("utf-8").replace("{{BASE}}", _BASE).replace("{{VER}}", ver)
