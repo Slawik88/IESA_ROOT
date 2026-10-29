@@ -1,3 +1,14 @@
+## ROADMAP-S10 — ADMIN SEARCH, CARD DATA, SKINS CREATOR-ONLY, JOURNAL EXPORT, PUSHED TO MASTER (production not verified from the cloud; the screen S10v waits for the owner's OK)
+
+Admin player search with `paged=1` (old answer kept without it): pages for text and every filter, total in the same query (`COUNT(*) OVER()`), new filters `active:N`, `idle:N`, `silent`,
+`linked:<id>` (rank ≥ 4), ban/mute/warn status per row; 100k synthetic players: 104–218 ms per page (old «recent» list 277 ms). Player card gets the last 20 wallet moves (currencies and
+Essence, amounts as strings) and the skin inventory. Skins are granted and revoked only by the creator: `skins_v3.grant_by_hand`/`revoke_by_hand` over the existing ownership rules
+(personal skin through `grant_exclusive`), `/skins/catalog` creator-only; promo codes with a skin reward are created, updated, bulk-created and re-enabled only by the creator. Journal:
+purge actions in the feed, user/chat filters, CSV export (≤ 90 days, ≤ 5000 rows, formula-safe, rate-limited, audited, `deliver=dm`). Bulk «unmute everywhere». Live report badge signal
+`data_changed{scope:'admin_reports'}` to online staff (ignored by the Mini App). Shield/immune logic shared by the bot command and the admin. Checked locally: new `test_bot_admin_s10_pg.py`,
+the admin PG suite on fresh databases (promo/reports/chats_reports red on master too — stale expectations), skins, global ban, purge queue, hot paths, guide and UI contracts, access guard;
+bench at 100k. Two independent read-only audits, findings fixed or answered in the session summary. Not verified: production deploy, real Telegram.
+
 ## ROADMAP-S05v — CHAT PURGE PAGE MERGED TO MASTER (owner's OK 2026-10-29; production not verified from the cloud)
 
 The purge page replaces the old sheet: back button, «preparing the list», «sending dossier N of M», decisions in a sheet, retry; live updates over the WebSocket.
