@@ -167,6 +167,21 @@ BOT_TOKEN=1:x PYTHONPATH=. DATABASE_URL=postgresql://predvestnik_preprod@127.0.0
 **Правило:** новый CSS с картинками сцены образа подключается лениво (буква в `_SKIN_SCENE_ART`, `FastAPI/main.py`), а не ссылкой в `index.html`: сцена сама просит свой файл (`_scArt`, `app.35.js`), до прихода слой с картинкой невидим.
 Аварийный выключатель сжатия JS: переменная окружения `PV_MINIFY_JS=0` (отдаёт исходники как есть). Локальный стенд работает по HTTP/1.1 (6 соединений на адрес), прод — по HTTP/2: число запросов на проде стоит дешевле, чем в замере.
 
+## Админка: поиск, образы, журнал (с S10)
+
+```bash
+DSN=$(bash "$R/predvestnik_v2/docs/roadmap/env-setup.sh" --fresh-db pv_test_bot_admin_s10)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/test_bot_admin_s10_pg.py --dsn "$DSN"     # поиск со страницами, образы только у создателя, журнал и CSV, массово, значок, новые действия
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/admin_clicks.py                       # касания на 8 задачах + «Отменить» и «Чистка» (стенд, ~40 с)
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BOT_TOKEN=1:x PYTHONPATH=. $PY tools/admin_clicks.py --old --static <старая папка bot-admin>   # то же на базовой ревизии
+DSN=$(bash "$R/predvestnik_v2/docs/roadmap/env-setup.sh" --fresh-db pv_s10_bench)
+BOT_TOKEN=1:x PYTHONPATH=. $PY tools/bench_db_hot_queries.py --dsn "$DSN" --indexes --users 100000                 # поиск админки на 100k игроков (наполнение ~1 мин)
+```
+
+Тесты админки `test_bot_admin_*_pg.py` запускать **каждый на своей свежей базе** (на общей падают на повторных `INSERT`). Красные и на master: `test_bot_admin_promo_pg`, `test_bot_admin_reports_pg`, `test_bot_admin_chats_reports_pg` (устаревшие ожидания, «Находки» S03).
+Устройство: поиск — `services/admin_people.search(paged=…)`; образы руками — `services/skins_v3.grant_by_hand/revoke_by_hand` (роут проверяет создателя), промокод с образом — `promo_v2.require_skin_rights`; журнал и CSV — `admin_people.feed/export_csv`, `routers/bot_admin/journal.py`; «Чистка» в админке — `static/bot-admin/admin-purge.js`
+(сервер `/purge-v1` тот же), живые обновления — `admin-live.js` (сокет `/ws/<id>`, сигнал `data_changed{scope:'admin_reports'}` из `services/reports.LIVE_EVENT`). Отмена санкций — в браузере: `undoLater` в `admin.js`, 10 с (`window.ADMIN_UNDO_MS` для стенда).
+
 ## Остановка и сброс
 
 ```bash

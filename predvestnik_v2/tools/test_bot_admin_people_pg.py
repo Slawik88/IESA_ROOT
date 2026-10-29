@@ -151,7 +151,7 @@ async def checks():
     # Карточка игрока глазами хелпера
     card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()
     assert card["username"] == "u2002" and card["messages"]["total"] == 125, card
-    assert [a["key"] for a in card["actions"]["member"]] == ["warn", "mute", "unmute", "unwarn_all"], card["actions"]
+    assert [a["key"] for a in card["actions"]["member"]] == ["warn", "mute", "unmute", "unwarn_all", "shield", "unshield"], card["actions"]   # защита от чистки — с 3 (S10)
     assert card["actions"]["player"] == [], card["actions"]
     main_chat = next(c for c in card["chats"] if c["id"] == -100)
     assert main_chat["warns"] == 1 and not main_chat["muted"], main_chat

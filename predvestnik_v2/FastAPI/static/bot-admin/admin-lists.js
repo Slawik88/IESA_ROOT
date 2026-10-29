@@ -5,6 +5,14 @@
 
 const JOURNAL = {kind: PREFS.get('journal.kind', ''), actor: 0, days: [1, 7, 30, 90].includes(PREFS.get('journal.days', 7)) ? PREFS.get('journal.days', 7) : 7,
   view: PREFS.get('journal.view', 'actions') === 'logins' ? 'logins' : 'actions'};
+// Фильтр «один игрок или чат» ставится из их карточки и не запоминается: открыли раздел заново — снова весь журнал.
+JOURNAL.scope = null;   // {user_id | chat_id, title}
+function openJournalFor(scope) {
+  if (!ME.sections.some(z => z.key === 'journal')) return toast('Журнал открыт со старшего хелпера (4).', true);
+  JOURNAL.scope = scope; JOURNAL.view = 'actions'; JOURNAL.kind = ''; JOURNAL.actor = 0;
+  tabs('journal'); journalView($('#main'));
+}
+const journalScopeQs = () => JOURNAL.scope ? (JOURNAL.scope.user_id ? `&user_id=${JOURNAL.scope.user_id}` : `&chat_id=${JOURNAL.scope.chat_id}`) : '';
 const saveJournal = () => { PREFS.set('journal.kind', JOURNAL.kind); PREFS.set('journal.days', JOURNAL.days); PREFS.set('journal.view', JOURNAL.view); };
 // Создатель видит ещё и входы в админку (адрес и устройство): остальным этой вкладки нет.
 const journalTabs = () => !ME.creator ? '' : `<div class="scope" style="margin-bottom:8px">${[['actions', 'Действия'], ['logins', 'Входы']].map(([k, t]) =>
@@ -26,7 +34,7 @@ async function loginsView(main) {
 }
 async function journalView(main, more = '') {
   if (ME.creator && JOURNAL.view === 'logins') return loginsView(main);
-  const qs = `kind=${encodeURIComponent(JOURNAL.kind)}&actor=${JOURNAL.actor}&days=${JOURNAL.days}${more ? '&before=' + encodeURIComponent(more) : ''}`;
+  const qs = `kind=${encodeURIComponent(JOURNAL.kind)}&actor=${JOURNAL.actor}&days=${JOURNAL.days}${journalScopeQs()}${more ? '&before=' + encodeURIComponent(more) : ''}`;
   const data = await loadSectionData(main, `/journal?${qs}`, () => journalView(main, more), 'journal');
   if (!data) return;
   if (JOURNAL.kind && !data.kinds.some(k => k.key === JOURNAL.kind)) { JOURNAL.kind = ''; saveJournal(); return journalView(main); }   // запомненный вид исчез
@@ -61,11 +69,15 @@ async function journalView(main, more = '') {
           `<option value="${k.key}" ${k.key === JOURNAL.kind ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select></div>
         <div class="field"><label>Кто</label><select id="jactor"><option value="0">Все</option>${data.actors.map(a =>
           `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
+      ${JOURNAL.scope ? `<div class="chips jscope"><span class="chip ok">${JOURNAL.scope.user_id ? '👤' : '💬'} ${esc(JOURNAL.scope.title)}</span><button type="button" class="btn small" id="jscopeoff">✕ Весь журнал</button></div>` : ''}
+      <div class="actions jexport"><button type="button" class="btn small" id="jexport">⬇️ ${INIT ? 'Прислать таблицу в личку' : 'Скачать таблицу'} (CSV) за ${JOURNAL.days} дн.</button></div>
       <section class="section" id="jlist"><h3 class="sec-h">Действия персонала</h3>${body}</section>`;
     bindJournalTabs(main);
     main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); journalView(main); });
     $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; saveJournal(); journalView(main); };
     $('#jactor').onchange = e => { JOURNAL.actor = +e.target.value; journalView(main); };
+    if ($('#jscopeoff')) $('#jscopeoff').onclick = () => { JOURNAL.scope = null; journalView(main); };
+    $('#jexport').onclick = e => exportJournal(e.currentTarget);
     $('#jlist').onclick = e => {
       const p = e.target.closest('a[data-player]'), c = e.target.closest('a[data-chat]');
       if (p) { e.preventDefault(); tabs('people'); PEOPLE.stack = []; playerView(main, +p.dataset.player); }
@@ -78,7 +90,31 @@ async function journalView(main, more = '') {
   }
 }
 
-SECTIONS.journal = main => journalView(main);
+SECTIONS.journal = main => { JOURNAL.scope = null; journalView(main); };
+
+// Выгрузка того же среза (вид, кто, период, игрок или чат) файлом: сервер отдаёт до 5000 строк за период до 90 дней.
+async function exportJournal(button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    const headers = {};
+    if (INIT) headers['x-init-data'] = INIT;
+    try { const s = localStorage.getItem('pv_sess'); if (s) headers['x-session-token'] = s; } catch (_) {}
+    const qs = `kind=${encodeURIComponent(JOURNAL.kind)}&actor=${JOURNAL.actor}&days=${JOURNAL.days}${journalScopeQs()}`;
+    if (INIT) {   // внутри Telegram страница файл не скачает: бот пришлёт его в личку
+      toast((await api(`/journal/export?${qs}&deliver=dm`)).message);
+      return;
+    }
+    const res = await fetch(`${BASE}/bot-admin/api/journal/export?${qs}`, {headers});
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Ошибка ${res.status}`);
+    const url = URL.createObjectURL(await res.blob());
+    const a = Object.assign(document.createElement('a'), {href: url, download: `journal-${JOURNAL.days}d.csv`});
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    toast('Таблица скачана');
+  } catch (err) { toast(err.message, true); }
+  finally { button.disabled = false; }
+}
 
 // ── Жалобы ──────────────────────────────────────────────────────────────────
 

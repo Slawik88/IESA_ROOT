@@ -41,6 +41,10 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
     "mute": ("🔇 Замутить в чате", 3, "member"),
     "unmute": ("🔊 Снять мут", 3, "member"),
     "unwarn_all": ("🧽 Снять все предупреждения", 3, "member"),
+    "shield": ("🛡 Защита от чистки", 3, "member"),
+    "unshield": ("🛡 Снять защиту от чистки", 3, "member"),
+    "immune": ("💠 Иммунитет к чистке", 4, "member"),
+    "unimmune": ("💠 Снять иммунитет", 4, "member"),
     "kick": ("👢 Выгнать из чата", 4, "member"),
     "ban": ("⛔ Забанить в чате", 4, "member"),
     "unban": ("✅ Снять бан в чате", 4, "member"),
@@ -50,9 +54,12 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
     "global_unban": ("♻️ Снять бан во всех чатах", 5, "player"),
     "balance": ("💰 Изменить баланс", 5, "player"),
     "vip": ("👑 Выдать VIP", 5, "player"),
-    "rank": ("🎖 Изменить роль", 5, "player"),
-    "mark_grant": ("🏅 Выдать метку", 5, "player"),
-    "mark_revoke": ("✖️ Снять метку", 5, "player"),
+    "rank": ("🛡 Изменить роль", 5, "player"),
+    "dm": ("✉️ Написать в личку от бота", 5, "player"),
+    "skin_grant": ("🎨 Выдать образ", CREATOR, "player"),
+    "skin_revoke": ("🎨 Забрать образ", CREATOR, "player"),
+    "mark_grant": ("🏅 Выдать регалию", 5, "player"),
+    "mark_revoke": ("✖️ Снять регалию", 5, "player"),
     "close": ("🔒 Закрыть чат", 3, "chat"),
     "open": ("🔓 Открыть чат", 3, "chat"),
     "warn_limit": ("⚠️ Лимит варнов", 4, "chat"),
@@ -466,6 +473,14 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
                 elif action == "unwarn_all":
                     n = await moderation.revoke_all_warns(db, chat_id, uid, actor)
                     return {"ok": True, "message": f"Снято варнов: {n}."}
+                elif action == "shield":
+                    term = _duration(data)
+                    if term is None:
+                        raise HTTPException(400, "Защите нужен срок. Навсегда — это «Иммунитет к чистке».")
+                    await moderation.do_shield(db, chat_id, uid, actor, term)
+                    return {"ok": True, "message": "Защищён от чистки."}
+                elif action in ("unshield", "immune", "unimmune"):
+                    await moderation.set_protection(db, chat_id, uid, actor, action)
             except HTTPException:
                 raise
             except Exception as exc:
@@ -577,6 +592,34 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
     if action == "global_unban":
         job = await global_moderation.global_unban(get_bot(), db, uid, actor)
         return await _global_job_answer(job, "Бан снят в чатах")
+    if action == "dm":
+        text = str(data.get("text") or "").strip()
+        if not 1 <= len(text) <= 3500:
+            raise HTTPException(400, "Текст — от 1 до 3500 символов.")
+        try:
+            with outbound_throttle.urgent():
+                await get_bot().send_message(uid, text)
+        except Exception as exc:
+            if "blocked" in str(exc) or "chat not found" in str(exc) or "initiate" in str(exc):
+                raise HTTPException(409, "Игрок не открывал личку с ботом или заблокировал его: Telegram не даёт написать первым.")
+            raise _tg_error(exc)
+        await admin_people.audit(db, actor, "dm", user_id=uid, details={"text": text[:500]})
+        await admin_security.after_action(db, user, "dm", uid)
+        return {"ok": True, "message": "Отправлено в личку."}
+    if action in ("skin_grant", "skin_revoke"):
+        if not _is_creator(user):
+            raise HTTPException(403, "Образы выдаёт и забирает только создатель.")
+        skin_id = str(data.get("skin") or "")
+        try:
+            if action == "skin_grant":
+                name = await skins_v3_service.grant_by_hand(db, uid, skin_id, reason)
+            else:
+                name = await skins_v3_service.revoke_by_hand(db, uid, skin_id, reason)
+        except skins_v3_service.SkinConflict as exc:
+            raise HTTPException(400, str(exc))
+        await admin_people.audit(db, actor, action, user_id=uid, details={"skin": skin_id, "name": name, "reason": reason})
+        await admin_security.after_action(db, user, action, uid)
+        return {"ok": True, "message": ("Образ выдан: «" if action == "skin_grant" else "Образ забран: «") + name + "»."}
     if action == "revoke_sessions":
         await admin_security.revoke(db, uid)
         await admin_people.audit(db, actor, "sessions_revoke", user_id=uid)

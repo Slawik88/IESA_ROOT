@@ -355,7 +355,11 @@ const pinline = (p, extra = '') => p && p.id
   : '';
 const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
 const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С предупреждениями'],
-  ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал'], ['needs_staff_mark', '🏅 Персонал без регалии']];
+  ['new', '🌱 Новые за 7 дней'], ['active:7', '💬 Писали за 7 дн.'], ['idle:30', '😴 Не писали 30+ дн.'], ['silent', '🤐 Ни разу не писали'],
+  ['watch', '👁 На контроле'], ['staff', '🛡 Персонал'], ['needs_staff_mark', '🏅 Персонал без регалии']];
+// Бан, мут и варны прямо в строке списка: видно, не открывая карточку.
+const statusChips = st => !st ? '' : [st.global_ban ? '<span class="chip bad">🚫 везде</span>' : st.ban ? '<span class="chip bad">⛔ бан</span>' : '',
+  st.mute ? '<span class="chip warn">🔇 мут</span>' : '', st.warns ? `<span class="chip warn">⚠️ ${st.warns}</span>` : ''].join('');
 
 function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
   const box = $('#sheet');
@@ -373,11 +377,13 @@ function sheet(title, body, submitText, onSubmit, {info = false, cancelText = '�
 }
 
 const DURATIONS = [[15, '15 минут'], [60, '1 час'], [1440, '1 день'], [10080, '7 дней'], [43200, '30 дней'], [0, 'навсегда']];
-const durationField = (def = 60) => `<div class="field"><label>Срок</label><select id="fmin">
-  ${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === def ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
+const durationField = (def = 60, forever = true) => `<div class="field"><label>Срок</label><select id="fmin">
+  ${DURATIONS.filter(([m]) => forever || m).map(([m, t]) => `<option value="${m}" ${m === def ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
 const hint = text => `<div class="sub hint">${text}</div>`;   // короткое пояснение над полями: что произойдёт
 const reasonField = (required = false) => `<div class="field"><label>Причина${required ? '' : ' (необязательно)'}</label>
   <input id="freason" maxlength="200"/></div>`;
+// Частые причины одним касанием: подставляются в поле «Причина», его можно дописать.
+const reasonChips = list => `<div class="chips reasons">${list.map(r => `<button type="button" class="chip" data-reason-pick="${esc(r)}">${esc(r)}</button>`).join('')}</div>`;
 
 // Форма под каждое действие: поля + что отправить.
 function actionForm(key, ctx) {
@@ -395,9 +401,10 @@ function actionForm(key, ctx) {
     case 'balance': return [hint('Минус спишет. Причина обязательна, она попадёт в журнал. Крупные суммы (от ' + Object.entries(ctx.confirm_rules ? ctx.confirm_rules.balance : {}).map(([c, n]) => `${num(n)} ${({mora: 'мора', diamonds: 'алмазов', essence: 'эссенции', zarniki: 'зарников'})[c] || c}`).join(', ') + ') попросят ввести ID игрока.') + `<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
         ${ctx.currencies.map(c => `<option value="${c.code}">${esc(c.title)}</option>`).join('')}</select></div>
         <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
-        ${reasonField(true)}`,
+        ${reasonField(true)}${reasonChips(['приз', 'компенсация', 'ошибка начисления', 'ивент'])}`,
       () => ({currency: v('fcur'), amount: (v('famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v('freason'),
               request_id: ctx._rid})];
+    case 'balance_quick': return actionForm('balance', ctx);
     case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
         <input id="fdays" type="number" min="1" max="3650" value="7"/>
         <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
@@ -420,12 +427,30 @@ function actionForm(key, ctx) {
         <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
     case 'message': return [hint('Сообщение сразу уйдёт в чат от имени бота, его увидят все участники.') + `<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
       () => ({text: v('ftext')})];
+    case 'dm': return [hint('Сообщение уйдёт игроку в личку от имени бота. Если игрок ни разу не писал боту в личку, Telegram не даст отправить.') + `<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
+      () => ({text: v('ftext')})];
+    case 'shield': return [hint('Чистка не тронет игрока в этом чате до конца срока. Навсегда — это «Иммунитет к чистке».') + durationField(10080, false), () => ({minutes: +v('fmin')})];
+    case 'immune': return [hint('Чистка не тронет игрока в этом чате, пока иммунитет не снимут.'), () => ({})];
+    case 'skin_grant': {
+      const have = new Set((ctx.skins ? ctx.skins.items : []).map(k => k.id)), cat = ctx.skin_catalog || {skins: [], private_skins: []};
+      const opt = k => `<option value="${esc(k.id)}">${esc(k.name)} · ${esc(k.tier)}${k.holders && k.holders.length ? ' · сейчас у ' + esc(k.holders[0].name) : ''}</option>`;
+      const free = list => list.filter(k => !have.has(k.id));
+      return [hint('Образ появится у игрока на тире D, надевает его сам игрок. Личный образ бывает только у одного игрока.') + `<div class="field"><label>Образ</label><select id="fskin">
+        <optgroup label="Обычные">${free(cat.skins).map(opt).join('')}</optgroup><optgroup label="Личные">${free(cat.private_skins).map(opt).join('')}</optgroup></select></div>`
+        + reasonField(true), () => ({skin: v('fskin'), reason: v('freason')})];
+    }
+    case 'skin_revoke': return [hint('Образ пропадёт у игрока вместе с тиром, Эссенция за улучшения не вернётся. Понадобится ввести ID игрока.') + `<div class="field"><label>Какой образ</label><select id="fskin">
+        ${(ctx.skins ? ctx.skins.items : []).map(k => `<option value="${esc(k.id)}" ${k.id === ctx._skin ? 'selected' : ''}>${esc(k.name)} · тир ${esc(k.tier)}${k.equipped ? ' · надет' : ''}</option>`).join('')}</select></div>`
+        + reasonField(true), () => ({skin: v('fskin'), reason: v('freason')})];
     default: return ['<div class="sub">Подтвердите действие.</div>', () => ({})];
   }
 }
 
 // Опасные действия просят подтверждение с итогом: кому, что именно и что изменится.
-const DANGEROUS = new Set(['ban', 'kick', 'global_ban', 'block', 'balance', 'rank', 'vip', 'leave', 'message', 'close', 'revoke_sessions']);
+const DANGEROUS = new Set(['global_ban', 'block', 'balance', 'rank', 'vip', 'leave', 'message', 'close', 'revoke_sessions', 'dm', 'skin_grant', 'skin_revoke']);
+// Санкции в чате обратимы: одно касание «выполнить» и 10 секунд, чтобы передумать, — запрос уходит только потом.
+const UNDOABLE = new Set(['warn', 'mute', 'unmute', 'unwarn_all', 'kick', 'ban', 'unban', 'shield', 'unshield', 'immune', 'unimmune']);
+const RED = new Set([...DANGEROUS, 'ban', 'kick']);   // красные строки в списке действий
 // Самое опасное (бан во всех чатах, роль, крупная сумма) подтверждается ещё и вводом ID игрока: сервер без него откажет.
 function needsTypedConfirm(key, payload, ctx) {
   const rules = ctx.confirm_rules;
@@ -436,7 +461,10 @@ function needsTypedConfirm(key, payload, ctx) {
 }
 const CONFIRM_TITLE = {ban: '⛔ Забанить в чате', kick: '👢 Выгнать из чата', global_ban: '🚫 Забанить во всех чатах', block: '🙈 Бот перестанет отвечать',
   balance: '💰 Изменить баланс', rank: '🎖 Изменить роль', vip: '👑 Выдать VIP', leave: '🚪 Бот выйдет из чата',
-  message: '📣 Написать от бота', close: '🔒 Чат закроется', revoke_sessions: '🔒 Сессии админки завершатся'};
+  message: '📣 Написать от бота', close: '🔒 Чат закроется', revoke_sessions: '🔒 Сессии админки завершатся',
+  dm: '✉️ Написать в личку', skin_grant: '🎨 Выдать образ', skin_revoke: '🎨 Забрать образ'};
+const UNDO_VERB = {warn: 'Выдать варн', mute: 'Замутить', unmute: 'Снять мут', unwarn_all: 'Снять варны', kick: 'Выгнать', ban: 'Забанить',
+  unban: 'Снять бан', shield: 'Защитить', unshield: 'Снять защиту', immune: 'Дать иммунитет', unimmune: 'Снять иммунитет'};
 function confirmLines(key, payload, ctx, extra) {
   const minutes = m => !m ? 'навсегда' : (DURATIONS.find(([v]) => v === m) || [0, m + ' мин'])[1];
   const lines = [];
@@ -458,39 +486,99 @@ function confirmLines(key, payload, ctx, extra) {
   else if (key === 'message') lines.push(`Текст увидят все участники чата:<blockquote>${esc(payload.text || '')}</blockquote>`);
   else if (key === 'close') lines.push('Участники не смогут писать, пока чат не откроют.');
   else if (key === 'revoke_sessions') lines.push('Сотрудник выйдет из админки на всех устройствах и откроет её заново. Роль не меняется.');
+  else if (key === 'dm') lines.push(`Текст придёт игроку в личку от бота:<blockquote>${esc(payload.text || '')}</blockquote>`);
+  else if (key === 'skin_grant' || key === 'skin_revoke') {
+    const all = [...((ctx.skin_catalog || {}).skins || []), ...((ctx.skin_catalog || {}).private_skins || []), ...((ctx.skins || {}).items || [])];
+    const k = all.find(x => x.id === payload.skin);
+    lines.push(`Образ: <b>${esc(k ? k.name : payload.skin || '—')}</b>${key === 'skin_revoke' ? ' пропадёт у игрока вместе с тиром.' : ' появится у игрока на тире D.'}`);
+  }
   if (payload.reason) lines.push(`Причина: ${esc(payload.reason)}`);
   return lines;
 }
 
+// Одно окно на действие: поля и сразу итог «кому и что изменится». Опасное подтверждается кнопкой под итогом
+// (самое опасное — ещё и вводом ID), обратимое в чате уходит через 10 секунд с кнопкой «Отменить».
+// extra.chats — из каких чатов выбрать (быстрые кнопки карточки), иначе extra.chat_id.
 function runAction(action, target, ctx, extra, after) {
   // Один ключ на открытое окно: повторное «Выполнить» после потерянного ответа не начислит дважды.
   ctx._rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
-  const [body, collect] = actionForm(action.key, ctx);
-  const place = extra.chat_title ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(extra.chat_title)}</div>` : '';
+  const key = action.key, [body, collect] = actionForm(key, ctx);
+  const chats = extra.chats || null;
+  const pick = chats && chats.length > 1 ? `<div class="field"><label>Чат</label><select id="fchat">${chats.map(c =>
+    `<option value="${c.id}">${esc(c.title)}</option>`).join('')}</select></div>` : '';
+  const one = chats && chats.length === 1 ? chats[0] : null;
+  const chatId = () => ($('#fchat') ? +$('#fchat').value : one ? one.id : extra.chat_id);
+  const chatTitle = () => ($('#fchat') ? $('#fchat').selectedOptions[0].textContent : one ? one.title : extra.chat_title);
+  const place = !pick && chatTitle() ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(chatTitle())}</div>` : '';
+  const payloadOf = () => ({action: key, ...collect(), ...(chatId() ? {chat_id: chatId()} : {})});
   const perform = async payload => {
     const res = await api(target, {method: 'POST', body: JSON.stringify(payload)});
     toast(res.message || 'Готово');
+    if (res.job && !res.job.finished) globalProgress(ctx.id, res.job, action.title);   // бан во всех чатах доделывается в фоне
     const keep = window.scrollY;   // после действия карточка перерисовывается: остаёмся на том же месте, а не наверху
-    Promise.resolve(after()).then(() => window.scrollTo(0, keep));
+    Promise.resolve(after(res)).then(() => window.scrollTo(0, keep));
   };
-  sheet(action.title, place + body, DANGEROUS.has(action.key) ? 'Далее' : 'Выполнить', async () => {
-    const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
-    if (!DANGEROUS.has(action.key)) return perform(payload);
-    const typed = needsTypedConfirm(action.key, payload, ctx);
-    sheet(CONFIRM_TITLE[action.key] || action.title, `<div class="sub" style="margin-bottom:8px">Проверьте перед выполнением:</div>
-      <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>
-      ${typed ? `<div class="field" style="margin-top:10px"><label>Для подтверждения введите ID игрока: <b>${ctx.id}</b></label>
-        <input id="fconfirm" inputmode="numeric" autocomplete="off"/></div>` : ''}
-      <button type="button" class="ag-link ag-why" data-ag-why="${esc(action.key)}">Что это значит?</button>`,
-      'Подтвердить', () => {
-        if (!typed) return perform(payload);
-        const typedId = ($('#fconfirm').value || '').trim();
-        if (typedId !== String(ctx.id)) throw new Error('ID не совпал: введите ' + ctx.id);
-        return perform({...payload, confirm: typedId});
-      });
-    return 'keep';
+  if (UNDOABLE.has(key)) {
+    sheet(action.title, place + pick + body, UNDO_VERB[key] || 'Выполнить', () => {
+      const payload = payloadOf(), whom = ctx.username !== undefined ? who(ctx.id, ctx.username) : '';
+      undoLater(`${action.title}${whom ? ' · ' + whom : ''}`, () => perform(payload));
+    });
+  } else if (!DANGEROUS.has(key)) {
+    sheet(action.title, place + pick + body, 'Выполнить', () => perform(payloadOf()));
+  } else {
+    sheet(CONFIRM_TITLE[key] || action.title, place + pick + body + `<div class="sub" style="margin:10px 0 6px">Проверьте перед выполнением:</div>
+      <div class="confirm" id="fsum"></div><div class="field" id="ftyped" hidden style="margin-top:10px"><label>Для подтверждения введите ID игрока: <b>${ctx.id}</b></label>
+      <input id="fconfirm" inputmode="numeric" autocomplete="off"/></div>
+      <button type="button" class="ag-link ag-why" data-ag-why="${esc(key)}">Что это значит?</button>`, 'Подтвердить', () => {
+      const payload = payloadOf();
+      if (!needsTypedConfirm(key, payload, ctx)) return perform(payload);
+      const typedId = ($('#fconfirm').value || '').trim();
+      if (typedId !== String(ctx.id)) throw new Error('ID не совпал: введите ' + ctx.id);
+      return perform({...payload, confirm: typedId});
+    });
+    const draw = () => {
+      const payload = payloadOf();
+      $('#fsum').innerHTML = confirmLines(key, payload, ctx, {chat_title: chatTitle()}).map(l => `<div>${l}</div>`).join('');
+      $('#ftyped').hidden = !needsTypedConfirm(key, payload, ctx);
+    };
+    const card = $('#sheet .sheet');   // обработчики на самом окне: следующее окно их не унаследует
+    card.oninput = card.onchange = e => { if (e.target.id !== 'fconfirm') draw(); };
+    draw();
+  }
+  $('#sheet').querySelectorAll('[data-reason-pick]').forEach(b => b.onclick = () => {
+    const field = $('#freason'); field.value = b.dataset.reasonPick; field.dispatchEvent(new Event('input', {bubbles: true}));
   });
+  // Печатать сразу, без лишнего касания: где сразу нужен ID игрока (бан во всех чатах), курсор в его поле.
+  const typed = $('#ftyped'), first = typed && !typed.hidden ? $('#fconfirm') : $('#sheet').querySelector('textarea, input:not([type=checkbox])');
+  if (first) first.focus();
 }
+
+// Отложенные действия: полоса внизу «… · через 10 с · Отменить». Уходят сами по таймеру, а если админку сворачивают —
+// сразу, чтобы решение не потерялось. Ошибка сервера показывается как обычно.
+const UNDO_MS = window.ADMIN_UNDO_MS || 10000;
+const PENDING = new Set();
+function undoLater(label, run) {
+  let host = $('#undobar');
+  if (!host) { host = document.createElement('div'); host.id = 'undobar'; host.className = 'undobar'; host.setAttribute('role', 'status'); document.body.append(host); }
+  const row = document.createElement('div'); row.className = 'undo';
+  const item = {done: false};
+  const fire = () => {
+    if (item.done) return;
+    item.done = true; clearInterval(item.tick); PENDING.delete(item); row.remove();
+    Promise.resolve().then(run).catch(err => toast(err.message, true));
+  };
+  item.fire = fire;
+  let left = Math.ceil(UNDO_MS / 1000);
+  row.innerHTML = `<span>${esc(label)} · <b>через <i>${left}</i> с</b></span><button type="button" class="btn small">Отменить</button>`;
+  row.querySelector('button').onclick = () => {
+    item.done = true; clearInterval(item.tick); clearTimeout(item.timer); PENDING.delete(item); row.remove(); toast('Отменено: ничего не отправлено');
+  };
+  host.append(row);
+  item.tick = setInterval(() => { left = Math.max(0, left - 1); const n = row.querySelector('i'); if (n) n.textContent = left; }, 1000);
+  item.timer = setTimeout(fire, UNDO_MS);
+  PENDING.add(item);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) [...PENDING].forEach(item => { clearTimeout(item.timer); item.fire(); }); });
 
 function back(main) {
   const prev = PEOPLE.stack.pop();
@@ -542,7 +630,8 @@ function historyCard(items) {
 }
 
 // Массовые действия над выбранными в списке: каждое открывает шторку и шлёт один запрос на всех.
-const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять все предупреждения', mark_grant: '🏅 Выдать метку', mark_revoke: '✖️ Снять метку'};
+const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять все предупреждения', unmute_all: '🔊 Снять мут везде',
+  mark_grant: '🏅 Выдать регалию', mark_revoke: '✖️ Снять регалию'};
 async function bulkRun(action, ids, after) {
   const count = `Игроков: <b>${ids.length}</b>.`;
   const send = async extra => {
@@ -558,11 +647,12 @@ async function bulkRun(action, ids, after) {
     'Поставить', () => send({reason: ($('#freason') || {}).value}));
   if (action === 'mark_grant' || action === 'mark_revoke') {
     const marks = await api('/marks');
-    return sheet(BULK_TITLES[action], `<div class="sub">${count}</div><div class="field"><label>Метка</label><select id="fmark">
+    return sheet(BULK_TITLES[action], `<div class="sub">${count}</div><div class="field"><label>Регалия</label><select id="fmark">
       ${marks.items.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>${reasonField(true)}`,
     action === 'mark_grant' ? 'Выдать' : 'Снять', () => send({mark: $('#fmark').value, reason: ($('#freason') || {}).value}));
   }
-  return sheet(BULK_TITLES[action], `<div class="sub">${count} ${action === 'unwarn_all' ? 'Все действующие предупреждения во всех чатах будут сняты.' : 'Они уйдут из фильтра «На контроле».'}</div>`,
+  const what = {unwarn_all: 'Все действующие предупреждения во всех чатах будут сняты.', unmute_all: 'Мут снимется во всех чатах, где он действует.'}[action] || 'Они уйдут из фильтра «На контроле».';
+  return sheet(BULK_TITLES[action], `<div class="sub">${count} ${what}</div>`,
     'Выполнить', () => send({}));
 }
 
@@ -572,6 +662,7 @@ async function peopleSearch(main, query = '') {
     PEOPLE.restored = true;
     const saved = PREFS.get('people.filter', '');
     if (PEOPLE_FILTERS.some(([key]) => key === saved) || /^(?:marked|missing):[a-z_]+$/.test(saved) || ['manual_marks','no_manual_marks'].includes(saved)) PEOPLE.filter = saved;
+    else if (/^linked:\d+$/.test(saved)) PEOPLE.filter = '';   // «связи игрока» ставятся из карточки и не запоминаются
   }
   rootBack();
   main.innerHTML = `
@@ -628,22 +719,26 @@ async function peopleSearch(main, query = '') {
   async function load(q, offset = 0) {
     PEOPLE.query = q;
     const host = $('#pplres'); if (!host) return;
-    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}${PEOPLE.filter ? '&filter=' + encodeURIComponent(PEOPLE.filter) : ''}&offset=${offset}`, () => load(q, offset), 'people');
+    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}${PEOPLE.filter ? '&filter=' + encodeURIComponent(PEOPLE.filter) : ''}&offset=${offset}&paged=1`, () => load(q, offset), 'people');
     if (!data) return;
     const {players, chats, total} = data;
-    const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1] || $('#pplmarks')?.selectedOptions[0]?.textContent || 'Регалии';
+    const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1] || data.filter_title || $('#pplmarks')?.selectedOptions[0]?.textContent || 'Регалии';
     const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
     const showAttn = !q.trim() && !PEOPLE.filter;
-    const recent = showAttn ? PREFS.get('recent', []) : [];
-    const recentHtml = recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
-      `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
-    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + head + `
+    const pins = showAttn ? PREFS.get('pinned', []) : [];
+    const recent = showAttn ? PREFS.get('recent', []).filter(r => !pins.some(x => x.id === r.id)) : [];
+    const pinsHtml = pins.length ? `<div class="chips recent pins"><span class="sub">★ Закреплённые:</span>${pins.map(r =>
+      `<span class="chip ok" data-recent="${r.id}">${r.n ? esc(r.n) : r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
+    const recentHtml = pinsHtml + (recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
+      `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '');
+    const linkedHead = /^linked:/.test(PEOPLE.filter) ? `<div class="chips"><span class="chip ok">🔗 ${esc(title)}</span><button type="button" class="btn small" id="pplnolink">✕ Убрать</button></div>` : '';
+    $('#pplres').innerHTML = recentHtml + linkedHead + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + head + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
         <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
       <div class="list">${players.map(p => `<div class="prow" data-player="${p.id}">
         ${ava(p)}
-        <div class="pmain"><div class="pname">${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${p.name ? esc(p.name) : who(p.id, p.username)}${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
+        <div class="pmain"><div class="pname">${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${p.name ? esc(p.name) : who(p.id, p.username)}${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}${statusChips(p.status)}</div>
           <div class="pmeta">${p.username ? who(p.id, p.username) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
           ${p.tags && p.tags.length ? `<div class="chips tags">${p.tags.map(t => `<span class="chip tag">🏷 ${esc(t)}</span>`).join('')}</div>` : ''}</div></div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
@@ -683,6 +778,7 @@ async function peopleSearch(main, query = '') {
         <div class="card" style="border-top:0;padding-top:0">${people}${chats}${more}</div>`;
       if ($('#attnall')) $('#attnall').onclick = () => attentionSheet('', '⚠️ Чаты требуют внимания').catch(err => toast(err.message, true));
     }).catch(() => {});
+    if ($('#pplnolink')) $('#pplnolink').onclick = () => { PEOPLE.filter = ''; drawFilters(); load($('#pplq').value); };
     if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
   }
   $('#pplres').onclick = e => {
@@ -708,9 +804,9 @@ async function peopleSearch(main, query = '') {
 // Группы и подсказки: что произойдёт, если нажать. Опасные строки красные,
 // подтверждение и ввод ID остаются в runAction — здесь только выбор действия.
 const ACTION_GROUPS = [
-  ['chat', 'В этом чате', ['local_rank', 'warn', 'mute', 'unmute', 'kick', 'ban', 'unban', 'unwarn_all']],
+  ['chat', 'В этом чате', ['local_rank', 'warn', 'mute', 'unmute', 'kick', 'ban', 'unban', 'unwarn_all', 'shield', 'unshield', 'immune', 'unimmune']],
   ['everywhere', 'Везде', ['global_ban', 'global_unban', 'block', 'unblock']],
-  ['profile', 'Профиль', ['balance', 'vip', 'rank']],
+  ['profile', 'Профиль', ['balance', 'vip', 'rank', 'dm']],
   ['service', 'Служебное', ['revoke_sessions']],
 ];
 const ACTION_HINTS = {
@@ -730,6 +826,11 @@ const ACTION_HINTS = {
   vip: 'Дни добавятся к текущему сроку',
   rank: 'Откроет или закроет разделы админки; выдать можно только роль ниже своей',
   revoke_sessions: 'Сотрудник выйдет из админки на всех устройствах',
+  shield: 'Чистка не тронет его в этом чате до конца срока',
+  unshield: 'Чистка снова сможет его коснуться',
+  immune: 'Чистка не тронет его в этом чате, пока не снимут',
+  unimmune: 'Убрать постоянную защиту от чистки',
+  dm: 'Сообщение от бота в личку игроку',
 };
 
 // Какие действия в чате сейчас бессмысленны (мут уже стоит, бана нет и т. п.).
@@ -737,7 +838,9 @@ function memberFits(key, c) {
   return !(key === 'local_rank' && (c.left || c.local_rank >= 9))
     && !(key === 'mute' && c.muted) && !(key === 'unmute' && !c.muted)
     && !(key === 'unban' && !c.ban) && !(key === 'ban' && c.ban)
-    && !(key === 'kick' && (c.left || c.ban)) && !(key === 'unwarn_all' && !c.warns);
+    && !(key === 'kick' && (c.left || c.ban)) && !(key === 'unwarn_all' && !c.warns)
+    && !(key === 'shield' && c.left) && !(key === 'unshield' && !c.shield_until)
+    && !(key === 'immune' && (c.left || c.immune)) && !(key === 'unimmune' && !c.immune);
 }
 
 function actionRow(a, attrs) {
@@ -745,7 +848,7 @@ function actionRow(a, attrs) {
   const parts = a.title.split(' ');
   const icon = parts.length > 1 ? parts[0] : '•', label = parts.length > 1 ? parts.slice(1).join(' ') : a.title;
   const hint = ACTION_HINTS[a.key] || '';
-  return `<button type="button" class="arow${DANGEROUS.has(a.key) ? ' danger' : ''}" ${attrs}>
+  return `<button type="button" class="arow${RED.has(a.key) ? ' danger' : ''}" ${attrs}>
     <span class="aico" aria-hidden="true">${esc(icon)}</span>
     <span class="atxt"><b>${esc(label)}</b>${hint ? `<small>${esc(hint)}</small>` : ''}</span>
     <span class="arr" aria-hidden="true">›</span></button>`;
@@ -819,21 +922,21 @@ async function playerView(main, id, push = true, from = null) {
     p.watch ? '<span class="chip warn">👁 на контроле</span>' : '',
   ].join(' ');
   const mk = p.marks || {given: [], earned: [], grantable: []};
-  // Метки выдаются и снимаются в своей карточке ниже, а не в общей шторке действий.
+  // Регалии (в коде — метки) выдаются и снимаются в своей карточке ниже, а не в общей шторке действий.
   const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
   const held = new Set(mk.given.map(m => m.id));
   const free = mk.grantable.filter(m => !held.has(m.id));
   const markRow = (m, btn) => `<div class="sw-row"><div class="t"><b>${esc(m.glyph)} ${esc(m.title)}</b><div class="sub">${esc(m.desc || '')}</div></div>${btn}</div>`;
-  const marksCard = `<div class="card"><h3>🏅 Метки · в профиле игрока это «Регалии»</h3>
+  const marksCard = `<div class="card"><h3>🏅 Регалии</h3>
       <h3 class="sec">Выданы · ${mk.given.length}</h3>
       ${mk.given.length ? mk.given.map(m => markRow(m, canRevoke ? `<button class="btn small" data-unmark="${esc(m.id)}">✖️ Снять</button>` : '')).join('')
         : '<div class="sub">Пока ни одной.</div>'}
       ${mk.earned.length ? `<h3 class="sec">Заработаны сами · ${mk.earned.length}</h3><div class="chips">${mk.earned.map(m =>
         `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>
         <div class="sub">Их выдаёт игра, вручную не снимаются.</div>` : ''}
-      ${canGrant ? `<h3 class="sec">Выдать · нажмите на метку</h3>${free.length ? `<div class="mark-grid">${free.map(m =>
+      ${canGrant ? `<h3 class="sec">Выдать · нажмите на регалию</h3>${free.length ? `<div class="mark-grid">${free.map(m =>
         `<button type="button" class="mark-tile" data-mark="${esc(m.id)}"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></button>`).join('')}</div>`
-        : '<div class="sub">Все метки уже выданы.</div>'}` : '<div class="sub">Выдавать метки может роль «Разработчик» и выше.</div>'}
+        : '<div class="sub">Все регалии уже выданы.</div>'}` : '<div class="sub">Выдавать регалии может роль «Разработчик» и выше.</div>'}
     </div>`;
   const canReports = ME.sections.some(z => z.key === 'reports');
   const reportsCard = `<div class="card"><h3>📨 Жалобы на игрока · ${rp.total}</h3>
@@ -862,6 +965,7 @@ async function playerView(main, id, push = true, from = null) {
   const lk = p.linked;
   const linkRow = (u, extra = '') => `<div class="log"><a href="#" data-player="${u.id}"><b>${who(u.id, u.username)}</b></a>${extra ? `<div class="sub">${extra}</div>` : ''}</div>`;
   const linkedCard = lk ? `<div class="card"><h3>🔗 Возможные связи</h3>
+      ${lk.invited_by || lk.invited.total || lk.same_username.length || lk.same_name.length ? '<div class="actions"><button class="btn small" id="plinked">Списком в поиске ›</button></div>' : ''}
       <div class="sub" style="margin-bottom:4px">Совпадение ника или имени — повод присмотреться, а не доказательство. Устройства и адреса бот не собирает.</div>
       ${lk.invited_by ? `<h3 class="sec">Пришёл по приглашению</h3>${linkRow(lk.invited_by)}` : ''}
       ${lk.invited.total ? `<h3 class="sec">Пригласил · ${lk.invited.total}</h3>${lk.invited.items.map(u => linkRow(u)).join('')}
@@ -869,6 +973,29 @@ async function playerView(main, id, push = true, from = null) {
       ${lk.same_username.length ? `<h3 class="sec">Тот же ник раньше или сейчас</h3>${lk.same_username.map(u => linkRow(u, '@' + esc(u.value))).join('')}` : ''}
       ${lk.same_name.length ? `<h3 class="sec">Такое же имя в Telegram</h3>${lk.same_name.map(u => linkRow(u, esc(u.name))).join('')}` : ''}
       ${!lk.invited_by && !lk.invited.total && !lk.same_username.length && !lk.same_name.length ? '<div class="sub">Связей не найдено.</div>' : ''}</div>` : '';
+  // Быстрые действия: самые частые — одним касанием из карточки, без общей шторки. Санкция в чате берёт чат,
+  // где игрок писал последним (в окне можно выбрать другой) и уходит через 10 секунд с кнопкой «Отменить».
+  const QUICK = [['warn', '⚠️', 'Варн'], ['mute', '🔇', 'Мут'], ['ban', '⛔', 'Бан'], ['dm', '✉️', 'Написать'], ['balance', '💰', 'Баланс']];
+  const quickOf = key => {
+    const member = p.actions.member.find(a => a.key === key);
+    if (member) { const chats = p.chats.filter(c => memberFits(key, c)); return chats.length ? {action: member, chats} : null; }
+    const player = p.actions.player.find(a => a.key === key);
+    return player ? {action: player, chats: null} : null;
+  };
+  const quick = QUICK.filter(([key]) => quickOf(key)).map(([key, glyph, label]) =>
+    `<button type="button" class="qbtn${key === 'ban' ? ' danger' : ''}" data-quick="${key}"><span aria-hidden="true">${glyph}</span>${label}</button>`).join('');
+  const pinned = PREFS.get('pinned', []).some(r => r.id === p.id);
+  const canJournal = ME.sections.some(z => z.key === 'journal');
+  const sk = p.skins || {items: []}, canSkins = p.actions.player.some(a => a.key === 'skin_grant');
+  const skinsCard = `<div class="card" id="skinscard"><h3>🎨 Образы · ${sk.items.length}</h3>
+      ${sk.items.map(k => `<div class="sw-row"><div class="t"><b>${esc(k.name)}</b>${k.equipped ? ' <span class="chip ok">надет</span>' : ''}${k.exclusive ? ' <span class="chip">личный</span>' : ''}
+        <div class="sub">тир ${esc(k.tier)} · редкость ${esc(k.rarity)}</div></div>
+        ${canSkins ? `<button class="btn small" data-unskin="${esc(k.id)}">Забрать</button>` : ''}</div>`).join('') || '<div class="sub">Образов нет.</div>'}
+      ${canSkins ? '<div class="actions"><button class="btn small" id="skingive">🎨 Выдать образ</button></div>' : '<div class="sub">Выдаёт и забирает образы только создатель.</div>'}</div>`;
+  const CUR_SHORT = {mora: '🪙', diamonds: '💎', dark_mora: '🌑', zarniki: '✨', essence: '🔮'};
+  const walletCard = (p.wallet || []).length ? `<div class="card"><h3>💳 История кошелька</h3>
+      ${p.wallet.map(w => `<div class="log"><div><b>${CUR_SHORT[w.code] || ''} ${w.delta > 0 ? '+' : ''}${num(w.delta)}</b> ${esc(w.currency.replace(/^\S+\s/, ''))} · ${esc(w.reason)}</div>
+        <div class="sub">${when(w.at)} · стало ${num(w.after)}</div></div>`).join('')}</div>` : '';
   main.innerHTML = `${backBar()}
     <div class="card">
       <div class="profile-head">
@@ -898,9 +1025,14 @@ async function playerView(main, id, push = true, from = null) {
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
       ${p.watch ? `<div class="sub">На контроле: ${p.watch.reason ? esc(p.watch.reason) + ' · ' : ''}${who(p.watch.by.id, p.watch.by.username)}, ${when(p.watch.at)}</div>` : ''}
-      <div class="actions" style="margin-top:12px"><button class="btn primary" id="pacts">Действия</button>
-        <button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 Поставить на контроль'}</button></div>
+      ${quick ? `<div class="qacts" role="group" aria-label="Быстрые действия">${quick}</div>` : ''}
+      <div class="actions" style="margin-top:10px"><button class="btn primary" id="pacts">Все действия</button>
+        <button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 На контроль'}</button>
+        <button class="btn small" id="ppin" aria-pressed="${pinned}">${pinned ? '★ Закреплён' : '☆ Закрепить'}</button>
+        ${canJournal ? '<button class="btn small" id="pjournal">☰ Журнал игрока</button>' : ''}</div>
     </div>
+    ${skinsCard}
+    ${walletCard}
     ${marksCard}
     ${reportsCard}
     ${notesCard}
@@ -932,8 +1064,28 @@ async function playerView(main, id, push = true, from = null) {
       'Поставить', () => done(true)(($('#freason') || {}).value));
   };
   $('#pacts').onclick = () => actionsSheet(p, p.chats[0] ? p.chats[0].id : 0, reopen);
+  main.querySelectorAll('[data-quick]').forEach(b => b.onclick = () => {
+    const q = quickOf(b.dataset.quick);
+    if (q) runAction(q.action, `/player/${p.id}/action`, p, q.chats ? {chats: q.chats} : {}, reopen);
+  });
+  $('#ppin').onclick = () => {
+    const list = PREFS.get('pinned', []).filter(r => r.id !== p.id);
+    PREFS.set('pinned', pinned ? list : [{id: p.id, u: p.username || '', n: p.name || ''}, ...list].slice(0, 8));
+    toast(pinned ? 'Откреплён' : 'Закреплён: он будет первым в разделе «Игроки»');
+    reopen();
+  };
+  if ($('#plinked')) $('#plinked').onclick = () => { PEOPLE.filter = `linked:${p.id}`; PEOPLE.stack = []; peopleSearch(main, ''); };
+  if ($('#pjournal')) $('#pjournal').onclick = () => openJournalFor({user_id: p.id, title: p.name || (p.username ? '@' + p.username : 'id' + p.id)});
+  const skinAct = (key, skin) => runAction(p.actions.player.find(a => a.key === key), `/player/${p.id}/action`, {...p, _skin: skin}, {}, reopen);
+  if ($('#skingive')) $('#skingive').onclick = async e => {
+    e.currentTarget.disabled = true;
+    try { p.skin_catalog = p.skin_catalog || await api('/skins/catalog'); skinAct('skin_grant'); }
+    catch (err) { toast(err.message, true); }
+    finally { if (e.target.isConnected) e.target.disabled = false; }
+  };
+  main.querySelectorAll('[data-unskin]').forEach(b => b.onclick = () => skinAct('skin_revoke', b.dataset.unskin));
   main.querySelectorAll('[data-chatacts]').forEach(btn => btn.onclick = () => actionsSheet(p, +btn.dataset.chatacts, reopen));
-  const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
+  const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} регалию`, `
       <div class="mark-tile" style="pointer-events:none;margin-bottom:10px"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></div>
       <div class="sub" style="margin-bottom:8px">Игрок: ${who(p.id, p.username)}</div>${reasonField(true)}`,
     action === 'mark_grant' ? 'Выдать' : 'Снять', async () => {
@@ -1106,7 +1258,8 @@ async function chatView(main, id, push = true, from = null) {
         <span style="font-size:20px;font-weight:700">${esc(c.title)}</span><span class="sub">ID ${c.id}</span></div>
       <div class="chips">${c.closed ? '<span class="chip warn">🔒 закрыт</span>' : '<span class="chip ok">открыт</span>'}
         ${c.bot && c.bot.left_at ? `<span class="chip bad">бота удалили · ${when(c.bot.left_at)}</span>` : c.bot && c.bot.can_moderate === false ? '<span class="chip warn">у бота нет прав модерации</span>' : ''}
-        <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span><a class="btn small" href="${BASE}/?startapp=purge_${c.id}">Чистка ›</a>
+        <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span><button type="button" class="btn small" data-purge="${c.id}">🧹 Чистка ›</button>
+        ${ME.sections.some(z => z.key === 'journal') ? '<button type="button" class="btn small" id="cjournal">☰ Журнал чата</button>' : ''}
         ${c.tagged ? `<span class="chip" title="Участников с тегом: бот видит его в каждом сообщении">🏷 с тегом: ${c.tagged}</span>` : ''}
         ${c.switched_off.length ? `<span class="chip warn">выключено функций: ${c.switched_off.length}</span>` : ''}</div>
       <div class="sub" style="margin-top:8px">Владелец: ${c.owner ? `<a href="#" data-player="${c.owner.id}">${who(c.owner.id, c.owner.username)}</a>` : 'неизвестен'}
@@ -1151,6 +1304,8 @@ async function chatView(main, id, push = true, from = null) {
   });
   const sw = $('#cswitch');
   if (sw) sw.onclick = () => { tabs('switches'); switchesView(main, {id: c.id, title: c.title}); };
+  if ($('#cjournal')) $('#cjournal').onclick = () => openJournalFor({chat_id: c.id, title: c.title});
+  main.querySelector('[data-purge]').onclick = () => purgeView(main, c.id, c.title, here);
 }
 
 SECTIONS.people = main => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
@@ -2347,7 +2502,7 @@ async function ownerView(main) {
     ${picker}
     ${c.bot.can_moderate ? '' : alertBox('warn', 'У бота нет прав модератора в этом чате. Выдайте боту права администратора (удаление сообщений и ограничение участников), иначе мут, бан и кик не сработают.')}
     <div class="kpis">${kpi('Участников', num(c.members), '', 'sm')}${kpi('Чат', c.closed ? 'закрыт' : 'открыт', '', 'sm ' + (c.closed ? 'warn' : 'ok'))}${kpi('Лимит варнов', c.max_warnings, '', 'sm')}</div>
-    <a class="btn" href="${BASE}/?startapp=purge_${c.id}">Чистка: досье и решения ›</a>
+    <button type="button" class="btn" data-purge="${c.id}">🧹 Чистка: досье и решения ›</button>
     ${section('o-chat', '⚙️ Чат', `<div class="actions"><button type="button" class="btn ${c.closed ? '' : 'danger'}" id="o-toggle">${c.closed ? '🔓 Открыть чат' : '🔒 Закрыть чат'}</button></div>
       <div class="field" style="margin-top:10px"><label>Лимит варнов до наказания (1–20)</label><input id="o-limit" type="number" min="1" max="20" value="${c.max_warnings}"/></div>
       <div class="actions"><button type="button" class="btn primary" id="o-limit-save">Сохранить лимит</button></div>`)}
@@ -2368,6 +2523,7 @@ async function ownerView(main) {
   const done = msg => { toast(msg); ownerView(main); };
   main.querySelectorAll('[data-ochat]').forEach(b => b.onclick = () => { OWNER.chat = +b.dataset.ochat; showSectionLoading(main, 'mychats'); ownerView(main); });
   const post = (path, body) => api(path, {method: 'POST', body: JSON.stringify(body)});
+  main.querySelector('[data-purge]').onclick = () => purgeView(main, c.id, c.title, null, () => ownerView(main));
   $('#o-toggle').onclick = () => sheet(c.closed ? 'Открыть чат?' : 'Закрыть чат?',
     hint(c.closed ? 'Участники снова смогут писать.' : 'Писать смогут только ранги с правом.'), c.closed ? 'Открыть' : 'Закрыть',
     async () => { done((await post(`/owner/chat/${c.id}/action`, {action: c.closed ? 'open' : 'close'})).message); });

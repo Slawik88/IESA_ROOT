@@ -130,12 +130,16 @@ _MEMBER_ACTIONS = [
     {"key": "mute", "title": "🔇 Замутить в чате"}, {"key": "unmute", "title": "🔊 Снять мут"},
     {"key": "unwarn_all", "title": "🧽 Снять все предупреждения"}, {"key": "kick", "title": "👢 Выгнать из чата"},
     {"key": "ban", "title": "⛔ Забанить в чате"}, {"key": "unban", "title": "✅ Снять бан в чате"},
+    {"key": "shield", "title": "🛡 Защита от чистки"}, {"key": "unshield", "title": "🛡 Снять защиту от чистки"},
+    {"key": "immune", "title": "💠 Иммунитет к чистке"}, {"key": "unimmune", "title": "💠 Снять иммунитет"},
 ]
 _PLAYER_ACTIONS = [
     {"key": "block", "title": "🙈 Бот перестанет отвечать"}, {"key": "global_ban", "title": "🚫 Забанить во всех чатах"},
     {"key": "balance", "title": "💰 Изменить баланс"}, {"key": "vip", "title": "👑 Выдать VIP"},
-    {"key": "rank", "title": "🎖 Изменить роль"}, {"key": "mark_grant", "title": "🏅 Выдать метку"},
-    {"key": "mark_revoke", "title": "✖️ Снять метку"}, {"key": "revoke_sessions", "title": "🔒 Завершить сессии админки"},
+    {"key": "rank", "title": "🛡 Изменить роль"}, {"key": "dm", "title": "✉️ Написать в личку от бота"},
+    {"key": "skin_grant", "title": "🎨 Выдать образ"}, {"key": "skin_revoke", "title": "🎨 Забрать образ"},
+    {"key": "mark_grant", "title": "🏅 Выдать регалию"},
+    {"key": "mark_revoke", "title": "✖️ Снять регалию"}, {"key": "revoke_sessions", "title": "🔒 Завершить сессии админки"},
 ]
 PLAYER = {
     "id": 5000, "username": "anna_very_long_username", "name": "Анна Очень-Длинная-Фамилия", "avatar": _AVA[0],
@@ -149,6 +153,7 @@ PLAYER = {
     "chats": [
         {"id": -1001234567890, "title": _LONG, "messages": 12000, "last": "2026-10-12T09:00:00+00:00",
          "tag": "Нин Гуан/ст.адм", "left": False, "muted": False, "muted_until": None, "ban": None, "warns": 1,
+         "immune": False, "shield_until": "2026-11-01T10:00:00+00:00",
          "rank_name": "🎓 Старший хелпер", "local_rank": 4},
         {"id": -1009876543210, "title": "Второй чат", "messages": 345, "last": "2026-10-01T10:00:00+00:00",
          "tag": None, "left": True, "muted": True, "muted_until": "2026-10-20T10:00:00+00:00",
@@ -184,9 +189,34 @@ PLAYER = {
     "actions": {"player": _PLAYER_ACTIONS, "member": _MEMBER_ACTIONS},
     "local_ranks": [{"rank": i, "name": f"Ранг {i}"} for i in range(1, 9)],
     "ranks": [{"rank": i, "name": f"Роль {i}"} for i in range(1, 6)],
-    "currencies": [{"code": "mora", "title": "🪙 Мора", "decimals": 0}],
-    "confirm_rules": {},
+    "currencies": [{"code": "mora", "title": "🪙 Мора", "decimals": 0}, {"code": "diamonds", "title": "💎 Алмазы", "decimals": 2}],
+    "confirm_rules": {"actions": ["global_ban", "rank", "skin_revoke"], "balance": {"mora": 100000, "diamonds": 100}},
+    "wallet": [{"currency": "🪙 Мора", "code": "mora", "delta": "500", "after": "1234567", "reason": "Выдано и списано из админки", "at": "2026-10-12T09:00:00+00:00"},
+               {"currency": "🔮 Эссенция", "code": "essence", "delta": "-300", "after": "5400", "reason": "Образы и оформление", "at": "2026-10-11T09:00:00+00:00"},
+               {"currency": "✨ Зарники", "code": "zarniki", "delta": "120", "after": "99", "reason": "Покупка Зарников за Stars", "at": "2026-10-10T09:00:00+00:00"}],
+    "skins": {"equipped": "sakura", "items": [
+        {"id": "sakura", "name": "Сакура", "rarity": "S", "tier": "A", "exclusive": False, "equipped": True},
+        {"id": "scarlet_star", "name": "Алая Звезда с очень длинным названием образа", "rarity": "SSS", "tier": "D", "exclusive": True, "equipped": False}]},
 }
+SKIN_CATALOG = {"skins": [{"id": "forest", "name": "Лес", "tier": "D"}, {"id": "sakura", "name": "Сакура", "tier": "S"}],
+                "private_skins": [{"id": "crimson_dark", "name": "Багровый Мрак", "tier": "SSS", "holders": []}]}
+for _i, _p in enumerate(PEOPLE["players"]):   # бан, мут и варны в строке поиска (S10)
+    _p["status"] = [{"ban": False, "global_ban": False, "mute": False, "warns": 1}, {"ban": True, "global_ban": False, "mute": True, "warns": 0},
+                    {"ban": False, "global_ban": True, "mute": False, "warns": 3}][_i % 3]
+CHAT = {"id": -1001234567890, "title": _LONG, "closed": False, "warn_limit": 3, "owner": {"id": 5001, "username": "just_nick"}, "admin_chat": None,
+        "bot": {"left_at": None, "is_admin": True, "can_moderate": True}, "members": 12345, "tagged": 12, "switched_off": [],
+        "messages": {"total": 987654, "today": {"messages": 120, "active": 30}, "week": {"messages": 900, "active": 80}, "month": {"messages": 4000, "active": 150}},
+        "top": [{"id": 5000, "username": "anna_very_long_username", "messages": 12000, "tag": None}],
+        "sanctions": {"bans": {"items": [], "total": 0, "next": None}, "mutes": {"items": [], "total": 0, "next": None}, "warns": {"items": [], "total": 0, "next": None}},
+        "actions": {"chat": [{"key": "close", "title": "🔒 Закрыть чат"}, {"key": "message", "title": "📣 Написать от бота"}], "member": _MEMBER_ACTIONS},
+        "history": [], "settings": None, "rank_rights": None, "can_edit_rights": False}
+def _target(i, verdict=None):
+    return {"user_id": 6000 + i, "username": f"тихоня_{i}", "msg_count": i, "days_in_chat": 40 + i, "warns": i % 2, "required_norm": 100,
+            "member_tag": "Тег участника" if i == 1 else None, "verdict": verdict, "verdict_by": None, "decision_state": None, "decision_error": None, "reconcile_ready": False}
+PURGE_VIEW = {"active": True, "page": 0, "has_more": False, "dossiers_running": True,
+              "session": {"id": 77, "norm": 100, "date_from": "2026-10-01", "date_to": "2026-10-28"},
+              "counts": {"total": 24, "decided": 9, "sent": 17, "blocked": False},
+              "items": [_target(i) for i in range(1, 6)]}
 ATTENTION = {"items": [
     {"id": 5000, "username": "anna_very_long_username", "name": "Анна Очень-Длинная-Фамилия", "avatar": _AVA[0],
      "flag": "⛔ бан во всех чатах", "flag_kind": "bad", "note": "причина: спам ссылками", "at": "2026-10-12T09:00:00+00:00", "at_label": "забанена"},
@@ -242,6 +272,8 @@ BROADCAST = {
 ROUTES["/broadcasts"] = BROADCAST
 ROUTES["/broadcasts/preview"] = {"count": 98765, "title": "Все игроки"}
 ROUTES["/player/5000"] = PLAYER
+ROUTES["/skins/catalog"] = SKIN_CATALOG
+ROUTES[f"/chat/{CHAT['id']}"] = CHAT
 PROMO = {"items": [
     {"code": "WELCOME2026", "is_active": True, "legacy": False, "activations": 321, "max_activations": 1000,
      "rewards_text": ["🪙 500 моры", "👑 VIP на 3 дня"], "allowed_chats": [{"id": -1001234567890}],

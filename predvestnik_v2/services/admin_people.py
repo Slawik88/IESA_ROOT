@@ -34,7 +34,7 @@ STATEMENTS = (
 
 # Подписи действий в журнале: и из админки, и из чата (moderation_logs).
 ACTION_TITLES = {
-    "chat_rank": "Ранг участника чата", "chat_rights": "Права рангов чата", "rank": "Глобальная роль", "mark_grant": "Выдана метка", "mark_revoke": "Снята метка", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
+    "chat_rank": "Ранг участника чата", "chat_rights": "Права рангов чата", "rank": "Глобальная роль", "mark_grant": "Выдана регалия", "mark_revoke": "Снята регалия", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
     "global_ban": "Бан во всех чатах", "global_unban": "Снят бан во всех чатах",
     "close": "Чат закрыт", "open": "Чат открыт", "warn_limit": "Лимит варнов", "message": "Сообщение от бота",
     "leave": "Бот вышел из чата", "mute": "Мут", "unmute": "Снят мут", "kick": "Кик", "ban": "Бан", "unban": "Снят бан",
@@ -49,7 +49,7 @@ ACTION_TITLES = {
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена или отменена",
     "broadcast_resume": "Рассылка продолжена", "broadcast_template": "Шаблон рассылки",
-    "journal_export": "Выгрузка журнала", "purge_start": "Чистка начата", "purge_finish": "Чистка закончена", "purge_reconcile": "Чистка: решение сверено с Telegram",
+    "journal_export": "Выгрузка журнала", "dm": "Сообщение в личку", "skin_grant": "Выдан образ", "skin_revoke": "Забран образ", "purge_start": "Чистка начата", "purge_finish": "Чистка закончена", "purge_reconcile": "Чистка: решение сверено с Telegram",
 }
 
 
@@ -436,8 +436,10 @@ def describe(action: str, d: dict) -> str:
         return str(d.get("mark", ""))
     if action == "warn_limit":
         return str(d.get("value", ""))
-    if action == "message":
+    if action in ("message", "dm"):
         return f"«{d.get('text', '')}»"
+    if action in ("skin_grant", "skin_revoke"):
+        return f"«{d.get('name', d.get('skin', ''))}»"
     if action in ("watch_add", "watch_remove"):
         return ""
     if action == "sessions_revoke":
@@ -519,7 +521,8 @@ FEED_KINDS = {
     "moderation": ("Модерация", ("mute", "unmute", "kick", "ban", "unban", "warn", "unwarn", "unwarn_all", "global_ban",
                                  "global_unban", "block", "unblock", "shield", "unshield", "immune", "unimmune", "close",
                                  "open", "close_chat", "open_chat", "warn_limit")),
-    "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke", "note_add", "note_remove", "watch_add", "watch_remove")),
+    "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke", "note_add", "note_remove", "watch_add", "watch_remove",
+                           "dm", "skin_grant", "skin_revoke")),
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
     "switches": ("Функции", ("switch",)),
@@ -664,7 +667,8 @@ async def player(db, uid: int) -> dict | None:
     async with db.execute(
         "SELECT s.chat_tg_id, c.chat_title, COALESCE(s.user_messages_count_all_time, 0), s.last_message_at, "
         "COALESCE(s.is_left, FALSE), COALESCE(s.muted_until > NOW(), FALSE), "
-        "CASE WHEN s.muted_until = 'infinity' THEN NULL ELSE s.muted_until END, s.member_tag "
+        "CASE WHEN s.muted_until = 'infinity' THEN NULL ELSE s.muted_until END, s.member_tag, "
+        "COALESCE(s.is_immune, FALSE), CASE WHEN s.immune_until > NOW() THEN s.immune_until END "
         "FROM user_chat_stats s LEFT JOIN chat_settings c ON c.chat_id = s.chat_tg_id "
         "WHERE s.user_tg_id = ? AND s.chat_tg_id < 0 ORDER BY s.last_message_at DESC NULLS LAST LIMIT 100",
         (uid,)) as cur:
@@ -680,16 +684,17 @@ async def player(db, uid: int) -> dict | None:
     seen = {int(r[0]) for r in rows}
     extra_titles = await _chat_titles(db, [c for c in bans if c not in seen])
     chats = []
-    for cid, title, total, last, left, muted, muted_until, tag in rows:
+    for cid, title, total, last, left, muted, muted_until, tag, immune, shield_until in rows:
         cid = int(cid)
         local_rank = await ranks.get_rank(db, cid, uid)
         chats.append({"id": cid, "title": title or str(cid), "messages": int(total), "last": _iso(last), "tag": member_tags.clean(tag),
                       "left": bool(left), "muted": bool(muted), "muted_until": _iso(muted_until),
+                      "immune": bool(immune), "shield_until": _iso(shield_until),
                       "ban": bans.get(cid), "warns": warns.get(cid, 0),
                       "rank_name": ranks.rank_name(local_rank), "local_rank": local_rank})
     for cid, title in extra_titles.items():   # забанен в чате, где не писал
         chats.append({"id": cid, "title": title or str(cid), "messages": 0, "last": None, "left": True,
-                      "muted": False, "muted_until": None, "ban": bans[cid], "warns": warns.get(cid, 0),
+                      "muted": False, "muted_until": None, "immune": False, "shield_until": None, "ban": bans[cid], "warns": warns.get(cid, 0),
                       "rank_name": ranks.rank_name(0), "local_rank":0, "tag": None})
 
     names = await _names(db, [family["partner"]] if family and family["partner"] else [])

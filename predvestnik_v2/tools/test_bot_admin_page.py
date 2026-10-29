@@ -47,8 +47,8 @@ def main():
              '<script src="{{BASE}}/bot-admin/admin-lists.js?v={{VER}}"></script><script src="{{BASE}}/bot-admin/admin-boot.js?v={{VER}}"></script>')
     with tempfile.TemporaryDirectory() as tmp:
         write(tmp, index_html=index, admin_js="console.log(1)", admin_css="body{}",
-              **{"admin-lists.js": "console.log('lists')", "admin-boot.js": "console.log('boot')",
-                 "admin-patchnotes.js": "", "admin-patchnotes-edit.js": "", "admin-patchnotes-actions.js": ""})
+              **{**{name: "" for name in page._TYPES if name not in ("admin.js", "admin.css")},   # каждый файл страницы (их добавляют сессии)
+                 "admin-lists.js": "console.log('lists')", "admin-boot.js": "console.log('boot')", "guide-admin.json": "{}"})
         page.load(tmp)
         first = version_in_page()
         assert "{{" not in page._PAGE

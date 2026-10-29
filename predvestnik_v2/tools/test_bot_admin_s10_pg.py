@@ -39,6 +39,8 @@ class FakeBot:
 
     async def send_message(self, chat_id, text, **kw):
         self.calls.append(("send", chat_id, text))
+        if chat_id == SILENT:
+            raise RuntimeError("Forbidden: bot can't initiate conversation with a user")
 
 
 class Client:
@@ -287,6 +289,41 @@ async def checks():
             assert [r[0] for r in await cur.fetchall()][-4:] == ["shield", "immune", "unshield", "unimmune"]
     feed = await get(CODER, "/journal?kind=moderation")
     assert {"Защита", "Иммунитет"} <= {x["title"] for x in feed["items"]}, feed
+
+    # ── Новые действия карточки (S10v): защита и иммунитет, личка, образы ──
+    async def act(who, uid, **body):
+        return await client.post(f"/bot-admin/api/player/{uid}/action", headers=h[who], json=body)
+    assert (await act(HELPER, P2, action="shield", chat_id=-100, minutes=0)).status_code == 400          # защите нужен срок
+    assert (await act(HELPER, P2, action="shield", chat_id=-100, minutes=1440)).status_code == 200
+    assert (await act(HELPER, P2, action="immune", chat_id=-100)).status_code == 403                    # иммунитет — с 4
+    assert (await act(CODER, P2, action="immune", chat_id=-100)).status_code == 200
+    chat = next(c for c in (await get(HELPER, f"/player/{P2}"))["chats"] if c["id"] == -100)
+    assert chat["immune"] and chat["shield_until"], chat
+    assert (await act(CODER, P2, action="unimmune", chat_id=-100)).status_code == 200
+    assert (await act(HELPER, P2, action="unshield", chat_id=-100)).status_code == 200
+    chat = next(c for c in (await get(HELPER, f"/player/{P2}"))["chats"] if c["id"] == -100)
+    assert not chat["immune"] and not chat["shield_until"], chat
+    assert (await act(HELPER, P2, action="dm", text="привет")).status_code == 403                       # личка — с 5
+    assert (await act(CODER, P2, action="dm", text=" ")).status_code == 400
+    r = await act(CODER, P2, action="dm", text="Зайди в админ-чат, пожалуйста")
+    assert r.status_code == 200 and ("send", P2, "Зайди в админ-чат, пожалуйста") in bot.calls, r.text
+    r = await act(CODER, SILENT, action="dm", text="привет")
+    assert r.status_code == 409 and "личку" in r.json()["detail"], r.text
+    assert "Сообщение в личку" in {x["title"] for x in (await get(CODER, f"/journal?user_id={P2}"))["items"]}
+    card = await get(CODER, f"/player/{P2}")
+    assert "skin_grant" not in [a["key"] for a in card["actions"]["player"]] and "dm" in [a["key"] for a in card["actions"]["player"]]
+    assert (await act(CODER, P2, action="skin_grant", skin=plain, reason="x")).status_code == 403        # только создатель
+    assert "skin_grant" in [a["key"] for a in (await get(DEV, f"/player/{P2}"))["actions"]["player"]]
+    r = await act(DEV, P2, action="skin_grant", skin=plain, reason="приз за ивент")
+    assert r.status_code == 200 and SKINS[plain]["name"] in r.json()["message"], r.text
+    assert (await act(DEV, P2, action="skin_grant", skin=plain, reason="ещё")).status_code == 400
+    assert [k["id"] for k in (await get(HELPER, f"/player/{P2}"))["skins"]["items"]] == [plain]
+    r = await act(DEV, P2, action="skin_revoke", skin=plain, reason="ошибка")
+    assert r.status_code == 400 and "ID игрока" in r.json()["detail"], r.text                         # забрать — вводом ID
+    assert (await act(DEV, P2, action="skin_revoke", skin=plain, reason="ошибка", confirm=str(P2))).status_code == 200
+    assert (await get(HELPER, f"/player/{P2}"))["skins"]["items"] == []
+    titles = [x["title"] for x in (await get(CODER, f"/journal?user_id={P2}&kind=players"))["items"]]
+    assert titles[:2] == ["Забран образ", "Выдан образ"], titles
 
 
 def main():

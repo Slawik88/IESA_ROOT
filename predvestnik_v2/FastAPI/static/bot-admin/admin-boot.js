@@ -30,5 +30,6 @@
   if (wanted === 'guide') saved = 'guide';
   open(ME.sections.some(s => s.key === saved) ? saved : ME.sections[0].key);
   refreshBadges();
+  liveConnect();   // значок жалоб и ход «Чистки» — сразу; опрос ниже остаётся запасным
   setInterval(() => { if (!document.hidden) refreshBadges(); }, 60000);
 })();

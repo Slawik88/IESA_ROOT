@@ -22,9 +22,11 @@ JS_ALL = "\n".join(open(os.path.join(STATIC, name), encoding="utf-8").read()
 CSS = open(os.path.join(STATIC, "admin.css"), encoding="utf-8").read()
 
 # имя функции -> sha1 текста (с первой строки объявления до закрывающей скобки в нулевой колонке)
+# S10: runAction — одно окно с итогом и отмена 10 с для санкций в чате; actionForm/confirmLines — личка, образы, защита;
+# bulkRun — «снять мут везде». Изменены осознанно.
 PINNED = {
-    "actionForm": "4a21ef700980", "runAction": "a16cc5a2fe44", "needsTypedConfirm": "02d44637f82f", "confirmLines": "a0c36bee0b8d",
-    "sheet": "219efbebaf00", "bulkRun": "7208d733c384", "api": "648a2f15c38d",
+    "actionForm": "8e5be917bc14", "runAction": "732751fcabbf", "needsTypedConfirm": "02d44637f82f", "confirmLines": "5c9d932b0749",
+    "sheet": "219efbebaf00", "bulkRun": "5bcf6bf521db", "api": "648a2f15c38d",
 }
 
 HOOKS_JS = [  # куски разметки/селекторов, на которые опирается код
