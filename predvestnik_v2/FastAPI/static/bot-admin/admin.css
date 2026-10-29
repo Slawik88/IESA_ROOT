@@ -505,10 +505,11 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .qbtn span { font-size: 18px; line-height: 1; }
 .qbtn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .qbtn.danger { color: var(--bad); }
-.undobar { position: fixed; left: 50%; bottom: calc(84px + var(--safe-b, 0px)); z-index: 30; display: grid; gap: 6px; width: min(calc(100% - 24px), 440px); transform: translateX(-50%); }
+.undobar { position: fixed; left: 50%; bottom: calc(84px + var(--safe-b, 0px)); z-index: 9; display: grid; gap: 6px; width: min(calc(100% - 24px), 440px); transform: translateX(-50%); }
 .undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 14px; background: var(--panel); box-shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(0,0,0,.3); font-size: 13.5px; }
 .undo span { min-width: 0; overflow-wrap: anywhere; }
 .undo.progress { padding-right: 14px; }
+.undo.failed { box-shadow: 0 0 0 1px var(--bad), 0 8px 24px rgba(0,0,0,.3); }
 .meter { height: 6px; margin-top: 10px; border-radius: 9px; background: var(--line); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .4s; }
 .chips.reasons { margin: -4px 0 8px; }

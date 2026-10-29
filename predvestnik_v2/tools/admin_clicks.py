@@ -50,6 +50,8 @@ NEW = {
 # Проверки поведения, не замер: «Отменить» не отправляет ничего; решение в «Чистке» уходит на общий сервер после отсчёта.
 CHECKS = {
     "Мут: «Отменить»": ("card", [("tap", '[data-quick="mute"]'), ("tap", "#sok"), ("tap", ".undo button"), ("wait_undo",), ("expect_none",)]),
+    "Мут: дважды подряд": ("card", [("js", "window.ADMIN_UNDO_MS = 3000"), ("tap", '[data-quick="mute"]'), ("tap", "#sok"), ("tap", '[data-quick="mute"]'), ("tap", "#sok"), ("pause", 3500),
+                                     ("expect_one", f"/player/{UID}/action")]),
     "Чистка: решение": ("chat", [("tap", "[data-purge]"), ("tap", '[data-pgu="6001"]'), ("tap", '[data-pgdo="mute"]'), ("wait_undo",),
                                  ("expect", f"/purge-v1/chats/{CID}/decision", "action", "mute")]),
 }
@@ -134,8 +136,14 @@ def main() -> int:
                         page.keyboard.type(step[2])
                     elif kind == "seen":
                         page.wait_for_selector(step[1], timeout=4000)
+                    elif kind == "js":
+                        page.evaluate(step[1])
+                    elif kind == "pause":
+                        page.wait_for_timeout(step[1])
                     elif kind == "wait_undo":
                         page.wait_for_timeout(700)
+                    elif kind == "expect_one":
+                        assert len([p for p, _ in posts if p.endswith(step[1])]) == 1, f"ждали один запрос: {posts}"
                     elif kind == "expect_none":
                         assert not posts, f"после «Отменить» ушёл запрос: {posts}"
                     elif kind == "left":

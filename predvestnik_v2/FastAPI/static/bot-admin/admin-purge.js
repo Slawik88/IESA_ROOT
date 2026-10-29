@@ -11,7 +11,8 @@ const PURGE_DECISIONS = [['forgive', 'Оставить', 'Ничего не бу
   ['mute', 'Мут на час', 'Участник час не сможет писать.'],
   ['kick', 'Исключить', 'Участник выйдет из чата, но сможет вернуться по ссылке.'],
   ['ban', 'Бан', 'Участник выйдет из чата и не сможет вернуться. Снимается кнопкой «Снять бан в чате».']];
-const PURGE = {cid: 0, title: '', mode: 'pending', page: 0, view: null, etag: '', busy: false, timer: 0, back: null, main: null};
+const PURGE = {cid: 0, title: '', mode: 'pending', page: 0, view: null, etag: '', busy: false, timer: 0, back: null, main: null,
+  seq: 0, chain: Promise.resolve(), drafts: {}};   // seq — последний запрос хода; chain — решения уходят по очереди, ни одно не теряется
 
 // Ключ действия переживает потерянный ответ: повтор того же решения сервер узнаёт и не повторяет санкцию.
 function purgeKey(name) {
@@ -24,7 +25,7 @@ function purgeKey(name) {
 function purgeForget(name) { try { localStorage.removeItem(name); } catch (_) {} }
 
 async function purgeApi(path, opts = {}) {
-  const headers = {'content-type': 'application/json', ...(opts.headers || {})};
+  const headers = {'content-type': 'application/json', ...(opts.headers || {})};   // opts.keepalive — переживает закрытие страницы
   if (INIT) headers['x-init-data'] = INIT;
   try { const s = localStorage.getItem('pv_sess'); if (s) headers['x-session-token'] = s; } catch (_) {}
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 25000);
@@ -50,7 +51,10 @@ async function purgeView(main, cid, title, from = null, back = null) {
     back: back || (() => window.back(main))});   // из карточки чата: «Назад» ведёт в неё (она в PEOPLE.stack)
   main.innerHTML = `<div class="bar"><button class="btn" id="pgback">← Назад</button></div>
     <div id="purgeview"><div class="card"><h3>🧹 Чистка · ${esc(title || cid)}</h3><div class="sub">Загружаю ход…</div></div></div>`;
-  $('#pgback').onclick = () => { clearTimeout(PURGE.timer); PURGE.main = null; PURGE.back(); };
+  const leave = () => { clearTimeout(PURGE.timer); purgeRememberDraft(); PURGE.main = null; PURGE.back(); };
+  $('#pgback').onclick = leave;
+  const bb = TG && TG.BackButton;   // «Назад» самого Telegram — туда же, а не из админки
+  if (bb) { bb.offClick(goApp); if (PEOPLE.bb) bb.offClick(PEOPLE.bb); PEOPLE.bb = leave; bb.onClick(leave); bb.show(); }
   window.scrollTo(0, 0);
   await purgeLoad();
 }
@@ -69,16 +73,21 @@ function purgeLive(event) {
   if (purgeVisible() && Number(event.chat_id) === PURGE.cid && !PURGE.busy) purgeLoad(true);
 }
 
+function purgeRememberDraft() {
+  if ($('#pgnorm')) PURGE.drafts[PURGE.cid] = {norm: $('#pgnorm').value, from: $('#pgfrom').value, to: $('#pgto').value};
+}
+
 async function purgeLoad(quiet = false) {
   if (!purgeVisible()) return;
-  const cid = PURGE.cid;
+  const cid = PURGE.cid, seq = ++PURGE.seq;   // ответ старого запроса (фильтр сменили) новый не перетирает
   try {
     const answer = await purgeApi(`/chats/${cid}?live=1&page=${PURGE.page}&mode=${PURGE.mode}`, {headers: PURGE.etag ? {'If-None-Match': PURGE.etag} : {}});
-    if (cid !== PURGE.cid || !purgeVisible()) return;
-    if (answer.status !== 304 || !PURGE.view) { PURGE.view = answer.data; PURGE.etag = answer.etag; PURGE.page = answer.data.page || 0; }
+    if (seq !== PURGE.seq || cid !== PURGE.cid || !purgeVisible()) return;
+    if (answer.status === 304 && PURGE.view) return;   // ничего не изменилось: форму и прокрутку не трогаем
+    PURGE.view = answer.data; PURGE.etag = answer.etag; PURGE.page = answer.data.page || 0;
     purgeRender(quiet);
   } catch (e) {
-    if (!purgeVisible()) return;
+    if (seq !== PURGE.seq || !purgeVisible()) return;
     if (e.status === 403 || e.status === 401) PURGE.view = null;
     $('#purgeview').innerHTML = `<div class="card"><h3>🧹 Чистка · ${esc(PURGE.title || cid)}</h3>
       <div class="sub" role="alert">${e.status === 403 ? 'Нет доступа: ' : 'Не загрузилось: '}${esc(e.message)}</div>
@@ -89,10 +98,13 @@ async function purgeLoad(quiet = false) {
 
 function purgeRender(quiet) {
   const keep = quiet ? window.scrollY : 0, v = PURGE.view;
+  purgeRememberDraft();
   $('#purgeview').innerHTML = `<div class="card"><h3>🧹 Чистка · ${esc(PURGE.title || PURGE.cid)}</h3>
     <div class="sub">Кто за период написал меньше нормы. Решения общие с Telegram: досье в админ-чате и этот экран — одно и то же.</div></div>
     ${v.active ? purgeActive(v) : purgeIdle(v)}`;
   purgeWire();
+  const draft = PURGE.drafts[PURGE.cid];   // что админ уже вписал в форму, переживает обновление хода
+  if (draft && $('#pgnorm')) { $('#pgnorm').value = draft.norm; $('#pgfrom').value = draft.from; $('#pgto').value = draft.to; }
   if (quiet) window.scrollTo(0, keep);
 }
 
@@ -139,21 +151,29 @@ function purgeWire() {
   const v = PURGE.view;
   if ($('#pgstart')) $('#pgstart').onclick = () => purgeStart();
   if ($('#pgfinish')) $('#pgfinish').onclick = () => {
-    const waiting = v.counts.total - v.counts.decided;
+    const waiting = v.counts.total - v.counts.decided, cid = PURGE.cid;
     sheet('🧹 Завершить чистку?', `<div class="confirm"><div>Чат: <b>${esc(PURGE.title)}</b></div><div>Без решения: <b>${num(waiting)}</b> — они останутся без наказания.</div><div>Чат откроется.</div></div>`,
-      'Завершить', () => purgePost('finish', {session_id: v.session.id}));
+      'Завершить', () => {
+        if (cid !== PURGE.cid || !PURGE.view || !PURGE.view.session || PURGE.view.session.id !== v.session.id) throw new Error('Чистка уже сменилась: посмотрите ход ещё раз.');
+        return purgePost(cid, 'finish', {session_id: v.session.id});
+      });
   };
   document.querySelectorAll('[data-pgmode]').forEach(b => b.onclick = () => { if (PURGE.busy) return; PURGE.mode = b.dataset.pgmode; PURGE.page = 0; PURGE.etag = ''; purgeLoad(); });
   document.querySelectorAll('[data-pgpage]').forEach(b => b.onclick = () => { if (PURGE.busy) return; PURGE.page = Math.max(0, PURGE.page + +b.dataset.pgpage); PURGE.etag = ''; purgeLoad(); });
   document.querySelectorAll('[data-pgu]').forEach(b => b.onclick = () => purgeOpen(+b.dataset.pgu));
 }
 
-async function purgePost(path, body) {
-  if (PURGE.busy) return null;
-  PURGE.busy = true; clearTimeout(PURGE.timer);
-  try { const res = await purgeApi(`/chats/${PURGE.cid}/${path}`, {method: 'POST', body: JSON.stringify(body)}); return res.data; }
-  catch (e) { toast(e.message, true); return null; }
-  finally { PURGE.busy = false; PURGE.etag = ''; purgeLoad(true); }
+// Запросы «Чистки» идут по одному в очереди и в тот чат, где их нажали (даже если за 10 секунд открыли другой).
+function purgePost(cid, path, body, keepalive = false) {
+  const send = async () => {
+    PURGE.busy = true; clearTimeout(PURGE.timer);
+    try { const res = await purgeApi(`/chats/${cid}/${path}`, {method: 'POST', body: JSON.stringify(body), keepalive}); return res.data; }
+    catch (e) { toast(e.message, true); return null; }
+    finally { PURGE.busy = false; PURGE.etag = ''; if (cid === PURGE.cid) purgeLoad(true); }
+  };
+  const done = PURGE.chain.then(send);
+  PURGE.chain = done.catch(() => null);
+  return done;
 }
 
 function purgeStart() {
@@ -163,9 +183,9 @@ function purgeStart() {
   }
   sheet('🧹 Начать чистку?', `<div class="confirm"><div>Чат: <b>${esc(PURGE.title)}</b></div><div>Период: <b>${purgeDay(body.date_from)} — ${purgeDay(body.date_to)}</b></div>
     <div>Норма: <b>${num(body.norm)}</b></div><div>Чат закроется до конца чистки. Наказание выбираете сами, по каждому.</div></div>`, 'Начать чистку', async () => {
-    const name = `pv-purge-start:${PURGE.cid}:${body.norm}:${body.date_from}:${body.date_to}`;
-    const res = await purgePost('start?background=1', {...body, action_id: purgeKey(name)});
-    if (res && res.ok) purgeForget(name);
+    const cid = PURGE.cid, name = `pv-purge-start:${cid}:${body.norm}:${body.date_from}:${body.date_to}`;
+    const res = await purgePost(cid, 'start?background=1', {...body, action_id: purgeKey(name)});
+    if (res && res.ok) { purgeForget(name); delete PURGE.drafts[cid]; }
   });
 }
 
@@ -174,7 +194,7 @@ function purgeOpen(uid) {
   if (!t || !v.active) return;
   const facts = `<div class="confirm"><div><b>${num(t.msg_count)}</b> из ${num(t.required_norm ?? v.session.norm)} сообщений за период</div>
     <div>В чате ${num(t.days_in_chat)} дн. · варнов на начало чистки: ${num(t.warns)}. Норма уже учитывает дату входа и время в муте.</div></div>
-    <div class="actions"><button class="btn small" data-pgcard="${uid}">Карточка игрока ›</button></div>`;
+    ${ME.sections.some(z => z.key === 'people') ? `<div class="actions"><button class="btn small" data-pgcard="${uid}">Карточка игрока ›</button></div>` : ''}`;
   if (t.verdict) {
     sheet(purgeName(t), `${facts}<div class="sub">Решение: <b>${esc(PURGE_VERDICTS[t.verdict] || t.verdict)}</b>${t.verdict_by ? ' · ' + esc(t.verdict_by_name || t.verdict_by_username || 'админ') : ''}</div>`, 'Закрыть', () => {}, {info: true});
   } else if (['sending', 'unknown'].includes(t.decision_state)) {
@@ -186,13 +206,14 @@ function purgeOpen(uid) {
       ${PURGE_DECISIONS.map(([key, label, what]) => `<button type="button" class="arow${key === 'ban' || key === 'kick' ? ' danger' : ''}" data-pgdo="${key}"><span class="atxt"><b>${label}</b><small>${what}</small></span><span class="arr">›</span></button>`).join('')}`,
       'Закрыть', () => {}, {info: true});
     $('#sheet').querySelectorAll('[data-pgdo]').forEach(b => b.onclick = () => {
-      const action = b.dataset.pgdo, name = `pv-purge:${PURGE.cid}:${v.session.id}:${uid}:${action}`;
+      const action = b.dataset.pgdo, cid = PURGE.cid, name = `pv-purge:${cid}:${v.session.id}:${uid}:${action}`;
       const box = $('#sheet'); box.hidden = true; box.innerHTML = '';
-      const send = async () => {
-        const res = await purgePost('decision', {session_id: v.session.id, user_id: uid, action, action_id: purgeKey(name)});
+      const send = async (hidden = false) => {
+        const res = await purgePost(cid, 'decision', {session_id: v.session.id, user_id: uid, action, action_id: purgeKey(name)}, hidden);
         if (res && res.ok) { purgeForget(name); if (res.replayed) toast('Другой админ уже решил. Показано его решение.'); }
       };
-      if (action === 'forgive') send(); else undoLater(`${b.querySelector('b').textContent} · ${purgeName(t)}`, send);   // санкция — с 10 секундами на отмену
+      // санкция — с 10 секундами на отмену; одно решение на участника в очереди
+      if (action === 'forgive') send(); else undoLater(`${b.querySelector('b').textContent} · ${purgeName(t)}`, send, `purge:${cid}:${v.session.id}:${uid}`);
     });
   }
   const card = $('#sheet').querySelector('[data-pgcard]');
@@ -207,6 +228,6 @@ function purgeReconcile(uid) {
   'Записать', async () => {
     const applied = $('#pgapplied').value, reason = $('#pgreason').value.trim();
     if (!applied || reason.length < 12) throw new Error('Выберите, что увидели, и опишите проверку (от 12 знаков).');
-    await purgePost('reconcile', {session_id: v.session.id, user_id: uid, applied: applied === 'yes', reason});
+    await purgePost(PURGE.cid, 'reconcile', {session_id: v.session.id, user_id: uid, applied: applied === 'yes', reason});
   });
 }

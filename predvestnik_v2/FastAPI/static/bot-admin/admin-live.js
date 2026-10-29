@@ -12,11 +12,13 @@ function liveConnect() {
   try { token = localStorage.getItem('pv_sess') || ''; } catch (_) {}
   if (!INIT && !token) return;
   let ws;
-  try { ws = new WebSocket(`${(BASE || location.origin).replace(/^http/, 'ws')}/ws/${ME.user_id}`); } catch (_) { return; }
+  const root = /^https?:/.test(BASE) ? BASE : location.origin + BASE;   // ROOT_PATH даёт относительный BASE: старые WebView его не принимают
+  try { ws = new WebSocket(`${root.replace(/^http/, 'ws')}/ws/${ME.user_id}`); } catch (_) { return; }
   LIVE.ws = ws;
   // Вход — первым сообщением, не в адресе: адреса попадают в журналы прокси.
-  ws.onopen = () => { LIVE.tries = 0; try { ws.send(JSON.stringify(INIT ? {type: 'auth', init: INIT} : {type: 'auth', token})); } catch (_) {} };
+  ws.onopen = () => { try { ws.send(JSON.stringify(INIT ? {type: 'auth', init: INIT} : {type: 'auth', token})); } catch (_) {} };
   ws.onmessage = ev => {
+    LIVE.tries = 0;   // пауза между попытками сбрасывается только после ответа сервера: сокет, который сразу закрывают, не долбит каждые 2 с
     let event; try { event = JSON.parse(ev.data); } catch (_) { return; }
     if (!event || event.type !== 'data_changed') return;
     if (event.scope === 'admin_reports') refreshBadges();
@@ -41,12 +43,15 @@ async function globalProgress(uid, job, title) {
   host.append(row);
   const draw = j => { row.innerHTML = `<span>${esc(title)}: <b>${num(j.done)} из ${num(j.total)}</b>${j.failed ? ` · не вышло ${num(j.failed)}` : ''}${j.finished ? ' · готово' : ''}</span>`; };
   draw(job);
-  for (let i = 0; i < 400 && !job.finished; i++) {
+  const until = Date.now() + 3 * 60 * 1000;   // дольше полосу не держим: задание доделается в фоне, итог — в журнале
+  while (!job.finished && Date.now() < until) {
     await new Promise(r => setTimeout(r, 1500));
-    try {
-      const now = await api(`/player/${uid}/global-progress`);
-      job = (job.kind === 'global_unban' ? now.unban : now.ban) || job;
-    } catch (_) { break; }
+    if (document.hidden) continue;
+    let now;
+    try { now = await api(`/player/${uid}/global-progress`); } catch (_) { break; }
+    const next = job.kind === 'global_unban' ? now.unban : now.ban;
+    if (!next) break;   // задание в другом процессе сервера: прогресса здесь не видно
+    job = next;
     draw(job);
   }
   setTimeout(() => row.remove(), 6000);

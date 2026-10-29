@@ -8,9 +8,9 @@ const JOURNAL = {kind: PREFS.get('journal.kind', ''), actor: 0, days: [1, 7, 30,
 // Фильтр «один игрок или чат» ставится из их карточки и не запоминается: открыли раздел заново — снова весь журнал.
 JOURNAL.scope = null;   // {user_id | chat_id, title}
 function openJournalFor(scope) {
-  if (!ME.sections.some(z => z.key === 'journal')) return toast('Журнал открыт со старшего хелпера (4).', true);
-  JOURNAL.scope = scope; JOURNAL.view = 'actions'; JOURNAL.kind = ''; JOURNAL.actor = 0;
-  tabs('journal'); journalView($('#main'));
+  if (!ME.sections.some(z => z.key === 'journal')) return toast('Журнал вашей роли закрыт.', true);
+  JOURNAL.scopeNext = scope; JOURNAL.view = 'actions'; JOURNAL.kind = ''; JOURNAL.actor = 0;
+  open('journal');   // как обычный переход: прежний экран отменён, «Назад» Telegram ведёт из раздела
 }
 const journalScopeQs = () => JOURNAL.scope ? (JOURNAL.scope.user_id ? `&user_id=${JOURNAL.scope.user_id}` : `&chat_id=${JOURNAL.scope.chat_id}`) : '';
 const saveJournal = () => { PREFS.set('journal.kind', JOURNAL.kind); PREFS.set('journal.days', JOURNAL.days); PREFS.set('journal.view', JOURNAL.view); };
@@ -90,7 +90,7 @@ async function journalView(main, more = '') {
   }
 }
 
-SECTIONS.journal = main => { JOURNAL.scope = null; journalView(main); };
+SECTIONS.journal = main => { JOURNAL.scope = JOURNAL.scopeNext || null; JOURNAL.scopeNext = null; journalView(main); };
 
 // Выгрузка того же среза (вид, кто, период, игрок или чат) файлом: сервер отдаёт до 5000 строк за период до 90 дней.
 async function exportJournal(button) {

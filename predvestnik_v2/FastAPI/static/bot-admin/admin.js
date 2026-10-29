@@ -86,7 +86,10 @@ function showLoadError(main, key, error, retry) {
   </section>`;
   main.querySelector('.load-retry').onclick = () => { showSectionLoading(main, key); retry(); };
 }
+// Номер текущего экрана: отложенное действие (10 с на отмену) перерисует карточку, только если её не сменили.
+let VIEW_SEQ = 0;
 async function loadSectionData(main, path, retry, key = currentSection()) {
+  VIEW_SEQ++;
   if (_viewAbort) _viewAbort.abort();
   const controller = new AbortController(), request = ++_viewRequest;
   _viewAbort = controller;
@@ -111,7 +114,7 @@ async function api(path, opts = {}) {
   const headers = {'content-type': 'application/json'};
   if (INIT) headers['x-init-data'] = INIT;
   try { const s = localStorage.getItem('pv_sess'); if (s) headers['x-session-token'] = s; } catch (_) {}
-  const res = await fetch(`${BASE}/bot-admin/api${path}`, {...opts, headers});
+  const res = await fetch(`${BASE}/bot-admin/api${path}`, {...opts, headers});   // opts.keepalive — запрос доживёт до закрытия страницы
   let data = null;
   try { data = await res.json(); } catch (_) {}
   if (!res.ok) throw Object.assign(new Error((data && data.detail) || `Ошибка ${res.status}`), {status: res.status});
@@ -221,6 +224,7 @@ function rootBack() {
 }
 
 function open(key) {
+  VIEW_SEQ++;
   rootBack();
   if (_viewAbort) { _viewRequest++; _viewAbort.abort(); _viewAbort = null; }
   tabs(key);
@@ -511,17 +515,20 @@ function runAction(action, target, ctx, extra, after) {
   const chatTitle = () => ($('#fchat') ? $('#fchat').selectedOptions[0].textContent : one ? one.title : extra.chat_title);
   const place = !pick && chatTitle() ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(chatTitle())}</div>` : '';
   const payloadOf = () => ({action: key, ...collect(), ...(chatId() ? {chat_id: chatId()} : {})});
-  const perform = async payload => {
-    const res = await api(target, {method: 'POST', body: JSON.stringify(payload)});
+  const shown = VIEW_SEQ;
+  const perform = async (payload, keepalive = false) => {
+    const res = await api(target, {method: 'POST', body: JSON.stringify(payload), keepalive});
     toast(res.message || 'Готово');
     if (res.job && !res.job.finished) globalProgress(ctx.id, res.job, action.title);   // бан во всех чатах доделывается в фоне
+    if (VIEW_SEQ !== shown) return;   // за 10 секунд отмены открыли другой экран: туда не возвращаем
     const keep = window.scrollY;   // после действия карточка перерисовывается: остаёмся на том же месте, а не наверху
     Promise.resolve(after(res)).then(() => window.scrollTo(0, keep));
   };
   if (UNDOABLE.has(key)) {
     sheet(action.title, place + pick + body, UNDO_VERB[key] || 'Выполнить', () => {
-      const payload = payloadOf(), whom = ctx.username !== undefined ? who(ctx.id, ctx.username) : '';
-      undoLater(`${action.title}${whom ? ' · ' + whom : ''}`, () => perform(payload));
+      const payload = payloadOf(), uid = String(target).match(/player\/(-?\d+)/);
+      const whom = ctx.username !== undefined ? who(ctx.id, ctx.username) : uid ? 'id' + uid[1] : '';
+      undoLater(`${action.title}${whom ? ' · ' + whom : ''}`, hidden => perform(payload, hidden), `${target}:${key}:${payload.chat_id || ''}`);
     });
   } else if (!DANGEROUS.has(key)) {
     sheet(action.title, place + pick + body, 'Выполнить', () => perform(payloadOf()));
@@ -553,32 +560,47 @@ function runAction(action, target, ctx, extra, after) {
   if (first) first.focus();
 }
 
-// Отложенные действия: полоса внизу «… · через 10 с · Отменить». Уходят сами по таймеру, а если админку сворачивают —
-// сразу, чтобы решение не потерялось. Ошибка сервера показывается как обычно.
-const UNDO_MS = window.ADMIN_UNDO_MS || 10000;
+// Отложенные действия: полоса внизу «… · через 10 с · Отменить». Уходят сами по таймеру, а если админку сворачивают
+// или закрывают — сразу и запросом, который переживает закрытие (keepalive). Пока что-то ждёт, Telegram спросит
+// «закрыть?». Одно и то же действие дважды в очередь не встаёт. Отказ сервера остаётся строкой в полосе, а не тостом.
+const undoMs = () => window.ADMIN_UNDO_MS || 10000;   // стенд ускоряет отсчёт
 const PENDING = new Set();
-function undoLater(label, run) {
+function undoHost() {
   let host = $('#undobar');
   if (!host) { host = document.createElement('div'); host.id = 'undobar'; host.className = 'undobar'; host.setAttribute('role', 'status'); document.body.append(host); }
-  const row = document.createElement('div'); row.className = 'undo';
-  const item = {done: false};
-  const fire = () => {
-    if (item.done) return;
-    item.done = true; clearInterval(item.tick); PENDING.delete(item); row.remove();
-    Promise.resolve().then(run).catch(err => toast(err.message, true));
-  };
-  item.fire = fire;
-  let left = Math.ceil(UNDO_MS / 1000);
-  row.innerHTML = `<span>${esc(label)} · <b>через <i>${left}</i> с</b></span><button type="button" class="btn small">Отменить</button>`;
-  row.querySelector('button').onclick = () => {
-    item.done = true; clearInterval(item.tick); clearTimeout(item.timer); PENDING.delete(item); row.remove(); toast('Отменено: ничего не отправлено');
-  };
-  host.append(row);
-  item.tick = setInterval(() => { left = Math.max(0, left - 1); const n = row.querySelector('i'); if (n) n.textContent = left; }, 1000);
-  item.timer = setTimeout(fire, UNDO_MS);
-  PENDING.add(item);
+  return host;
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden) [...PENDING].forEach(item => { clearTimeout(item.timer); item.fire(); }); });
+function undoGuard() {
+  try { if (TG) PENDING.size ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } catch (_) {}
+}
+function undoFailed(label, err) {
+  const row = document.createElement('div'); row.className = 'undo failed';
+  row.innerHTML = `<span>${esc(label)} · <b>не выполнено:</b> ${esc(err.message || 'нет связи')}</span><button type="button" class="btn small" aria-label="Скрыть">✕</button>`;
+  row.querySelector('button').onclick = () => row.remove();
+  undoHost().append(row);
+}
+function undoLater(label, run, key = label) {
+  if ([...PENDING].some(item => item.key === key)) { toast('Это действие уже ждёт отправки'); return; }
+  const row = document.createElement('div'); row.className = 'undo';
+  const item = {done: false, key};
+  const finish = () => { item.done = true; clearInterval(item.tick); clearTimeout(item.timer); PENDING.delete(item); row.remove(); undoGuard(); };
+  item.fire = (hidden = false) => {
+    if (item.done) return;
+    finish();
+    Promise.resolve().then(() => run(hidden)).catch(err => undoFailed(label, err));
+  };
+  let left = Math.ceil(undoMs() / 1000);
+  row.innerHTML = `<span>${esc(label)} · <b>через <i>${left}</i> с</b></span><button type="button" class="btn small">Отменить</button>`;
+  row.querySelector('button').onclick = () => { finish(); toast('Отменено: ничего не отправлено'); };
+  undoHost().append(row);
+  item.tick = setInterval(() => { left = Math.max(0, left - 1); const n = row.querySelector('i'); if (n) n.textContent = left; }, 1000);
+  item.timer = setTimeout(() => item.fire(false), undoMs());
+  PENDING.add(item);
+  undoGuard();
+}
+const flushPending = () => [...PENDING].forEach(item => item.fire(true));
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushPending(); });
+window.addEventListener('pagehide', flushPending);
 
 function back(main) {
   const prev = PEOPLE.stack.pop();
