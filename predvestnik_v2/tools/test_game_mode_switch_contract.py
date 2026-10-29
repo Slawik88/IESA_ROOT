@@ -31,7 +31,7 @@ assert "transition: color" not in demo_css, "движение Лиги — то�
 # Одна шапка на три страницы
 sample = {}
 for page, game, mode, title in (("rhythm-v2.html", "rhythm", "casual", "Ритм"), ("minesweeper-v2.html", "minesweeper", "casual", "Сапёр"), ("league-demo.html", None, None, "Рейтинг")):
-    html = read(page)
+    html = read(page).replace('{{SCENE_ART}}', '{}')  # main.py supplies the scene registry before the shared header renderer
     assert html.count("{{GAME_HEAD}}") == 1, f"{page}: общая шапка"
     for old in ("lg-hero", "gmode-host", 'id="lg-strip"'):
         assert old not in html, f"{page}: {old} живёт только в game-shell-v3.html"

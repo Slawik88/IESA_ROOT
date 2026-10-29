@@ -16,6 +16,7 @@
   const backLink = $('lg-back-link');
   let returnTo = 'games';
   let trip = history.state?.pvGameTrip || null;
+  if (typeof trip?.nonce !== 'string' || !trip.nonce) trip = null;
   try {
     const saved = readReturn();
     const pending = sessionStorage.getItem('pv_game_pending');

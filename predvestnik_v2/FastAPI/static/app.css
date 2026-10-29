@@ -1470,7 +1470,6 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .chat-tracker-page-error button { flex:none; min-height:44px; padding:0 12px; border:1px solid rgba(220,154,154,.28); border-radius:9px; background:rgba(120,50,55,.15); color:#efc1c1; font:800 10px/1 inherit; }
 @media (max-width:349px) {
   #pg-chat-tracker { padding-inline:8px; }
-  .chat-tracker-head p { display:none; }
   .chat-tracker-summary>div { min-height:62px; padding-inline:4px; }
 }
 

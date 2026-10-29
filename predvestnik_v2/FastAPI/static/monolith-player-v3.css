@@ -23,10 +23,6 @@
 #pg-top .v3-top-list--full li:nth-child(-n+3) .v3-rowbtn > i { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: 50%; background: color-mix(in srgb, var(--v3-acc) 12%, transparent); color: var(--v3-acc); }
 #pg-top .v3-top-list--full .v3-rowbtn { min-height: 64px; }
 #pg-top .v3-top-list--full b { font-size: 18px; font-weight: 650; }
-.chat-tracker-head { position: static; grid-template-columns: 32px minmax(0, 1fr); padding-block: 10px 18px; background: none; }
-.chat-tracker-head .v3-eyebrow { display: block; margin-bottom: 7px; }
-.chat-tracker-head h1 { font: var(--v3-w-head) 28px/1.15 var(--v3-font); letter-spacing: -.03em; }
-.chat-tracker-head p { margin-top: 7px; white-space: normal; font-size: 13px; }
 .chat-tracker-summary > div { justify-content: start; text-align: left; padding: 16px 10px; }
 .chat-tracker-summary > div:first-child { padding-left: 0; }
 .chat-tracker-summary b { font: var(--v3-w-num) 28px/1.1 var(--v3-font); }
@@ -60,7 +56,6 @@
 .px-market-row small, .px-asset small, .px-order small { font-size: 12px; }
 .px-market-row { min-height: 70px; }
 @media (max-width: 359px) {
-  .chat-tracker-head h1 { font-size: 25px; }
   .chat-tracker-summary b, .px-summary b { font-size: 24px; }
   #pro-main .v3-stats b { font-size: 24px; }
 }

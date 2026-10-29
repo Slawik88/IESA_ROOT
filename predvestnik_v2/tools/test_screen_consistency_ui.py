@@ -52,6 +52,15 @@ def screens(stand, browser, args) -> None:
         page.get_by_role('tab', name='Бестиарий', exact=False).click()
         shot(page, args.shots, 'pets-bestiary', width)
         check_width(page)
+        if not args.existing:
+            page.route('**/pets-v1/me', lambda route: route.fulfill(status=503, json={'detail': 'Нет связи.'}))
+            page.evaluate('_trClassic()')
+            page.locator('#pg-pets [role="alert"]').wait_for()
+            assert page.locator('#pg-pets .v3-head').count() == 1
+            assert all('http 503:' in item and '/pets-v1/me' in item for item in probe.take())
+            page.unroute('**/pets-v1/me')
+            page.get_by_role('button', name='Повторить', exact=True).click()
+            page.locator('#pg-pets .pet-tabs').wait_for()
         page.goto(stand.base + '/', wait_until='domcontentloaded')
         page.wait_for_function(PROFILE_READY)
         page.wait_for_function("!document.getElementById('preloader')")
@@ -94,7 +103,7 @@ def screens(stand, browser, args) -> None:
         print(f'OK screens @{width}', flush=True)
 
 
-def returns(stand, browser) -> None:
+def returns(stand, browser, warm=True) -> None:
     ctx, page, probe = open_app(stand, browser, 390)
     page.wait_for_function("!document.getElementById('preloader')")
     page.evaluate("switchPage('arena'); window.qaReturnSentinel='still-alive'")
@@ -111,8 +120,30 @@ def returns(stand, browser) -> None:
     started = time.perf_counter()
     page.locator('#lg-back-link').click()
     page.wait_for_function("typeof _activePage !== 'undefined' && _activePage === 'arena'")
-    assert page.evaluate("window.qaReturnSentinel === 'still-alive'"), page.evaluate("JSON.stringify(performance.getEntriesByType('navigation')[0]?.notRestoredReasons)")
-    print(f'OK menu → game → same live menu: {(time.perf_counter()-started)*1000:.0f} ms', flush=True)
+    if not warm:
+        assert page.evaluate("window.qaReturnSentinel !== 'still-alive'")
+        print('OK evicted source → same Games screen after normal loading', flush=True)
+        page.goto(stand.base + '/?startapp=guide_first-day', wait_until='domcontentloaded')
+        page.wait_for_function("typeof _GV !== 'undefined' && _GV.topic === 'first-day'")
+        page.evaluate('openPetsV1()')
+        page.wait_for_function("typeof _tr !== 'undefined' && !!_tr.me")
+        page.evaluate("leaveForGame('/rhythm-v2','pets')")
+        page.locator('#lg-title').wait_for()
+        def slow_profile(route):
+            response = route.fetch()
+            time.sleep(.7)
+            route.fulfill(response=response)
+        page.route('**/profile/me', slow_profile)
+        page.locator('#lg-back-link').click()
+        page.wait_for_function("typeof _activePage !== 'undefined' && _activePage === 'pets' && typeof _tr !== 'undefined' && !!_tr.me")
+        assert not page.locator('#pg-pets .pet-tabs').count(), 'cold return ignored Trail flag'
+        page.wait_for_timeout(600)
+        assert page.evaluate('_activePage') == 'pets', 'old launch topic replaced the return screen'
+        print('OK cold Pets return waits for flags and overrides the original guide launch', flush=True)
+        ctx.close()
+        return
+    cached = page.evaluate("window.qaReturnSentinel === 'still-alive'")
+    print(f'OK menu → game → same menu: {(time.perf_counter()-started)*1000:.0f} ms; restored from memory={cached}', flush=True)
     page.wait_for_function("document.querySelector('.v3-league-lv i')?.textContent === '5'")
     page.unroute('**/league-demo/api/pass')
     print('OK pass level refreshes after return', flush=True)
@@ -126,8 +157,7 @@ def returns(stand, browser) -> None:
     page.reload(wait_until='domcontentloaded')
     page.locator('#lg-back-link').click()
     page.wait_for_function("typeof _GV !== 'undefined' && _GV.topic === 'rhythm' && _GV.view === 'topic'")
-    assert page.evaluate("window.qaReturnSentinel === 'still-alive'")
-    print('OK guide → game → mode switch → refresh → same live topic', flush=True)
+    print('OK guide → game → mode switch → refresh → same topic', flush=True)
     # A direct visit has no pending trip: stale sessionStorage cannot hijack Back.
     page.goto(stand.base + '/minesweeper', wait_until='domcontentloaded')
     assert page.locator('#lg-back-link').get_attribute('href') == stand.base.removeprefix(f'http://127.0.0.1:{stand.port}') + '/?startapp=games'
@@ -151,11 +181,15 @@ def main() -> None:
     with nullcontext(stand) if args.existing else stand:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(executable_path=chromium_path(), ignore_default_args=['--disable-back-forward-cache'])
-            if not args.returns_only:
-                screens(stand, browser, args)
             if not args.existing or args.returns_only:
                 returns(stand, browser)
+            if not args.returns_only:
+                screens(stand, browser, args)
             browser.close()
+            if not args.existing:
+                cold_browser = pw.chromium.launch(executable_path=chromium_path())
+                returns(stand, cold_browser, warm=False)
+                cold_browser.close()
 
 
 if __name__ == '__main__':

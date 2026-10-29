@@ -17,7 +17,7 @@ function _gameMode(game){ const open=_league?!!_league.allowed:_ls('pv_league_ac
 // WebView без Navigation API использует обычную ссылку из общей шапки игры.
 function leaveForGame(path, returnTo = 'games') {
   try {
-    const nonce = crypto.randomUUID();
+    const nonce = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     history.replaceState({...history.state, pvGameOrigin: nonce}, '');
     window.navigation?.updateCurrentEntry({state: {...window.navigation.currentEntry.getState(), pvGameOrigin: nonce}});
     sessionStorage.setItem('pv_game_return', JSON.stringify({nonce, url: location.origin + location.pathname, returnTo}));
@@ -26,6 +26,17 @@ function leaveForGame(path, returnTo = 'games') {
     else sessionStorage.removeItem('pv_back');
   } catch (_) { /* Запрет памяти не мешает открыть игру и вернуться по ссылке. */ }
   location.href = BASE + path;
+}
+// Браузер вправе выгрузить страницу из памяти. В этом случае тот же источник
+// восстанавливается после обычного входа; чужая или старая запись игнорируется.
+function gameReturnTarget() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('pv_game_return') || 'null');
+    if (!saved || typeof saved.nonce !== 'string' || !saved.nonce || history.state?.pvGameOrigin !== saved.nonce
+        || saved.url !== location.origin + location.pathname) return '';
+    return saved.returnTo === 'games' || saved.returnTo === 'pets' || /^guide_[a-z]+(-[a-z]+)*$/.test(saved.returnTo) ? saved.returnTo : '';
+  } catch (_) { /* Повреждённая память не мешает обычному входу. */ }
+  return '';
 }
 function openRhythmV2Game(){ leaveForGame(_gameMode('rhythm')==='ranked'?'/league?game=rhythm':'/rhythm-v2'); }
 function openMinesweeperGame(){ leaveForGame(_gameMode('minesweeper')==='ranked'?'/league?game=minesweeper':'/minesweeper'); }

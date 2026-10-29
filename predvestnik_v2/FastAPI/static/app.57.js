@@ -30,7 +30,8 @@ function _gvBot() {
   const link = 'https://t.me/' + name;
   if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(link); else window.open(link, '_blank', 'noopener');
 }
-// Игры живут на своих страницах: показываем «Открываем…», а «‹» в игре вернёт в эту же тему (pv_back читает game-shell-v3.html).
+// Игры живут на своих страницах: показываем «Открываем…», а общая оболочка игры
+// хранит тему возврата и по «‹» восстанавливает её в приложении.
 function _gvLeave(path, what) {
   try { if (_GV.view === 'topic' && _GV.topic) sessionStorage.setItem('pv_back', 'guide_' + _GV.topic); } catch (_) {}
   const root = el('pg-help');

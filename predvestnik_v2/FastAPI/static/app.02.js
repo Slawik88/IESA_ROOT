@@ -204,15 +204,21 @@ _runPreloader();
 // Parity registry: bot redirects open the Mini App through
 // ?startapp=<section>; lightweight chat surfaces remain in chat and do not
 // need a web hop. The start parameter only selects the complex destination.
-function _handleStartParam(){
-  // ?startapp=<раздел> в адресе страницы главнее нативного start_param: это переход внутри приложения (например «‹» из игры),
-  // а нативный параметр остаётся от первого запуска и перебил бы его.
-  let p=''; try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){}
+function _handleStartParam(profileReady){
+  // Сначала проверенный возврат из игры, затем ?startapp в адресе и нативный
+  // start_param: параметры первого входа не должны перебивать поздний возврат.
+  let p=gameReturnTarget();
+  const restored=!!p;
+  if(!p) try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){}
   if(!p){ try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){} }
   if(!p) return;
   const base=p.split('_')[0];
   if(base==='admin'){ openBotAdmin(); return; }   // ссылка «🛠 Открыть админку» из чата: сразу в админку, без показа приложения
-  const run=fn=>setTimeout(()=>{ const go=()=>{ try{ fn(); }catch(e){} }; window.pvLateCss ? pvLateCss.then(go) : go(); }, 380);   // экран по ссылке строится, когда его стили пришли
+  const run=fn=>setTimeout(()=>{
+    const go=()=>{ try{ fn(); if(restored) sessionStorage.removeItem('pv_game_return'); }catch(e){} };
+    const styled=()=>{ window.pvLateCss ? pvLateCss.then(go) : go(); };
+    if(restored) Promise.resolve(profileReady).then(styled); else styled();
+  }, 380);   // возврат ждёт флаги профиля и стили; старый параметр запуска его не перебивает
   const settings=()=>{ switchPage('profile'); setTimeout(()=>{ try{ openSettingsModal(); }catch(e){} },260); };
   // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
   // Лениво: часть экранов (window.openQuestsV1 и др.) объявляется в более поздних частях скрипта, прямое обращение здесь роняло весь скрипт ReferenceError'ом.
@@ -234,7 +240,7 @@ function _handleStartParam(){
   if(LINKS[base]) { run(LINKS[base]); return; }
   if(['arena','games','game','barracks','gates','gacha','deal','craft','auction','market','relics','clans','ach'].includes(base)) run(()=>goTo('arena','game'));
 }
-if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
+if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){const initialProfile=loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam(initialProfile);}
 
 // ── Sticky currency bar ───────────────────────────────────────────────────────
 // Редизайн v5: хедер с валютами виден ВСЕГДА (см. showCurrBar ниже — параметр show

@@ -398,6 +398,7 @@ window.addEventListener('pageshow', event => {
   refreshInitData();
   connectWS();
   refreshCurrBar();
+  loadPendingNotifications();
   queueDynamicRefresh('profile');
   if (_activePage === 'arena') { _leagueAt = 0; loadActivitiesHub(); }
   if (_activePage === 'pets') {

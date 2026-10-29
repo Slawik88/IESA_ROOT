@@ -473,7 +473,7 @@
     try {
       renderPetsV1(root, await api('/pets-v1/me'));
     } catch (error) {
-      root.innerHTML = `<div class="v3-err" style="margin:16px">${esc(error)}</div>`;
+      root.innerHTML = `${v3Head('Питомцы', {back: "goTo('profile')"})}<div class="v3-empty" role="alert"><p>Не получилось загрузить питомцев. Попробуй ещё раз — прогресс сохранён.</p><button type="button" class="v3-pill" onclick="openPetsV1()">Повторить</button></div>`;
     }
   };
   window.showPetPanel = function (name, button) {

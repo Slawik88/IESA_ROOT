@@ -5,6 +5,24 @@ const path = require('node:path');
 const vm = require('node:vm');
 const read = name => fs.readFileSync(path.join(__dirname, '../FastAPI/static', name), 'utf8');
 const trip = {nonce: 'qa-origin', url: 'https://qa.test/predvestnik/', returnTo: 'guide_rhythm'};
+{
+  const memory = new Map();
+  const source = read('app.04.js');
+  const box = {window: {}, BASE: '/predvestnik', history: {state: {pvGameOrigin: trip.nonce}},
+    location: {origin: 'https://qa.test', pathname: '/predvestnik/'},
+    sessionStorage: {getItem: k => memory.get(k), removeItem: k => memory.delete(k)}};
+  vm.createContext(box);
+  vm.runInContext(source.slice(source.indexOf('function leaveForGame('), source.indexOf('function openRhythmV2Game(')), box);
+  const target = data => { memory.set('pv_game_return', JSON.stringify(data)); return vm.runInContext('gameReturnTarget()', box); };
+  assert.equal(target(trip), 'guide_rhythm');
+  assert.equal(target({...trip, returnTo: 'pets'}), 'pets');
+  assert.equal(target({...trip, returnTo: 'admin'}), '');
+  assert.equal(target({...trip, nonce: 'stale'}), '');
+  box.history.state = null;
+  assert.equal(target({url: trip.url}), '');
+  memory.set('pv_game_return', '{broken');
+  assert.equal(vm.runInContext('gameReturnTarget()', box), '');
+}
 function game({pending = true, stored = trip, state = null, previous = true, navigation = true} = {}) {
   const memory = new Map([['pv_game_return', JSON.stringify(stored)]]);
   if (pending) memory.set('pv_game_pending', trip.nonce);
@@ -39,6 +57,7 @@ fixture = game({pending: false});
 assert.equal(fixture.back.href, '/predvestnik/?startapp=games'); // stale previous visit
 assert(!fixture.click());
 assert(game({pending: false, state: {pvGameTrip: trip}}).click()); // refresh preserves entry state
+assert(!game({pending: false, state: {pvGameTrip: {url: trip.url}}}).click());
 fixture = game({stored: {nonce: trip.nonce, url: 'https://elsewhere.test/', returnTo: 'guide_rhythm'}});
 assert.equal(fixture.back.href, '/predvestnik/?startapp=games');
 assert(!fixture.click());
@@ -55,7 +74,7 @@ const box = {window: {addEventListener: (n, f) => { listeners[n] = f; }},
   BASE: 'https://qa.test', _uid: 1, INIT_DATA: '', sess: () => 'synthetic',
   _activePage: 'arena', loadActivitiesHub() { refreshes++; },
   setTimeout: f => { timers.set(++timer, f); return timer; }, clearTimeout: k => timers.delete(k), setInterval() {},
-  refreshInitData() {}, refreshCurrBar() { refreshes++; }, queueDynamicRefresh() {}, _syncBackButton() {}};
+  refreshInitData() {}, refreshCurrBar() { refreshes++; }, loadPendingNotifications() {}, queueDynamicRefresh() {}, _syncBackButton() {}};
 vm.createContext(box);
 const source = read('app.01.js');
 vm.runInContext(source.slice(source.indexOf('let _ws=null'), source.indexOf('function showAppUpdate(')), box);
