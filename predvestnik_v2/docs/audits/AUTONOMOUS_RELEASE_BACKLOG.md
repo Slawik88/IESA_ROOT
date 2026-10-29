@@ -1,3 +1,13 @@
+## ROADMAP-S08v + ROADMAP-S09 — HOW-TO FROM THE GUIDE, ADMIN GUIDE, PUSHED TO MASTER (owner's OK; production not verified from the cloud)
+
+S08v: «Слова в чате» in the games hub and «Правила» in the online-Mafia hub open guide topics instead of their own windows (`openWordChainHelp`
+removed); inside a running Mafia game the rules sheet stays (with a pointer to the guide); the casino keeps its live odds and links to the topic.
+S09: «Справка» in the admin page — `bot-admin/guide-admin.json` (25 topics, min_rank/section/actions/owner) rendered by `admin-guide.js` on admin
+primitives; a role sees only its topics (2 → 10, 4 → 16, 5 → 23, 6 → 25, chat owner → 3); «?» in the header opens the current section's topic,
+«Что это значит?» in dangerous-action confirmations; «бот админ помощь» lists this chat's thresholds with ✅ and gives staff a button to the guide.
+`runAction` pin updated deliberately (only the link was added). Checked locally: admin-guide contract (fails on a missing section/action/right),
+roles × widths in the browser, Telegram simulator for the command, guide/copy/coverage/patch-note/What's-new tests, `ui_smoke`. Not verified: production.
+
 ## ROADMAP-S08 — PLAYER GUIDE COMPLETE, PUSHED TO MASTER (production not verified from the cloud; S08v waits for the owner's OK)
 
 Guide 32 → 42 topics (transfers, streak, inventory, marks, the account-level circle, family and marriage, settings and privacy, warps and 18+, a chat-admin entry,
