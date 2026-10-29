@@ -1,3 +1,12 @@
+## ROADMAP-S10v — ADMIN QUICK ACTIONS, 10 S UNDO, PURGE INSIDE THE ADMIN, MERGED TO MASTER (owner's OK 2026-10-29; production not verified from the cloud)
+
+Player card quick actions (warn, mute, ban, message, balance), one-window actions with a summary, 10-second undo for chat sanctions (sent at once on close via `keepalive`),
+shield/immunity, DM from the bot (rank 5), skins and wallet cards (skins creator-only), pinned players, new search filters with pages, global-ban progress bar, the purge inside
+the admin (`admin-purge.js`, same `/purge-v1` server), live badge and purge progress over the WebSocket (`admin-live.js`), admin guide topics. Branch was already on current master.
+Re-checked before the push: `test_bot_admin_s10_pg`, `test_bot_admin_people_pg`, `test_bot_admin_security_pg` (fresh databases), `test_purge_queue_pg` and `test_global_ban_job_pg`
+(fresh + `bootstrap_test_db.py`), `test_skins_v3_pg` (shared base), UI contract, admin guide contract and UI, access guard, admin page, player copy, `admin_stand.py --tabs
+people,journal,reports` (0 problems at 320/390/430), `admin_clicks.py` (11 tasks). Not checked: production (owner), real Telegram.
+
 ## ROADMAP-S10 — ADMIN SEARCH, CARD DATA, SKINS CREATOR-ONLY, JOURNAL EXPORT, PUSHED TO MASTER (production not verified from the cloud; the screen S10v waits for the owner's OK)
 
 Admin player search with `paged=1` (old answer kept without it): pages for text and every filter, total in the same query (`COUNT(*) OVER()`), new filters `active:N`, `idle:N`, `silent`,
