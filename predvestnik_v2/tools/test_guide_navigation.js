@@ -17,7 +17,7 @@ function fixture() {
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id),
     fetch: async () => ({ ok: true, json: async () => data }),
     esc: s => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;'),
-    v3Head: title => `<h1>${title}</h1>`, location: { href: '' }, addEventListener() {},
+    v3Head: title => `<h1>${title}</h1>`, v3CurIn: html => html, location: { href: '' }, addEventListener() {},
   });
   vm.runInContext(source, ctx);
   const run = code => vm.runInContext(code, ctx);

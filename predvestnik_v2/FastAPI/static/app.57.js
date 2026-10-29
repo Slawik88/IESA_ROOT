@@ -185,7 +185,7 @@ function gvSearch(input) {
   _GV.q = input.value.trim();
   const out = el('gv-results'), home = el('gv-home'); if (!out || !home) return;
   out.hidden = !_GV.q; home.hidden = !!_GV.q;
-  out.innerHTML = _GV.q ? _gvResults(_GV.q) : '';
+  out.innerHTML = v3CurIn(_GV.q ? _gvResults(_GV.q) : '');
   // Поиск доступен и внизу списка: первые результаты должны оказаться перед глазами.
   if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'instant' });
 }
@@ -278,7 +278,7 @@ function gvPaint(position) {
   const root = el('pg-help'), d = _GV.data; if (!root || !d) return;
   const t = _GV.view === 'topic' && d.topics.find(x => x.id === _GV.topic);
   const missing = _GV.view === 'topic' && !t ? `${v3Head('Тема не найдена', { back: 'navBack()' })}<p class="gv-lead">Эта ссылка устарела. Найди ответ среди всех тем.</p>${_gvCrumbs({ id: '', title: 'Тема не найдена' })}${_gvSearchBox('gvSearchFrom')}` : '';
-  root.innerHTML = `<div class="gv-scope">${missing || (t ? _gvTopic(d, t) : _GV.view === 'terms' ? _gvTerms(d) : _GV.view === 'faq' ? _gvFaq(d) : _gvHub(d))}</div>`;
+  root.innerHTML = v3CurIn(`<div class="gv-scope">${missing || (t ? _gvTopic(d, t) : _GV.view === 'terms' ? _gvTerms(d) : _GV.view === 'faq' ? _gvFaq(d) : _gvHub(d))}</div>`);
   if (_GV.offline) root.firstElementChild.insertAdjacentHTML('afterbegin', '<p class="gv-offline" role="status">Нет связи. Показана сохранённая версия: правила могли измениться. <button type="button" class="v3-link" onclick="gvReload()">Обновить</button></p>');
   if (_GV.view === 'hub' && _GV.q) gvSearch(el('gv-q'));
   if (position && el('gv-filter')) { el('gv-filter').value = position.filter || ''; gvFilter(el('gv-filter'), _GV.view === 'terms' ? 'term' : 'q'); }
