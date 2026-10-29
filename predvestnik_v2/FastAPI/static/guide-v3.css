@@ -151,3 +151,4 @@
 /* Тот же лист поверх нативного окна Кошелька/семьи, без рамок браузерного dialog. */
 dialog#g-sheet { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; color: inherit; }
 dialog#g-sheet::backdrop { background: transparent; }
+.gv-book { margin-top: 18px; }

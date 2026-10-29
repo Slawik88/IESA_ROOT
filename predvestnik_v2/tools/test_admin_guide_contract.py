@@ -8,7 +8,8 @@
 - every chat moderation right (core/chat_rank_policy.py ACTIONS) is named in «Команды в чате» with its default rank;
 - the bot roles, the configurable bounds (services/admin_access.py) and the limits in the text are the numbers of the code;
 - texts follow docs/PLAYER_COPY.md (reader: a new moderator): short paragraphs and steps, «what» first;
-- the page loads the data and the script (FastAPI/routers/bot_admin/page.py, index.html).
+- the page loads the data and the script (FastAPI/routers/bot_admin/page.py, index.html);
+- the Mini App Guide screen shows it (admin book): every reader gets only their topics, in the player Guide format (services/admin_guide.py).
 """
 from __future__ import annotations
 
@@ -150,7 +151,27 @@ index = (ADMIN / "index.html").read_text(encoding="utf-8")
 assert '"guide-admin.json"' in page and '"admin-guide.js"' in page, "файлы справки отдаются страницей админки (_TYPES)"
 assert index.index("admin-guide.js") < index.index("admin-boot.js"), "справка подключена до старта админки"
 script = (ADMIN / "admin-guide.js").read_text(encoding="utf-8")
-assert "min_rank" in script and "ME.owner" in script and "open(" in script, "справка фильтрует темы по роли и открывает разделы"
+assert "startapp=adminguide_" in script and "min_rank" in script, "вкладка, «?» и «Что это значит?» ведут в Путеводитель Mini App, тема — по роли"
+
+# ── Показ: экран Путеводителя игрока (app.57.js), книга администрации под роль читателя ─────────────────────────────
+from services import admin_guide  # noqa: E402
+static = ROOT / "FastAPI" / "static"
+assert "adminguide:" in (static / "app.02.js").read_text(encoding="utf-8"), "ссылка ?startapp=adminguide_<тема>_<раздел> открывает книгу администрации"
+assert "/bot-admin/api/guide" in (static / "app.57.js").read_text(encoding="utf-8"), "Путеводитель Mini App читает книгу администрации у сервера"
+readers = {f"роль {r}": dict(rank=r, sections={k for k, (_t, need) in SECTIONS.items() if r >= need} | {"mychats"}) for r in (2, 3, 4, 5, 6)}
+readers["владелец чата"] = dict(owner=True, sections={"mychats"})
+counts = {}
+for who, reader in readers.items():
+    book = admin_guide.for_reader(**reader)
+    ids = {t["id"] for t in book["topics"]}
+    counts[who] = len(ids)
+    assert ids and all(g["topics"] and set(g["topics"]) <= ids for g in book["groups"]), f"{who}: группы только из своих тем"
+    assert {i for g in book["groups"] for i in g["topics"]} == ids, f"{who}: каждая тема в разделе"
+    assert all(set(t.get("next", [])) <= ids and isinstance(t["where"].get("path"), str) and isinstance(t["where"].get("label"), str)
+               and "go" not in t["where"] and not ({"min_rank", "section", "actions", "owner"} & set(t)) for t in book["topics"]), f"{who}: формат Путеводителя игрока"
+    assert all(t["where"]["admin"] in reader["sections"] for t in book["topics"] if "admin" in t["where"]), f"{who}: «Открыть» — только в свои разделы"
+    assert all(x["t"] in ids for x in book["glossary"] + book["faq"]), f"{who}: словарь и вопросы — по своим темам"
+assert counts["роль 2"] < counts["роль 4"] < counts["роль 5"] < counts["роль 6"] and counts["владелец чата"] < counts["роль 2"], counts
 assert not problems, "\n".join(problems)
 print(f"OK: admin guide {len(topics)} topics, {len(guide['glossary'])} terms, {len(guide['faq'])} answers; "
-      f"{len(SECTIONS) + 1} sections, {len(ACTIONS)} actions, {len(CHAT_ACTIONS)} chat rights match the code")
+      f"{len(SECTIONS) + 1} sections, {len(ACTIONS)} actions, {len(CHAT_ACTIONS)} chat rights match the code; books by reader {counts}")

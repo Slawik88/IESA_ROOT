@@ -458,46 +458,9 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .support-admin{display:grid;gap:14px;min-width:0}.support-admin .section-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.support-admin-counts{display:flex;gap:10px;flex-wrap:wrap}.support-admin-counts>div,.support-admin-counts>button{flex:1;min-width:110px;padding:12px;text-align:left}.support-admin-counts b,.support-admin-counts span{display:block}.support-admin-counts b{font-size:23px}.support-admin-counts span{font-size:12px}.support-admin-filters{display:flex;gap:12px;flex-wrap:wrap}.support-admin label{display:grid;gap:6px;min-width:140px}.support-admin-list{display:grid;gap:10px}.support-admin-row{display:flex;justify-content:space-between;gap:12px;text-align:left;width:100%;min-width:0;color:inherit;cursor:pointer}.support-admin-row>span{min-width:0;overflow-wrap:anywhere}.support-admin-row small{display:block;margin:5px 0}.support-admin-pages{display:flex;justify-content:center;align-items:center;gap:16px}.support-admin-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:0}.support-admin-meta>div{padding:9px;border:1px solid var(--line,#444);border-radius:10px;min-width:0}.support-admin-meta dt{font-size:12px;opacity:.8}.support-admin-meta dd{margin:4px 0 0;overflow-wrap:anywhere}.support-admin-comment{white-space:pre-wrap;overflow-wrap:anywhere}.support-admin-table{overflow:auto;max-height:400px}.support-admin-table td,.support-admin-table th{text-align:left;padding:7px;font-size:12px;vertical-align:top}.support-admin-table code{white-space:pre-wrap;overflow-wrap:anywhere}.support-admin details summary{min-height:44px;display:flex;align-items:center;cursor:pointer}.support-admin select{min-height:44px}
 .support-admin .card{background:var(--panel,#17151f);border:1px solid var(--line,#39333f);border-radius:16px;padding:16px;color:inherit;font:inherit}.support-admin .support-admin-row{align-items:flex-start;line-height:1.5}.support-admin .support-admin-row small{color:var(--muted,#a79db6)}.support-admin .pill{padding:4px 9px;border-radius:9px;background:#ae8be01a;font-size:12px;white-space:nowrap}.support-admin button:focus-visible{outline:2px solid #c59aef;outline-offset:3px}.support-admin .support-admin-counts button:hover{border-color:#a887cb}
 
-/* ═══ СПРАВКА (S09, admin-guide.js, данные guide-admin.json) — на токенах админки, без своих цветов ═══ */
+/* ═══ ПУТЕВОДИТЕЛЬ АДМИНИСТРАЦИИ: сам экран — в Mini App (guide-v3.css); здесь только ссылка «Что это значит?» в окне подтверждения ═══ */
 .ag-link { min-height: 44px; padding: 0; border: 0; background: none; color: var(--accent); font-weight: 500; text-align: left; cursor: pointer; }
-.ag-q { margin: 4px 0 6px; font-size: 16px; }   /* 16 px: iOS не увеличивает страницу при фокусе */
-.ag-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 12px; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--text); text-align: left; cursor: pointer; }
-.sec-body .ag-row:first-child { border-top: 0; }
-.ag-row b { display: block; font-weight: 600; }
-.ag-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; line-height: 1.4; }
-.ag-row i { color: var(--muted); font-style: normal; }
-.ag-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--dock-on); font-size: 17px; }
-.ag-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; color: var(--muted); font-size: 13px; }
-.ag-what { margin: 6px 0 0; padding: 12px 14px; border-radius: var(--r); background: color-mix(in srgb, var(--accent) 12%, transparent); line-height: 1.5; }
-.ag-b { scroll-margin-top: 80px; }
-.ag-steps { display: grid; gap: 12px; margin: 6px 0 0; padding-left: 22px; }
-.ag-steps b, .ag-list b { display: block; font-weight: 600; }
-.ag-steps span, .ag-list small { display: block; margin-top: 2px; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
-.ag-list { display: grid; gap: 10px; margin: 6px 0 0; padding: 0; list-style: none; }
-.ag-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 10px; }
-.ag-list li > span { grid-row: 1 / 3; font-size: 18px; }
-.ag-words { margin: 6px 0 0; }
-.ag-words div { padding: 8px 0; border-top: 1px solid var(--line); }
-.ag-words div:first-child { border-top: 0; }
-.ag-words dt { font-weight: 600; }
-.ag-words dd { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
-.ag-note { margin-top: 16px; padding: 10px 14px; border-radius: var(--r); background: var(--dock-on); box-shadow: inset 3px 0 0 var(--accent); }
-.ag-note b { font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
-.ag-note p { margin: 4px 0 0; line-height: 1.5; }
-.ag-warn { box-shadow: inset 3px 0 0 var(--bad); }
-.ag-warn b { color: var(--bad); }
-.ag-toc { margin-top: 12px; padding: 4px 14px; border: 1px solid var(--line); border-radius: var(--r); }
-.ag-toc summary { min-height: 44px; padding: 12px 0; font-weight: 600; cursor: pointer; }
-.ag-toc ol { margin: 0 0 8px; padding-left: 20px; }
-.ag-where { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r); }
-.ag-where > div { flex: 1 1 160px; min-width: 0; }
-.ag-where small { display: block; color: var(--muted); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; }
-.ag-where b { display: block; margin-top: 2px; font-weight: 600; }
-.ag-faq { padding: 4px 0; border-top: 1px solid var(--line); }
-.ag-faq summary { min-height: 44px; padding: 10px 0; font-weight: 600; cursor: pointer; }
-.ag-faq p { margin: 0 0 4px; color: var(--muted); }
 .ag-why { display: block; margin-top: 10px; }
-#ag-home:not([hidden]) { display: contents; }   /* группы справки — прямые потомки страницы, как секции других разделов */
 
 /* S10: быстрые действия карточки игрока, полоса «Отменить», ход «Чистки» */
 .qacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; margin-top: 12px; }

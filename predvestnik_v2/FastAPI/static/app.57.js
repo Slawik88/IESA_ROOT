@@ -3,9 +3,15 @@
 // (что это · шаги · что даёт · слова · совет · где найти), «Читать по порядку», словарь и частые вопросы. Правила текстов — docs/PLAYER_COPY.md.
 // Ссылка на тему: ?startapp=guide_<id> или guide_<id>_<номер блока> (app.02.js), из подсказок и игр — openGuide('<id>'). Стили: guide-v3.css (префикс gv-).
 // Тема, открытая с другого экрана (💡, профиль, ссылка), помнит это: «Назад» сразу возвращает туда, а не на главную Путеводителя (_GV.ext).
-const _GV = { data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, origin: null, block: 0, missTimer: 0, missSent: new Set() };
-const _GV_STORE = 'pv_guide_v1';
-const _GV_LAST = 'pv_guide_last';
+const _GV = { book: 'player', adminFrom: '', data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, origin: null, block: 0, missTimer: 0, missSent: new Set() };
+// Две книги одним экраном: Путеводитель игрока и Путеводитель администрации (темы для персонала и владельцев чатов,
+// данные bot-admin/guide-admin.json, сервер отдаёт только темы роли читателя: services/admin_guide.py).
+const _GV_BOOKS = {
+  player: { title: 'Путеводитель', sub: 'Всё об игре: найди нужное или читай по порядку', store: 'pv_guide_v1', last: 'pv_guide_last', example: 'мора', hint: '«опыт», «ключи», «питомец» или «VIP»', start: ['first-day', 'map', 'welcome'] },
+  admin: { title: 'Путеводитель администрации', sub: 'Как модерировать и работать в админке', store: 'pv_guide_admin_v1', last: 'pv_guide_admin_last', example: 'мут', hint: '«мут», «бан», «жалобы» или «права»', start: ['first-day', 'roles', 'situations'] },
+};
+const _gvBook = () => _GV_BOOKS[_GV.book] || _GV_BOOKS.player;
+const _gvStaff = () => !!(typeof _profileData === 'object' && _profileData && (_profileData.is_staff || _profileData.is_developer));
 const _GV_STOP = new Set(['как', 'где', 'что', 'это', 'для', 'мне', 'меня', 'мой', 'мои', 'моя', 'мою', 'его', 'или', 'такое', 'такой', 'почему', 'взять', 'найти', 'получить', 'дают', 'даются', 'видно', 'хочу', 'могу', 'ли', 'если', 'делать']);
 // Как игроки называют вещи в чате → слово из тем. Добавляй сюда, когда «Здоровье» показывает частый запрос без ответа (guide_miss).
 const _GV_ALIAS = { бп: 'пропуск', bp: 'пропуск', батлпас: 'пропуск', баттлпас: 'пропуск', пасс: 'пропуск', xp: 'опыт', хп: 'сердца', exp: 'опыт', экспа: 'опыт', лвл: 'уровень', lvl: 'уровень',
@@ -56,7 +62,7 @@ function _gvValid(d) {
   return ids.size === d.topics.length && d.topics.every(t => strings(t, ['id', 'title', 'lead', 'icon']) && /^[a-z]+(-[a-z]+)*$/.test(t.id)
     && Array.isArray(t.blocks) && t.blocks.every(block) && strings(t.where, ['path', 'label'])
     && (!t.kw || Array.isArray(t.kw) && t.kw.every(w => typeof w === 'string'))
-    && (!t.where.go || Object.hasOwn(_GV_GO, t.where.go)) && (!t.next || Array.isArray(t.next) && t.next.every(id => ids.has(id))))
+    && (!t.where.go || Object.hasOwn(_GV_GO, t.where.go)) && (!t.where.admin || typeof t.where.admin === 'string') && (!t.next || Array.isArray(t.next) && t.next.every(id => ids.has(id))))
     && d.groups.every(g => strings(g, ['id', 'title', 'icon', 'sub']) && /^[a-z]+$/.test(g.id) && Array.isArray(g.topics) && g.topics.every(id => ids.has(id)))
     && d.glossary.every(g => strings(g, ['w', 'p', 't']) && ids.has(g.t)) && d.faq.every(f => strings(f, ['q', 'a', 't']) && ids.has(f.t));
 }
@@ -69,18 +75,22 @@ function _gvCrumbs(t) {
   const group = t && _gvGroupOf(t.id);
   const link = (label, act, key) => `<button type="button" class="gv-crumb" data-gv-key="${key}" onclick="${act}">${esc(label)}</button>`;
   const tail = group ? `<i aria-hidden="true">›</i>${link(group.title, `gvGroup('${esc(group.id)}')`, 'crumb-group')}` : '';
-  return `<nav class="gv-crumbs" aria-label="Где ты в Путеводителе">${link('Путеводитель', 'gvHome()', 'crumb-home')}${tail}</nav>`;
+  return `<nav class="gv-crumbs" aria-label="Где ты в Путеводителе">${link(_gvBook().title, 'gvHome()', 'crumb-home')}${tail}</nav>`;
 }
-const _gvSearchBox = (handler, value = '') => `<div class="gv-search"><input id="gv-q" class="v3-field" type="search" placeholder="Что ищешь? Например: мора" value="${esc(value)}" oninput="${handler}(this)" autocomplete="off" enterkeyhint="search" aria-label="Поиск по Путеводителю"></div>`;
+const _gvSearchBox = (handler, value = '') => `<div class="gv-search"><input id="gv-q" class="v3-field" type="search" placeholder="Что ищешь? Например: ${_gvBook().example}" value="${esc(value)}" oninput="${handler}(this)" autocomplete="off" enterkeyhint="search" aria-label="Поиск по Путеводителю"></div>`;
 const _gvHubButton = t => `${_gvCrumbs(t)}${_gvSearchBox('gvSearchFrom')}${_GV.view === 'topic' ? '<nav class="gv-tools"><button type="button" class="v3-link gv-all" data-gv-key="dictionary" onclick="gvView(\'terms\')">Словарь</button></nav>' : ''}`;
 
 function gvLoad() {
   if (_GV.data) return Promise.resolve(_GV.data);
   if (_GV.pending) return _GV.pending;
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 8000);
-  _GV.pending = fetch(BASE + '/guide-v3.json', { cache: 'no-cache', signal: controller.signal }).then(r => { if (!r.ok) throw new Error('guide'); return r.json(); })
-    .then(d => { if (!_gvValid(d)) throw new Error('guide'); _GV.offline = false; try { localStorage.setItem(_GV_STORE, JSON.stringify(d)); } catch (_) {} return d; })
-    .catch(() => { try { const d = JSON.parse(localStorage.getItem(_GV_STORE)); if (_gvValid(d)) { _GV.offline = true; return d; } } catch (_) {} throw new Error('guide'); })
+  const book = _gvBook(), admin = _GV.book === 'admin';
+  // Путеводитель администрации — под роль читателя: сотрудник, иначе владелец чата; чужим сервер отвечает 403.
+  const get = path => fetch(BASE + path, { cache: 'no-cache', signal: controller.signal, ...(admin ? { headers: hdrs() } : {}) });
+  const request = admin ? get('/bot-admin/api/guide').then(r => r.status === 403 ? get('/bot-admin/api/owner/guide') : r) : get('/guide-v3.json');
+  _GV.pending = request.then(r => { if (r.status === 403) throw Object.assign(new Error('guide'), { denied: true }); if (!r.ok) throw new Error('guide'); return r.json(); })
+    .then(d => { if (!_gvValid(d)) throw new Error('guide'); _GV.offline = false; try { localStorage.setItem(book.store, JSON.stringify(d)); } catch (_) {} return d; })
+    .catch(e => { if (e.denied) throw e; try { const d = JSON.parse(localStorage.getItem(book.store)); if (_gvValid(d)) { _GV.offline = true; return d; } } catch (_) {} throw new Error('guide'); })
     .then(d => { _GV.data = d; _GV.index = null; _GV.vocab = null; return d; })
     .finally(() => { clearTimeout(timer); _GV.pending = null; });
   return _GV.pending;
@@ -147,7 +157,7 @@ function gvNear(q) {
   const need = [...new Set(_gvWords(q).map(_gvStem))], score = new Map();
   for (const p of _gvIndex()) if (p.kind === 'topic') need.forEach(n => { if (p.words.some(w => w.startsWith(n))) score.set(p.id, (score.get(p.id) || 0) + p.w); });
   const ids = [...score.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
-  for (const id of ['first-day', 'map', 'welcome']) if (!ids.includes(id)) ids.push(id);
+  for (const id of _gvBook().start) if (!ids.includes(id) && _GV.data.topics.some(t => t.id === id)) ids.push(id);
   return ids.slice(0, 3);
 }
 // Запрос без ответа — анонимно в «Здоровье» админки (S01, тип guide_miss): так видно, каких тем не хватает. Один раз на запрос, после паузы в наборе.
@@ -173,7 +183,7 @@ function _gvResults(q) {
   if (!rows.length) {
     _gvMiss(q);
     const near = gvNear(q).map(id => d.topics.find(t => t.id === id)).filter(Boolean).map(_gvRow).join('');
-    return `<div class="v3-empty"><b>Точного ответа нет</b><span>Попробуй коротко: «опыт», «ключи», «питомец» или «VIP». Или загляни в близкие темы:</span></div><div class="gv-near">${near}</div><nav class="gv-tools"><button type="button" class="v3-link" onclick="gvClear()">Показать все темы</button><button type="button" class="v3-link" onclick="gvView('terms')">Открыть словарь</button></nav>`;
+    return `<div class="v3-empty"><b>Точного ответа нет</b><span>Попробуй коротко: ${_gvBook().hint}. Или загляни в близкие темы:</span></div><div class="gv-near">${near}</div><nav class="gv-tools"><button type="button" class="v3-link" onclick="gvClear()">Показать все темы</button><button type="button" class="v3-link" onclick="gvView('terms')">Открыть словарь</button></nav>`;
   }
   const head = fixed ? `<p class="gv-sub gv-fixed" role="status">Похоже на опечатку — показываю «${esc(fixed)}»</p>` : '';
   return head + `<p class="gv-sub">Подходящие темы и ответы · ${rows.length}</p>` + rows.map(r => r.kind === 'topic' ? _gvRow(d.topics.find(t => t.id === r.id))
@@ -195,22 +205,27 @@ function _gvQuick(d) {
   return d.groups.map(g => d.faq.findIndex(f => g.topics.includes(f.t))).filter(i => i >= 0);
 }
 function _gvHub(d) {
-  let last; try { last = d.topics.find(t => t.id === localStorage.getItem(_GV_LAST)); } catch (_) {}
+  const book = _gvBook();
+  let last; try { last = d.topics.find(t => t.id === localStorage.getItem(book.last)); } catch (_) {}
   const resume = last ? `<button type="button" class="gv-resume" onclick="gvOpen('${esc(last.id)}')"><small>Продолжить чтение · тема ${d.topics.indexOf(last) + 1} из ${d.topics.length}</small><b>${esc(last.title)} ›</b></button>` : '';
   const quick = _gvQuick(d).map(i => `<button type="button" class="gv-chip" onclick="gvOpenFaq(${i})">${esc(d.faq[i].q)}</button>`).join('');
   const sections = `<nav class="gv-sections" aria-label="Разделы Путеводителя">${d.groups.map(g => `<button type="button" class="gv-chip" onclick="gvGroup('${esc(g.id)}')">${esc(g.title)}</button>`).join('')}</nav>`;
   // Группы свёрнуты, кроме «Начни отсюда» и той, где последняя прочитанная тема: 32 темы не растягиваются на три экрана.
   const lastGroup = last && _gvGroupOf(last.id);
   const groups = d.groups.map((g, i) => `<details class="v3-group gv-group" id="gv-group-${esc(g.id)}"${i === 0 || g === lastGroup ? ' open' : ''}><summary><h2 class="v3-eyebrow">${esc(g.icon)} ${esc(g.title)}</h2><p class="gv-sub">${esc(g.sub)} · ${g.topics.length}</p></summary>${g.topics.map(id => _gvRow(d.topics.find(t => t.id === id))).join('')}</details>`).join('');
-  return `${v3Head('Путеводитель', { sub: 'Всё об игре: найди нужное или читай по порядку', back: 'navBack()' })}
+  // Персоналу и владельцам чатов — вход во вторую книгу; из неё — обратно в книгу игрока.
+  const other = _GV.book === 'admin'
+    ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('player')"><small>Для всех игроков</small><b>Путеводитель игрока ›</b></button>`
+    : _gvStaff() ? `<button type="button" class="gv-resume gv-book" onclick="openGuideBook('admin')"><small>Для персонала и владельцев чатов</small><b>🛡 Путеводитель администрации ›</b></button>` : '';
+  return `${v3Head(book.title, { sub: book.sub, back: 'navBack()' })}
     ${_gvSearchBox('gvSearch', _GV.q)}
     <div id="gv-results" hidden aria-live="polite"></div>
     <div id="gv-home">${resume}<div class="gv-cta"><button type="button" class="v3-pill" onclick="gvOpen('${esc(d.topics[0].id)}')">Читать по порядку ›</button><button type="button" class="v3-pill v3-pill--ghost" onclick="gvView('terms')">Словарь</button><button type="button" class="v3-pill v3-pill--ghost" onclick="gvView('faq')">Все вопросы</button></div>
-      <h2 class="v3-eyebrow gv-eb">Выбери раздел</h2>${sections}<h2 class="v3-eyebrow gv-eb">Быстрые ответы</h2><div class="gv-chips">${quick}</div>${groups}</div>`;
+      <h2 class="v3-eyebrow gv-eb">Выбери раздел</h2>${sections}<h2 class="v3-eyebrow gv-eb">Быстрые ответы</h2><div class="gv-chips">${quick}</div>${groups}${other}</div>`;
 }
 function _gvTerms(d) {
   const rows = d.glossary.map((g, i) => `<div class="gv-term"><dt>${esc(g.w)}</dt><dd>${esc(g.p)} <button type="button" class="v3-link" data-gv-key="term-${i}" onclick="gvOpen('${esc(g.t)}')">Тема ›</button></dd></div>`).join('');
-  return `${v3Head('Словарь', { sub: `${d.glossary.length} слов из игры — по алфавиту`, back: 'navBack()' })}${_gvHubButton()}<label class="gv-filter">Найти слово<input id="gv-filter" class="v3-field" type="search" oninput="gvFilter(this, 'term')" placeholder="Например: Следы"></label><dl class="gv-terms">${rows}</dl><p id="gv-filter-empty" hidden>Такого слова нет. Попробуй поиск по всем темам.</p>`;
+  return `${v3Head('Словарь', { sub: `${d.glossary.length} слов${_GV.book === 'admin' ? '' : ' из игры'} — по алфавиту`, back: 'navBack()' })}${_gvHubButton()}<label class="gv-filter">Найти слово<input id="gv-filter" class="v3-field" type="search" oninput="gvFilter(this, 'term')" placeholder="Например: Следы"></label><dl class="gv-terms">${rows}</dl><p id="gv-filter-empty" hidden>Такого слова нет. Попробуй поиск по всем темам.</p>`;
 }
 function _gvFaq(d) {
   const row = i => { const f = d.faq[i]; return `<details class="gv-q" id="gv-q-${i}"${i === _GV.faq ? ' open' : ''}><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p><button type="button" class="v3-link" data-gv-key="faq-${i}" onclick="gvOpen('${esc(f.t)}')">Читать тему ›</button></details>`; };
@@ -250,7 +265,9 @@ const _GV_BLOCK = {
 };
 function _gvWhere(w) {
   if (!w) return '';
-  const go = w.go && _GV_GO[w.go] ? `<button type="button" class="v3-pill v3-pill--sm" onclick="gvGo('${esc(w.go)}')">${esc(w.label)}</button>` : '';
+  const go = w.admin ? `<button type="button" class="v3-pill v3-pill--sm" onclick="gvAdmin('${esc(w.admin)}')">${esc(w.label)}</button>`
+    : w.go && _GV_GO[w.go] ? `<button type="button" class="v3-pill v3-pill--sm" onclick="gvGo('${esc(w.go)}')">${esc(w.label)}</button>` : '';
+  if (!w.path && !go) return '';
   return `<section class="gv-where"><div><small>Где найти</small><b>${esc(w.path)}</b></div>${go}</section>`;
 }
 // Оглавление длинной темы: блоки с заголовком (от трёх). Номер блока — тот же, что в ссылке guide_<тема>_<номер>.
@@ -297,7 +314,8 @@ function gvView(view, topic = '', faq = -1) {
 }
 function _gvRemember(id) {
   if (!_GV.data?.topics.some(t => t.id === id)) return;
-  try { localStorage.setItem(_GV_LAST, id); if (id === 'first-day') localStorage.setItem('pv_guide_first', '1'); } catch (_) { return; }
+  if (_GV.book !== 'player') { try { localStorage.setItem(_gvBook().last, id); } catch (_) {} return; }
+  try { localStorage.setItem(_GV_BOOKS.player.last, id); if (id === 'first-day') localStorage.setItem('pv_guide_first', '1'); } catch (_) { return; }
   // Профиль остаётся в памяти: обновляем «Дальше» сразу, до возвращения из прочитанной темы.
   if (id === 'first-day' && typeof renderV3Next === 'function') renderV3Next();
 }
@@ -318,6 +336,7 @@ function gvSearchFrom(input) {
 function gvBack() {
   const prev = _GV.history.pop();
   if (prev) { Object.assign(_GV, { view: prev.view, topic: prev.topic, faq: prev.faq, q: prev.q }); gvPaint(prev); return true; }
+  if (_GV.adminFrom) { gvAdmin(_GV.adminFrom); return true; }   // открыт из админки: «Назад» туда же, в тот раздел
   if (_GV.origin) {
     const origin = _GV.origin; _GV.origin = null;
     if (_activePage !== origin.page) {
@@ -334,11 +353,32 @@ function gvReload() { _GV.data = null; return gvShow(); }
 function gvGo(key) { _haptic('select'); if (_GV_GO[key]) _GV_GO[key](); }
 function gvShow() {
   const root = el('pg-help'); if (!root) return Promise.resolve();
-  if (!_GV.data) root.innerHTML = `<div class="gv-scope">${v3Head('Путеводитель', { sub: 'Загружаем…' })}<div class="sk" style="height:48px;border-radius:12px"></div><div class="sk" style="height:220px;border-radius:18px;margin-top:18px"></div></div>`;
-  return gvLoad().then(() => gvPaint()).catch(() => { root.innerHTML = `<div class="gv-scope">${v3Head('Путеводитель')}<div class="v3-empty" role="alert"><b>Путеводитель не открылся</b><span>Проверь связь.</span> <button type="button" class="v3-link" onclick="gvShow()">Повторить</button></div></div>`; });
+  const title = _gvBook().title;
+  if (!_GV.data) root.innerHTML = `<div class="gv-scope">${v3Head(title, { sub: 'Загружаем…' })}<div class="sk" style="height:48px;border-radius:12px"></div><div class="sk" style="height:220px;border-radius:18px;margin-top:18px"></div></div>`;
+  return gvLoad().then(() => gvPaint()).catch(e => {
+    root.innerHTML = e.denied
+      ? `<div class="gv-scope">${v3Head(title, { back: 'navBack()' })}<div class="v3-empty" role="alert"><b>Эта книга — для персонала и владельцев чатов</b><span>Ответы про игру — в Путеводителе игрока.</span> <button type="button" class="v3-link" onclick="openGuideBook('player')">Открыть Путеводитель</button></div></div>`
+      : `<div class="gv-scope">${v3Head(title)}<div class="v3-empty" role="alert"><b>Путеводитель не открылся</b><span>Проверь связь.</span> <button type="button" class="v3-link" onclick="gvShow()">Повторить</button></div></div>`;
+  });
 }
 // Открыть тему из любого места приложения: подсказки, «Что нового», ссылка из бота (?startapp=guide_<id>[_<номер блока>])
-function openGuide(id, block, returnTo) {
+// Сменить книгу: свои темы, поиск и «Продолжить чтение»; история шагов начинается заново.
+function _gvUse(book) {
+  if (_GV.book === book) return;
+  Object.assign(_GV, { book, data: null, pending: null, index: null, vocab: null, q: '', offline: false });
+}
+function openGuideBook(book) { _gvUse(book); _GV.adminFrom = ''; _GV.history = []; _GV.ext = false; _GV.view = 'hub'; _GV.topic = ''; _GV.faq = -1; _haptic('select'); return gvShow().then(() => window.scrollTo(0, 0)); }
+// Путеводитель администрации: из Путеводителя игрока, из админки (значок «?», раздел «Путеводитель», «Что это значит?»:
+// ?startapp=adminguide_<тема>_<раздел>) и из бота. from — раздел админки, куда вернёт «Назад».
+function openAdminGuide(id = '', from = '') { return openGuide(id, 0, null, 'admin', from); }
+// Кнопка темы и «Назад» в админку: раздел админки открывается сразу (тот же адрес, admin-boot.js читает pv_admin_tab).
+function gvAdmin(section) {
+  try { if (section) localStorage.setItem('pv_admin_tab', section); } catch (_) {}
+  location.href = BASE + '/bot-admin';
+}
+function openGuide(id, block, returnTo, book = 'player', adminFrom = '') {
+  _gvUse(book);
+  _GV.adminFrom = adminFrom;
   _GV.history = [];
   _GV.faq = -1;
   _GV.ext = !!id && _activePage !== 'help';

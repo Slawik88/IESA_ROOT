@@ -5,7 +5,8 @@
 
 - an ordinary member gets a pointer to the usual help, not the moderators' cheat sheet;
 - a moderator (chat rank 4) sees this chat's thresholds with ✅ on what the rank allows, and no staff button;
-- bot staff (role 2) gets the button «Справка администрации»: in the DM a Web App with ?open=guide, in a group a t.me link with startapp=admin_guide.
+- bot staff (role 2) gets the button «Путеводитель администрации» — the Guide screen of the Mini App, admin book: in the DM a Web App
+  with startapp=adminguide, in a group a t.me link with startapp=adminguide.
 """
 from __future__ import annotations
 
@@ -51,14 +52,14 @@ async def main(dsn: str) -> None:
 
         await harness.say(helper, group, "бот админ помощь")
         reply = world.last(group, "Админ-помощь · этот чат")
-        link = [b for b in reply.buttons() if "Справка администрации" in b.get("text", "")]
-        assert link and link[0]["url"] == f"https://t.me/{BOT_USERNAME}/app?startapp=admin_guide" and "web_app" not in link[0], reply.buttons()
+        link = [b for b in reply.buttons() if "Путеводитель администрации" in b.get("text", "")]
+        assert link and link[0]["url"] == f"https://t.me/{BOT_USERNAME}/app?startapp=adminguide" and "web_app" not in link[0], reply.buttons()
 
         await harness.say(helper, helper.id, "бот админ помощь")
         reply = world.last(helper.id, "Пороги по умолчанию")
         assert reply is not None, [m.text for m in world.live(helper.id)][-2:]
-        button = [b for b in reply.buttons() if "Справка администрации" in b.get("text", "")]
-        assert button and button[0]["web_app"]["url"].endswith("/bot-admin?open=guide"), reply.buttons()
+        button = [b for b in reply.buttons() if "Путеводитель администрации" in b.get("text", "")]
+        assert button and button[0]["web_app"]["url"].startswith(MINIAPP) and "startapp=adminguide" in button[0]["web_app"]["url"], reply.buttons()
     finally:
         async with get_pool().acquire() as conn:
             await conn.execute("UPDATE users SET bot_rank = 0 WHERE user_tg_id = $1", helper.id)
