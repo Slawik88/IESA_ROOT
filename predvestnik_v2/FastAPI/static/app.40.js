@@ -210,7 +210,7 @@ function _trEmpty() {
 function _trTags(t) { return [(_TR_ROUTE[t.route] || [])[1], `${t.tempo}\u00a0ч`, t.style === 'careful' ? 'осторожный путь' : 'рискованный путь'].filter(Boolean).join(' · '); }
 function _trTabs() {
   const current = _tr.view === 'camp' ? 'camp' : (_tr.tab || 'overview');
-  return `<nav class="tr-nav" aria-label="Разделы питомцев">${[['overview','Обзор'],['collection','Питомцы'],['camp','Лагерь']].map(([key,label])=>`<button type="button" data-f="tab-${key}"${current===key?' aria-current="page"':''} onclick="trailTab('${key}')">${label}</button>`).join('')}</nav>`;
+  return `<nav class="v3-tabs v3-tabs--wide tr-nav" aria-label="Разделы питомцев">${[['overview','Обзор'],['collection','Питомцы'],['camp','Лагерь']].map(([key,label])=>`<button type="button" class="v3-tab${current===key?' on':''}" data-f="tab-${key}"${current===key?' aria-current="page"':''} onclick="trailTab('${key}')">${label}</button>`).join('')}</nav>`;
 }
 function trailTab(tab) {
   if (!['overview','collection','camp'].includes(tab)) return;

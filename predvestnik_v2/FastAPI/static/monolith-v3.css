@@ -5,7 +5,6 @@
 
 /* кнопка «назад» в шапках старых экранов: просто стрелка */
 #pg-pets .looks-back { border: 0; background: none; color: var(--v3-dim); }
-#pg-pets .looks-hint { padding: 0; border-radius: 0; background: none; color: var(--v3-dim); font-size: 12.5px; line-height: 1.45; }
 #pg-pets .empty { padding: 18px 0; color: var(--v3-dim); font-size: 13.5px; }
 
 /* ── Питомцы ── */
@@ -21,7 +20,6 @@
 #pg-help .help-hero small { color: var(--v3-dim); font-size: 11px; letter-spacing: .14em; }
 #pg-help .help-hero h1 { margin: 6px 0; color: var(--v3-ink); font: var(--v3-w-head) 34px/1.05 var(--v3-font); letter-spacing: -.03em; }
 #pg-help .help-hero p { color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
-#pg-help .help-grid { gap: 0; }
 #pg-help .help-card { overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }
 #pg-help .help-card + .help-card { box-shadow: 0 -1px 0 var(--v3-faint); }
 #pg-help .help-card summary { min-height: 64px; padding: 8px 0; grid-template-columns: 34px minmax(0, 1fr) 28px; }
@@ -35,7 +33,6 @@
 /* ── «Образы»: ближайшая цель, образ недели и сезон строками ── */
 #pg-looks :is(.lk-week, .lk-goal) { margin-top: 0; padding: 14px 0; border-radius: 0; background: none; }
 #pg-looks :is(.lk-week, .lk-goal) + :is(.lk-week, .lk-goal) { box-shadow: 0 -1px 0 var(--v3-faint); }
-#pg-looks .looks-release-section { padding: 12px 0; border: 0; border-radius: 0; background: none; }
 
 /* ── Лист подтверждения: предмет без рамки ── */
 .cf-item { margin-top: 12px; padding: 4px 0; border-radius: 0; background: none; box-shadow: none; }

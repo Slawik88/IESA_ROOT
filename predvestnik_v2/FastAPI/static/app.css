@@ -161,20 +161,6 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .px-treasury{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.px-treasury span{display:grid;gap:3px}.px-treasury small{color:var(--v3-dim);font-size:10px}.px-treasury b{color:var(--v3-ink);font-variant-numeric:tabular-nums}.px-owner-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin:12px 0}.px-owner-grid button{min-height:44px;border:0;border-radius:99px;background:transparent;box-shadow:inset 0 0 0 1.5px var(--v3-track);color:var(--v3-ink)}.px-subflow{margin-top:16px}.px-subflow h3{margin:0 0 4px;color:var(--v3-ink);font-size:12px}
 .px-order button:disabled{opacity:.45}
 
-/* ── «Ещё» — grid-карточки разделов в bottom-sheet (используется openManageMenu) ── */
-.more-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 4px 0 6px; }
-.more-card {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  
-   
-  padding: 16px 8px; cursor: pointer; text-align: center;
-  transition: transform .14s, border-color .2s; user-select: none;
-}
-.more-card:active { transform: scale(.93);  }
-.mc-ic { font-size: 26px; line-height: 1; }
-.mc-t { font-size: 12.5px; font-weight: 800; color: var(--bright); }
-.mc-s { font-size: 9.5px; color: var(--muted); }
-
 /* ── «Ещё» — Control Center: 3×3 grid карточек-страниц ── */
 
 /* ═══ СТРАНИЦЫ ══════════════════════════════════════════════════════════════ */
@@ -223,7 +209,6 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   
     
 }
-.profile-fold--gold { border-color: rgba(232,181,77,.2); }
 .profile-fold > summary {
   min-height: 52px; padding: 10px 12px; display: grid; align-items: center;
   grid-template-columns: minmax(0,1fr) minmax(0,auto) 16px; gap: 8px;
@@ -416,12 +401,6 @@ html.pv-css-wait dialog[open]:not(.pv-support) { opacity: 0; pointer-events: non
   50%     { opacity: .9;  transform: translateY(-3px); }
 }
 
-/* Мини-превью приветствия в конструкторе «Внешний вид» */
-
-.looks-hint {
-  font-size: 10px; color: var(--muted); background: var(--s);
-  border-radius: 8px; padding: 6px 8px; margin-bottom: 8px;
-}
 /* Плашка линейки (редизайн 2026-07-29): описание+цена+VIP-правило выбранной
    коллекции — владелец явно просил "чтобы точно видел то, что будет на
    продакшене", не прятать это в описаниях отдельных предметов. Пусто при
@@ -436,14 +415,6 @@ html.pv-css-wait dialog[open]:not(.pv-support) { opacity: 0; pointer-events: non
   .plm-ripple .plw-nick::after, .plm-stardust .plw-nick::before { animation: none; opacity: 0; }
   
 }
-
-/* Battle Pass — живой прогресс-бар + вспышка левел-апа */
-
-/* ШАГ3: заморозка БП — плашка ❄️ + серый неактивный прогресс-бар */
-
-.dev-freeze-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; margin-bottom: 8px; border-radius: 9px; font-size: 11px; background: var(--s); border: 1px solid var(--border2); }
-.dev-freeze-bar.on { background: linear-gradient(90deg, rgba(120,180,255,.14), rgba(120,180,255,.03)); border-color: rgba(120,180,255,.4); color: #bcd8ff; }
-
 /* «Моя семья» (app.06.js): форма перевода семейного кошелька и развод внизу, остальное — общие .v3-sec/.v3-row */
 .fam-bank { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 12px; }
 .fam-bank .v3-field { margin: 0; min-width: 0; }
@@ -647,7 +618,6 @@ body.no-fx .card-fx.cfx-artifact { opacity: .2; }
 .rc-legendary { background: rgba(232,181,77,.18); color: var(--gold2); }
 .rc-mythic    { background: rgba(239,99,99,.16); color: var(--red); }
 .rc-shadow    { background: rgba(120,120,140,.2); color: #9b9bb5; }
-.tl-device-row, .tl-fontsize-row { display: flex; align-items: center; gap: 6px; }
 
 /* ═══ ОБМЕН ═════════════════════════════════════════════════════════════════ */
 
@@ -713,15 +683,6 @@ dialog#modal[open].looks-fitting-shared .sheet { animation: none; }
 body.modal-open { overflow: hidden; }
 html.overlay-open, html.overlay-open body { overflow: hidden; overscroll-behavior: none; }
 html.overlay-open body { position: fixed; top: var(--overlay-scroll-top); left: 0; right: 0; width: 100%; }
-
-/* модалка валют */
-.cm-block { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border2); }
-.cm-block:last-child { border: none; }
-.cm-icon { font-size: 25px; flex: none; }
-.cm-name { font-size: 13px; font-weight: 800; color: var(--bright); display: flex; justify-content: space-between; gap: 8px; }
-.cm-val { color: var(--gold2); font-variant-numeric: tabular-nums; }
-.cm-desc { font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
-.cm-info { flex: 1; }
 
 /* ═══ СОСТОЯНИЯ ═════════════════════════════════════════════════════════════ */
 .loader { text-align: center; color: var(--muted); font-size: 12px; padding: 26px 0; position: relative; }
@@ -891,7 +852,6 @@ body.no-fx .loader::before, body.no-fx .loader::after { animation: none; }
   display: flex; align-items: center; justify-content: center;
 }
 .looks-back:active { transform: scale(.9); }
-.looks-htitle { margin:0; font-size: 15px; font-weight: 800; color: var(--bright); }
 /* Инлайн-плашка покупки под примеркой (замена 2-й модалки) */
 
 /* Единый вход в добычу косметики: не «случайная» ghost-кнопка, а карточка с
@@ -1038,18 +998,6 @@ input, select, textarea, .num-input {
   background: var(--bg1);
   border-color: var(--border2);
 }
-/* This selector must follow the generic rail rule: the player card has three
-   real metrics, so a fourth implicit track is empty space (and overflows the
-   compact fitting-card height). */
-
-/* Release fitting room: the private saved look uses the very same profile
-   card as the public projection, with explicit, mobile-first wardrobe groups. */
-
-.looks-release-section { margin: 12px 0; padding: 11px;    }
-.looks-release-section h3 { margin: 0 0 9px; color: var(--bright); font-size: 13px; }
-.looks-release-section p { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
-
-@media (max-width: 340px) { .looks-release-section { padding: 9px; }  }
 
 .profile-fold {
   margin-bottom: 8px;
@@ -1089,7 +1037,6 @@ input:focus,select:focus,textarea:focus,.num-input:focus { border-color:rgba(var
 .help-hero small,.more-hero small { color:#b7a7ef;font-size:9px;font-weight:850;letter-spacing:.09em;text-transform:uppercase; }
 .help-hero h1,.more-hero h1 { margin:3px 0;color:var(--bright);font-size:24px;letter-spacing:-.025em; }
 .help-hero p,.more-hero p { margin:0;color:var(--muted);font-size:10.5px;line-height:1.45; }
-.help-grid { display:grid;gap:8px; }
 .help-card { overflow:hidden; }
 .help-card summary { min-height:66px;display:grid;grid-template-columns:42px minmax(0,1fr) 28px;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;list-style:none; }
 .help-card summary::-webkit-details-marker{display:none}.help-card summary>span{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:rgba(var(--gold-rgb),.07);font-size:20px}.help-card summary>div{min-width:0;display:grid;gap:3px}.help-card summary b{color:var(--bright);font-size:13px}.help-card summary small{color:var(--muted);font-size:9px}.help-card summary i{color:var(--muted);font-style:normal;font-size:16px;transition:transform .18s}.help-card[open] summary i{transform:rotate(180deg)}
@@ -1236,82 +1183,10 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 /* Fitting room audit 2026-09: keep the appearance preview in view and turn the
    134-item wall into a searchable six-slot wardrobe. */
 #pg-looks { padding-bottom: 82px; }
-
-/* Public profile is a social dossier, not the owner's compact status card. */
-
-.profile-detail-section { position:relative; overflow:hidden; margin:11px 0; padding:14px;     }
-.profile-detail-section::before { content:''; position:absolute; inset:0 auto 0 0; width:3px; background:linear-gradient(var(--gold),transparent 72%); opacity:.6; }
-.profile-detail-section h3 { display:flex; align-items:center; gap:7px; margin:0 0 12px; color:var(--bright); font-size:13px; letter-spacing:.01em; }
-.profile-detail-section h3::before { content:'✦'; color:var(--gold2); font-size:10px; }
-.profile-game-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
-.profile-game-grid article { min-width:0; display:grid; align-content:start; gap:4px; padding:11px;    }
-.profile-game-grid article > b { color: var(--text); font-size: 10px; }
-.profile-game-grid article > strong { color: var(--bright); font-size: 15px; overflow-wrap: anywhere; }
-.profile-game-grid article > span,
-.profile-game-grid article > small { color: var(--muted); font-size: 9px; line-height: 1.4; }
-.profile-game-grid article > small + small { color: var(--gold2); }
-
-.profile-detail-alert { display: grid; gap: 3px; margin-bottom: 10px; padding: 9px;    }
-.profile-detail-alert b { color: #f2b1b1; font-size: 10px; }
-.profile-detail-alert span,
-.profile-detail-alert small,
-.profile-detail-muted { color: var(--muted); font-size: 8px; }
-.profile-history { margin-top: 10px; border-top: 1px solid var(--border2); padding-top: 9px; }
-.profile-history summary { color: var(--dim); font-size: 9px; cursor: pointer; }
-.profile-history ul { display: grid; gap: 6px; margin: 8px 0 0; padding-left: 16px; color: var(--muted); font-size: 8px; }
-.profile-history li small { display: block; margin-top: 2px; }
-
-/* Profile chapters deliberately have different rhythms: records, journey,
-   people and safety should not read like four copies of the same form. */
-.profile-zone { --zone:#9ba9d9; padding:15px; border-color:color-mix(in srgb,var(--zone) 24%,transparent); }
-.profile-zone::before { width:100%; height:3px; background:linear-gradient(90deg,var(--zone),transparent 76%); }
-.profile-zone > header { position:relative; display:grid; grid-template-columns:38px minmax(0,1fr) auto; align-items:center; gap:9px; margin-bottom:12px; }
-.profile-zone > header > span { width:38px; height:38px; display:grid; place-items:center;    font-size:18px; }
-.profile-zone > header > div { min-width:0; }
-.profile-zone > header small { display:block; color:var(--zone); font-size:10px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
-.profile-zone > header h3 { margin:2px 0 0; font-size:14px; }
-.profile-zone > header h3::before { display:none; }
-.profile-zone > header button { min-height:44px; padding:0 9px; border:1px solid color-mix(in srgb,var(--zone) 24%,transparent); border-radius:10px; background:color-mix(in srgb,var(--zone) 8%,transparent); color:var(--text); font:800 10px/1 inherit; cursor:pointer; }
 .profile-zone--games { --zone:#94a8ff; background:radial-gradient(circle at 90% 0,rgba(112,133,231,.18),transparent 40%),linear-gradient(145deg,rgba(24,29,52,.98),rgba(12,17,29,.96)); }
 .profile-zone--progress { --zone:#e0b45c; background:radial-gradient(circle at 10% 100%,rgba(224,180,92,.13),transparent 42%),linear-gradient(145deg,rgba(34,28,35,.98),rgba(15,17,27,.96)); }
 .profile-zone--social { --zone:#b890ea; background:radial-gradient(circle at 100% 15%,rgba(159,111,221,.17),transparent 42%),linear-gradient(145deg,rgba(31,24,49,.98),rgba(13,17,29,.96)); }
 .profile-zone--safety { --zone:#72d4ad; background:radial-gradient(circle at 92% 0,rgba(80,194,151,.13),transparent 40%),linear-gradient(145deg,rgba(18,35,39,.97),rgba(12,17,29,.96)); }
-.profile-game-grid { gap:8px; }
-.profile-game { min-height:90px; grid-template-columns:46px minmax(0,1fr)!important; align-items:center!important; gap:11px!important; position:relative; overflow:hidden; }
-.profile-game::after { content:''; position:absolute; right:-20px; bottom:-35px; width:86px; height:86px; border:1px solid currentColor; border-radius:50%; opacity:.08; }
-.profile-game .profile-game-icon { width:46px; height:46px; display:grid; place-items:center; border-radius:14px; color:inherit; font-size:21px; font-weight:900; background:rgba(255,255,255,.055); }
-.profile-game > div { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 8px; align-items:end; }
-.profile-game b { color:var(--text); font-size:10px; }
-.profile-game strong { grid-row:1/3; grid-column:2; color:var(--bright); font-size:20px; text-align:right; }
-.profile-game strong i { color:var(--muted); font-size:10px; font-style:normal; }
-.profile-game small,.profile-game em { color:var(--muted); font-size:10px; font-style:normal; line-height:1.35; }
-.profile-game em { grid-column:1/-1; margin-top:4px; color:var(--dim); }
-.profile-game em + small { grid-column:1/-1; color:var(--gold2); }
-.profile-game--rhythm { color:#99aaff; }.profile-game--mines{color:#72d4ad}.profile-game--mafia{color:#c49bed}
-.profile-progress-summary { display:grid; grid-template-columns:1.15fr .75fr 1fr; gap:7px; }
-.profile-progress-summary > span { min-width:0; display:grid; gap:2px; padding:10px 8px; border-radius:11px; background:rgba(255,255,255,.035); }
-.profile-progress-summary b { color:var(--bright); font-size:13px; overflow-wrap:anywhere; }.profile-progress-summary small{color:var(--muted);font-size:10px;text-transform:uppercase}
-.profile-paths { display:grid; gap:7px; margin:10px 0 0; padding:0; list-style:none; }
-.profile-paths li { min-height:58px; display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:9px; padding:8px 9px;    }
-.profile-path-icon { color:var(--gold2); font-size:16px; text-align:center; }.profile-paths li>div{min-width:0;display:grid;gap:3px}.profile-paths b{color:var(--text);font-size:11px}.profile-paths small{color:var(--muted);font-size:10px}.profile-paths li>strong{color:var(--gold2);font-size:14px}.profile-paths li>strong small{font-size:10px}
-.profile-paths i { height:3px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.07); }.profile-paths i span{display:block;width:var(--path);height:100%;border-radius:inherit;background:linear-gradient(90deg,#b8863b,#f2ca75)}
-.profile-social-identity { display:flex; flex-wrap:wrap; gap:7px; }.profile-social-identity>span{min-width:calc(50% - 4px);flex:1;display:grid;gap:2px;padding:10px;}.profile-social-identity small{color:#bca5dc;font-size:10px;text-transform:uppercase}.profile-social-identity b{color:var(--bright);font-size:11px;overflow-wrap:anywhere}.profile-social-identity em{color:var(--gold2);font-size:10px;font-style:normal}
-.profile-social-pets { display:grid; gap:7px; margin-top:8px; }.profile-social-pet{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:9px;padding:9px;}.profile-social-pet>span{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(184,144,234,.1);color:#ba9be3}.profile-social-pet>div{display:grid;gap:2px}.profile-social-pet small{color:#ad91d3;font-size:10px;text-transform:uppercase}.profile-social-pet b{color:var(--text);font-size:11px}.profile-social-pet em{color:var(--muted);font-size:10px;font-style:normal}.profile-social-pet.is-active{border-color:rgba(114,212,173,.24)}.profile-social-pet.is-active>span{color:#72d4ad;background:rgba(114,212,173,.1)}
-.profile-social-empty { display:flex;align-items:center;gap:8px;padding:10px;color:var(--muted);font-size:10px }.profile-social-empty p{margin:0}
-.profile-clean-state { display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:9px;padding:10px;}.profile-clean-state>span{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:rgba(114,212,173,.12);color:#72d4ad;font-weight:900}.profile-clean-state>div{display:grid;gap:2px}.profile-clean-state b{color:#b9eed9;font-size:11px}.profile-clean-state small{color:var(--muted);font-size:10px}
-.profile-safety-stats { display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.profile-safety-stats>span{display:grid;gap:3px;padding:9px;border-radius:10px;background:rgba(255,255,255,.025)}.profile-safety-stats small{color:var(--muted);font-size:10px}.profile-safety-stats b{color:var(--text);font-size:11px}.module-switch.is-on{border-color:rgba(103,211,169,.22)}.module-switch.is-on i{background:rgba(103,211,169,.12);color:#82d9b7}.module-switch.is-off{opacity:.78}.module-switch.is-off i{background:rgba(224,104,104,.1);color:#e5a1a1}
-@media(max-width:340px) {.profile-zone{padding:12px}.profile-zone>header{grid-template-columns:34px minmax(0,1fr) auto}.profile-zone>header>span{width:34px;height:34px}.profile-zone>header button{padding:0 7px}.profile-progress-summary{grid-template-columns:1fr 1fr}.profile-progress-summary>span:first-child{grid-column:1/-1}.profile-game{grid-template-columns:40px minmax(0,1fr)!important}.profile-game .profile-game-icon{width:40px;height:40px}}
-
-/* Account status must read at a glance instead of being buried in metadata. */
-.profile-vip-card { min-height:76px; display:grid; grid-template-columns:48px minmax(0,1fr) auto; align-items:center; gap:11px; margin:11px 0; padding:12px 14px; overflow:hidden;     }
-.profile-vip-card > span { width:48px; height:48px; display:grid; place-items:center;    color:#ffe6a2; font-size:24px;  }
-.profile-vip-card div { min-width:0; display:grid; gap:2px; }
-.profile-vip-card div small { color:#d8c8fa; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
-.profile-vip-card div b { color:#fff4ce; font-size:16px; }
-.profile-vip-card p { margin:0; color:#b8b6cb; font-size:10px; }
-.profile-vip-card > strong { display:grid; color:#fff4ce; font-size:23px; line-height:1; text-align:center; font-variant-numeric:tabular-nums; }
-.profile-vip-card > strong small { margin-top:3px; color:#b8b6cb; font-size:8px; text-transform:uppercase; }
-
 /* Immutable migration receipt, with a replayable but non-blocking celebration. */
 .migration-card { position:relative; overflow:hidden; margin:11px 0 14px; padding:14px;     }
 .migration-card > header { display:grid; grid-template-columns:42px minmax(0,1fr) 44px; align-items:center; gap:10px; }
@@ -1320,23 +1195,9 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .migration-card header small { color:#79cdb3; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .migration-card header button { width:44px; height:44px; border:1px solid rgba(120,218,188,.18); border-radius:12px; background:rgba(255,255,255,.03); color:#a8dcca; font:800 18px/1 inherit; }
 .migration-card > p { margin:12px 0; color:var(--muted); font-size:11px; line-height:1.5; }
-.migration-result { min-height:76px;display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:10px;padding:11px 12px; }
-.migration-result>span{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:rgba(111,211,179,.1);font-size:20px}.migration-result>div{display:grid;gap:2px}.migration-result small{color:#85cdb6;font-size:8px;font-weight:800;text-transform:uppercase}.migration-result b{color:#a9edd8;font-size:19px}.migration-result p{margin:0;color:var(--muted);font-size:8px}
-.migration-sources { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px; }
-.migration-source { min-width:0;min-height:66px;display:grid;grid-template-columns:26px minmax(0,1fr);align-content:center;gap:2px 6px;padding:9px; }
-.migration-source>span{grid-row:1/3;font-size:17px}.migration-source b{color:var(--text);font-size:9px}.migration-source small{color:#85cdb6;font-size:8px}
-.migration-balance-flow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.migration-balance-flow>div{min-width:0;display:grid;gap:3px;padding:10px;}.migration-balance-flow span{color:var(--muted);font-size:8px}.migration-balance-flow b{color:var(--bright);font-size:11px;overflow-wrap:anywhere}.migration-balance-flow i{color:#6fd3b3;font-style:normal}.migration-balance-flow small{color:var(--muted);font-size:7px}
-.migration-retired{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.migration-retired>small{width:100%;color:var(--muted);font-size:8px}.migration-retired span{padding:5px 7px;color:var(--muted);font-size:8px}.migration-retired b{color:var(--text)}
-.migration-awards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:3px; }
-.migration-awards div { min-width:0; display:grid; place-items:center; gap:2px; padding:9px 4px;   }
-.migration-awards span { font-size:15px; }.migration-awards b { color:var(--bright); font-size:11px; }.migration-awards small { color:var(--muted); font-size:8px; }
 .migration-card details { margin-top:10px; padding-top:9px; border-top:1px solid rgba(255,255,255,.07); }
 .migration-card summary { min-height:32px; display:flex; align-items:center; color:#9bd9c5; font-size:10px; cursor:pointer; }
 .migration-card details p { margin:5px 0 0; color:var(--muted); font-size:9px; line-height:1.5; }
-.migration-card.is-animating .migration-source { animation:migration-source .7s both; }
-.migration-card.is-animating .migration-source:nth-child(2){animation-delay:.12s}.migration-card.is-animating .migration-source:nth-child(3){animation-delay:.24s}.migration-card.is-animating .migration-source:nth-child(4){animation-delay:.36s}
-.migration-card.is-animating .migration-result { animation:migration-result .8s .45s both; }
-.migration-card.is-animating .migration-awards div { animation:migration-award .6s .8s both; }
 @keyframes migration-source { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:none} }
 @keyframes migration-result { 0%{opacity:0;transform:scale(.82)} 65%{box-shadow:0 0 26px rgba(91,224,181,.3)} 100%{opacity:1;transform:none} }
 @keyframes migration-award { from{opacity:0;transform:translateY(9px)} to{opacity:1;transform:none} }
@@ -1352,23 +1213,12 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .bestiary-card > span { width:42px;height:42px;display:grid;place-items:center;font-size:22px; }.bestiary-card div{min-width:0;display:grid;gap:4px}.bestiary-card b{color:var(--text);font-size:10px;line-height:1.25}.bestiary-card small{color:var(--muted);font-size:8px}.bestiary-card i{color:#73d7b7;font-style:normal}.bestiary-card.is-owned{border-color:rgba(115,215,183,.23)}.bestiary-card.is-locked{filter:saturate(.3);opacity:.68}.bestiary-card.is-locked > span{color:var(--muted);font-size:16px}
 
 @media (prefers-reduced-motion:reduce) {.migration-card *{animation:none!important;scroll-behavior:auto!important}}
-@media (max-width:340px) {.profile-vip-card{grid-template-columns:42px minmax(0,1fr)}.profile-vip-card>strong{display:none}.bestiary-grid{grid-template-columns:1fr}.migration-awards{grid-template-columns:1fr}.migration-awards div{grid-template-columns:auto auto 1fr;justify-content:start;padding-inline:10px}.migration-sources,.migration-balance-flow{grid-template-columns:1fr}}
-
-@media (max-width: 340px) {
-  
-  
-  
-  
-  
-  
-  .profile-game-grid { grid-template-columns: 1fr; }
-}
+@media (max-width:340px) {.bestiary-grid{grid-template-columns:1fr}}
 
 /* COS-003: mobile storefront. Product controls stay thumb-sized and the
    current purchase/selection remains reachable without returning to page top. */
 
 #pg-looks { padding-bottom: calc(154px + var(--safe-b)); }
-
 
 /* Design wave 2026-10: one calm, continuous menu surface. Ordinary routes are
    rows; elevation is reserved for the one route that needs attention. */
@@ -1379,39 +1229,6 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .nb.active { color:var(--bright); background:rgba(var(--gold-rgb),.13); font-weight:800; }
 .nb.active::after { display:none; }
 @media (max-width:340px) {.nb{font-size:10px}}
-
-/* Profile follows the same monolithic rule: one authored showcase, then a
-   continuous information document. Containers no longer compete as cards. */
-
-.profile-detail-section,.profile-zone { margin:0; padding:22px 2px; border:0; border-bottom:1px solid var(--border2); border-radius:0; background:none; box-shadow:none; }
-.profile-detail-section::before,.profile-zone::before { display:none; }
-.profile-zone > header { margin-bottom:14px; grid-template-columns:32px minmax(0,1fr) auto; }
-.profile-zone > header > span { width:32px; height:32px;    font-size:19px; }
-.profile-zone > header small { font-size:11px; }
-.profile-zone > header h3 { font-size:17px; }
-.profile-zone > header button { border:0; background:transparent; color:var(--zone); font-size:11px; }
-.profile-game-grid { gap:0; }
-.profile-game-grid article,.profile-game { min-height:76px; padding:12px 0; border:0; border-top:1px solid var(--border2); border-radius:0; background:transparent; }
-.profile-game::after { display:none; }
-.profile-game .profile-game-icon { width:40px; height:40px; border-radius:12px; }
-.profile-progress-summary { gap:0; padding:4px 0 12px; }
-.profile-progress-summary > span { padding:6px 10px; border-right:1px solid var(--border2); border-radius:0; background:transparent; }
-.profile-progress-summary > span:first-child { padding-left:0; }
-.profile-progress-summary > span:last-child { border-right:0; }
-.profile-paths { gap:0; }
-.profile-paths li { min-height:62px; padding:10px 0;  border-top:1px solid var(--border2);   }
-.profile-social-identity { gap:0; padding:2px 0 10px; }
-.profile-social-identity > span { min-width:50%; padding:7px 10px; border:0; border-right:1px solid var(--border2); border-radius:0; background:transparent; }
-.profile-social-identity > span:nth-child(2n) { border-right:0; }
-.profile-social-pets { gap:0; }
-.profile-social-pet { padding:11px 0;  border-top:1px solid var(--border2);   }
-.profile-clean-state { padding:11px 0;    }
-.profile-safety-stats { gap:0; }
-.profile-safety-stats > span { padding:9px 10px; border-right:1px solid var(--border2); border-radius:0; background:transparent; }
-.profile-safety-stats > span:first-child { padding-left:0; }
-.profile-safety-stats > span:last-child { border-right:0; }
-
-@media(max-width:340px) {.profile-detail-section,.profile-zone{padding-inline:0}.profile-zone>header{grid-template-columns:30px minmax(0,1fr) auto}.profile-zone>header>span{width:30px;height:30px}}
 
 /* Collections are navigation, not trading cards. Keep the single featured
    world, then use one continuous catalogue with visible progress. */

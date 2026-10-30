@@ -169,6 +169,15 @@ dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; b
 .v3-row .v3-end { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--v3-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
 .v3-row .v3-end svg { width: 16px; height: 16px; }
 .v3-row:active { opacity: .55; }
+/* чек награды в листе (возвращение питомцев): строка «за что — сколько», итог жирным, пометка приглушённо; без своего цвета */
+.v3-receipt { margin: 0 0 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.v3-receipt > p { margin: 0 0 8px; color: var(--v3-dim); }
+.v3-receipt-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; box-shadow: 0 1px 0 var(--v3-faint); }
+.v3-receipt-row > span:first-child { flex: 1 1 auto; min-width: 0; color: var(--v3-dim); }
+.v3-receipt-row > span:last-child { flex: none; max-width: 70%; text-align: right; }
+.v3-receipt-row--total { box-shadow: none; padding-top: 10px; color: var(--v3-ink); font-weight: 600; font-size: 14px; }
+.v3-receipt-row--total > span:first-child { color: var(--v3-ink); }
+.v3-receipt-note { margin: 4px 0 0; color: var(--v3-dim); font-size: 12px; text-align: center; }
 .v3-badge { min-width: 20px; padding: 2px 7px; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font-size: 11px; font-weight: 700; text-align: center; }
 
 /* ── Профиль ── */
@@ -200,6 +209,8 @@ dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; b
 .v3-quest:active { opacity: .55; }
 .v3-today .v3-pill { margin-top: 16px; }
 .v3-empty { padding: 12px 0; color: var(--v3-dim); font-size: 13px; }
+/* закрытый флагом раздел (_showMaintenance): то же пустое состояние, по центру первого экрана */
+.v3-closed { padding: 28vh 16px 0; text-align: center; }
 
 /* Шапка вкладки (v3Head, app.20.js): одна на все вкладки, ~52px вместо прежних 120+ (подпись, огромный заголовок, абзац). Правила: docs/MINIAPP_DESIGN_RULES.md */
 .v3-head { display: flex; align-items: center; gap: 4px; min-height: 52px; margin: 0 0 14px; }
@@ -234,7 +245,7 @@ dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; b
 
 /* ── Шторки и прелоадер: тот же материал ── */
 dialog#modal .sheet { background: var(--v3-sheet); border: 0; border-radius: 28px 28px 0 0; box-shadow: 0 -1px 0 var(--v3-faint); color: var(--v3-ink); }
-.card, .profile-detail-section { background: none; border: 0; border-radius: 0; box-shadow: none; }
+.card { background: none; border: 0; border-radius: 0; box-shadow: none; }
 #preloader { background: var(--v3-bg); }
 #preloader .pl-ring, #preloader .pl-skip { display: none; }
 #preloader .pl-orb { filter: none; animation: none; }

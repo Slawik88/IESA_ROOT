@@ -275,6 +275,13 @@
     return PET_ROUTES_CLASSIC.map((id) => ({ id }));
   }
 
+  // Время возвращения в часовом поясе игрока («31 октября в 14:27»); сервер присылает ISO в UTC
+  function petUntil(iso) {
+    const at = new Date(iso);
+    return !iso || Number.isNaN(at.getTime()) ? esc(String(iso).replace('T', ' ').slice(0, 16))
+      : at.toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  }
+
   function activePetActivity(activity, routeOptions) {
     const title = activity.kind === 'trek' ? 'Поход' : 'Экспедиция';
     const needsDecision = activity.status === 'ready'
@@ -282,11 +289,11 @@
       && !activity.decision;
     const status = activity.status === 'ready'
       ? (needsDecision ? 'Таймер завершён. Выбери маршрут:' : 'Награда уже получена.')
-      : `Питомец занят до ${esc(String(activity.ends_at).replace('T', ' ').slice(0, 16))}.`;
+      : `Питомец занят до ${petUntil(activity.ends_at)}.`;
     const routes = needsDecision
       ? `<div class="pet-route-grid">${petRouteList(routeOptions).map((route) => (
-        `<button type="button" class="v3-pill v3-pill--ghost" onclick="petsV1Choose('${route.id}')">${esc(PET_ROUTE_LABELS[route.id] || route.id)}`
-        + (route.chance_percent != null ? `<small class="pet-route-odds"> · ${route.chance_percent}% · ${fmt(route.reward_mora)} 🪙</small>` : '')
+        `<button type="button" class="v3-pill v3-pill--ghost" onclick="petsV1Choose('${route.id}')"><span>${esc(PET_ROUTE_LABELS[route.id] || route.id)}</span>`
+        + (route.chance_percent != null ? `<small class="pet-route-odds">${route.chance_percent}% · ${fmt(route.reward_mora)} 🪙</small>` : '')
         + `</button>`
       )).join('')}</div>${routeOptions && routeOptions.rewards_enabled && !routeOptions.hint ? '<small>С 4 уровня питомец покажет шансы маршрутов.</small>' : ''}${routeOptions && routeOptions.rewards_enabled ? `<small>Награды маршрутов на этой неделе: осталось ${fmt(routeOptions.weekly_remaining_mora)} 🪙 из ${fmt(routeOptions.weekly_cap_mora)}.</small>` : ''}`
       : '';

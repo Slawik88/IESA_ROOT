@@ -510,30 +510,27 @@ function showWsNotif(event) {
 
 // Чек награды экспедиции: база + бонусы (питомцы/реликвии) + итого. Данные —
 // из WS-payload expedition_done (services/scheduler.py → expedition.calculate_reward).
+function _receiptRow(label, value, total) { return `<div class="v3-receipt-row${total ? ' v3-receipt-row--total' : ''}"><span>${label}</span><span>${value}</span></div>`; }
 function showExpeditionReceipt(e) {
   const bd = e.breakdown || [];
   const baseM = (e.base_mora != null) ? e.base_mora : e.mora;
   const baseX = (e.base_xp != null) ? e.base_xp : e.xp;
-  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px';
-  let rows = `<div style="${rs}"><span style="color:var(--muted)">🎒 Базовая добыча</span><span>+${fmt(baseM)} 🪙 · +${fmt(baseX)} XP</span></div>`;
+  let rows = _receiptRow('Базовая добыча', `+${fmt(baseM)} 🪙 · +${fmt(baseX)} XP`);
   bd.forEach(b => {
     const parts = [];
     if (b.mora)     parts.push(`+${fmt(b.mora)} 🪙`);
     if (b.xp)       parts.push(`+${fmt(b.xp)} XP`);
     if (b.diamonds) parts.push(`+${b.diamonds} 💎`);
-    if (b.extra)    parts.push(b.extra);
-    rows += `<div style="${rs};color:var(--gold)"><span>${esc(b.label || 'Бонус')}</span><span>${parts.join(' · ') || '—'}</span></div>`;
+    if (b.extra)    parts.push(esc(b.extra));
+    rows += _receiptRow(esc(b.label || 'Бонус'), parts.join(' · ') || '—');
   });
   const tp = [`+${fmt(e.mora)} 🪙`, `+${fmt(e.xp)} XP`];
   if (e.diamonds) tp.push(`+${e.diamonds} 💎`);
-  const earlyNote = e.early_finish
-    ? `<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:2px">⚡ Поход завершён досрочно (энергетик/кристалл) — награда −50%</div>` : '';
-  OM(`🎉 ${esc(e.pet || 'Питомец')} вернулся!`,
-    `<div style="margin-bottom:6px">${rows}
-       <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
-     </div>
-     <div style="font-size:10px;color:var(--green);text-align:center">✓ Награда уже зачислена</div>${earlyNote}`,
-    [{l:'🎁 Забрать', c:'primary', f:'CM();_nextModal()'}]);
+  const earlyNote = e.early_finish ? '<p class="v3-receipt-note">Поход закончился раньше срока, поэтому награда вдвое меньше.</p>' : '';
+  OM(`${esc(e.pet || 'Питомец')} вернулся!`,
+    `<div class="v3-receipt">${rows}${_receiptRow('Итого', tp.join(' · '), true)}</div>
+     <p class="v3-receipt-note">Награда уже на твоём счёте.</p>${earlyNote}`,
+    [{l:'Отлично', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Очередь модалок: если при входе ждут и подарки, и чеки походов — показываем
@@ -567,23 +564,18 @@ function showGiftBox(payloads) { v3GiftToast(payloads, () => _nextModal()); }
 function showWelcomeBack(items) {
   if (items.length === 1) { showExpeditionReceipt(items[0]); return; }
   let totM = 0, totX = 0, totD = 0;
-  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px';
   const rows = items.map(e => {
     totM += e.mora || 0; totX += e.xp || 0; totD += e.diamonds || 0;
     const parts = [`+${fmt(e.mora || 0)} 🪙`, `+${fmt(e.xp || 0)} XP`];
     if (e.diamonds) parts.push(`+${e.diamonds} 💎`);
-    const petLabel = (e.early_finish ? '⚡ ' : '🐾 ') + esc(e.pet || 'Питомец');
-    return `<div style="${rs}"><span>${petLabel}</span><span style="color:var(--gold)">${parts.join(' · ')}</span></div>`;
+    return _receiptRow(esc(e.pet || 'Питомец') + (e.early_finish ? ' · раньше срока' : ''), parts.join(' · '));
   }).join('');
   const tp = [`+${fmt(totM)} 🪙`, `+${fmt(totX)} XP`];
   if (totD) tp.push(`+${totD} 💎`);
-  OM('🎉 С возвращением!',
-    `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Пока тебя не было, питомцев вернулось: <b style="color:var(--bright)">${items.length}</b></div>
-     <div style="margin-bottom:6px">${rows}
-       <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
-     </div>
-     <div style="font-size:10px;color:var(--green);text-align:center">✓ Всё уже зачислено</div>`,
-    [{l:'🎁 Отлично!', c:'primary', f:'CM();_nextModal()'}]);
+  OM('С возвращением!',
+    `<div class="v3-receipt"><p>Пока тебя не было, вернулись питомцы: <b>${items.length}</b></p>${rows}${_receiptRow('Итого', tp.join(' · '), true)}</div>
+     <p class="v3-receipt-note">Всё уже на твоём счёте.</p>`,
+    [{l:'Отлично', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Левел-ап игрока (БЛОК 3): детект между загрузками профиля + торжественная модалка.
@@ -760,12 +752,7 @@ const _PAGE_TOPIC = { casino: 'casino' };   // закрытый раздел: «
 function _showMaintenance(pg) {
   const box = el('pg-'+pg); if(!box) return;
   const what = _PAGE_TOPIC[pg] ? `<button type="button" class="v3-link" onclick="openGuide('${_PAGE_TOPIC[pg]}')">Что это?</button>` : '';
-  box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:40vh;gap:12px;padding:32px 16px">
-    <div style="font-size:40px">🚧</div>
-    <div style="font-size:17px;font-weight:700;color:var(--bright)">Временно недоступно</div>
-    <div style="font-size:12px;color:var(--muted);text-align:center">Этот раздел сейчас выключен.<br>Загляни позже — прогресс не потеряется.</div>
-    ${what}
-  </div>`;
+  box.innerHTML=`<div class="v3-empty v3-closed" role="status"><b>Временно недоступно</b>Этот раздел сейчас выключен. Загляни позже — прогресс не потеряется.${what ? `<div>${what}</div>` : ''}</div>`;
 }
 
 function _dockReveal(button) {

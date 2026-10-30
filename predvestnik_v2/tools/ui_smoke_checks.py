@@ -31,6 +31,17 @@ def _purge_screen(view: str, after: str = "") -> str:
             "openPurgeHub(-1)" + (f".then(() => {{ {after} }})" if after else ""))
 
 
+def _classic_pets(edit: str = "", after: str = "") -> str:
+    """Classic pets (pets_v2 off, app.12.js) on the real answer of the stand, edited on the spot (`d` is /pets-v1/me, `a` its active pet — the first one when the stand has none):
+    the rare states of S13c. Nothing is sent to the server."""
+    return ("_sysFlags.pets_v2 = false; const realApi = api; window.api = (p, o) => p === '/pets-v1/me' ? realApi.call(null, p, o).then(d => { d = JSON.parse(JSON.stringify(d)); "
+            "const a = d.pets.find(q => Number(q.id) === Number(d.active_pet_id)) || d.pets[0]; if (a) { a.active = true; d.active_pet_id = a.id; } " + edit + " return d; }) : realApi.call(null, p, o); "
+            "openPetsV1()" + (f".then(() => {{ {after} }})" if after else ""))
+
+
+_RECEIPT = "{pet:'Соляная лисица', mora:1840, base_mora:1500, xp:120, base_xp:100, diamonds:2, breakdown:[{label:'Реликвия «Компас»', mora:340, xp:20}, {label:'Сезонный бонус', diamonds:2, extra:'ключ'}]}"
+
+
 _PURGE_SESSION = "session:{id:7,norm:20,date_from:'2026-10-19',date_to:'2026-10-25'}"
 _PURGE_IDLE = "{active:false,items:[],page:0,has_more:false,defaults:{date_from:'2026-10-20',date_to:'2026-10-26',today:'2026-10-28'},"
 
@@ -59,6 +70,20 @@ SCREENS = [
     ("trail-camp", "openPetsV1().then(() => { if (_tr.me) trailGo('camp'); })"),
     ("trail-track", "openPetsV1().then(() => { if (_tr.me) trailGo('track'); })"),
     ("trail-trial", "openPetsV1().then(() => { if (_tr.me) trailGo('trial'); })"),
+    # Классические питомцы (pets_v2 off, S13c): основной экран и редкие состояния на подставленном ответе
+    ("pets-classic", _classic_pets()),
+    ("pets-classic-empty", _classic_pets("d.pets = []; d.active_pet_id = null; d.activity = null;")),
+    ("pets-classic-away", _classic_pets("d.activity = {kind: 'trek', status: 'active', pet_id: a.id, ends_at: '" + _days(1) + "'};")),
+    ("pets-classic-decide", _classic_pets("d.activity = {kind: 'expedition', status: 'ready', pet_id: a.id, decision: null, ends_at: '" + _days(0) + "'}; "
+                                          "d.route_options = {rewards_enabled: true, hint: true, routes: [{id: 'careful', chance_percent: 82, reward_mora: 600}, {id: 'steady', chance_percent: 62, reward_mora: 900}, {id: 'bold', chance_percent: 35, reward_mora: 2100}]};")),
+    ("pets-classic-tired", _classic_pets("a.endurance = 0; d.food = [];")),
+    ("pets-classic-key", _classic_pets("d.activity_rewards = [{kind: 'trek'}];")),
+    ("pets-classic-reserve", _classic_pets("if (d.pets.length < 2) d.pets.push(Object.assign({}, a, {id: 990001, active: false, name: 'Очень длинное имя запасного питомца'}));",
+                                           "const o = document.querySelector('#pg-pets .pt-av[aria-selected=false]'); if (o) o.click();")),
+    ("pets-classic-dex", _classic_pets("", "showPetPanel('bestiary', document.querySelectorAll('#pg-pets .pet-tabs button')[1]); const b = document.querySelector('#pg-pets .bestiary-card'); if (b) b.click();")),
+    ("receipt-one", "showExpeditionReceipt(Object.assign(" + _RECEIPT + ", {early_finish: true}))"),
+    ("receipt-many", "showWelcomeBack([" + _RECEIPT + ", {pet: 'Моховой кот', mora: 600, xp: 40, early_finish: true}, {pet: 'Рысь Бездны', mora: 950, xp: 70}])"),
+    ("closed", "switchPage('casino'); _showMaintenance('casino')"),
     ("inventory", "openInventory()"),
     ("promo", "openPromoSheet()"),
     ("achievements", "openAchievementsV1()"),
@@ -133,6 +158,8 @@ EXPECTED_HTTP = [
     # These read endpoints intentionally return 404 while their rollout flag is off.
     ("/shop-v1/me", 404),
     ("/gifts-v2/me", 404),
+    # The stand opens hundreds of pages from one address (127.0.0.1); the per-IP cap of the telemetry intake (services/ops_health.py) answers 429 by design.
+    ("/telemetry", 429),
 ]
 # Known open product question (reported to the owner, not a bug of the stand): the /vip router is deliberately not registered (tools/test_release_public_routes.py
 # lists /vip as retired), while the Zarniki/VIP page still asks it. Shown as a warning so that it does not hide new findings.
@@ -158,21 +185,25 @@ DOCK_SAMPLE = """(ms) => new Promise(res => { const n = document.querySelector('
   const tick = () => { const r = n.getBoundingClientRect(); out.push([Math.round(r.bottom), Math.round(r.left), innerWidth, innerHeight]);
     if (performance.now() - t0 < ms) requestAnimationFrame(tick); else res(out); }; tick(); })"""
 
-# Controls smaller than a thumb. The hit zone counts: the house style extends small controls with an ::after box. Inline text links are exempt.
+# Controls smaller than a thumb. The hit zone counts: the house style extends small controls with an ::after box, an input inside a <label> is pressed through the label. Inline text links are exempt.
 TAP = """() => { const out = []; document.querySelectorAll('button, a[href], input:not([type=hidden]), select, summary, [role=button], [onclick]').forEach(e => {
     const r = e.getBoundingClientRect(); if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight * 3) return;
     const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.pointerEvents === 'none' || e.disabled) return;
     if (e.closest('[hidden], [aria-hidden=true], .ap-orn, .v3-fx')) return;
     if (e.tagName === 'A' && cs.display === 'inline') return;
+    const lb = e.tagName === 'INPUT' && e.closest('label'); if (lb) { const q = lb.getBoundingClientRect(); if (Math.min(q.width, q.height) >= 32) return; }   // the whole label row toggles it
     const pz = getComputedStyle(e, '::after'); const ext = pz.position === 'absolute' && pz.content !== 'none' ? [parseFloat(pz.width) || 0, parseFloat(pz.height) || 0] : [0, 0];
     if (Math.min(Math.max(r.width, ext[0]), Math.max(r.height, ext[1])) < 32) out.push(e.tagName.toLowerCase() + '.' + String(e.className).trim().split(/\\s+/).slice(0, 2).join('.') + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)); });
   return out.slice(0, 40); }"""
 
 # Cards around every element (the old template look) and browser-default grey buttons (a control that lost its style).
-BLOCKS = """() => { const out = []; const allow = /(^|\\s)(nav|nb|v3-bar|v3-bar-me|v3-bell|v3-chip|toast|tv-|tg-|sheet|lk-sheet|cf-sheet|mclose|ap-|lk-mini|lk-hero|v3-fx|sv-ava|sv-radio|v3-ring|v3-ava|tr-ic|cn-|mk-tile|lk-pring|lk-rank-ring|pl-|v3-burst|v3-fly|sg-|st-seg|v3-scope|tos-gate)/;
+# Not cards (S13c): drawn figures — the header emblem (v3-emblem), casino reels (cs-reel), the podium of a top (.v3-podium), the VIP profile preview (sv-prev), pet icon tiles of
+# the classic pets (pt-ic, bc-ic, like tr-ic of the trail) —, the one hero of the VIP screen (sv-hero, allowed by MINIAPP_DESIGN_RULES §3), the classic bestiary sheet (.pt-sheet)
+# and the floating support notice (#pv-support-notice, a toast of its own).
+BLOCKS = """() => { const out = []; const allow = /(^|\\s)(nav|nb|v3-bar|v3-bar-me|v3-bell|v3-chip|toast|tv-|tg-|sheet|lk-sheet|cf-sheet|mclose|ap-|lk-mini|lk-hero|v3-fx|sv-ava|sv-radio|v3-ring|v3-ava|tr-ic|cn-|mk-tile|lk-pring|lk-rank-ring|pl-|v3-burst|v3-fly|sg-|st-seg|v3-scope|tos-gate)/, figure = /(^|\\s)(v3-emblem|cs-reel|sv-hero|sv-prev|pt-ic|bc-ic)(?=\\s|$)/;
   document.querySelectorAll('body *').forEach(e => { const r = e.getBoundingClientRect(); if (r.width < 56 || r.height < 28 || r.bottom < 0) return;
     const tag = e.tagName.toLowerCase(); if (/^(button|input|select|textarea|svg|path|img|canvas|summary|label|option|a)$/.test(tag)) return;
-    const cls = typeof e.className === 'string' ? e.className : ''; if (allow.test(cls) || e.closest('.nav,#v3-bar,.sheet,.lk-sheet,.cf-sheet,#toast,.toast,dialog,.lk-reveal,#preloader,.v3-fx')) return;
+    const cls = typeof e.className === 'string' ? e.className : ''; if (allow.test(cls) || figure.test(cls) || e.closest('.nav,#v3-bar,.sheet,.lk-sheet,.cf-sheet,#toast,.toast,dialog,.lk-reveal,#preloader,.v3-fx,.v3-podium,#pv-support-notice,.pt-sheet,.pt-sheet-bg')) return;
     const cs = getComputedStyle(e); const rad = parseFloat(cs.borderTopLeftRadius) || 0; if (rad < 10 && !(r.width >= 240 && r.height >= 56)) return;   // a big flat slab is a block too, radius or not
     const bg = cs.backgroundColor.match(/rgba?\\(([^)]+)\\)/); const alpha = bg ? (bg[1].split(',').length > 3 ? parseFloat(bg[1].split(',')[3]) : 1) : 0;
     const img = cs.backgroundImage !== 'none'; const bw = parseFloat(cs.borderTopWidth) || 0; const shadow = cs.boxShadow !== 'none';
