@@ -358,7 +358,7 @@
   }
 
   // «Улучшить»: цена следующего шага (карты, Мора, на уровнях 5/10/15 ещё Эссенция). Блок виден только при включённом флаге; что именно не хватает, написано сразу
-  function petLevelUp(pet, data) {
+  function petLevelUp(pet, data, primary = true) {
     const lu = data.level_up;
     if (!lu || !lu.enabled) return '';
     const step = (lu.steps || {})[pet.id];
@@ -377,33 +377,39 @@
         <li><span>🪙 Мора</span><b>${fmt(Number(step.mora))}</b></li>
         ${Number(step.essence) > 0 ? `<li><span>🔮 Эссенция</span><b>${fmt(Number(step.essence))}</b></li>` : ''}
       </ul>
-      <button type="button" class="pt-main v3-pill" onclick="petsV1LevelUp(${Number(pet.id)})" ${need.length ? 'disabled' : ''}>Улучшить</button>
+      <button type="button" class="pt-main v3-pill${primary ? '' : ' v3-pill--ghost'}" onclick="petsV1LevelUp(${Number(pet.id)})" ${need.length ? 'disabled' : ''}>Улучшить</button>
       ${need.length ? `<p class="pt-note" role="status">Не хватает: ${need.join(', ')}.</p>` : ''}
     </section>`;
   }
 
-  function petDetail(pet, data, icon, away, lore) {
+  function petDetail(pet, data, icon, away) {
     const foods = data.food || [];
-    const activePet = (data.pets || []).find((p) => p.active);
-    const tag = pet.active ? 'Активный' : 'В запасе';
+    const activePet = (data.pets || []).find((p) => Number(p.id) === Number(data.active_pet_id));
+    const isActive = Number(pet.id) === Number(data.active_pet_id);
+    const tag = isActive ? 'Активный' : 'В запасе';
     let action = '';
-    if (pet.active) {
+    let choice = '';
+    if (isActive) {
       if (!data.activity) action = petActivityChoices(data, activePet);
       else if (data.activity.pet_id === pet.id) action = activePetActivity(data.activity, data.route_options);
       else action = '<section class="pt-sec"><p class="pt-note">Другой питомец ещё в пути. Выйти в поход можно после его возвращения.</p></section>';
     } else {
-      const trip = data.activity && activePet
-        ? '<p class="pt-note">Текущий питомец в пути: новый сможет выйти после его возвращения.</p>' : '';
-      action = `<section class="pt-sec"><button type="button" class="pt-main v3-pill" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`
-        + `<p class="pt-note">Смена стоит 5 выносливости у текущего активного питомца.</p>${trip}</section>`;
+      const trip = data.activity
+        ? '<p class="pt-note">Другой питомец ещё в пути. Новый сможет выйти после его возвращения.</p>' : '';
+      const first = data.active_pet_id === null;
+      const priced = !!activePet && Number.isInteger(data.active_slot_swap_cost) && data.active_slot_swap_cost >= 0;
+      const cost = first ? 'Первый выбор — без затрат.' : priced
+        ? `Смена: <b>${fmt(data.active_slot_swap_cost)} выносливости</b><small>Потратит <span title="${esc(activePet.name)}">${esc(activePet.name)}</span></small>`
+        : 'Обнови список, чтобы увидеть цену смены.';
+      const ready = first || priced;
+      choice = `<div class="pt-choice"><p class="pt-choice-cost">${cost}</p><button type="button" class="pt-main v3-pill" onclick="${ready ? `petsV1Activate(${Number(pet.id)})` : 'openPetsV1()'}">${ready ? 'Сделать активным' : 'Обновить список'}</button>${trip}</div>`;
     }
     return `<section class="pt-hero ${petRarityClass(pet.rarity)}" aria-label="${esc(pet.name)}">
       <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
         <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
-      ${petMeter(pet)}
-    </section>${action}${petLevelUp(pet, data)}${petFoodButtons(pet, foods)}
-    <button type="button" class="pt-more" onclick="petDexOpen('${esc(pet.species_id)}')">Всё об этом питомце</button>
-    ${lore ? `<details class="pt-info"><summary>История питомца</summary><p>${esc(lore)}</p></details>` : ''}`;
+      ${petMeter(pet)}${choice}
+    </section>${action}${petLevelUp(pet, data, isActive)}${petFoodButtons(pet, foods)}
+    <button type="button" class="pt-more v3-row" onclick="petDexOpen('${esc(pet.species_id)}')"><span>О питомце</span><span class="v3-end" aria-hidden="true">›</span></button>`;
   }
 
   function petOwnedPanel(data) {
@@ -425,7 +431,7 @@
       ? `<div class="pt-strip" role="tablist" aria-label="Мои питомцы">${pets.map((p) => petAvatar(p, info(p).icon || '🐾', p.id === _petSel, p.id === awayId)).join('')}</div>`
       : '';
     const guide = '<details class="pt-info"><summary>Как работает выносливость</summary><p>Она уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу. Поход и экспедиция списывают выносливость при старте и дают ключ. В путь ходит один активный питомец.</p></details>';
-    return `${earned}${petDetail(sel, data, info(sel).icon || '🐾', sel.id === awayId, info(sel).lore)}${strip}${guide}`;
+    return `${earned}${petDetail(sel, data, info(sel).icon || '🐾', sel.id === awayId)}${strip}${guide}`;
   }
 
   function renderPetsV1(root, data) {

@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import pets_v1 as repo, system_flags
 from services import pets_v1
+from core.pets_v1 import ACTIVE_SLOT_SWAP_COST
 
 
 def local_dsn(value: str) -> str:
@@ -33,6 +34,25 @@ async def run(dsn: str) -> None:
         await system_flags.set_flag(db, "pets_v2", False)
         # Keep this boundary proof free of wallet/key awards, even in the test DB.
         await system_flags.set_flag(db, "content_chests_v1", False)
+        choice_user = 977302
+        await db.execute("INSERT INTO users(user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (choice_user,))
+        async with db.execute(
+            "INSERT INTO pets(owner_id,name,species_id,rarity) VALUES (?, 'First', 'moss_cat', 'common'), (?, 'Second', 'salt_fox', 'rare') RETURNING id",
+            (choice_user, choice_user),
+        ) as cur:
+            first_id, second_id = [int(row[0]) for row in await cur.fetchall()]
+        initial = await pets_v1.overview(db, choice_user)
+        assert initial["active_pet_id"] is None
+        assert initial["active_slot_swap_cost"] == ACTIVE_SLOT_SWAP_COST
+        await pets_v1.select_active_pet(db, choice_user, first_id, "choice-first")
+        first_state = await repo.get_state(db, choice_user, first_id)
+        assert first_state["endurance"] == 100, "the first choice is free"
+        await pets_v1.select_active_pet(db, choice_user, second_id, "choice-swap")
+        replay_choice = await pets_v1.select_active_pet(db, choice_user, second_id, "choice-swap")
+        assert replay_choice["idempotent_replay"]
+        swapped = await pets_v1.overview(db, choice_user)
+        states = {pet["id"]: pet["endurance"] for pet in swapped["pets"]}
+        assert states == {first_id: 100 - ACTIVE_SLOT_SWAP_COST, second_id: 100}, "only the previous pet pays, once"
         user = 977301
         await db.execute("INSERT INTO users(user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user,))
         async with db.execute(

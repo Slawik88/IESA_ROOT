@@ -137,7 +137,13 @@
 .pt-b--on { color: var(--pt-ink); box-shadow: inset 0 0 0 1.5px var(--pt-line); }
 .pt-b--trip { top: auto; bottom: 22px; }
 .pt-lore { margin: 0; color: var(--pt-dim); font-size: 13px; line-height: 1.5; }
-#pg-pets .pt-main { width: 100%; min-height: 52px; border: 0; border-radius: 99px; background: var(--pt-acc); color: var(--pt-on); font-size: 15px; font-weight: 650; }
+#pg-pets .pt-main { width: 100%; min-height: 52px; font-size: 15px; font-weight: 650; }
+.pt-choice { display: grid; gap: 12px; padding-top: 2px; }
+.pt-choice .pt-choice-cost { margin: 0; color: var(--pt-ink); font-size: 14px; line-height: 1.4; }
+.pt-choice-cost b { font-weight: 600; }
+.pt-choice-cost small { display: flex; gap: 4px; margin-top: 3px; color: var(--pt-dim); font-size: 12.5px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.pt-choice-cost small span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-choice .pt-note { margin: 0; }
 #pg-pets .pt-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 4px 0 8px; padding: 4px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px var(--pt-line); }
 #pg-pets .pt-seg button { min-height: 44px; border: 0; border-radius: 99px; background: none; color: var(--pt-dim); font-size: 14px; font-weight: 600; }
 #pg-pets .pt-seg button[aria-selected="true"] { background: var(--pt-ink); color: var(--v3-bg, #08090c); }
@@ -158,7 +164,7 @@
 .pt-sheet .pt-main { margin-top: 8px; }
 #pg-pets .pet-route-odds { font-weight: 500; opacity: .8; }
 .pt-soon { color: var(--pt-dim); font-size: 10px; font-style: normal; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.pt-more { justify-self: start; min-height: 40px; padding: 0 14px; border: 0; border-radius: 99px; background: none; box-shadow: inset 0 0 0 1px var(--pt-line); color: var(--pt-ink); font-size: 13px; }
+.pt-more { min-height: 56px; border-radius: 0; box-shadow: 0 1px 0 var(--pt-line); }
 .pt-sheet .pt-lore, .pt-sheet .pt-note { text-align: left; }
 
 /* Улучшение питомца: цена шага строками, нехватка подсвечена сразу (блок виден только при включённом флаге) */
