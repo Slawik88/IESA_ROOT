@@ -75,6 +75,19 @@ async def is_enabled(db, key: str) -> bool:
     return bool(row["enabled"]) if row else _DEFAULT_ENABLED.get(key, True)
 
 
+async def many_enabled(db, keys) -> dict[str, bool]:
+    """Пакет is_enabled одним запросом: у каждого ключа те же дефолты, что у одиночной проверки.
+    Для проверок нескольких флагов в одной процедуре — один round-trip вместо нескольких."""
+    wanted = list(dict.fromkeys(str(key) for key in keys))
+    if not wanted:
+        return {}
+    async with db.execute(
+        "SELECT key, enabled FROM system_flags WHERE key = ANY(?::text[])", (wanted,)
+    ) as c:
+        rows = {str(r["key"]): bool(r["enabled"]) for r in await c.fetchall()}
+    return {key: rows.get(key, _DEFAULT_ENABLED.get(key, True)) for key in wanted}
+
+
 async def set_flag(db, key: str, enabled: bool) -> bool:
     """Возвращает True если ключ нашёлся и обновлён."""
     await db.execute(
