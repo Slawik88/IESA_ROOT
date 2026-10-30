@@ -5,8 +5,10 @@ fields as other global boards. Local boards require current membership of the re
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
+from core import ops_metrics
 from core.ttl_cache import TtlCache
 from infrastructure.repositories import public_profiles_v1 as public_profiles
 from services import appearance_public_v3, marks_v1 as marks_service
@@ -29,13 +31,42 @@ BOARD_CACHE_SEC = 45
 _BOARDS = TtlCache(BOARD_CACHE_SEC, max_entries=128)    # up to 500 rows each: global, chats and local boards
 _PLACES = TtlCache(BOARD_CACHE_SEC, max_entries=4096)   # one small row per player and board
 
+# Singleflight: after a TTL expiry one request reloads the board and the concurrent ones share its task
+# (waiting on their own, not yet taken connections). Without it every viewer paid its own reload.
+_INFLIGHT: dict[tuple, asyncio.Task] = {}
+
+
+async def _load_shared(cache: TtlCache, key: tuple, load):
+    value = await load()
+    cache.put(key, value)
+    return value
+
+
+def _flight_done(flight_key: tuple, task: asyncio.Task) -> None:
+    _INFLIGHT.pop(flight_key, None)
+    if not task.cancelled():
+        task.exception()   # retrieved here so an abandoned failure does not warn
+
 
 async def _cached(cache: TtlCache, key: tuple, load):
     value = cache.get(key)
-    if value is None:
+    if value is not None:
+        return value
+    flight_key = (id(cache), key)
+    task = _INFLIGHT.get(flight_key)
+    if task is None:
+        task = _INFLIGHT[flight_key] = asyncio.create_task(_load_shared(cache, key, load))
+        task.add_done_callback(lambda done: _flight_done(flight_key, done))
+    else:
+        ops_metrics.count("cache_flight", "boards" if cache is _BOARDS else "places")
+    try:
+        return await task
+    except RuntimeError:
+        # The request that started the load ended and closed its lazy database handle: redo it here,
+        # on this caller's own connection, exactly like it would without the shared task.
         value = await load()
         cache.put(key, value)
-    return value
+        return value
 
 
 async def _ranking(db, scope: str, *, chat_id: int | None = None, bounds: tuple[str, str] | None, limit: int = 500) -> list[dict]:

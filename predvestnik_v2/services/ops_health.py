@@ -441,6 +441,7 @@ async def dashboard(db, hours: int) -> dict:
         "pool_hold": [{"name": n, **_stat(s)} for n, s in sorted(by_kind("pool_hold").items())],
         "pool_held": [{"name": n, "avg": round(s.total / s.count, 1) if s.count else 0, "max": round(s.peak)}
                       for n, s in sorted(by_kind("pool_held").items())],
+        "cache_flights": counts("cache_flight"),
         "db_server": {name: round(timings.get(("db_server", name), ops_metrics.Series()).peak)
                       for name in ("total", "ours", "limit")} | {"refused": sum(counts("db_refused").values())},
         "throttle": sorted(({"method": n, **_stat(s)} for n, s in by_kind("throttle_wait").items()),

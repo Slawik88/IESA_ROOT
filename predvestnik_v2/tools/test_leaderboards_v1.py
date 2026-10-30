@@ -131,5 +131,52 @@ async def main() -> None:
         raise AssertionError("unknown game top must be rejected")
 
 
+async def check_singleflight() -> None:
+    """Concurrent misses on a cold key share one load; a leader whose handle died is redone by the waiter."""
+    lb._BOARDS.clear(); lb._PLACES.clear(); lb._INFLIGHT.clear()
+    calls = 0
+
+    async def load():
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.05)
+        return [{"row": 1}]
+
+    results = await asyncio.gather(*(lb._cached(lb._BOARDS, ("t",), load) for _ in range(20)))
+    assert calls == 1, calls
+    assert results == [[{"row": 1}]] * 20
+    assert lb._BOARDS.get(("t",)) == [{"row": 1}], "shared load must fill the cache"
+
+    started = asyncio.Event()
+
+    async def broken_load():
+        started.set()
+        await asyncio.sleep(0.02)
+        raise RuntimeError("database handle used after its update or request ended")
+
+    async def own_load():
+        return [{"row": 2}]
+
+    async def leader():
+        return await lb._cached(lb._BOARDS, ("t2",), broken_load)
+
+    async def waiter():
+        return await lb._cached(lb._BOARDS, ("t2",), own_load)
+
+    lb._BOARDS.clear(); lb._INFLIGHT.clear()
+    leader_task = asyncio.create_task(leader())
+    await started.wait()   # the flight is registered; the waiter joins it before the leader fails
+    assert await waiter() == [{"row": 2}], "waiter must finish on its own load"
+    assert lb._BOARDS.get(("t2",)) == [{"row": 2}]
+    try:
+        await leader_task
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("the leader must surface its own failure")
+    lb._INFLIGHT.clear()
+
+
 asyncio.run(main())
-print("OK: leaderboards periods, paging, bot exclusion and membership gate")
+asyncio.run(check_singleflight())
+print("OK: leaderboards periods, paging, bot exclusion, membership gate and shared cold loads")
