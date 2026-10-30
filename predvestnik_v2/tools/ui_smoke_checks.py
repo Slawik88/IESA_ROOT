@@ -222,8 +222,9 @@ CURRENCY = """() => { const out = []; const re = /🪙|💎|✨|💧/u; const w 
     out.push('EMOJI-CURRENCY ' + p.tagName.toLowerCase() + (typeof p.className === 'string' && p.className ? '.' + p.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + ' «' + t.data.trim().slice(0, 40) + '»'); }
   return [...new Set(out)].slice(0, 20); }"""
 
-# Labels of controls the crawler never presses: they spend, delete or leave the account in another state.
-SKIP_CLICK = r"подтверд|удалить|отправить|принять и|выйти|сбросить|оплат|продолжить и|да, |забрать|выбрать (осторожный|ровный|рискованный)|улучшить|перековать|сдать|дать|начать|сохранить сборку|открыть за одно очко"
+# Labels of controls the crawler never presses: they spend, delete or leave the account in another state
+# (S13c: classic pets start a trip, pick a route, swap or feed a pet; a marriage proposal is accepted or declined, a divorce is started).
+SKIP_CLICK = r"подтверд|удалить|развестись|отправить|принять|отклонить|поход на|экспедиция на|(осторожный|ровный|рискованный) маршрут|сделать активным|покормить|выйти|сбросить|оплат|продолжить и|да, |забрать|выбрать (осторожный|ровный|рискованный)|улучшить|перековать|сдать|дать|начать|сохранить сборку|открыть за одно очко"
 
 # Visible controls of the current screen as [index among all candidates, label], skipping dangerous ones.
 CANDIDATES = """(skip) => { const re = new RegExp(skip, 'i'); const out = [];
