@@ -12,9 +12,13 @@ from bot.chat import streak as s
 from bot.chat.targets import Target
 
 async def main():
+    class Db:   # a real adapter exposes release_if_idle (PGAdapter): graph_media gives the connection back before composing
+        async def release_if_idle(self):
+            return False
+
     for png, failure in [(b"png",False),(None,False),(b"png",True)]:
         message=SimpleNamespace(answer_photo=AsyncMock(side_effect=RuntimeError("offline") if failure else None))
-        ctx=SimpleNamespace(db=object(),message=message,args="",user_id=42,reply=AsyncMock())
+        ctx=SimpleNamespace(db=Db(),message=message,args="",user_id=42,reply=AsyncMock())
         graph=AsyncMock(return_value=png)
         with patch.object(s,"resolve_target",AsyncMock(return_value=(Target(55,None,"<Name>"),""))), patch.object(s,"streak_of",AsyncMock(return_value=(4,12,True))), patch.object(s.activity_graph,"get_graph",graph):
             await s.cmd_streak(ctx)
