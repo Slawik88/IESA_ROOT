@@ -51,6 +51,9 @@ class FakeDB:
         self.calls.append((sql, args))
         return FakeCursor(self.rows)
 
+    async def release_if_idle(self):
+        return False
+
 
 async def check_db_logic() -> None:
     today = local_now().date()

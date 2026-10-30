@@ -258,6 +258,9 @@ async def ensure_fresh(bot, db, chat_id: int, user_ids, limit: int = FRESH_LIMIT
         async with gate:
             return uid, await probe(bot, chat_id, uid)
 
+    # The probes run in child tasks, where the owner-only release before Telegram (bot/middlewares/db.py)
+    # cannot fire; give the connection back here for the whole network wait (up to FRESH_TIMEOUT).
+    await db.release_if_idle()
     try:
         answers = await asyncio.wait_for(asyncio.gather(*(ask(u) for u in todo)), FRESH_TIMEOUT)
     except Exception as exc:

@@ -400,6 +400,7 @@ async def get_graph(db, user_id: int, chat_id: int | None = None, *,
         return hit
     task = _pending.get(key)
     if task is not None:
+        await db.release_if_idle()   # wait for someone else's render without holding a connection
         return hit if hit is not None else await _wait_render(task, hit)
     if len(_pending) >= MAX_PENDING_RENDERS:
         return hit
@@ -414,6 +415,8 @@ async def get_graph(db, user_id: int, chat_id: int | None = None, *,
         return None
     # Recheck after the SQL await: another request may already have started the
     # same render. Background work receives only numbers, never a borrowed DB.
+    # The render may take the whole budget: give the connection back while we wait.
+    await db.release_if_idle()
     task = _pending.get(key)
     if task is None:
         if len(_pending) >= MAX_PENDING_RENDERS:

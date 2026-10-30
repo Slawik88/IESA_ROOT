@@ -175,6 +175,8 @@ async def graph_media(db, user_id: int, chat_id: int | None, look: ChatLook | No
         png = await (activity_graph.get_graph(db, user_id, chat_id) if chat_id is not None else activity_graph.get_graph(db, user_id))
     if not png:
         return None
+    if db is not None:
+        await db.release_if_idle()   # card compose runs up to its budget: no reason to hold a connection
     styled = await card_media(png, look, name, username) if look else None
     return styled or ("photo", png, "activity.png")
 

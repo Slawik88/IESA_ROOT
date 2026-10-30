@@ -21,7 +21,9 @@ async def main():
     @asynccontextmanager
     async def transaction():
         yield
-    db=SimpleNamespace(connection=SimpleNamespace(transaction=transaction))
+    async def release_if_idle():
+        return False
+    db=SimpleNamespace(connection=SimpleNamespace(transaction=transaction), release_if_idle=release_if_idle)
     def render(counts, start, **kwargs):
         calls.append(list(counts))
         time.sleep(.05)

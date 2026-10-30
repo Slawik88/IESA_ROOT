@@ -87,6 +87,7 @@ async def start(db, *, user_id: int, game: str, level: int) -> dict:
     if level > unlocked(await repo.progress(db, user_id=user_id, season=season), game):
         raise LeagueError("Сначала пройди предыдущий уровень.")
     seed = secrets.token_bytes(32)
+    await db.release_if_idle()   # board generation is pure CPU: no connection needed while it runs
     board = await asyncio.to_thread(_mines_board, seed, level) if game == "minesweeper" else {"gifts": rules.GIFT_POOL_NOW}
     run_id = str(uuid4())
     async with db.connection.transaction():
