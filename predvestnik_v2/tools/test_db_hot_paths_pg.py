@@ -86,8 +86,14 @@ async def own_profile_snapshot(client, headers) -> None:
     unchanged = await client.get("/profile/me", headers={**headers, "if-none-match": etag})
     assert unchanged.status_code == 304 and not unchanged.content and unchanged.headers["etag"] == etag
 
-    # A write of the player ends the snapshot: the next read sees the change at once.
+    # Visit analytics changes no player state: the snapshot keeps serving, the next read stays warm.
     await client.post("/analytics/tab", headers=headers, json={"tab": "profile", "session_id": "s04"})
+    with counting() as sql:
+        warm_after_analytics = await client.get("/profile/me", headers=headers)
+    assert warm_after_analytics.status_code == 200 and len(sql) <= PROFILE_WARM_MAX, sql
+
+    # A write of the player (or a live event below) ends the snapshot: the next read sees the change at once.
+    profile_snapshot.forget(PLAYER)
     with counting() as sql:
         await client.get("/profile/me", headers=headers)
     assert len(sql) == cold_count, (len(sql), cold_count)

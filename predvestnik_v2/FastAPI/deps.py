@@ -25,6 +25,10 @@ _DEV_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 _PREPROD_TEST_COOKIE = "predvestnik_preprod_test_session"
 AUTH_REASON_HEADER = "X-Auth-Reason"
 
+# POSTs that write visit analytics only: they change no player state, so the profile snapshot may keep
+# serving (profile reads never consult site_analytics). Every other non-GET request still resets it.
+_ANALYTICS_POSTS = frozenset({"/analytics/tab", "/analytics/tab-duration"})
+
 
 async def get_db(request: Request = None):   # None: a test drives the generator directly
     """Yield a PGAdapter-compatible DB handle on the shared pool.
@@ -43,7 +47,8 @@ async def get_db(request: Request = None):   # None: a test drives the generator
         # A write of the player (committed or not) ends the few seconds their own profile is served from memory.
         # FastAPI 0.115 (requirements.txt) runs this before the response is sent, so the client's next /profile/me is fresh;
         # FastAPI 0.118+ runs it after the response: on such an upgrade move this to a middleware (S04 audit).
-        if request is not None and request.method != "GET":
+        # Visit analytics is not such a write: resetting the snapshot there only forced a pointless profile rebuild.
+        if request is not None and request.method != "GET" and request.url.path not in _ANALYTICS_POSTS:
             profile_snapshot.forget(getattr(request.state, "support_user_id", 0))
 
 
