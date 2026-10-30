@@ -2458,6 +2458,7 @@ async function healthOpsView(box, hours) {
   if (!box.isConnected) return;
   const period = {1: '1 час', 24: '24 часа', 168: '7 дней'};
   const lagBad = o.loop_lag.p95 > 1000, poolBad = o.pool_wait.some(p => p.p95 > 1000);
+  const SOURCE_NAMES = {http: 'приложение', bot: 'бот', background: 'фон'};
   const c = o.client, be = o.bot_errors;
   const clientErrors = c.by_type.filter(t => !['boot_timing', 'guide_miss'].includes(t.type)).reduce((a, t) => a + t.count, 0);
   const none = text => `<div class="sub">${text}</div>`;
@@ -2474,9 +2475,11 @@ async function healthOpsView(box, hours) {
       ${kpi('🌐 Ошибок 5xx', num(o.http_5xx), `<small> из ${num(o.http_total)}</small>`, o.http_5xx ? 'bad' : '')}</div>
     ${section('h-ops-server', '⚙️ Сервер и база', `
       <div class="log"><div>Задержка обработки <b>p95 ${ms(o.loop_lag.p95)}</b> · максимум ${ms(o.loop_lag.max)}</div><div class="sub">Больше секунды подряд — сервер не успевает, игроки видят «зависания».</div></div>
-      <div class="log"><div>Соединений с базой занято <b>в среднем ${o.pool_busy.avg}</b> · максимум ${o.pool_busy.max}</div></div>
+      <div class="log"><div>Соединений с базой занято <b>в среднем ${o.pool_busy.avg}</b> · максимум ${o.pool_busy.max}</div>
+        ${(o.pool_held || []).length ? `<div class="sub">Из них в среднем держат: ${(o.pool_held || []).map(h => `${esc(SOURCE_NAMES[h.name] || h.name)} ${h.avg} (до ${h.max})`).join(' · ')}</div>` : ''}</div>
       ${o.db_server && o.db_server.limit ? `<div class="log"><div>Всего соединений на сервере базы <b>до ${o.db_server.total} из ${o.db_server.limit}</b> · Предвестник до ${o.db_server.ours}</div><div class="sub">Общий лимит с сайтом IESA: когда он кончается, база отказывает всем${o.db_server.refused ? ` · отказов: <b>${num(o.db_server.refused)}</b>` : ''}.</div></div>` : ''}
       ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
+      ${(o.pool_hold || []).map(p => `<div class="log"><div>Удержание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} циклов «взял — сделал запрос — отдал»</div></div>`).join('')}
       ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram: ${esc(t.method)} <b>p95 ${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
     ${section('h-ops-routes', '🌐 Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'p50', 'p95', 'p99', '4xx / 5xx'],
       o.routes.map(r => [esc(r.route), num(r.count), ms(r.p50), ms(r.p95), ms(r.p99), `${num(r.e4)} / ${r.e5 ? `<b>${num(r.e5)}</b>` : 0}`])) : none('Запросов не было.'), {fold: true, open: false, count: num(o.http_total)})}

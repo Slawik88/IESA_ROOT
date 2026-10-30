@@ -4,6 +4,8 @@ Sources (all in-process, see ``core/ops_metrics.py``):
   http           request time per route template (FastAPI/ops_middleware.py), http_4xx / http_5xx counters
   pool_wait      waiting for a database connection: http (FastAPI/deps.get_db), bot (bot/middlewares/db.py)
   pool_busy      busy connections, sampled every POOL_SAMPLE_EVERY seconds
+  pool_hold      how long one lazy adapter kept a connection (acquire → give-back), per source (infrastructure/lazy_db.py)
+  pool_held      connections held right now per source, sampled every POOL_SAMPLE_EVERY seconds
   db_server      connections open on the whole database server (total, ours, limit), every DB_SERVER_SAMPLE_EVERY s;
                  db_refused counts samples the server refused for lack of free connections
   loop_lag       event-loop delay, sampled every second
@@ -283,8 +285,11 @@ async def _sample_loop() -> None:
             next_pool = loop.time() + POOL_SAMPLE_EVERY
             try:
                 from infrastructure.database import get_pool
+                from infrastructure import lazy_db
                 pool = get_pool()
                 ops_metrics.observe("pool_busy", "connections", pool.get_size() - pool.get_idle_size())
+                for source, count in lazy_db.held_connections().items():
+                    ops_metrics.observe("pool_held", source, count)
             except RuntimeError:   # pool not created yet
                 pass
 
@@ -433,6 +438,9 @@ async def dashboard(db, hours: int) -> dict:
         "loop_lag": _stat(lag),
         "pool_wait": [{"name": n, **_stat(s)} for n, s in sorted(by_kind("pool_wait").items())],
         "pool_busy": {"avg": round(busy.total / busy.count, 1) if busy.count else 0, "max": round(busy.peak)},
+        "pool_hold": [{"name": n, **_stat(s)} for n, s in sorted(by_kind("pool_hold").items())],
+        "pool_held": [{"name": n, "avg": round(s.total / s.count, 1) if s.count else 0, "max": round(s.peak)}
+                      for n, s in sorted(by_kind("pool_held").items())],
         "db_server": {name: round(timings.get(("db_server", name), ops_metrics.Series()).peak)
                       for name in ("total", "ours", "limit")} | {"refused": sum(counts("db_refused").values())},
         "throttle": sorted(({"method": n, **_stat(s)} for n, s in by_kind("throttle_wait").items()),
