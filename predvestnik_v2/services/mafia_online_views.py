@@ -2,6 +2,8 @@
 from core import mafia_online as rules
 from core.miniapp_links import miniapp_url
 from infrastructure.repositories import mafia_online as repo
+from services.mafia_online_players import plain_player, player_presentations
+from services.mafia_online_events import events_for, phase_for
 
 
 def summary(state):
@@ -45,7 +47,9 @@ async def snapshot(db, state, user_id, channel="table", after=0, before=0):
     if channel not in allowed:
         raise rules.OnlineError("Этот разговор вам недоступен.", 403)
     ended = state["phase"] in rules.TERMINAL
+    presentations = await player_presentations(db, state["players"])
     public = [{"id": p["id"], "name": p["name"], "seat": p.get("seat", i + 1), "alive": p["alive"], "left": p.get("left", False),
+               **presentations.get(p["id"], plain_player(p)),
                "muted": bool(p.get("muted") or p.get("staff_muted")), "staff_muted": bool(p.get("staff_muted")), "host": p["id"] == state["host"],
                "online": not p.get("left") and now - p.get("seen", 0) <= rules.PRESENCE_TTL,
                **({"role": p["role"]} if ended and p.get("role") else {})} for i, p in enumerate(state["players"])]
@@ -79,7 +83,7 @@ async def snapshot(db, state, user_id, channel="table", after=0, before=0):
     claim_at = rules.host_claim_at(state)
     phase = state.get("paused", state["phase"]) if state["phase"] == "paused" else state["phase"]
     duration = rules.phase_seconds(state["tempo"], phase) if phase in ("night", "discussion", "voting") else rules.LOBBY_TTL if phase == "lobby" else None
-    return {**summary(state), "redactions": state.get("redactions", 0), "launch_url": launch_url(), "version": state["version"], "phase_number": state["phase_number"],
+    view = {**summary(state), "redactions": state.get("redactions", 0), "launch_url": launch_url(), "version": state["version"], "phase_number": state["phase_number"],
             "deadline": state.get("deadline"), "server_time": now, "players": public, "me": my,
             "chat_until": state.get("finished_at", 0) + rules.POSTGAME_CHAT_TTL if state["phase"] == "finished" else None,
             "channels": allowed, "channel_state": channel_state, "channel": channel, "messages": rows, "host_id": state["host"],
@@ -87,6 +91,7 @@ async def snapshot(db, state, user_id, channel="table", after=0, before=0):
             "claim_available_at": claim_at if state["host"] != user_id and state["phase"] in rules.ACTIVE and me["alive"] and not me.get("left") else None,
             "phase_started": state.get("phase_started", state["created"]), "phase_duration": duration,
             "paused_phase": state.get("paused") if state["phase"] == "paused" else None,
+            "paused_at": state.get("paused_at") if state["phase"] == "paused" else None,
             "phase_remaining": state.get("remaining") if state["phase"] == "paused" else None,
             "voting_progress": {"submitted": sum(1 for uid, a in state["actions"].items() if a["kind"] == "vote" and (rules.player(state, int(uid)) or {}).get("alive")),
                                 "total": sum(p["alive"] for p in state["players"])} if state["phase"] == "voting" else None,
@@ -95,6 +100,9 @@ async def snapshot(db, state, user_id, channel="table", after=0, before=0):
             "can_claim": state["phase"] in rules.ACTIVE and state["host"] != user_id and not me.get("left") and me["alive"]
                 and now > claim_at,
             "phase_name": rules.PHASE_NAMES[state["phase"]]}
+    view["events"] = events_for(view)
+    view["phase_state"] = phase_for(view)
+    return view
 
 
 def launch_url():

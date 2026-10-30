@@ -355,8 +355,10 @@ function connectWS() {
     // read here closes the reconnect gap; a healthy connection never polls.
     if (event?.type === 'balance_stream_ready') {
       try { if(typeof refreshCurrBar==='function') refreshCurrBar(); } catch (_) {}
+      if(typeof moLive==='function') moLive(event);
       return;
     }
+    if (event?.type === 'mafia_room_changed') { if(typeof moLive==='function') moLive(event); return; }
     if (event?.type === 'app_version') { showAppUpdate(event.version); return; }
     if (event?.type === 'balance_changed') { queueLiveBalance(event); return; }
     if (event?.type === 'notification_pending') {

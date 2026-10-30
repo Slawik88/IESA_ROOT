@@ -29,9 +29,10 @@ _SCHEMA = "predvestnik"
 APP_NAME = "predvestnik"
 
 
-# Long-lived connections outside the pool: the bot's single-instance advisory lock and the LISTEN for live
-# player events (connect_direct). They used to sit in the pool for good; the process total stays the same.
-DIRECT_CONNECTIONS = 2
+# Long-lived connections outside the pool: the bot's single-instance advisory lock,
+# player-event LISTEN and online-Mafia deadline LISTEN. Reserve all three inside
+# the same process total, rather than adding a connection to the managed cluster.
+DIRECT_CONNECTIONS = 3
 
 
 def _pool_max_size() -> int:

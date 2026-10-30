@@ -1,6 +1,10 @@
 """Storage isolated from every mafia_v1_* table; one active online seat per person."""
 import json
 
+from infrastructure.repositories.balance_events import CHANNEL as PLAYER_CHANNEL
+
+SCHEDULE_CHANNEL = "predvestnik_mafia_deadline_v1"
+
 
 async def ensure_tables(db):
     await db.execute("""CREATE TABLE IF NOT EXISTS mafia_online_rooms (
@@ -80,6 +84,7 @@ async def create(db, state):
         "INSERT INTO mafia_online_rooms(state,deadline,visibility,invite) VALUES($1,$2,$3,$4) RETURNING id",
         json.dumps(state), state["deadline"], state["visibility"], state["invite"])
     state["id"] = room_id
+    await wake_scheduler(db)
     return room_id
 
 
@@ -88,6 +93,37 @@ async def save(db, state, bump=True):
         state["version"] += 1
     await db.connection.execute("UPDATE mafia_online_rooms SET state=$1,phase=$2,deadline=$3,visibility=$4 WHERE id=$5",
                                 json.dumps(state), state["phase"], state.get("deadline"), state["visibility"], state["id"])
+    if bump:
+        await room_changed(db, state, [p["id"] for p in state["players"]])
+        await wake_scheduler(db)
+
+
+async def room_changed(db, state, user_ids):
+    """Invalidation only, committed with the write. Never include a channel or a role.
+
+    Callers of private chat changes supply only that conversation's authorized
+    recipients; heartbeat writes deliberately do not call this function.
+    """
+    event = {"type": "mafia_room_changed", "room_id": state["id"], "version": state["version"]}
+    for uid in sorted(set(user_ids)):
+        await db.connection.execute("SELECT pg_notify($1,$2)", PLAYER_CHANNEL,
+                                    json.dumps({**event, "user_id": uid}))
+
+
+async def wake_scheduler(db):
+    await db.connection.execute("SELECT pg_notify($1,'')", SCHEDULE_CHANNEL)
+
+
+async def next_delay(db, maximum=30.0):
+    delay = await db.connection.fetchval(
+        "SELECT MIN(deadline)-EXTRACT(EPOCH FROM clock_timestamp()) "
+        "FROM mafia_online_rooms WHERE phase=ANY($1::text[])",
+        ["lobby", "night", "discussion", "voting", "paused"])
+    if delay is None:
+        return maximum
+    # A room still overdue after tick is locked or failed. Keep the old 2s retry
+    # interval for it; healthy future deadlines can be much closer than that.
+    return min(maximum, 2.0 if delay <= 0 else max(0.05, float(delay)))
 
 
 async def take_seat(db, room_id, user_id):

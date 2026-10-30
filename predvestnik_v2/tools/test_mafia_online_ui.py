@@ -53,9 +53,11 @@ def html():
       const _uid=Number(new URLSearchParams(location.search).get('user')||'101');
       const hdrs=()=>({'x-test-user':String(_uid),'content-type':'application/json'});
       let _modalReturnFocus=null;const _MF_VARIANT={primary:'',ghost:' v3-pill--ghost'};
+      const _activePage='arena';function _dockActive(){}function _syncBackButton(){}
       const CM=()=>el('modal').close();function v3GlintMark(){return '';}function openMafiaStats(){CM();}
     """
     helpers += function("app.01.js", "OM") + function("app.20.js", "v3Head")
+    helpers += function("app.50.js", "v3CurIn")
     return f"""<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
       <link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/shell-v3.css">
       <link rel="stylesheet" href="/static/shell-v3-home.css"><link rel="stylesheet" href="/static/mafia-online-v3.css">

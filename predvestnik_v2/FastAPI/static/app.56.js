@@ -1,240 +1,1533 @@
 // Online Mafia · the city, personal turn and conversation stay visible; controls have one home.
-const MO_COPY={citizen:'Найди мафию в разговорах и на голосовании.',mafia:'Договорись с командой и выбери ночную цель.',don:'При равных ночных голосах решает твой выбор.',doctor:'Спаси одного игрока этой ночью. Можно выбрать себя.',detective:'Проверь игрока ночью. Ответ появится утром.'};
-function moResultTitle(d){return d.winner==='town'?'Мирные победили':d.winner==='mafia'?'Мафия победила':d.winner==='draw'?'Город сыграл вничью':d.finish_reason==='idle'?'Город опустел':'Стол закрыт';}
-function moPhaseTitle(d){return d.phase==='finished'?(d.winner==='town'?'Город спасён':d.winner==='mafia'?'Город во тьме':'Ничья'):MO_PHASE[d.phase];}
-function moMyOutcome(d){if(d.phase!=='finished'||!d.me.role||d.me.left)return '';const side=['mafia','don'].includes(d.me.role)?'mafia':'town';return d.winner==='draw'?'Ничья':d.winner===side?'Победа твоей стороны':'Твоя сторона проиграла';}
-function moLabel(p){return p.seat?`${p.name} · №${p.seat}`:p.name;}
-function moHowto(){return '<ol class="mo-rules"><li><b>Займи место</b><span>Нужно от четырёх игроков. Хозяин начинает партию, полный стол стартует сам.</span></li><li><b>Ночью — тайные решения</b><span>Свою роль видишь только ты. Мафия общается отдельно, доктор спасает, детектив проверяет.</span></li><li><b>Днём — разговор и голос</b><span>Обсудите подозрения и выберите, кто покинет город. Голос можно изменить до конца этапа.</span></li></ol><p class="mo-note">Мирные побеждают без мафии. Мафия — когда её не меньше, чем мирных. Выбывшие общаются отдельно.</p>';}
+const MO_COPY = {
+  citizen: 'Найди мафию в разговорах и на голосовании.',
+  mafia: 'Договорись с командой и выбери ночную цель.',
+  don: 'При равных ночных голосах решает твой выбор.',
+  doctor: 'Спаси одного игрока этой ночью. Можно выбрать себя.',
+  detective: 'Проверь игрока ночью. Ответ появится утром.',
+};
+function moResultTitle(d) {
+  return d.winner === 'town'
+    ? 'Мирные победили'
+    : d.winner === 'mafia'
+      ? 'Мафия победила'
+      : d.winner === 'draw'
+        ? 'Город сыграл вничью'
+        : d.finish_reason === 'idle'
+          ? 'Город опустел'
+          : 'Стол закрыт';
+}
+function moPhaseTitle(d) {
+  return d.phase === 'finished'
+    ? d.winner === 'town'
+      ? 'Город спасён'
+      : d.winner === 'mafia'
+        ? 'Город во тьме'
+        : 'Ничья'
+    : MO_PHASE[d.phase];
+}
+function moMyOutcome(d) {
+  if (d.phase !== 'finished' || !d.me.role || d.me.left) return '';
+  const side = ['mafia', 'don'].includes(d.me.role) ? 'mafia' : 'town';
+  return d.winner === 'draw'
+    ? 'Ничья'
+    : d.winner === side
+      ? 'Победа твоей стороны'
+      : 'Твоя сторона проиграла';
+}
+function moLabel(p) {
+  return p.seat ? `${p.name} · №${p.seat}` : p.name;
+}
+function moHowto() {
+  return [
+    '<ol class="mo-rules"><li><b>Займи место</b><span>Нужно от четырёх игроков. Хозяин начинает партию, полный стол стартует сам.</span></li><li>',
+    '<b>Ночью — тайные решения</b><span>Свою роль видишь только ты. Мафия общается отдельно, доктор спасает, детектив проверяет.</span></li><li><',
+    'b>Днём — разговор и голос</b><span>Обсудите подозрения и выберите, кто покинет город. Голос можно изменить до конца этапа.</span></li></ol><',
+    'p class="mo-note">Мирные побеждают без мафии. Мафия — когда её не меньше, чем мирных. Выбывшие общаются отдельно.</p>',
+  ].join('');
+}
 // Внутри партии правила — лист поверх разговора: уйти из идущей игры в Путеводитель нельзя. Из хаба «Правила» ведут в тему «Мафия онлайн» (app.55.js).
-function moHelp(){moSheet('Как живёт город',moHowto()+'<p class="mo-note">Подробно — в Путеводителе, тема «Мафия онлайн» (после партии).</p>','help');}
-function moSettingsMarkup(d={}){return `<div class="mo-settings"><label>Игроков за столом<select name="seats">${Array.from({length:17},(_,i)=>i+4).map(n=>`<option value="${n}" ${n===(d.seats||8)?'selected':''}>${n}</option>`).join('')}</select></label><label>Скорость партии<select name="tempo">${[['fast','Быстро'],['normal','Обычно'],['slow','Неспешно']].map(([k,v])=>`<option value="${k}" ${k===(d.tempo||'normal')?'selected':''}>${v}</option>`).join('')}</select></label><label>Кто может войти<select name="visibility"><option value="public">Любой игрок</option><option value="invite" ${d.visibility==='invite'?'selected':''}>Только по приглашению</option></select></label><label>Голоса игроков<select name="vote_mode"><option value="secret">Скрыты до итога</option><option value="open" ${d.vote_mode==='open'?'selected':''}>Видны всем</option></select></label></div><label class="mo-check"><input name="roles_auto" type="checkbox" ${d.roles_auto!==false?'checked':''}>Подобрать роли автоматически</label><fieldset class="mo-role-options"><legend>Дополнительные роли</legend>${[['doctor','Доктор'],['detective','Детектив'],['don','Дон · от 8 игроков']].map(([k,v])=>`<label class="mo-check"><input type="checkbox" name="roles" value="${k}" ${(d.roles||[]).includes(k)?'checked':''}>${v}</label>`).join('')}</fieldset><p class="mo-note" data-role-note>Автоподбор учитывает количество игроков.</p>`;}
-function moSettingsRead(form){const d=new FormData(form),auto=d.has('roles_auto');return{seats:Number(d.get('seats')),tempo:d.get('tempo'),visibility:d.get('visibility'),vote_mode:d.get('vote_mode'),roles_auto:auto,roles:auto?[]:d.getAll('roles')};}
-function moSettingsSync(form){const auto=form.elements.roles_auto.checked,n=Number(form.elements.seats.value);form.querySelectorAll('[name=roles]').forEach(x=>{x.disabled=auto||(x.value==='don'&&n<8);if(x.value==='don'&&n<8)x.checked=false;});form.querySelector('[data-role-note]').textContent=auto?'Роли подберутся под фактическое число игроков.':'Дон появляется от 8 игроков. Мирные и мафия есть всегда.';}
-function moCreate(){if(MO.hub?.active)return moEnter(MO.hub.active);moSheet('Свой город',`<form id="mo-create-form">${moSettingsMarkup(MO.createDraft||{})}<button class="v3-pill v3-pill--full" type="submit">Создать стол</button></form>`,'create');const form=el('mo-create-form');moSettingsSync(form);form.onchange=()=>{moSettingsSync(form);MO.createDraft=moSettingsRead(form);};form.onsubmit=e=>{e.preventDefault();const g=MO.gen;moBusy(async()=>{const d=await moRequest('/rooms',moSettingsRead(form));if(moAlive(g))moEnter(d.room_id);});};}
-function moRoomShell(id){return `<div class="mo-room"><header class="mo-room-head"><button class="v3-link" onclick="moHub()" aria-label="Вернуться в хаб Мафии">‹ Хаб</button><b><span id="mo-city-label">Город №${Number(id)}</span><span id="mo-mini-role" class="mo-mini-role"></span><time id="mo-mini-clock" class="mo-mini-clock" aria-live="off"></time></b><div class="mo-head-actions"><button type="button" class="mo-support" data-support-open data-support-category="mafia" aria-label="Сообщить о проблеме">?</button><button class="v3-link" id="mo-invite" onclick="moInvite()" disabled>Позвать</button></div></header><aside id="mo-event" class="mo-event" hidden></aside><div class="mo-workspace"><aside class="mo-gameplay" aria-label="Ход партии"><section id="mo-status" aria-label="Этап партии"><p class="v3-empty">Город просыпается…</p></section><nav id="mo-tabs" class="mo-tabs"  aria-label="Партия">${[['chat','Ход'],['players','Игроки'],['table','Стол']].map(([k,v])=>`<button type="button"  id="mo-tab-${k}" data-mo-tab="${k}" aria-controls="mo-panel-${k}" aria-pressed="${k==='chat'}" onclick="moTab('${k}')">${v}<span id="mo-tab-count-${k}"></span></button>`).join('')}</nav><div id="mo-rolebar"></div><div id="mo-actionbar"></div><p id="mo-announcement" class="mo-sr" role="status" aria-live="polite"></p><div id="mo-control-pending"></div><section id="mo-panel-players" class="mo-panel"  aria-label="Игроки" hidden><div class="mo-panel-heading"><h2>В нашем городе</h2><p id="mo-player-summary"></p></div><label class="mo-search-label" for="mo-player-search">Найти игрока</label><input type="search" id="mo-player-search" class="mo-search" placeholder="Имя или номер места" autocomplete="off" oninput="MO.playerQuery=this.value;moRenderPlayers()"><div id="mo-public-votes"></div><div id="mo-players-list"></div></section><section id="mo-panel-table" class="mo-panel"  aria-label="Стол" hidden><div id="mo-table-info"></div><div id="mo-table-controls"></div><div id="mo-settings-slot"></div><button class="v3-link" onclick="moHelp()">Правила партии</button><div class="mo-danger-zone" id="mo-danger-zone"></div></section></aside><section id="mo-panel-chat" class="mo-panel mo-conversation" aria-label="Разговор"><p id="mo-connection" class="mo-connection" role="status"></p><div id="mo-chat" class="mo-chat" tabindex="0" aria-label="История разговора"><button id="mo-older" class="v3-link" onclick="moOlder()" hidden>Загрузить предыдущие сообщения</button><div id="mo-chat-empty" class="mo-chat-empty"></div><div id="mo-messages" role="log" aria-live="polite" aria-relevant="additions"></div></div><button id="mo-new" class="mo-new v3-pill v3-pill--ghost" onclick="moLatest()" hidden></button><form id="mo-compose" class="mo-compose"><div id="mo-reply"></div><label id="mo-compose-label" class="mo-sr" for="mo-text">Сообщение в общий разговор</label><div class="mo-input-row"><textarea id="mo-text" rows="1" maxlength="1200" placeholder="Скажи городу…" aria-describedby="mo-counter"></textarea><button type="submit" class="v3-pill" id="mo-send" aria-label="Отправить сообщение" disabled>Отправить</button></div><div class="mo-compose-meta"><nav class="mo-channels" id="mo-channels" aria-label="Разговоры"></nav><span id="mo-counter">0 / 600</span></div><div id="mo-send-state" class="mo-send-state" role="status"></div></form></section></div><p class="mo-error" id="mo-error" role="alert"></p><p class="mo-toast" id="mo-toast" role="status" hidden></p></div>`;}
-function moSetHTML(id,html){const box=el(id);if(!box||box._moHtml===html)return;const active=box.contains(document.activeElement)?document.activeElement.id:null;box.innerHTML=html;box._moHtml=html;if(active)el(active)?.focus({preventScroll:true});}
-function moTab(tab,focus=false){
- if(!moReady()||!['chat','players','table'].includes(tab))return;
- MO.tab=tab;moSheetClose();el('mo-root').querySelector('.mo-gameplay').scrollTop=0;
- for(const k of ['chat','players','table']){
-   el(`mo-panel-${k}`).hidden=k!=='chat'&&k!==tab;
-   el(`mo-tab-${k}`).setAttribute('aria-pressed',String(k===tab));
- }
- el('mo-root').classList.toggle('mo-details-open',tab!=='chat');
- if(focus)el(`mo-tab-${tab}`).focus();
- if(tab==='players')moRenderPlayers();else if(tab==='table')moRenderTable();
- moNewBadge();moComposeState();
+function moHelp() {
+  moSheet(
+    'Как живёт город',
+    moHowto() + '<p class="mo-note">Подробно — в Путеводителе, тема «Мафия онлайн» (после партии).</p>',
+    'help',
+  );
 }
-function moPhaseGuide(d){
- const p=d.me;
- if(d.phase==='lobby')return d.players.length<4?`Позови друзей: нужно ещё ${4-d.players.length}.`:d.host_id===p.id?'Нажми «Начать партию», чтобы раздать роли.':'Ждём, когда хозяин начнёт партию. Пока можно общаться.';
- if(d.phase==='finished')return 'Партия окончена. Открой «Игроки», чтобы узнать все роли.';
- if(d.phase==='cancelled')return 'Стол закрыт. Нажми «Ещё партию», чтобы найти новый.';
- if(p.left)return 'Ты покинул стол. Можно читать разговор и следить за партией.';
- if(!p.alive)return 'Ты выбыл: больше не голосуешь. Общайся во вкладке «Выбывшие».';
- if(d.phase==='paused')return 'Время остановлено. Продолжить партию может хозяин.';
- if(p.choice_reset)return 'Твоя цель вышла. Нажми «Выбрать» и укажи другого игрока.';
- if(p.action)return 'Выбор сохранён. Кнопка «Изменить» позволяет передумать до конца отсчёта.';
- if(d.phase==='voting')return 'Нажми «Выбрать»: твой голос решает, кто покинет город.';
- const mafia=['mafia','don'].includes(p.role);
- if(d.phase==='discussion')return mafia?'Ты за мафию. Обсуждай подозрения в общем чате, не выдавая свою роль.':'Ты за мирных. Обсуди в общем чате, кто может быть мафией. Затем голосуйте.';
- if(p.can_act)return ({mafia_target:'Ты за мафию. Договорись в чате «Мафия», затем нажми «Выбрать» и укажи ночную цель.',doctor_save:'Ты доктор. Нажми «Выбрать» и укажи, кого спасти этой ночью. Можно себя.',detective_check:'Ты детектив. Нажми «Выбрать» и укажи игрока. Утром результат появится в «О роли».'})[p.action_kind]||p.action_hint;
- return 'Ты мирный житель: ночью выбирать никого не нужно. Дождись утра и обсуждай подозрения.';
+function moSettingsMarkup(d = {}) {
+  return [
+    `<div class="mo-settings"><label>Игроков за столом<select name="seats">${Array.from(
+      { length: 17 },
+      (_, i) => i + 4,
+    )
+      .map((n) => `<option value="${n}" ${n === (d.seats || 8) ? 'selected' : ''}>${n}</option>`)
+      .join('')}`,
+    `</select></label><label>Скорость партии<select name="tempo">${[
+      ['fast', 'Быстро'],
+      ['normal', 'Обычно'],
+      ['slow', 'Неспешно'],
+    ]
+      .map(([k, v]) => `<option value="${k}" ${k === (d.tempo || 'normal') ? 'selected' : ''}>${v}</option>`)
+      .join('')}`,
+    `</select></label><label>Кто может войти<select name="visibility"><option value="public">Любой игрок</option><option value="invite" ${d.visibility === 'invite' ? 'selected' : ''}`,
+    `>Только по приглашению</option></select></label><label>Голоса игроков<select name="vote_mode"><option value="secret">Скрыты до итога</option><option `,
+    `value="open" ${d.vote_mode === 'open' ? 'selected' : ''}>Видны всем</option></select></label></div><label class="mo-check"><input name="roles_auto" type="checkbox" ${d.roles_auto !== false ? 'checked' : ''}`,
+    `>Подобрать роли автоматически</label><fieldset class="mo-role-options"><legend>Дополнительные роли</legend>${[
+      ['doctor', 'Доктор'],
+      ['detective', 'Детектив'],
+      ['don', 'Дон · от 8 игроков'],
+    ]
+      .map(
+        ([k, v]) =>
+          `<label class="mo-check"><input type="checkbox" name="roles" value="${k}" ${(d.roles || []).includes(k) ? 'checked' : ''}>${v}</label>`,
+      )
+      .join('')}`,
+    `</fieldset><p class="mo-note" data-role-note>Автоподбор учитывает количество игроков.</p>`,
+  ].join('');
 }
-function moRoleBar(d){const p=d.me;if(!p.role)return `<div class="mo-lobby-seat"><b>Твоё место №${p.seat||'—'}</b><span>${d.players.length} из ${d.seats} за столом</span><button class="v3-link" onclick="moTab('players')">Кто с нами</button></div>`;const unread=p.checks.length-(MO.checkSeen||0);return `<button id="mo-role-open" class="mo-role-open" onclick="moRoleInfo()"><img src="${BASE}/static/mafia-art/${p.role}.webp" alt="" width="44" height="44"><span><small>${moMyOutcome(d)|| (p.alive?'Твоя роль':'Ты выбыл · твоя роль')}</small><b>${MO_ROLE[p.role]}</b></span><span class="mo-role-more">${unread>0?'Новая проверка':'О роли'}</span></button>`;}
-function moRoleInfo(){if(!moReady())return;const d=MO.data,p=d?.me;if(!p?.role)return;MO.checkSeen=p.checks.length;moSheet(MO_ROLE[p.role],`<div class="mo-role-reveal"><img src="${BASE}/static/mafia-art/${p.role}.webp" alt="" width="112" height="112"><p>${MO_COPY[p.role]}</p></div>${p.team.length?`<h3>Твоя команда</h3><ul class="mo-simple-list">${p.team.map(x=>`<li>${esc(moLabel(x))}<span>${x.alive?'В городе':'Выбыл'}</span></li>`).join('')}</ul>`:''}<div id="mo-team-choices">${moTeamChoices(d)}</div>${p.checks.length?`<h3>Результаты проверок</h3><ul class="mo-simple-list">${[...p.checks].reverse().map(x=>`<li><span>Ночь ${x.round} · ${esc(moLabel(x))}</span><b>${x.mafia?'Мафия':'Мирный'}</b></li>`).join('')}</ul>`:''}`,'role');moSetHTML('mo-rolebar',moRoleBar(d));}
-function moActionBar(d){const ended=['finished','cancelled'].includes(d.phase);if(ended)return `<div class="mo-result"><span><b>${moResultTitle(d)}</b><small id="mo-postgame-time"></small></span><button class="v3-pill" onclick="moAgain()">Ещё партию</button></div>${d.phase==='finished'?'<button class="v3-link mo-reveal-link" onclick="moTab(\'players\')">Кто кем был · раскрыть роли</button>':''}`;
- if(d.phase==='lobby')return d.host_id===d.me.id?`<button class="v3-pill v3-pill--full" onclick="moControl('start')" ${d.players.length<4?'disabled':''}>${d.players.length<4?'Ждём игроков':'Начать партию'}</button>`:`<div class="mo-waiting">Твоё место занято. Роль придёт после старта.</div>`;
- if(d.phase==='paused')return `<div class="mo-paused"><span>Игра на паузе</span>${d.host_id===d.me.id?'<button class="v3-pill" onclick="moControl(\'resume\')">Продолжить</button>':'<button class="v3-link" onclick="moTab(\'table\')">Посмотреть стол</button>'}</div>`;
- if(d.me.can_act){const t=d.players.find(p=>p.id===d.me.action?.target),chosen=d.me.action?(t?moLabel(t):'Никого'):null;return `<div class="mo-turn"><span><small>${d.phase==='voting'?'Твой голос':'Твой ход'}</small><b>${chosen?esc(chosen):({mafia_target:'Ночная цель',doctor_save:'Кого спасти?',detective_check:'Кого проверить?',vote:'Кто покинет город?'})[d.me.action_kind]}</b></span><button id="mo-action-open" class="v3-pill ${chosen?'v3-pill--ghost':''}" onclick="moChooseTarget()">${chosen?'Изменить':'Выбрать'}</button></div>${d.me.choice_reset?'<p class="mo-action-note">Прежняя цель вышла · нужен новый выбор</p>':''}`;}
- return '';
+function moSettingsRead(form) {
+  const d = new FormData(form),
+    auto = d.has('roles_auto');
+  return {
+    seats: Number(d.get('seats')),
+    tempo: d.get('tempo'),
+    visibility: d.get('visibility'),
+    vote_mode: d.get('vote_mode'),
+    roles_auto: auto,
+    roles: auto ? [] : d.getAll('roles'),
+  };
 }
-function moRenderRoom(d){const nextEvent=moEventFor(MO.presented,d);MO.presented=d;if(nextEvent)MO.pendingEvent=nextEvent;const oldMarker=MO.phaseMarker,marker=`${d.id}:${d.phase_number}:${d.phase}:${d.me.alive}`,ended=['finished','cancelled'].includes(d.phase);MO.self=d.me.id;if(el('mo-mini-role'))el('mo-mini-role').textContent=MO_ROLE[d.me.role]||'Сбор игроков';MO.offset=Date.now()/1000-d.server_time;MO.launchBase=d.launch_url||MO.launchBase;
- if(marker!==oldMarker){MO.phaseMarker=marker;if(oldMarker){MO.phaseMoment=marker;moSheetClose();MO.tab='chat';moTab('chat');}if(el('mo-announcement'))el('mo-announcement').textContent=`${MO_PHASE[d.phase]}. ${moPhaseGuide(d)}`;const preferred=!ended&&!d.me.left&&!d.me.alive?'afterlife':d.phase==='night'&&d.channels.includes('mafia')?'mafia':'table';if(preferred!==MO.channel&&d.channels.includes(preferred))return moChannel(preferred);}
- if(MO.redactions!==d.redactions){MO.messages.clear();MO.redactions=d.redactions;}
- const phase=d.phase==='paused'?d.paused_phase:d.phase,index={lobby:0,night:1,discussion:2,voting:3}[phase];
- moSetHTML('mo-status',`<div class="mo-phase mo-phase-${d.phase}"><img src="${BASE}/static/mafia-art/city.webp" alt=""><div><small>${d.phase==='lobby'?'Здесь начинается история':ended?'Маски сняты':`Круг ${d.round} · в городе ${d.living_count??d.players.filter(p=>p.alive).length}`}</small><h2>${moPhaseTitle(d)}</h2></div><time id="mo-clock" aria-live="off"></time><span class="mo-phase-track" aria-hidden="true"><i id="mo-phase-progress"></i></span></div><ol class="mo-stages" aria-label="Этапы партии">${['Сбор','Ночь','Разговор','Голосование'].map((s,i)=>`<li ${i===index?'aria-current="step"':''} class="${i===index?'current':''}">${s}</li>`).join('')}</ol><p class="mo-guide">${esc(moPhaseGuide(d))}</p>`);
- if(MO.phaseMoment===marker){el('mo-status').querySelector('.mo-phase')?.classList.add('mo-new-phase');MO.phaseMoment=null;}moSetHTML('mo-rolebar',moRoleBar(d));moSetHTML('mo-actionbar',moActionBar(d));MO.statusKey=JSON.stringify([d.version,d.me.can_write,d.channels,d.can_claim]);
- el('mo-invite').disabled=d.phase!=='lobby'||d.me.left;el('mo-invite').hidden=d.phase!=='lobby'||d.me.left;el('mo-tab-count-players').textContent=` ${d.living_count??d.players.filter(p=>p.alive).length}`;
- if(!d.channels.includes(MO.channel)){moChannel('table');return;}moPendingNotice();moChannelMarkup();moMessages(d.messages);if(MO.pendingEvent){const event=MO.pendingEvent;MO.pendingEvent=null;moShowEvent(event);}moComposeState();moClock();if(MO.tab==='players')moRenderPlayers();if(MO.tab==='table')moRenderTable();if(el('mo-sheet')?.open&&MO.sheetKind==='targets')moTargetRows();if(el('mo-sheet')?.open&&['role','council'].includes(MO.sheetKind))moSetHTML('mo-team-choices',moTeamChoices(d));
+function moSettingsSync(form) {
+  const auto = form.elements.roles_auto.checked,
+    n = Number(form.elements.seats.value);
+  form.querySelectorAll('[name=roles]').forEach((x) => {
+    x.disabled = auto || (x.value === 'don' && n < 8);
+    if (x.value === 'don' && n < 8) x.checked = false;
+  });
+  form.querySelector('[data-role-note]').textContent = auto
+    ? 'Роли подберутся под фактическое число игроков.'
+    : 'Дон появляется от 8 игроков. Мирные и мафия есть всегда.';
 }
-function moChannelMarkup(){const d=MO.data;if(!d||!el('mo-channels'))return;const latest=d.channel_state||{},titles={table:'Разговор видят все участники города',mafia:'Разговор видит только твоя команда',afterlife:'Разговор выбывших; живые увидят его после финала'};const html=d.channels.map(k=>{const unread=k!==MO.channel&&latest[k]?.latest_id>(MO.read[k]||0);return `<button type="button" aria-pressed="${k===MO.channel}" class="${k===MO.channel?'on':''}" title="${titles[k]||''}" onclick="moChannel('${k}')">${MO_CHANNEL[k]}${unread?'<span class="mo-unread" aria-label="Есть новые сообщения"></span>':''}</button>`;}).join('')+(MO.channel==='mafia'&&d.phase==='night'&&d.me.team_choices?`<button id="mo-council" type="button" aria-label="Ночной совет: ${d.me.team_choices.filter(x=>x.target!==null&&x.target!==undefined).length} из ${d.me.team_choices.length} выбрали цель" onclick="moCouncil()">Совет · ${d.me.team_choices.filter(x=>x.target!==null&&x.target!==undefined).length}/${d.me.team_choices.length}</button>`:'');moSetHTML('mo-channels',html);el('mo-text').title=(matchMedia('(pointer:coarse)').matches?'Свайпни сообщение влево — ответишь на него. ':'')+'Enter — отправить · Shift+Enter — новая строка · Escape — отменить ответ';const label=`Сообщение · ${MO_CHANNEL[MO.channel]}${MO.channel==='mafia'?' · только команда':''}`;el('mo-text').setAttribute('aria-label',label);if(el('mo-compose-label'))el('mo-compose-label').textContent=label;el('mo-text').placeholder=MO.channel==='mafia'?'Что решим этой ночью?':MO.channel==='afterlife'?'Обсудим, что происходит в городе…':'Скажи городу…';}
-function moRenderPlayers(){const d=MO.data;if(!d||!el('mo-players-list'))return;const q=(MO.playerQuery||'').trim().toLocaleLowerCase(),ended=['finished','cancelled'].includes(d.phase);el('mo-player-summary').textContent=`В городе ${d.living_count??d.players.filter(p=>p.alive).length} · онлайн ${d.online_count??'—'}`;
- const rows=d.players.filter(p=>moLabel(p).toLocaleLowerCase().includes(q)).sort((a,b)=>Number(b.alive)-Number(a.alive)||(a.seat||0)-(b.seat||0));
- moSetHTML('mo-players-list',rows.map(p=>`<article class="mo-player ${p.alive?'':'out'}"><span class="mo-seat" aria-label="Место ${p.seat}">${p.role?`<img src="${BASE}/static/mafia-art/${p.role}.webp" alt="${MO_ROLE[p.role]}">`:p.seat||'·'}</span><div><b>${esc(p.name)}${p.id===d.me.id?' · ты':''}</b><small>${ended&&p.role?MO_ROLE[p.role]+(p.left?' · покинул город':!p.alive?' · выбыл':''):p.left?'Покинул стол':p.alive?'В городе':'Выбыл'}${p.host?' · хозяин':''}${p.muted?' · чат ограничен':''}</small></div><span class="mo-presence ${p.online?'online':''}" aria-label="${p.online?'Онлайн':'Не в сети'}"></span>${d.host_id===d.me.id&&p.id!==d.me.id&&!p.staff_muted?`<button id="mo-person-${p.id}" class="v3-link" aria-label="Управлять чатом игрока ${esc(moLabel(p))}" onclick="moPlayerMenu(${p.id})">Ещё</button>`:''}</article>`).join('')||'<p class="v3-empty">Игрок не найден. Проверь имя или номер.</p>');
- if(d.phase==='voting'){moSetHTML('mo-public-votes',`<div class="mo-vote-progress"><b>Голосование</b><span>${d.voting_progress?.submitted??Object.keys(d.votes).length} из ${d.voting_progress?.total??d.players.filter(p=>p.alive).length} проголосовали</span></div>${d.vote_mode==='open'?`<ul class="mo-simple-list">${Object.entries(d.votes).map(([id,t])=>`<li>${esc(moLabel(d.players.find(p=>String(p.id)===id)||{name:'Игрок'}))}<span>→ ${t===null?'Никого':esc(moLabel(d.players.find(p=>p.id===t)||{name:'Выбыл'}))}</span></li>`).join('')}</ul>`:'<p class="mo-note">Голоса скрыты. Итог объявит город.</p>'}`);}else moSetHTML('mo-public-votes','');
+function moCreate() {
+  if (MO.hub?.active) return moEnter(MO.hub.active);
+  moSheet(
+    'Свой город',
+    `<form id="mo-create-form">${moSettingsMarkup(MO.createDraft || {})}<button class="v3-pill v3-pill--full" type="submit">Создать стол</button></form>`,
+    'create',
+  );
+  const form = el('mo-create-form');
+  moSettingsSync(form);
+  form.onchange = () => {
+    moSettingsSync(form);
+    MO.createDraft = moSettingsRead(form);
+  };
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const g = MO.gen;
+    moBusy(async () => {
+      const d = await moRequest('/rooms', moSettingsRead(form));
+      if (moAlive(g)) moEnter(d.room_id);
+    });
+  };
 }
-function moRenderTable(){const d=MO.data;if(!d||!el('mo-table-info'))return;const host=d.host_id===d.me.id,ended=['finished','cancelled'].includes(d.phase),h=d.players.find(p=>p.id===d.host_id);
- moSetHTML('mo-table-info',`<div class="mo-panel-heading"><h2>Наш стол</h2><p>${d.visibility==='invite'?'По приглашению':'Открыт для всех'} · Город №${d.id}</p></div><div class="mo-host"><b>${esc(h?moLabel(h):'Хозяин')}</b><span>Хозяин · ${d.host_online?'онлайн':'нет у стола'}</span></div><dl class="mo-facts"><div><dt>Мест</dt><dd>${d.seats}</dd></div><div><dt>Скорость</dt><dd>${{fast:'Быстро',normal:'Обычно',slow:'Неспешно'}[d.tempo]}</dd></div><div><dt>Голоса</dt><dd>${d.vote_mode==='open'?'Открытые':'Скрытые'}</dd></div><div><dt>Роли</dt><dd>${d.roles_auto?'Автоподбор':'Выбраны хозяином'}</dd></div></dl>`);
- moSetHTML('mo-table-controls',ended?'<p class="mo-note">Партия завершена. Её роли и разговор останутся в истории.</p>':`<div class="mo-table-actions">${host?`${d.phase==='paused'?'<button class="v3-pill" onclick="moControl(\'resume\')">Продолжить партию</button>':['night','discussion','voting'].includes(d.phase)?'<button class="v3-pill v3-pill--ghost" onclick="moControl(\'pause\')">Поставить на паузу</button>':''}${d.phase==='discussion'?`<button class="v3-pill v3-pill--ghost" onclick="moConfirmControl('skip')">Начать голосование</button>`:''}<button class="v3-link" onclick="moTransfer()">Передать стол</button>`:d.can_claim?'<button class="v3-pill" onclick="moControl(\'claim\')">Стать хозяином стола</button>':'<p class="mo-note">Партию ведёт хозяин стола. Если он не вернётся, живой участник сможет взять стол.</p>'}${d.phase==='lobby'?'<button class="v3-pill v3-pill--ghost" onclick="moInvite()">Позвать друзей</button>':''}</div>`);
- const slot=el('mo-settings-slot'),form=el('mo-settings-form');if(host&&d.phase==='lobby'){
-   const editing=form?.contains(document.activeElement);if(!editing&&(slot._version!==d.version||!form)){slot.innerHTML=`<h3>Настройки города</h3><form id="mo-settings-form" data-version="${MO.settingsDraft?(MO.settingsVersion??d.version):d.version}">${moSettingsMarkup(MO.settingsDraft||d)}<button class="v3-pill v3-pill--ghost" type="submit">Сохранить настройки</button></form>`;slot._version=d.version;const f=el('mo-settings-form');moSettingsSync(f);f.onchange=()=>{moSettingsSync(f);if(!MO.settingsDraft)MO.settingsVersion=Number(f.dataset.version);MO.settingsDraft=moSettingsRead(f);};f.onfocusout=()=>setTimeout(()=>{if(MO.tab==='table'&&!f.contains(document.activeElement))moRenderTable();},0);f.onsubmit=e=>{e.preventDefault();moControl('settings',null,moSettingsRead(f),MO.settingsVersion??Number(f.dataset.version));};}
- }else{slot.replaceChildren();slot._version=0;}
- moSetHTML('mo-danger-zone',ended?'':`${host?'<button class="v3-link mo-danger" onclick="moConfirmControl(\'cancel\')">Закрыть партию для всех</button>':''}<button class="v3-link mo-danger" onclick="moConfirmControl('leave')">Покинуть город</button>`);
+function moRoomShell(id) {
+  return [
+    `<div class="mo-room"><header class="mo-room-head"><button class="v3-link" onclick="moHub()" aria-label="Вернуться в хаб Мафии">‹ Хаб</button><b><span `,
+    `id="mo-city-label">Город №${Number(id)}</span><span id="mo-mini-role" class="mo-mini-role"></span><time id="mo-mini-clock" class="mo-mini-clock" aria-live="off"></time></b><div `,
+    `class="mo-head-actions"><button type="button" class="mo-support" data-support-open data-support-category="mafia" aria-label="Сообщить о проблеме">`,
+    `?</button><button class="v3-link" id="mo-invite" onclick="moInvite()" disabled>Позвать</button></div></header><aside id="mo-event" class="mo-event" `,
+    `hidden></aside><div class="mo-workspace"><aside class="mo-gameplay" aria-label="Ход партии"><section id="mo-status" aria-label="Этап партии"><p `,
+    `class="v3-empty">Город просыпается…</p></section><nav id="mo-tabs" class="mo-tabs"  aria-label="Партия">${[
+      ['chat', 'Ход'],
+      ['players', 'Игроки'],
+      ['table', 'Стол'],
+    ]
+      .map(([k, v]) =>
+        [
+          `<button type="button"  id="mo-tab-${k}" data-mo-tab="${k}" aria-controls="mo-panel-${k}" aria-pressed="${k === 'chat'}" onclick="moTab('${k}')">${v}<span id="mo-tab-count-${k}`,
+          `"></span></button>`,
+        ].join(''),
+      )
+      .join('')}`,
+    `</nav><div id="mo-rolebar"></div><div id="mo-actionbar"></div><p id="mo-announcement" class="mo-sr" role="status" aria-live="polite"></p><div `,
+    `id="mo-control-pending"></div><section id="mo-panel-players" class="mo-panel"  aria-label="Игроки" hidden><div class="mo-panel-heading"><h2>В нашем `,
+    `городе</h2><p id="mo-player-summary"></p></div><label class="mo-search-label" for="mo-player-search">Найти игрока</label><input type="search" `,
+    `id="mo-player-search" class="mo-search" placeholder="Имя или номер места" autocomplete="off" oninput="MO.playerQuery=this.value;moRenderPlayers()">`,
+    `<div id="mo-public-votes"></div><div id="mo-players-list"></div></section><section id="mo-panel-table" class="mo-panel"  aria-label="Стол" hidden><div `,
+    `id="mo-table-info"></div><div id="mo-table-controls"></div><div id="mo-settings-slot"></div><button class="v3-link" onclick="moHelp()">Правила `,
+    `партии</button><div class="mo-danger-zone" id="mo-danger-zone"></div></section></aside><section id="mo-panel-chat" class="mo-panel mo-conversation" `,
+    `aria-label="Разговор"><p id="mo-connection" class="mo-connection" role="status"></p><div id="mo-chat" class="mo-chat" tabindex="0" aria-label="История `,
+    `разговора"><button id="mo-older" class="v3-link" onclick="moOlder()" hidden>Загрузить предыдущие сообщения</button><div id="mo-chat-empty" `,
+    `class="mo-chat-empty"></div><div id="mo-messages" role="log" aria-live="polite" aria-relevant="additions"></div></div><button id="mo-new" `,
+    `class="mo-new v3-pill v3-pill--ghost" onclick="moLatest()" hidden></button><form id="mo-compose" class="mo-compose"><div id="mo-reply"></div><label `,
+    `id="mo-compose-label" class="mo-sr" for="mo-text">Сообщение в общий разговор</label><div class="mo-input-row"><textarea id="mo-text" rows="1" `,
+    `maxlength="1200" placeholder="Скажи городу…" aria-describedby="mo-counter"></textarea><button type="submit" class="v3-pill" id="mo-send" `,
+    `aria-label="Отправить сообщение" disabled>Отправить</button></div><div class="mo-compose-meta"><nav class="mo-channels" id="mo-channels" `,
+    `aria-label="Разговоры"></nav><span id="mo-counter">0 / 600</span></div><div id="mo-send-state" class="mo-send-state" role="status"></div></form>`,
+    `</section></div><p class="mo-error" id="mo-error" role="alert"></p><p class="mo-toast" id="mo-toast" role="status" hidden></p></div>`,
+  ].join('');
 }
-function moSheet(title,body,kind){moHideEvent();let s=el('mo-sheet');if(!s){s=document.createElement('dialog');s.id='mo-sheet';s.className='mo-sheet';s.setAttribute('aria-labelledby','mo-sheet-title');(el('mo-root').querySelector('.mo-gameplay')||el('mo-root')).append(s);s.addEventListener('close',()=>{MO.sheetKind='';el('mo-root')?.classList.remove('mo-sheet-open');if(MO.sheetRestoreFocus&&(document.activeElement===document.body||document.activeElement===el('modal')||s.contains(document.activeElement))&&(MO.sheetFocus?.isConnected||el(MO.sheetFocusId)))((MO.sheetFocus?.isConnected?MO.sheetFocus:el(MO.sheetFocusId))).focus({preventScroll:true});});s.addEventListener('click',e=>{if(e.target===s){const r=s.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)s.close();}});}
- if(!s.open){MO.sheetRestoreFocus=false;MO.sheetFocus=document.activeElement;MO.sheetFocusId=document.activeElement?.id;}MO.sheetKind=kind;s.innerHTML=`<header><h2 id="mo-sheet-title">${esc(title)}</h2><button class="v3-link" aria-label="Закрыть окно" onclick="moSheetClose()">Закрыть</button></header><div class="mo-sheet-body">${body}<p class="mo-error" id="mo-sheet-error" role="alert"></p></div>`;if(!s.open){if(s.closest('.mo-gameplay')){s.parentElement.scrollTop=0;s.show();el('mo-root').classList.add('mo-sheet-open');}else s.showModal();}return s;}
-function moSheetClose(){const s=el('mo-sheet');MO.sheetRestoreFocus=!!s?.contains(document.activeElement);s?.close();MO.sheetKind='';}
-function moToast(text){const b=el('mo-toast');if(!b)return;b.textContent=text;b.hidden=false;clearTimeout(MO.toastTimer);MO.toastTimer=setTimeout(()=>{if(b.isConnected)b.hidden=true;},3500);}
-function moChooseTarget(){const d=MO.data;if(!d?.me.can_act)return;MO.sheetPhase=d.phase_number;moSheet(({vote:'Вердикт города',mafia_target:'Ночная цель',doctor_save:'Кого спасём?',detective_check:'Твоя проверка'})[d.me.action_kind],`<p class="mo-note">${esc(d.me.action_hint)}</p><label class="mo-search-label" for="mo-target-search">Найти игрока</label><input id="mo-target-search" class="mo-search" type="search" placeholder="Имя или номер места" oninput="moTargetRows()"><div id="mo-target-list" class="mo-target-list"></div>`,'targets');moTargetRows();}
-function moTargetRows(){const d=MO.data;if(!d?.me.can_act||MO.sheetPhase!==d.phase_number){moSheetClose();return;}const q=(el('mo-target-search')?.value||'').trim().toLocaleLowerCase(),allowed=new Set(d.me.action_targets||[]),rows=d.players.filter(p=>allowed.has(p.id)&&moLabel(p).toLocaleLowerCase().includes(q));
- moSetHTML('mo-target-list',`${rows.map(p=>`<button class="mo-target" type="button" data-mo-target="${p.id}" aria-pressed="${d.me.action?.target===p.id}" onclick="moAction('${d.me.action_kind}',${p.id},${d.phase_number})"><span class="mo-seat">${p.seat}</span><span>${esc(p.name)}${p.id===d.me.id?' · ты':''}</span><small>${d.me.action?.target===p.id?'Выбрано':'Выбрать'}</small></button>`).join('')||'<p class="v3-empty">Подходящий игрок не найден.</p>'}${d.me.action_kind==='vote'?`<button class="mo-target mo-abstain" data-mo-target="none" type="button" aria-pressed="${!!d.me.action&&d.me.action.target===null}" onclick="moAction('vote',null,${d.phase_number})"><span>Никого не выбирать</span><small>Пропустить голос</small></button>`:''}`);}
-async function moAction(kind,target,phase){if(MO.busy)return;const g=MO.gen,room=MO.room;await moBusy(async()=>{el('mo-target-list')?.setAttribute('aria-busy','true');await moRequest(`/rooms/${room}/action`,{kind,target,phase_number:phase});if(!moAlive(g))return;moSheetClose();await moRefresh();if(MO.data.phase_number===phase){const chosen=MO.data.players.find(p=>p.id===target);moShowEvent({kind:'choice',title:kind==='vote'?'Голос принят':kind==='doctor_save'?'Защита выбрана':kind==='detective_check'?'Проверка назначена':'Цель выбрана',detail:`${chosen?moLabel(chosen):'Никого'}. Можно изменить до конца этапа.`});}el('mo-action-open')?.focus({preventScroll:true});});el('mo-target-list')?.removeAttribute('aria-busy');}
-function moPlayerMenu(id){const p=MO.data.players.find(x=>x.id===id);if(!p)return;moSheet(moLabel(p),`<p>Ограничение касается разговора в этой партии. Игрок продолжит голосовать.</p><button class="v3-pill v3-pill--ghost" onclick="moModerate('${p.muted?'unmute':'mute'}',${id})">${p.muted?'Вернуть право писать':'Ограничить чат игроку'}</button>`,'player');}
-function moTransfer(){const d=MO.data;moSheet('Кому доверим город?',`<p class="mo-note">Новый хозяин сможет управлять этапами и настройками стола.</p><div class="mo-target-list">${d.players.filter(p=>p.id!==d.me.id&&!p.left).map(p=>`<button class="mo-target" onclick="moConfirmTransfer(${p.id})"><span>${esc(moLabel(p))}</span><small>${p.online?'Онлайн':'Не у стола'}</small></button>`).join('')}</div>`,'transfer');}
-function moConfirmTransfer(id){const p=MO.data.players.find(x=>x.id===id);if(!p)return;moSheet('Передать стол?',`<p>Партию продолжит вести <b>${esc(moLabel(p))}</b>.</p><button class="v3-pill" onclick="moControl('transfer',null,null,null,${id})">Передать управление</button>`,'transfer-confirm');}
+function moSetHTML(id, html) {
+  const box = el(id);
+  if (!box || box._moHtml === html) return;
+  const active = box.contains(document.activeElement) ? document.activeElement.id : null;
+  box.innerHTML = html;
+  box._moHtml = html;
+  if (active) el(active)?.focus({ preventScroll: true });
+}
+function moTab(tab, focus = false) {
+  if (!moReady() || !['chat', 'players', 'table'].includes(tab)) return;
+  MO.tab = tab;
+  moSheetClose();
+  el('mo-root').querySelector('.mo-gameplay').scrollTop = 0;
+  for (const k of ['chat', 'players', 'table']) {
+    el(`mo-panel-${k}`).hidden = k !== 'chat' && k !== tab;
+    el(`mo-tab-${k}`).setAttribute('aria-pressed', String(k === tab));
+  }
+  el('mo-root').classList.toggle('mo-details-open', tab !== 'chat');
+  if (focus) el(`mo-tab-${tab}`).focus();
+  if (tab === 'players') moRenderPlayers();
+  else if (tab === 'table') moRenderTable();
+  moNewBadge();
+  moComposeState();
+}
+function moPhaseGuide(d) {
+  const p = d.me;
+  if (d.phase === 'lobby')
+    return d.players.length < 4
+      ? `Позови друзей: нужно ещё ${4 - d.players.length}.`
+      : d.host_id === p.id
+        ? 'Нажми «Начать партию», чтобы раздать роли.'
+        : 'Ждём, когда хозяин начнёт партию. Пока можно общаться.';
+  if (d.phase === 'finished') return 'Партия окончена. Открой «Игроки», чтобы узнать все роли.';
+  if (d.phase === 'cancelled') return 'Стол закрыт. Нажми «Ещё партию», чтобы найти новый.';
+  if (p.left) return 'Ты покинул стол. Можно читать разговор и следить за партией.';
+  if (!p.alive) return 'Ты выбыл: больше не голосуешь. Общайся во вкладке «Выбывшие».';
+  if (d.phase === 'paused') return 'Время остановлено. Продолжить партию может хозяин.';
+  if (p.choice_reset) return 'Твоя цель вышла. Нажми «Выбрать» и укажи другого игрока.';
+  if (p.action) return 'Выбор сохранён. Кнопка «Изменить» позволяет передумать до конца отсчёта.';
+  if (d.phase === 'voting') return 'Нажми «Выбрать»: твой голос решает, кто покинет город.';
+  const mafia = ['mafia', 'don'].includes(p.role);
+  if (d.phase === 'discussion')
+    return mafia
+      ? 'Ты за мафию. Обсуждай подозрения в общем чате, не выдавая свою роль.'
+      : 'Ты за мирных. Обсуди в общем чате, кто может быть мафией. Затем голосуйте.';
+  if (p.can_act)
+    return (
+      {
+        mafia_target: 'Ты за мафию. Договорись в чате «Мафия», затем нажми «Выбрать» и укажи ночную цель.',
+        doctor_save: 'Ты доктор. Нажми «Выбрать» и укажи, кого спасти этой ночью. Можно себя.',
+        detective_check: 'Ты детектив. Нажми «Выбрать» и укажи игрока. Утром результат появится в «О роли».',
+      }[p.action_kind] || p.action_hint
+    );
+  return 'Ты мирный житель: ночью выбирать никого не нужно. Дождись утра и обсуждай подозрения.';
+}
+function moRoleBar(d) {
+  const p = d.me;
+  if (!p.role)
+    return `<div class="mo-lobby-seat"><b>Твоё место №${p.seat || '—'}</b><span>${d.players.length} из ${d.seats} за столом</span><button class="v3-link" onclick="moTab('players')">Кто с нами</button></div>`;
+  const unread = p.checks.length - (MO.checkSeen || 0);
+  return [
+    `<button id="mo-role-open" class="mo-role-open" onclick="moRoleInfo()"><img src="${BASE}/static/mafia-art/${p.role}.webp" alt="" width="44" height="44"><span><small>${moMyOutcome(d) || (p.alive ? 'Твоя роль' : 'Ты выбыл · твоя роль')}`,
+    `</small><b>${MO_ROLE[p.role]}</b></span><span class="mo-role-more">${unread > 0 ? 'Новая проверка' : 'О роли'}</span></button>`,
+  ].join('');
+}
+function moRoleInfo() {
+  if (!moReady()) return;
+  const d = MO.data,
+    p = d?.me;
+  if (!p?.role) return;
+  MO.checkSeen = p.checks.length;
+  moSheet(
+    MO_ROLE[p.role],
+    [
+      `<div class="mo-role-reveal"><img src="${BASE}/static/mafia-art/${p.role}.webp" alt="" width="112" height="112"><p>${MO_COPY[p.role]}</p></div>${p.team.length ? `<h3>Твоя команда</h3><ul class="mo-simple-list">${p.team.map((x) => `<li>${esc(moLabel(x))}<span>${x.alive ? 'В городе' : 'Выбыл'}</span></li>`).join('')}</ul>` : ''}`,
+      `<div id="mo-team-choices">${moTeamChoices(d)}</div>${
+        p.checks.length
+          ? [
+              `<h3>Результаты проверок</h3><ul class="mo-simple-list">${[...p.checks]
+                .reverse()
+                .map(
+                  (x) =>
+                    `<li><span>Ночь ${x.round} · ${esc(moLabel(x))}</span><b>${x.mafia ? 'Мафия' : 'Мирный'}</b></li>`,
+                )
+                .join('')}`,
+              `</ul>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+    'role',
+  );
+  moSetHTML('mo-rolebar', moRoleBar(d));
+}
+function moActionBar(d) {
+  const ended = ['finished', 'cancelled'].includes(d.phase);
+  if (ended)
+    return `<div class="mo-result"><span><b>${moResultTitle(d)}</b><small id="mo-postgame-time"></small></span><button class="v3-pill" onclick="moAgain()">Ещё партию</button></div>${d.phase === 'finished' ? '<button class="v3-link mo-reveal-link" onclick="moTab(\'players\')">Кто кем был · раскрыть роли</button>' : ''}`;
+  if (d.phase === 'lobby')
+    return d.host_id === d.me.id
+      ? `<button class="v3-pill v3-pill--full" onclick="moControl('start')" ${d.players.length < 4 ? 'disabled' : ''}>${d.players.length < 4 ? 'Ждём игроков' : 'Начать партию'}</button>`
+      : `<div class="mo-waiting">Твоё место занято. Роль придёт после старта.</div>`;
+  if (d.phase === 'paused')
+    return [
+      `<div class="mo-paused"><span>Игра на паузе</span>${d.host_id === d.me.id ? '<button class="v3-pill" onclick="moControl(\'resume\')">Продолжить</button>' : '<button class="v3-link" onclick="moTab(\'table\')">Посмотреть стол</button>'}`,
+      `</div>`,
+    ].join('');
+  if (d.me.can_act) {
+    const t = d.players.find((p) => p.id === d.me.action?.target),
+      chosen = d.me.action ? (t ? moLabel(t) : 'Никого') : null;
+    return [
+      `<div class="mo-turn"><span><small>${d.phase === 'voting' ? 'Твой голос' : 'Твой ход'}</small><b>${chosen ? esc(chosen) : { mafia_target: 'Ночная цель', doctor_save: 'Кого спасти?', detective_check: 'Кого проверить?', vote: 'Кто покинет город?' }[d.me.action_kind]}`,
+      `</b></span><button id="mo-action-open" class="v3-pill ${chosen ? 'v3-pill--ghost' : ''}" onclick="moChooseTarget()">${chosen ? 'Изменить' : 'Выбрать'}</button></div>${d.me.choice_reset ? '<p class="mo-action-note">Прежняя цель вышла · нужен новый выбор</p>' : ''}`,
+    ].join('');
+  }
+  return '';
+}
+function moRenderRoom(d) {
+  const chat = el('mo-chat');
+  const followLatest = MO.messages.size
+    ? !!chat && chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80
+    : typeof MO.scroll[MO.channel] !== 'number';
+  const nextEvent = moEventFor(MO.presented, d);
+  MO.presented = d;
+  if (nextEvent) MO.pendingEvent = nextEvent;
+  const oldMarker = MO.phaseMarker,
+    marker = `${d.id}:${d.phase_number}:${d.phase}:${d.me.alive}`,
+    ended = ['finished', 'cancelled'].includes(d.phase);
+  MO.self = d.me.id;
+  if (el('mo-mini-role')) el('mo-mini-role').textContent = MO_ROLE[d.me.role] || 'Сбор игроков';
+  MO.offset = Date.now() / 1000 - d.server_time;
+  MO.launchBase = d.launch_url || MO.launchBase;
+  if (marker !== oldMarker) {
+    MO.phaseMarker = marker;
+    if (oldMarker) {
+      MO.phaseMoment = marker;
+      moSheetClose();
+      MO.tab = 'chat';
+      moTab('chat');
+    }
+    if (el('mo-announcement')) el('mo-announcement').textContent = `${MO_PHASE[d.phase]}. ${moPhaseGuide(d)}`;
+    const preferred =
+      !ended && !d.me.left && !d.me.alive
+        ? 'afterlife'
+        : d.phase === 'night' && d.channels.includes('mafia')
+          ? 'mafia'
+          : 'table';
+    if (preferred !== MO.channel && d.channels.includes(preferred)) return moChannel(preferred);
+  }
+  if (MO.redactions !== d.redactions) {
+    MO.messages.clear();
+    MO.redactions = d.redactions;
+  }
+  const phase = d.phase === 'paused' ? d.paused_phase : d.phase,
+    index = { lobby: 0, night: 1, discussion: 2, voting: 3 }[phase];
+  moSetHTML(
+    'mo-status',
+    [
+      `<div class="mo-phase mo-phase-${d.phase}"><img src="${BASE}/static/mafia-art/city.webp" alt=""><div><small>${d.phase === 'lobby' ? 'Здесь начинается история' : ended ? 'Маски сняты' : `Круг ${d.round} · в городе ${d.living_count ?? d.players.filter((p) => p.alive).length}`}`,
+      `</small><h2>${moPhaseTitle(d)}</h2></div><time id="mo-clock" aria-live="off"></time><span class="mo-phase-track" aria-hidden="true"><i id="mo-phase-progress"></i></span></div><ol `,
+      `class="mo-stages" aria-label="Этапы партии">${['Сбор', 'Ночь', 'Разговор', 'Голосование'].map((s, i) => `<li ${i === index ? 'aria-current="step"' : ''} class="${i === index ? 'current' : ''}">${s}</li>`).join('')}`,
+      `</ol><p class="mo-guide">${esc(moPhaseGuide(d))}</p>`,
+    ].join(''),
+  );
+  if (MO.phaseMoment === marker) {
+    el('mo-status').querySelector('.mo-phase')?.classList.add('mo-new-phase');
+    MO.phaseMoment = null;
+  }
+  moSetHTML('mo-rolebar', moRoleBar(d));
+  moSetHTML('mo-actionbar', moActionBar(d));
+  MO.statusKey = JSON.stringify([d.version, d.me.can_write, d.channels, d.can_claim]);
+  el('mo-invite').disabled = d.phase !== 'lobby' || d.me.left;
+  el('mo-invite').hidden = d.phase !== 'lobby' || d.me.left;
+  el('mo-tab-count-players').textContent = ` ${d.living_count ?? d.players.filter((p) => p.alive).length}`;
+  if (!d.channels.includes(MO.channel)) {
+    moChannel('table');
+    return;
+  }
+  moPendingNotice();
+  moChannelMarkup();
+  moMessages(d.messages);
+  if (MO.pendingEvent) {
+    const event = MO.pendingEvent;
+    MO.pendingEvent = null;
+    moShowEvent(event);
+  }
+  moComposeState();
+  moClock();
+  if (MO.tab === 'players') moRenderPlayers();
+  if (MO.tab === 'table') moRenderTable();
+  if (el('mo-sheet')?.open && MO.sheetKind === 'targets') moTargetRows();
+  if (el('mo-sheet')?.open && ['role', 'council'].includes(MO.sheetKind))
+    moSetHTML('mo-team-choices', moTeamChoices(d));
+  // The event strip changes the conversation's height after messages render.
+  // Keep the latest message in view, while preserving a reader's history position.
+  if (followLatest && chat) chat.scrollTop = chat.scrollHeight;
+}
+function moChannelMarkup() {
+  const d = MO.data;
+  if (!d || !el('mo-channels')) return;
+  const latest = d.channel_state || {},
+    titles = {
+      table: 'Разговор видят все участники города',
+      mafia: 'Разговор видит только твоя команда',
+      afterlife: 'Разговор выбывших; живые увидят его после финала',
+    };
+  const html =
+    d.channels
+      .map((k) => {
+        const unread = k !== MO.channel && latest[k]?.latest_id > (MO.read[k] || 0);
+        return [
+          `<button type="button" aria-pressed="${k === MO.channel}" class="${k === MO.channel ? 'on' : ''}" title="${titles[k] || ''}" onclick="moChannel('${k}')">${MO_CHANNEL[k]}`,
+          `${unread ? '<span class="mo-unread" aria-label="Есть новые сообщения"></span>' : ''}</button>`,
+        ].join('');
+      })
+      .join('') +
+    (MO.channel === 'mafia' && d.phase === 'night' && d.me.team_choices
+      ? [
+          `<button id="mo-council" type="button" aria-label="Ночной совет: ${d.me.team_choices.filter((x) => x.target !== null && x.target !== undefined).length} из ${d.me.team_choices.length}`,
+          ` выбрали цель" onclick="moCouncil()">Совет · ${d.me.team_choices.filter((x) => x.target !== null && x.target !== undefined).length}/${d.me.team_choices.length}`,
+          `</button>`,
+        ].join('')
+      : '');
+  moSetHTML('mo-channels', html);
+  el('mo-text').title =
+    (matchMedia('(pointer:coarse)').matches ? 'Свайпни сообщение влево — ответишь на него. ' : '') +
+    'Enter — отправить · Shift+Enter — новая строка · Escape — отменить ответ';
+  const label = `Сообщение · ${MO_CHANNEL[MO.channel]}${MO.channel === 'mafia' ? ' · только команда' : ''}`;
+  el('mo-text').setAttribute('aria-label', label);
+  if (el('mo-compose-label')) el('mo-compose-label').textContent = label;
+  el('mo-text').placeholder =
+    MO.channel === 'mafia'
+      ? 'Что решим этой ночью?'
+      : MO.channel === 'afterlife'
+        ? 'Обсудим, что происходит в городе…'
+        : 'Скажи городу…';
+}
+function moRenderPlayers() {
+  const d = MO.data;
+  if (!d || !el('mo-players-list')) return;
+  const q = (MO.playerQuery || '').trim().toLocaleLowerCase(),
+    ended = ['finished', 'cancelled'].includes(d.phase);
+  el('mo-player-summary').textContent =
+    `В городе ${d.living_count ?? d.players.filter((p) => p.alive).length} · онлайн ${d.online_count ?? '—'}`;
+  const rows = d.players
+    .filter((p) => moLabel(p).toLocaleLowerCase().includes(q))
+    .sort((a, b) => Number(b.alive) - Number(a.alive) || (a.seat || 0) - (b.seat || 0));
+  moSetHTML(
+    'mo-players-list',
+    rows
+      .map((p) =>
+        [
+          `<article class="mo-player ${p.alive ? '' : 'out'}"><span class="mo-seat" aria-label="Место ${p.seat}">${p.role ? `<img src="${BASE}/static/mafia-art/${p.role}.webp" alt="${MO_ROLE[p.role]}">` : p.seat || '·'}`,
+          `</span><div><b>${esc(p.name)}${p.id === d.me.id ? ' · ты' : ''}</b><small>${ended && p.role ? MO_ROLE[p.role] + (p.left ? ' · покинул город' : !p.alive ? ' · выбыл' : '') : p.left ? 'Покинул стол' : p.alive ? 'В городе' : 'Выбыл'}`,
+          `${p.host ? ' · хозяин' : ''}${p.muted ? ' · чат ограничен' : ''}</small></div><span class="mo-presence ${p.online ? 'online' : ''}" aria-label="${p.online ? 'Онлайн' : 'Не в сети'}`,
+          `"></span>${d.host_id === d.me.id && p.id !== d.me.id && !p.staff_muted ? `<button id="mo-person-${p.id}" class="v3-link" aria-label="Управлять чатом игрока ${esc(moLabel(p))}" onclick="moPlayerMenu(${p.id})">Ещё</button>` : ''}`,
+          `</article>`,
+        ].join(''),
+      )
+      .join('') || '<p class="v3-empty">Игрок не найден. Проверь имя или номер.</p>',
+  );
+  if (d.phase === 'voting') {
+    moSetHTML(
+      'mo-public-votes',
+      [
+        `<div class="mo-vote-progress"><b>Голосование</b><span>${d.voting_progress?.submitted ?? Object.keys(d.votes).length} из ${d.voting_progress?.total ?? d.players.filter((p) => p.alive).length}`,
+        ` проголосовали</span></div>${
+          d.vote_mode === 'open'
+            ? [
+                `<ul class="mo-simple-list">${Object.entries(d.votes)
+                  .map(([id, t]) =>
+                    [
+                      `<li>${esc(moLabel(d.players.find((p) => String(p.id) === id) || { name: 'Игрок' }))}<span>→ ${t === null ? 'Никого' : esc(moLabel(d.players.find((p) => p.id === t) || { name: 'Выбыл' }))}`,
+                      `</span></li>`,
+                    ].join(''),
+                  )
+                  .join('')}`,
+                `</ul>`,
+              ].join('')
+            : '<p class="mo-note">Голоса скрыты. Итог объявит город.</p>'
+        }`,
+      ].join(''),
+    );
+  } else moSetHTML('mo-public-votes', '');
+}
+function moRenderTable() {
+  const d = MO.data;
+  if (!d || !el('mo-table-info')) return;
+  const host = d.host_id === d.me.id,
+    ended = ['finished', 'cancelled'].includes(d.phase),
+    h = d.players.find((p) => p.id === d.host_id);
+  moSetHTML(
+    'mo-table-info',
+    [
+      `<div class="mo-panel-heading"><h2>Наш стол</h2><p>${d.visibility === 'invite' ? 'По приглашению' : 'Открыт для всех'} · Город №${d.id}</p></div><div class="mo-host"><b>${esc(h ? moLabel(h) : 'Хозяин')}`,
+      `</b><span>Хозяин · ${d.host_online ? 'онлайн' : 'нет у стола'}</span></div><dl class="mo-facts"><div><dt>Мест</dt><dd>${d.seats}</dd></div><div><dt>Скорость</dt><dd>${{ fast: 'Быстро', normal: 'Обычно', slow: 'Неспешно' }[d.tempo]}`,
+      `</dd></div><div><dt>Голоса</dt><dd>${d.vote_mode === 'open' ? 'Открытые' : 'Скрытые'}</dd></div><div><dt>Роли</dt><dd>${d.roles_auto ? 'Автоподбор' : 'Выбраны хозяином'}`,
+      `</dd></div></dl>`,
+    ].join(''),
+  );
+  moSetHTML(
+    'mo-table-controls',
+    ended
+      ? '<p class="mo-note">Партия завершена. Её роли и разговор останутся в истории.</p>'
+      : [
+          `<div class="mo-table-actions">${
+            host
+              ? [
+                  `${d.phase === 'paused' ? '<button class="v3-pill" onclick="moControl(\'resume\')">Продолжить партию</button>' : ['night', 'discussion', 'voting'].includes(d.phase) ? '<button class="v3-pill v3-pill--ghost" onclick="moControl(\'pause\')">Поставить на паузу</button>' : ''}`,
+                  `${d.phase === 'discussion' ? `<button class="v3-pill v3-pill--ghost" onclick="moConfirmControl('skip')">Начать голосование</button>` : ''}<button class="v3-link" onclick="moTransfer()">Передать стол</button>`,
+                ].join('')
+              : d.can_claim
+                ? '<button class="v3-pill" onclick="moControl(\'claim\')">Стать хозяином стола</button>'
+                : '<p class="mo-note">Партию ведёт хозяин стола. Если он не вернётся, живой участник сможет взять стол.</p>'
+          }`,
+          `${d.phase === 'lobby' ? '<button class="v3-pill v3-pill--ghost" onclick="moInvite()">Позвать друзей</button>' : ''}</div>`,
+        ].join(''),
+  );
+  const slot = el('mo-settings-slot'),
+    form = el('mo-settings-form');
+  if (host && d.phase === 'lobby') {
+    const editing = form?.contains(document.activeElement);
+    if (!editing && (slot._version !== d.version || !form)) {
+      slot.innerHTML = [
+        `<h3>Настройки города</h3><form id="mo-settings-form" data-version="${MO.settingsDraft ? (MO.settingsVersion ?? d.version) : d.version}">${moSettingsMarkup(MO.settingsDraft || d)}`,
+        `<button class="v3-pill v3-pill--ghost" type="submit">Сохранить настройки</button></form>`,
+      ].join('');
+      slot._version = d.version;
+      const f = el('mo-settings-form');
+      moSettingsSync(f);
+      f.onchange = () => {
+        moSettingsSync(f);
+        if (!MO.settingsDraft) MO.settingsVersion = Number(f.dataset.version);
+        MO.settingsDraft = moSettingsRead(f);
+      };
+      f.onfocusout = () =>
+        setTimeout(() => {
+          if (MO.tab === 'table' && !f.contains(document.activeElement)) moRenderTable();
+        }, 0);
+      f.onsubmit = (e) => {
+        e.preventDefault();
+        moControl('settings', null, moSettingsRead(f), MO.settingsVersion ?? Number(f.dataset.version));
+      };
+    }
+  } else {
+    slot.replaceChildren();
+    slot._version = 0;
+  }
+  moSetHTML(
+    'mo-danger-zone',
+    ended
+      ? ''
+      : `${host ? '<button class="v3-link mo-danger" onclick="moConfirmControl(\'cancel\')">Закрыть партию для всех</button>' : ''}<button class="v3-link mo-danger" onclick="moConfirmControl('leave')">Покинуть город</button>`,
+  );
+}
+function moSheet(title, body, kind) {
+  moHideEvent();
+  let s = el('mo-sheet');
+  if (!s) {
+    s = document.createElement('dialog');
+    s.id = 'mo-sheet';
+    s.className = 'mo-sheet';
+    s.setAttribute('aria-labelledby', 'mo-sheet-title');
+    (el('mo-root').querySelector('.mo-gameplay') || el('mo-root')).append(s);
+    s.addEventListener('close', () => {
+      MO.sheetKind = '';
+      el('mo-root')?.classList.remove('mo-sheet-open');
+      if (
+        MO.sheetRestoreFocus &&
+        (document.activeElement === document.body ||
+          document.activeElement === el('modal') ||
+          s.contains(document.activeElement)) &&
+        (MO.sheetFocus?.isConnected || el(MO.sheetFocusId))
+      )
+        (MO.sheetFocus?.isConnected ? MO.sheetFocus : el(MO.sheetFocusId)).focus({ preventScroll: true });
+    });
+    s.addEventListener('click', (e) => {
+      if (e.target === s) {
+        const r = s.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) s.close();
+      }
+    });
+  }
+  if (!s.open) {
+    MO.sheetRestoreFocus = false;
+    MO.sheetFocus = document.activeElement;
+    MO.sheetFocusId = document.activeElement?.id;
+  }
+  MO.sheetKind = kind;
+  s.innerHTML = [
+    `<header><h2 id="mo-sheet-title">${esc(title)}</h2><button class="v3-link" aria-label="Закрыть окно" onclick="moSheetClose()">Закрыть</button></header><div class="mo-sheet-body">${body}`,
+    `<p class="mo-error" id="mo-sheet-error" role="alert"></p></div>`,
+  ].join('');
+  if (!s.open) {
+    if (s.closest('.mo-gameplay')) {
+      s.parentElement.scrollTop = 0;
+      s.show();
+      el('mo-root').classList.add('mo-sheet-open');
+    } else s.showModal();
+  }
+  return s;
+}
+function moSheetClose() {
+  const s = el('mo-sheet');
+  MO.sheetRestoreFocus = !!s?.contains(document.activeElement);
+  s?.close();
+  MO.sheetKind = '';
+}
+function moToast(text) {
+  const b = el('mo-toast');
+  if (!b) return;
+  b.textContent = text;
+  b.hidden = false;
+  clearTimeout(MO.toastTimer);
+  MO.toastTimer = setTimeout(() => {
+    if (b.isConnected) b.hidden = true;
+  }, 3500);
+}
+function moChooseTarget() {
+  const d = MO.data;
+  if (!d?.me.can_act) return;
+  MO.sheetPhase = d.phase_number;
+  moSheet(
+    {
+      vote: 'Вердикт города',
+      mafia_target: 'Ночная цель',
+      doctor_save: 'Кого спасём?',
+      detective_check: 'Твоя проверка',
+    }[d.me.action_kind],
+    [
+      `<p class="mo-note">${esc(d.me.action_hint)}</p><label class="mo-search-label" for="mo-target-search">Найти игрока</label><input id="mo-target-search" class="mo-search" type="search" `,
+      `placeholder="Имя или номер места" oninput="moTargetRows()"><div id="mo-target-list" class="mo-target-list"></div>`,
+    ].join(''),
+    'targets',
+  );
+  moTargetRows();
+}
+function moTargetRows() {
+  const d = MO.data;
+  if (!d?.me.can_act || MO.sheetPhase !== d.phase_number) {
+    moSheetClose();
+    return;
+  }
+  const q = (el('mo-target-search')?.value || '').trim().toLocaleLowerCase(),
+    allowed = new Set(d.me.action_targets || []),
+    rows = d.players.filter((p) => allowed.has(p.id) && moLabel(p).toLocaleLowerCase().includes(q));
+  moSetHTML(
+    'mo-target-list',
+    [
+      `${
+        rows
+          .map((p) =>
+            [
+              `<button class="mo-target" type="button" data-mo-target="${p.id}" aria-pressed="${d.me.action?.target === p.id}" onclick="moAction('${d.me.action_kind}',${p.id}`,
+              `,${d.phase_number})"><span class="mo-seat">${p.seat}</span><span>${esc(p.name)}${p.id === d.me.id ? ' · ты' : ''}</span><small>${d.me.action?.target === p.id ? 'Выбрано' : 'Выбрать'}`,
+              `</small></button>`,
+            ].join(''),
+          )
+          .join('') || '<p class="v3-empty">Подходящий игрок не найден.</p>'
+      }`,
+      `${
+        d.me.action_kind === 'vote'
+          ? [
+              `<button class="mo-target mo-abstain" data-mo-target="none" type="button" aria-pressed="${!!d.me.action && d.me.action.target === null}" onclick="moAction('vote',null,${d.phase_number}`,
+              `)"><span>Никого не выбирать</span><small>Пропустить голос</small></button>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+  );
+}
+async function moAction(kind, target, phase) {
+  if (MO.busy) return;
+  const g = MO.gen,
+    room = MO.room;
+  await moBusy(async () => {
+    el('mo-target-list')?.setAttribute('aria-busy', 'true');
+    await moRequest(`/rooms/${room}/action`, { kind, target, phase_number: phase });
+    if (!moAlive(g)) return;
+    moSheetClose();
+    await moRefresh();
+    if (MO.data.phase_number === phase) {
+      const chosen = MO.data.players.find((p) => p.id === target);
+      moShowEvent({
+        kind: 'choice',
+        title:
+          kind === 'vote'
+            ? 'Голос принят'
+            : kind === 'doctor_save'
+              ? 'Защита выбрана'
+              : kind === 'detective_check'
+                ? 'Проверка назначена'
+                : 'Цель выбрана',
+        detail: `${chosen ? moLabel(chosen) : 'Никого'}. Можно изменить до конца этапа.`,
+      });
+    }
+    el('mo-action-open')?.focus({ preventScroll: true });
+  });
+  el('mo-target-list')?.removeAttribute('aria-busy');
+}
+function moPlayerMenu(id) {
+  const p = MO.data.players.find((x) => x.id === id);
+  if (!p) return;
+  moSheet(
+    moLabel(p),
+    [
+      `<p>Ограничение касается разговора в этой партии. Игрок продолжит голосовать.</p><button class="v3-pill v3-pill--ghost" onclick="moModerate('${p.muted ? 'unmute' : 'mute'}`,
+      `',${id})">${p.muted ? 'Вернуть право писать' : 'Ограничить чат игроку'}</button>`,
+    ].join(''),
+    'player',
+  );
+}
+function moTransfer() {
+  const d = MO.data;
+  moSheet(
+    'Кому доверим город?',
+    [
+      `<p class="mo-note">Новый хозяин сможет управлять этапами и настройками стола.</p><div class="mo-target-list">${d.players
+        .filter((p) => p.id !== d.me.id && !p.left)
+        .map(
+          (p) =>
+            `<button class="mo-target" onclick="moConfirmTransfer(${p.id})"><span>${esc(moLabel(p))}</span><small>${p.online ? 'Онлайн' : 'Не у стола'}</small></button>`,
+        )
+        .join('')}`,
+      `</div>`,
+    ].join(''),
+    'transfer',
+  );
+}
+function moConfirmTransfer(id) {
+  const p = MO.data.players.find((x) => x.id === id);
+  if (!p) return;
+  moSheet(
+    'Передать стол?',
+    `<p>Партию продолжит вести <b>${esc(moLabel(p))}</b>.</p><button class="v3-pill" onclick="moControl('transfer',null,null,null,${id})">Передать управление</button>`,
+    'transfer-confirm',
+  );
+}
 
-function moMessagePermissions(m){const d=MO.data;return{can_reply:!m.hidden&&!!d?.me.can_write&&d.channel===MO.channel,can_report:m.user_id!==null&&!d?.me.left,can_hide:m.user_id!==null&&!m.hidden&&d?.host_id===d?.me.id&&!d?.me.left};}
-function moMessageMarkup(m,day=''){
- const mine=m.user_id===MO.data?.me.id,system=m.user_id===null,date=new Date(m.time*1000),rights=moMessagePermissions(m),actions=rights.can_reply||rights.can_report||rights.can_hide;
- return `<article id="mo-msg-${m.id}" class="mo-msg ${mine?'mine':''} ${system?'system':''} ${m.hidden?'hidden-message':''}" data-msg="${m.id}" tabindex="-1">${day?`<div class="mo-day">${esc(day)}</div>`:''}<div class="mo-bubble">${!system?`<header><b>${mine?'Ты':esc(moLabel(m))}</b>${rights.can_reply?`<button type="button" class="v3-link mo-direct-reply" aria-label="Ответить ${esc(moLabel(m))}" onclick="moReply(${m.id})">↩</button>`:''}${actions?`<button id="mo-menu-${m.id}" type="button" class="v3-link mo-msg-menu" aria-label="Действия с сообщением ${esc(moLabel(m))}: ${esc(m.body.slice(0,40))}" onclick="moMessageMenu(${m.id})">•••</button>`:''}</header>`:''}${m.reply_to?`<button class="mo-quote" type="button" aria-label="Перейти к сообщению ${esc(m.reply_name||'игрока')}" onclick="moJumpMessage(${m.reply_to})"><b>${m.reply_hidden?'Сообщение скрыто':esc(moLabel({name:m.reply_name||'Сообщение',seat:m.reply_seat}))}</b><span>${m.reply_hidden?'':esc(m.reply_body||'')}</span></button>`:''}<p>${esc(m.body)}</p><time datetime="${date.toISOString()}" title="${esc(date.toLocaleString('ru-RU'))}">${date.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</time></div></article>`;
+function moMessagePermissions(m) {
+  const d = MO.data;
+  return {
+    can_reply: !m.hidden && !!d?.me.can_write && d.channel === MO.channel,
+    can_report: m.user_id !== null && !d?.me.left,
+    can_hide: m.user_id !== null && !m.hidden && d?.host_id === d?.me.id && !d?.me.left,
+  };
 }
-function moMessages(rows,older=false){
- const chat=el('mo-chat'),box=el('mo-messages');if(!chat||!box)return;
- const empty=MO.messages.size===0,atBottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<80,oldHeight=chat.scrollHeight,oldTop=chat.scrollTop;
- if(empty){box.replaceChildren();MO.hasOlder=rows.length===80;}else if(older)MO.hasOlder=rows.length===80;
- const previous=new Set(MO.messages.keys());rows.forEach(m=>MO.messages.set(m.id,m));let sorted=[...MO.messages.values()].sort((a,b)=>a.id-b.id);
- if(atBottom&&!older&&sorted.length>240){for(const m of sorted.slice(0,-240)){MO.messages.delete(m.id);el(`mo-msg-${m.id}`)?.remove();}sorted=sorted.slice(-240);MO.hasOlder=true;}
- const nodes=new Map([...box.children].map(n=>[Number(n.dataset.msg),n]));let lastDay='';
- for(const m of sorted){const date=new Date(m.time*1000),day=date.toLocaleDateString('ru-RU',{day:'numeric',month:'long'}),html=moMessageMarkup(m,day!==lastDay?day:'');lastDay=day;const node=nodes.get(m.id);if(node?._markup===html)continue;const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild;next._markup=html;if(!node&&!empty&&!older)next.classList.add('mo-msg-arrived');if(node){const focused=node.contains(document.activeElement)?document.activeElement.id:null;node.replaceWith(next);if(focused)el(focused)?.focus({preventScroll:true});}else{const following=[...box.children].find(n=>Number(n.dataset.msg)>m.id);box.insertBefore(next,following||null);}}
- if(older)chat.scrollTop=oldTop+chat.scrollHeight-oldHeight;
- else if(empty){const restore=MO.scroll[MO.channel];chat.scrollTop=typeof restore==='number'?restore:chat.scrollHeight;}
- else if(atBottom)chat.scrollTop=chat.scrollHeight;
- else MO.newCount+=(rows.filter(m=>!previous.has(m.id)).length);
- if(chat.scrollHeight-chat.scrollTop-chat.clientHeight<80){moMarkRead();MO.newCount=0;}
- el('mo-older').hidden=!MO.hasOlder;el('mo-chat-empty').hidden=!!sorted.length;el('mo-chat-empty').textContent=MO.channel==='mafia'?'Команда здесь. Обсудите первый ход.':MO.channel==='afterlife'?'Здесь можно обсудить партию с выбывшими.':'В городе пока тихо. Начни разговор.';
- if(MO.reply&&MO.messages.get(MO.reply.id)?.hidden){MO.reply=null;MO.nonce='';moStore();moReplyMarkup();moToast('Сообщение для ответа скрыто. Выбери другое.');}
- moNewBadge();
+function moMessageMarkup(m, day = '') {
+  const mine = m.user_id === MO.data?.me.id,
+    system = m.user_id === null,
+    date = new Date(m.time * 1000),
+    rights = moMessagePermissions(m),
+    actions = rights.can_reply || rights.can_report || rights.can_hide;
+  return [
+    `<article id="mo-msg-${m.id}" class="mo-msg ${mine ? 'mine' : ''} ${system ? 'system' : ''} ${m.hidden ? 'hidden-message' : ''}" data-msg="${m.id}" tabindex="-1">${day ? `<div class="mo-day">${esc(day)}</div>` : ''}`,
+    `<div class="mo-bubble">${
+      !system
+        ? [
+            `<header><b>${mine ? 'Ты' : esc(moLabel(m))}</b>${rights.can_reply ? `<button type="button" class="v3-link mo-direct-reply" aria-label="Ответить ${esc(moLabel(m))}" onclick="moReply(${m.id})">↩</button>` : ''}`,
+            `${
+              actions
+                ? [
+                    `<button id="mo-menu-${m.id}" type="button" class="v3-link mo-msg-menu" aria-label="Действия с сообщением ${esc(moLabel(m))}: ${esc(m.body.slice(0, 40))}`,
+                    `" onclick="moMessageMenu(${m.id})">•••</button>`,
+                  ].join('')
+                : ''
+            }`,
+            `</header>`,
+          ].join('')
+        : ''
+    }`,
+    `${
+      m.reply_to
+        ? [
+            `<button class="mo-quote" type="button" aria-label="Перейти к сообщению ${esc(m.reply_name || 'игрока')}" onclick="moJumpMessage(${m.reply_to})"><b>${m.reply_hidden ? 'Сообщение скрыто' : esc(moLabel({ name: m.reply_name || 'Сообщение', seat: m.reply_seat }))}`,
+            `</b><span>${m.reply_hidden ? '' : esc(m.reply_body || '')}</span></button>`,
+          ].join('')
+        : ''
+    }`,
+    `<p>${esc(m.body)}</p><time datetime="${date.toISOString()}" title="${esc(date.toLocaleString('ru-RU'))}">${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`,
+    `</time></div></article>`,
+  ].join('');
 }
-function moNewBadge(){const b=el('mo-new');if(b){const c=el('mo-chat'),away=c&&c.scrollHeight-c.scrollTop-c.clientHeight>80;b.hidden=!MO.newCount&&!away;b.textContent=MO.newCount?`Новые сообщения · ${MO.newCount} ↓`:'К последним сообщениям ↓';}if(el('mo-tab-count-chat'))el('mo-tab-count-chat').textContent=MO.newCount?` ${MO.newCount}`:'';}
-function moLatest(){const chat=el('mo-chat');if(chat)chat.scrollTop=chat.scrollHeight;MO.newCount=0;moMarkRead();moNewBadge();moChannelMarkup();}
-async function moOlder(){
- const ids=[...MO.messages.keys()];if(!ids.length||MO.loadingOlder)return;const g=MO.gen,room=MO.room,channel=MO.channel,button=el('mo-older');MO.loadingOlder=true;if(button){button.disabled=true;button.textContent='Вспоминаем разговор…';}
- try{const d=await moRequest(`/rooms/${room}?channel=${channel}&before=${Math.min(...ids)}`);if(!moAlive(g)||room!==MO.room||channel!==MO.channel)return;if(d.version<MO.data.version||d.redactions!==MO.redactions)return moRefresh();moMessages(d.messages,true);}
- catch(e){if(moAlive(g))moShowError(e);}finally{MO.loadingOlder=false;if(button?.isConnected){button.disabled=false;button.textContent='Ранние сообщения';}}
+function moMessages(rows, older = false) {
+  const chat = el('mo-chat'),
+    box = el('mo-messages');
+  if (!chat || !box) return;
+  const empty = MO.messages.size === 0,
+    atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80,
+    oldHeight = chat.scrollHeight,
+    oldTop = chat.scrollTop;
+  if (empty) {
+    box.replaceChildren();
+    MO.hasOlder = rows.length === 80;
+  } else if (older) MO.hasOlder = rows.length === 80;
+  const previous = new Set(MO.messages.keys());
+  rows.forEach((m) => MO.messages.set(m.id, m));
+  let sorted = [...MO.messages.values()].sort((a, b) => a.id - b.id);
+  if (atBottom && !older && sorted.length > 240) {
+    for (const m of sorted.slice(0, -240)) {
+      MO.messages.delete(m.id);
+      el(`mo-msg-${m.id}`)?.remove();
+    }
+    sorted = sorted.slice(-240);
+    MO.hasOlder = true;
+  }
+  const nodes = new Map([...box.children].map((n) => [Number(n.dataset.msg), n]));
+  let lastDay = '';
+  for (const m of sorted) {
+    const date = new Date(m.time * 1000),
+      day = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
+      html = moMessageMarkup(m, day !== lastDay ? day : '');
+    lastDay = day;
+    const node = nodes.get(m.id);
+    if (node?._markup === html) continue;
+    const t = document.createElement('template');
+    t.innerHTML = html;
+    const next = t.content.firstElementChild;
+    next._markup = html;
+    if (!node && !empty && !older) next.classList.add('mo-msg-arrived');
+    if (node) {
+      const focused = node.contains(document.activeElement) ? document.activeElement.id : null;
+      node.replaceWith(next);
+      if (focused) el(focused)?.focus({ preventScroll: true });
+    } else {
+      const following = [...box.children].find((n) => Number(n.dataset.msg) > m.id);
+      box.insertBefore(next, following || null);
+    }
+  }
+  if (older) chat.scrollTop = oldTop + chat.scrollHeight - oldHeight;
+  else if (empty) {
+    const restore = MO.scroll[MO.channel];
+    chat.scrollTop = typeof restore === 'number' ? restore : chat.scrollHeight;
+  } else if (atBottom) chat.scrollTop = chat.scrollHeight;
+  else MO.newCount += rows.filter((m) => !previous.has(m.id)).length;
+  if (chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80) {
+    moMarkRead();
+    MO.newCount = 0;
+  }
+  el('mo-older').hidden = !MO.hasOlder;
+  el('mo-chat-empty').hidden = !!sorted.length;
+  el('mo-chat-empty').textContent =
+    MO.channel === 'mafia'
+      ? 'Команда здесь. Обсудите первый ход.'
+      : MO.channel === 'afterlife'
+        ? 'Здесь можно обсудить партию с выбывшими.'
+        : 'В городе пока тихо. Начни разговор.';
+  if (MO.reply && MO.messages.get(MO.reply.id)?.hidden) {
+    MO.reply = null;
+    MO.nonce = '';
+    moStore();
+    moReplyMarkup();
+    moToast('Сообщение для ответа скрыто. Выбери другое.');
+  }
+  moNewBadge();
 }
-async function moJumpMessage(id){
- const g=MO.gen;for(let i=0;i<4&&!el(`mo-msg-${id}`)&&MO.hasOlder;i++){await moOlder();if(!moAlive(g))return;}
- const row=el(`mo-msg-${id}`);if(!row)return moToast('Сообщение находится раньше. Открой ранние сообщения.');row.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});row.focus({preventScroll:true});row.classList.add('mo-highlight');setTimeout(()=>row.classList.remove('mo-highlight'),1800);
+function moNewBadge() {
+  const b = el('mo-new');
+  if (b) {
+    const c = el('mo-chat'),
+      away = c && c.scrollHeight - c.scrollTop - c.clientHeight > 80;
+    b.hidden = !MO.newCount && !away;
+    b.textContent = MO.newCount ? `Новые сообщения · ${MO.newCount} ↓` : 'К последним сообщениям ↓';
+  }
+  if (el('mo-tab-count-chat')) el('mo-tab-count-chat').textContent = MO.newCount ? ` ${MO.newCount}` : '';
 }
-function moMessageKey(){return `${moDraftKey()}_pending`;}
-function moPendingMessage(){try{const p=JSON.parse(sessionStorage.getItem(moMessageKey())||'null');return p&&typeof p.nonce==='string'&&typeof p.text==='string'&&p.channel===MO.channel?p:null;}catch(_){return null;}}
-function moComposeState(){
- const input=el('mo-text'),send=el('mo-send');if(!input||!send)return;const d=MO.data,n=[...input.value].length,can=!!d?.me.can_write&&d.channel===MO.channel,pending=moPendingMessage(),sending=MO.sending?.has(moMessageKey());
- input.disabled=!can;input.style.height='auto';input.style.height=`${Math.min(112,Math.max(44,input.scrollHeight))}px`;
- send.disabled=(!can&&!pending)||MO.busy||sending||(!pending&&!input.value.trim())||(!pending&&n>600);send.textContent=sending?'Отправляем…':pending?'Проверить':'Отправить';
- const count=el('mo-counter');count.textContent=`${n} / 600`;count.classList.toggle('over',n>600);input.setAttribute('aria-invalid',String(n>600));
- if(!can)input.placeholder=d?.channel_state?.[MO.channel]?.write_reason||d?.me.write_reason||'Подключаемся к городу…';
- const state=el('mo-send-state');state.textContent=sending?'Сообщение отправляется…':pending?`Нет ответа. Повтори прежнее без дубля: «${pending.text.slice(0,42)}${pending.text.length>42?'…':''}».`:MO.sendState||'';state.classList.toggle('mo-send-failed',!!pending&&!sending);const compose=el('mo-compose');if(compose?.offsetHeight)compose.closest('.mo-room').style.setProperty('--mo-compose-height',`${compose.offsetHeight}px`);
+function moLatest() {
+  const chat = el('mo-chat');
+  if (chat) chat.scrollTop = chat.scrollHeight;
+  MO.newCount = 0;
+  moMarkRead();
+  moNewBadge();
+  moChannelMarkup();
 }
-async function moSend(){
- if(!moReady())return;const input=el('mo-text');if(!input||MO.busy||!MO.data?.me.can_write||MO.data.channel!==MO.channel)return;
- if(moPendingMessage())return moPendingMessageDialog();const text=input.value.trim();if(!text||[...text].length>600)return;
- MO.nonce||=crypto.randomUUID();MO.draft=input.value;moStore();const payload={channel:MO.channel,text,nonce:MO.nonce,reply_to:MO.reply?.id||null};
- try{sessionStorage.setItem(moMessageKey(),JSON.stringify(payload));}catch(_){return moShowError(new Error('Не удалось сохранить сообщение на устройстве. Попробуй снова.'));}
- return moRunMessage(payload);
+async function moOlder() {
+  const ids = [...MO.messages.keys()];
+  if (!ids.length || MO.loadingOlder) return;
+  const g = MO.gen,
+    room = MO.room,
+    channel = MO.channel,
+    button = el('mo-older');
+  MO.loadingOlder = true;
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Вспоминаем разговор…';
+  }
+  try {
+    const d = await moRequest(`/rooms/${room}?channel=${channel}&before=${Math.min(...ids)}`);
+    if (!moAlive(g) || room !== MO.room || channel !== MO.channel) return;
+    if (d.version < MO.data.version || d.redactions !== MO.redactions) return moRefresh();
+    moMessages(d.messages, true);
+  } catch (e) {
+    if (moAlive(g)) moShowError(e);
+  } finally {
+    MO.loadingOlder = false;
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.textContent = 'Ранние сообщения';
+    }
+  }
 }
-async function moRunMessage(payload){
- if(!moReady())return;const key=moMessageKey(),input=el('mo-text');MO.sending??=new Set();if(MO.busy||MO.sending.has(key))return;
- const g=MO.gen,room=MO.room,owner=moOwner(),draftKey=moDraftKey();MO.sending.add(key);moComposeState();
- try{await moRequest(`/rooms/${room}/messages`,payload);if(JSON.parse(sessionStorage.getItem(key)||'null')?.nonce===payload.nonce)sessionStorage.removeItem(key);
-   const saved=JSON.parse(sessionStorage.getItem(draftKey)||'null');if(saved?.nonce===payload.nonce||(saved?.text?.trim()===payload.text&&(saved.reply?.id||null)===(payload.reply_to||null)))sessionStorage.removeItem(draftKey);
-   if(!moAlive(g)||owner!==moOwner())return;
-   if(MO.nonce===payload.nonce||(input.value.trim()===payload.text&&(MO.reply?.id||null)===(payload.reply_to||null))){MO.draft='';MO.nonce='';MO.reply=null;input.value='';moStore();moReplyMarkup();}
-   if(MO.sheetKind==='delivery')moSheetClose();MO.sendState='Доставлено';el('mo-error').textContent='';await moRefresh();
- }catch(e){
-   if(e.status&&e.status<500&&![401,403,429].includes(e.status)){sessionStorage.removeItem(key);if(moAlive(g)){MO.nonce='';MO.sendState=e.message;}}
-   else if(moAlive(g))MO.sendState=e.message||'Ответ не пришёл · проверь отправку';
-   if(moAlive(g)&&MO.sheetKind==='delivery'&&el('mo-sheet')?.open)moShowError(e);
- }finally{MO.sending.delete(key);if(moAlive(g))moComposeState();}
+async function moJumpMessage(id) {
+  const g = MO.gen;
+  for (let i = 0; i < 4 && !el(`mo-msg-${id}`) && MO.hasOlder; i++) {
+    await moOlder();
+    if (!moAlive(g)) return;
+  }
+  const row = el(`mo-msg-${id}`);
+  if (!row) return moToast('Сообщение находится раньше. Открой ранние сообщения.');
+  row.scrollIntoView({
+    block: 'center',
+    behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth',
+  });
+  row.focus({ preventScroll: true });
+  row.classList.add('mo-highlight');
+  setTimeout(() => row.classList.remove('mo-highlight'), 1800);
 }
-function moRetryMessage(){const p=moPendingMessage();if(p)return moRunMessage(p);}
-function moDiscardMessage(){if(!moReady()||MO.busy||MO.sending?.has(moMessageKey()))return;const p=moPendingMessage();if(!p)return;sessionStorage.removeItem(moMessageKey());const input=el('mo-text');if(input?.value.trim()===p.text&&(MO.reply?.id||null)===(p.reply_to||null)){MO.draft='';MO.nonce='';MO.reply=null;input.value='';moStore();moReplyMarkup();}moSheetClose();MO.sendState='Отправка больше не повторяется';moComposeState();}
-function moPendingMessageDialog(){const p=moPendingMessage();if(!p||!moReady())return;moSheet('Прошлое сообщение',`<p>Ответ не пришёл. Сообщение могло уже доставиться.</p><blockquote class="mo-message-preview"><p>${esc(p.text)}</p></blockquote><div class="mo-sheet-actions"><button class="v3-pill" onclick="moRetryMessage()">Повторить без дубля</button><button class="v3-link" onclick="moDiscardMessage()">Не повторять</button></div><p class="mo-note">Новый текст сохранится. «Не повторять» не удаляет уже доставленное сообщение.</p>`,'delivery');}
-function moReplyMarkup(){const box=el('mo-reply');if(box)box.innerHTML=MO.reply?`<button class="mo-reply-text" type="button" onclick="moJumpMessage(${MO.reply.id})"><b>Ответ · ${esc(MO.reply.name)}</b><span>${esc(MO.reply.body.slice(0,100))}</span></button><button type="button" class="v3-link" aria-label="Отменить ответ" onclick="moCancelReply()">Убрать</button>`:'';moComposeState();}
-function moMessageMenu(id){const m=MO.messages.get(id);if(!m)return;const rights=moMessagePermissions(m);moSheet('Сообщение',`<blockquote class="mo-message-preview"><b>${esc(moLabel(m))}</b><p>${esc(m.body.slice(0,200))}</p></blockquote><div class="mo-sheet-actions">${rights.can_reply?`<button class="v3-pill" onclick="moReply(${id})">Ответить</button>`:''}${rights.can_report?`<button class="v3-pill v3-pill--ghost" onclick="moReport(${id})">Пожаловаться</button>`:''}${rights.can_hide?`<button class="v3-link mo-danger" onclick="moConfirmHide(${id})">Скрыть сообщение</button>`:''}</div>`,'message');}
-function moReply(id){const m=MO.messages.get(id);if(!m||!moMessagePermissions(m).can_reply)return;MO.nonce='';MO.reply={id:m.id,name:moLabel(m),body:m.body};moStore();moSheetClose();moReplyMarkup();el('mo-text').focus({preventScroll:true});}
-function moCancelReply(){MO.reply=null;MO.nonce='';moStore();moReplyMarkup();}
-function moChatGestures(){
- const box=el('mo-messages');if(!box)return;
- let swipe=null;
- const reset=()=>{if(swipe){swipe.row.style.removeProperty('--mo-swipe');swipe.row.classList.remove('mo-swiping','mo-swipe-ready');}swipe=null;};
- box.onpointerdown=e=>{
-   reset();
-   if(e.pointerType==='mouse'||!e.isPrimary||e.target.closest('button,a,input,textarea'))return;
-   const row=e.target.closest('[data-msg]'),message=MO.messages.get(Number(row?.dataset.msg));
-   if(!message||!moMessagePermissions(message).can_reply)return;
-   swipe={id:e.pointerId,row,x:e.clientX,y:e.clientY,dx:0,active:false};
- };
- box.onpointermove=e=>{
-   if(!swipe||e.pointerId!==swipe.id)return;
-   const dx=e.clientX-swipe.x,dy=e.clientY-swipe.y;
-   if(!swipe.active){
-     if(Math.abs(dy)>12||dx>12){reset();return;}
-     if(dx>-14||Math.abs(dx)<Math.abs(dy)*1.5)return;
-     swipe.active=true;swipe.row.classList.add('mo-swiping');
-     box.setPointerCapture(e.pointerId);
-   }
-   swipe.dx=Math.max(-80,Math.min(0,dx));
-   swipe.row.style.setProperty('--mo-swipe',`${swipe.dx}px`);
-   swipe.row.classList.toggle('mo-swipe-ready',swipe.dx<=-54);
- };
- box.onpointerup=e=>{
-   if(!swipe||e.pointerId!==swipe.id)return;
-   const id=Number(swipe.row.dataset.msg),reply=swipe.active&&swipe.dx<=-54;
-   reset();if(box.hasPointerCapture(e.pointerId))box.releasePointerCapture(e.pointerId);
-   if(reply)moReply(id);
- };
- box.onpointercancel=reset;box.onlostpointercapture=e=>{if(e.target===box)reset();};
+function moMessageKey() {
+  return `${moDraftKey()}_pending`;
 }
-function moReport(id){moSheet('Пожаловаться на сообщение',`<p class="mo-note">Жалобу увидят модераторы Предвестника.</p><form onsubmit="event.preventDefault();moModerate('report',null,${id},this.elements.reason.value)"><label class="mo-search-label" for="mo-report-reason">Что случилось? <span>Необязательно</span></label><textarea id="mo-report-reason" name="reason" maxlength="200" rows="3" placeholder="Коротко опиши причину"></textarea><button class="v3-pill" type="submit">Отправить жалобу</button></form>`,'report');}
-function moConfirmHide(id){moSheet('Скрыть сообщение?',`<p>Участники больше не увидят его текст, в том числе в ответах.</p><button class="v3-pill" onclick="moModerate('hide',null,${id})">Скрыть сообщение</button>`,'hide');}
-async function moModerate(kind,target=null,message_id=null,reason=''){const g=MO.gen,room=MO.room;return moBusy(async()=>{await moRequest(`/rooms/${room}/moderation`,{kind,target,message_id,reason});if(!moAlive(g))return;moSheetClose();await moRefresh();moToast(kind==='report'?'Жалоба отправлена модераторам':kind==='hide'?'Сообщение скрыто':kind==='mute'?'Чат игрока ограничен':'Игрок снова может писать');});}
-const MO_COMMAND={start:'Начать партию',leave:'Покинуть город',cancel:'Закрыть партию',pause:'Поставить на паузу',resume:'Продолжить партию',skip:'Начать голосование',settings:'Сохранить настройки',claim:'Стать хозяином',transfer:'Передать стол'};
-function moCommandKey(room=MO.room){return `pv_mo_command_${moOwner()}_${room}`;}
-function moPendingCommand(){try{return JSON.parse(sessionStorage.getItem(moCommandKey())||'null');}catch(_){return null;}}
-function moPendingNotice(){const box=el('mo-control-pending');if(!box)return;const p=moPendingCommand();moSetHTML('mo-control-pending',p?`<span>«${MO_COMMAND[p.command]||'Действие'}» · ждём ответ</span><button class="v3-link" onclick="moPendingControlDialog()">Проверить</button>`:'');}
-async function moRunControl(payload){const g=MO.gen,room=MO.room,key=moCommandKey(room);return moBusy(async()=>{try{await moRequest(`/rooms/${room}/control`,payload);if(JSON.parse(sessionStorage.getItem(key)||'null')?.nonce===payload.nonce)sessionStorage.removeItem(key);if(!moAlive(g))return;if(payload.command==='settings'){MO.settingsDraft=null;MO.settingsVersion=null;if(el('mo-settings-slot'))el('mo-settings-slot')._version=0;}moSheetClose();moPendingNotice();el('mo-error').textContent='';if(payload.command==='leave')return moHub();await moRefresh();if(!moAlive(g))return;if(payload.command==='settings')moToast('Настройки сохранены');else if(!MO.pendingEvent&&el('mo-event')?.hidden)moToast(({start:'Партия началась',pause:'Пауза включена',resume:'Партия продолжается',skip:'Голосование открыто',cancel:'Партия закрыта',claim:'Теперь ты ведёшь партию',transfer:'Стол передан новому хозяину'})[payload.command]||'Действие принято');}catch(e){if(e.status&&e.status<500&&![401,403,429].includes(e.status)){sessionStorage.removeItem(key);if(moAlive(g)){if(payload.command==='settings'&&e.status===409){MO.settingsDraft=null;MO.settingsVersion=null;if(el('mo-settings-slot'))el('mo-settings-slot')._version=0;document.activeElement?.blur();}await moRefresh();}}if(moAlive(g))moPendingNotice();throw e;}});}
-function moRetryControl(){const p=moPendingCommand();if(p)return moRunControl(p);}
-async function moControl(command,phase=null,settings=null,expectedVersion=null,target=null){if(!moReady()||MO.busy)return;if(moPendingCommand()){moPendingNotice();return moShowError(new Error('Сначала проверь предыдущее действие.'));}const payload={command,phase_number:phase??MO.data?.phase_number,settings,expected_version:expectedVersion??MO.data?.version,nonce:crypto.randomUUID(),...(target===null?{}:{target})};try{sessionStorage.setItem(moCommandKey(),JSON.stringify(payload));}catch(_){return moShowError(new Error('Не удалось сохранить действие на устройстве. Попробуй снова.'));}return moRunControl(payload);}
-function moConfirmControl(command){const copy={leave:['Покинуть город?',MO.data.phase==='lobby'?'Место освободится для другого игрока.':'Ты выйдешь из партии. Твоя роль будет раскрыта по её окончании.','Покинуть город'],cancel:['Закрыть партию?','История остановится для всех. Вернуть эту партию уже не получится.','Закрыть для всех'],skip:['Перейти к голосованию?','Разговор закончится. Город начнёт выбирать подозреваемого.','Начать голосование']}[command];if(!copy)return;moSheet(copy[0],`<p>${copy[1]}</p><div class="mo-sheet-actions"><button class="v3-pill" onclick="moControl('${command}',${MO.data.phase_number})">${copy[2]}</button><button class="v3-link" onclick="moSheetClose()">Остаться</button></div>`,'confirm');}
-async function moAgain(){return moBusy(async()=>{const g=MO.gen,d=await moRequest('/quick',{});if(moAlive(g))moEnter(d.room_id);});}
+function moPendingMessage() {
+  try {
+    const p = JSON.parse(sessionStorage.getItem(moMessageKey()) || 'null');
+    return p && typeof p.nonce === 'string' && typeof p.text === 'string' && p.channel === MO.channel
+      ? p
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+function moComposeState() {
+  const input = el('mo-text'),
+    send = el('mo-send');
+  if (!input || !send) return;
+  const d = MO.data,
+    n = [...input.value].length,
+    can = !!d?.me.can_write && d.channel === MO.channel,
+    pending = moPendingMessage(),
+    sending = MO.sending?.has(moMessageKey());
+  input.disabled = !can;
+  input.style.height = 'auto';
+  input.style.height = `${Math.min(112, Math.max(44, input.scrollHeight))}px`;
+  send.disabled =
+    (!can && !pending) || MO.busy || sending || (!pending && !input.value.trim()) || (!pending && n > 600);
+  send.textContent = sending ? 'Отправляем…' : pending ? 'Проверить' : 'Отправить';
+  const count = el('mo-counter');
+  count.textContent = `${n} / 600`;
+  count.classList.toggle('over', n > 600);
+  input.setAttribute('aria-invalid', String(n > 600));
+  if (!can)
+    input.placeholder =
+      d?.channel_state?.[MO.channel]?.write_reason || d?.me.write_reason || 'Подключаемся к городу…';
+  const state = el('mo-send-state');
+  state.textContent = sending
+    ? 'Сообщение отправляется…'
+    : pending
+      ? `Нет ответа. Повтори прежнее без дубля: «${pending.text.slice(0, 42)}${pending.text.length > 42 ? '…' : ''}».`
+      : MO.sendState || '';
+  state.classList.toggle('mo-send-failed', !!pending && !sending);
+  const compose = el('mo-compose');
+  if (compose?.offsetHeight)
+    compose.closest('.mo-room').style.setProperty('--mo-compose-height', `${compose.offsetHeight}px`);
+}
+async function moSend() {
+  if (!moReady()) return;
+  const input = el('mo-text');
+  if (!input || MO.busy || !MO.data?.me.can_write || MO.data.channel !== MO.channel) return;
+  if (moPendingMessage()) return moPendingMessageDialog();
+  const text = input.value.trim();
+  if (!text || [...text].length > 600) return;
+  MO.nonce ||= crypto.randomUUID();
+  MO.draft = input.value;
+  moStore();
+  const payload = { channel: MO.channel, text, nonce: MO.nonce, reply_to: MO.reply?.id || null };
+  try {
+    sessionStorage.setItem(moMessageKey(), JSON.stringify(payload));
+  } catch (_) {
+    return moShowError(new Error('Не удалось сохранить сообщение на устройстве. Попробуй снова.'));
+  }
+  return moRunMessage(payload);
+}
+async function moRunMessage(payload) {
+  if (!moReady()) return;
+  const key = moMessageKey(),
+    input = el('mo-text');
+  MO.sending ??= new Set();
+  if (MO.busy || MO.sending.has(key)) return;
+  const g = MO.gen,
+    room = MO.room,
+    owner = moOwner(),
+    draftKey = moDraftKey();
+  MO.sending.add(key);
+  moComposeState();
+  try {
+    await moRequest(`/rooms/${room}/messages`, payload);
+    if (JSON.parse(sessionStorage.getItem(key) || 'null')?.nonce === payload.nonce)
+      sessionStorage.removeItem(key);
+    const saved = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+    if (
+      saved?.nonce === payload.nonce ||
+      (saved?.text?.trim() === payload.text && (saved.reply?.id || null) === (payload.reply_to || null))
+    )
+      sessionStorage.removeItem(draftKey);
+    if (!moAlive(g) || owner !== moOwner()) return;
+    if (
+      MO.nonce === payload.nonce ||
+      (input.value.trim() === payload.text && (MO.reply?.id || null) === (payload.reply_to || null))
+    ) {
+      MO.draft = '';
+      MO.nonce = '';
+      MO.reply = null;
+      input.value = '';
+      moStore();
+      moReplyMarkup();
+    }
+    if (MO.sheetKind === 'delivery') moSheetClose();
+    MO.sendState = 'Доставлено';
+    el('mo-error').textContent = '';
+    await moRefresh();
+  } catch (e) {
+    if (e.status && e.status < 500 && ![401, 403, 429].includes(e.status)) {
+      sessionStorage.removeItem(key);
+      if (moAlive(g)) {
+        MO.nonce = '';
+        MO.sendState = e.message;
+      }
+    } else if (moAlive(g)) MO.sendState = e.message || 'Ответ не пришёл · проверь отправку';
+    if (moAlive(g) && MO.sheetKind === 'delivery' && el('mo-sheet')?.open) moShowError(e);
+  } finally {
+    MO.sending.delete(key);
+    if (moAlive(g)) moComposeState();
+  }
+}
+function moRetryMessage() {
+  const p = moPendingMessage();
+  if (p) return moRunMessage(p);
+}
+function moDiscardMessage() {
+  if (!moReady() || MO.busy || MO.sending?.has(moMessageKey())) return;
+  const p = moPendingMessage();
+  if (!p) return;
+  sessionStorage.removeItem(moMessageKey());
+  const input = el('mo-text');
+  if (input?.value.trim() === p.text && (MO.reply?.id || null) === (p.reply_to || null)) {
+    MO.draft = '';
+    MO.nonce = '';
+    MO.reply = null;
+    input.value = '';
+    moStore();
+    moReplyMarkup();
+  }
+  moSheetClose();
+  MO.sendState = 'Отправка больше не повторяется';
+  moComposeState();
+}
+function moPendingMessageDialog() {
+  const p = moPendingMessage();
+  if (!p || !moReady()) return;
+  moSheet(
+    'Прошлое сообщение',
+    [
+      `<p>Ответ не пришёл. Сообщение могло уже доставиться.</p><blockquote class="mo-message-preview"><p>${esc(p.text)}</p></blockquote><div class="mo-sheet-actions"><button class="v3-pill" onclick="moRetryMessage()">Повторить без дубля</button><button class="v3-link" `,
+      `onclick="moDiscardMessage()">Не повторять</button></div><p class="mo-note">Новый текст сохранится. «Не повторять» не удаляет уже доставленное `,
+      `сообщение.</p>`,
+    ].join(''),
+    'delivery',
+  );
+}
+function moReplyMarkup() {
+  const box = el('mo-reply');
+  if (box)
+    box.innerHTML = MO.reply
+      ? [
+          `<button class="mo-reply-text" type="button" onclick="moJumpMessage(${MO.reply.id})"><b>Ответ · ${esc(MO.reply.name)}</b><span>${esc(MO.reply.body.slice(0, 100))}`,
+          `</span></button><button type="button" class="v3-link" aria-label="Отменить ответ" onclick="moCancelReply()">Убрать</button>`,
+        ].join('')
+      : '';
+  moComposeState();
+}
+function moMessageMenu(id) {
+  const m = MO.messages.get(id);
+  if (!m) return;
+  const rights = moMessagePermissions(m);
+  moSheet(
+    'Сообщение',
+    [
+      `<blockquote class="mo-message-preview"><b>${esc(moLabel(m))}</b><p>${esc(m.body.slice(0, 200))}</p></blockquote><div class="mo-sheet-actions">${rights.can_reply ? `<button class="v3-pill" onclick="moReply(${id})">Ответить</button>` : ''}`,
+      `${rights.can_report ? `<button class="v3-pill v3-pill--ghost" onclick="moReport(${id})">Пожаловаться</button>` : ''}${rights.can_hide ? `<button class="v3-link mo-danger" onclick="moConfirmHide(${id})">Скрыть сообщение</button>` : ''}`,
+      `</div>`,
+    ].join(''),
+    'message',
+  );
+}
+function moReply(id) {
+  const m = MO.messages.get(id);
+  if (!m || !moMessagePermissions(m).can_reply) return;
+  MO.nonce = '';
+  MO.reply = { id: m.id, name: moLabel(m), body: m.body };
+  moStore();
+  moSheetClose();
+  moReplyMarkup();
+  el('mo-text').focus({ preventScroll: true });
+}
+function moCancelReply() {
+  MO.reply = null;
+  MO.nonce = '';
+  moStore();
+  moReplyMarkup();
+}
+function moChatGestures() {
+  const box = el('mo-messages');
+  if (!box) return;
+  let swipe = null;
+  const reset = () => {
+    if (swipe) {
+      swipe.row.style.removeProperty('--mo-swipe');
+      swipe.row.classList.remove('mo-swiping', 'mo-swipe-ready');
+    }
+    swipe = null;
+  };
+  box.onpointerdown = (e) => {
+    reset();
+    if (e.pointerType === 'mouse' || !e.isPrimary || e.target.closest('button,a,input,textarea')) return;
+    const row = e.target.closest('[data-msg]'),
+      message = MO.messages.get(Number(row?.dataset.msg));
+    if (!message || !moMessagePermissions(message).can_reply) return;
+    swipe = { id: e.pointerId, row, x: e.clientX, y: e.clientY, dx: 0, active: false };
+  };
+  box.onpointermove = (e) => {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    const dx = e.clientX - swipe.x,
+      dy = e.clientY - swipe.y;
+    if (!swipe.active) {
+      if (Math.abs(dy) > 12 || dx > 12) {
+        reset();
+        return;
+      }
+      if (dx > -14 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      swipe.active = true;
+      swipe.row.classList.add('mo-swiping');
+      box.setPointerCapture(e.pointerId);
+    }
+    swipe.dx = Math.max(-80, Math.min(0, dx));
+    swipe.row.style.setProperty('--mo-swipe', `${swipe.dx}px`);
+    swipe.row.classList.toggle('mo-swipe-ready', swipe.dx <= -54);
+  };
+  box.onpointerup = (e) => {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    const id = Number(swipe.row.dataset.msg),
+      reply = swipe.active && swipe.dx <= -54;
+    reset();
+    if (box.hasPointerCapture(e.pointerId)) box.releasePointerCapture(e.pointerId);
+    if (reply) moReply(id);
+  };
+  box.onpointercancel = reset;
+  box.onlostpointercapture = (e) => {
+    if (e.target === box) reset();
+  };
+}
+function moReport(id) {
+  moSheet(
+    'Пожаловаться на сообщение',
+    [
+      `<p class="mo-note">Жалобу увидят модераторы Предвестника.</p><form onsubmit="event.preventDefault();moModerate('report',null,${id},this.elements.reason.value)"><label class="mo-search-label" for="mo-report-reason">Что случилось? <span>Необязательно</span></label><textarea `,
+      `id="mo-report-reason" name="reason" maxlength="200" rows="3" placeholder="Коротко опиши причину"></textarea><button class="v3-pill" type="submit">`,
+      `Отправить жалобу</button></form>`,
+    ].join(''),
+    'report',
+  );
+}
+function moConfirmHide(id) {
+  moSheet(
+    'Скрыть сообщение?',
+    `<p>Участники больше не увидят его текст, в том числе в ответах.</p><button class="v3-pill" onclick="moModerate('hide',null,${id})">Скрыть сообщение</button>`,
+    'hide',
+  );
+}
+async function moModerate(kind, target = null, message_id = null, reason = '') {
+  const g = MO.gen,
+    room = MO.room;
+  return moBusy(async () => {
+    await moRequest(`/rooms/${room}/moderation`, { kind, target, message_id, reason });
+    if (!moAlive(g)) return;
+    moSheetClose();
+    await moRefresh();
+    moToast(
+      kind === 'report'
+        ? 'Жалоба отправлена модераторам'
+        : kind === 'hide'
+          ? 'Сообщение скрыто'
+          : kind === 'mute'
+            ? 'Чат игрока ограничен'
+            : 'Игрок снова может писать',
+    );
+  });
+}
+const MO_COMMAND = {
+  start: 'Начать партию',
+  leave: 'Покинуть город',
+  cancel: 'Закрыть партию',
+  pause: 'Поставить на паузу',
+  resume: 'Продолжить партию',
+  skip: 'Начать голосование',
+  settings: 'Сохранить настройки',
+  claim: 'Стать хозяином',
+  transfer: 'Передать стол',
+};
+function moCommandKey(room = MO.room) {
+  return `pv_mo_command_${moOwner()}_${room}`;
+}
+function moPendingCommand() {
+  try {
+    return JSON.parse(sessionStorage.getItem(moCommandKey()) || 'null');
+  } catch (_) {
+    return null;
+  }
+}
+function moPendingNotice() {
+  const box = el('mo-control-pending');
+  if (!box) return;
+  const p = moPendingCommand();
+  moSetHTML(
+    'mo-control-pending',
+    p
+      ? `<span>«${MO_COMMAND[p.command] || 'Действие'}» · ждём ответ</span><button class="v3-link" onclick="moPendingControlDialog()">Проверить</button>`
+      : '',
+  );
+}
+async function moRunControl(payload) {
+  const g = MO.gen,
+    room = MO.room,
+    key = moCommandKey(room);
+  return moBusy(async () => {
+    try {
+      await moRequest(`/rooms/${room}/control`, payload);
+      if (JSON.parse(sessionStorage.getItem(key) || 'null')?.nonce === payload.nonce)
+        sessionStorage.removeItem(key);
+      if (!moAlive(g)) return;
+      if (payload.command === 'settings') {
+        MO.settingsDraft = null;
+        MO.settingsVersion = null;
+        if (el('mo-settings-slot')) el('mo-settings-slot')._version = 0;
+      }
+      moSheetClose();
+      moPendingNotice();
+      el('mo-error').textContent = '';
+      if (payload.command === 'leave') return moHub();
+      await moRefresh();
+      if (!moAlive(g)) return;
+      if (payload.command === 'settings') moToast('Настройки сохранены');
+      else if (!MO.pendingEvent && el('mo-event')?.hidden)
+        moToast(
+          {
+            start: 'Партия началась',
+            pause: 'Пауза включена',
+            resume: 'Партия продолжается',
+            skip: 'Голосование открыто',
+            cancel: 'Партия закрыта',
+            claim: 'Теперь ты ведёшь партию',
+            transfer: 'Стол передан новому хозяину',
+          }[payload.command] || 'Действие принято',
+        );
+    } catch (e) {
+      if (e.status && e.status < 500 && ![401, 403, 429].includes(e.status)) {
+        sessionStorage.removeItem(key);
+        if (moAlive(g)) {
+          if (payload.command === 'settings' && e.status === 409) {
+            MO.settingsDraft = null;
+            MO.settingsVersion = null;
+            if (el('mo-settings-slot')) el('mo-settings-slot')._version = 0;
+            document.activeElement?.blur();
+          }
+          await moRefresh();
+        }
+      }
+      if (moAlive(g)) moPendingNotice();
+      throw e;
+    }
+  });
+}
+function moRetryControl() {
+  const p = moPendingCommand();
+  if (p) return moRunControl(p);
+}
+async function moControl(command, phase = null, settings = null, expectedVersion = null, target = null) {
+  if (!moReady() || MO.busy) return;
+  if (moPendingCommand()) {
+    moPendingNotice();
+    return moShowError(new Error('Сначала проверь предыдущее действие.'));
+  }
+  const payload = {
+    command,
+    phase_number: phase ?? MO.data?.phase_number,
+    settings,
+    expected_version: expectedVersion ?? MO.data?.version,
+    nonce: crypto.randomUUID(),
+    ...(target === null ? {} : { target }),
+  };
+  try {
+    sessionStorage.setItem(moCommandKey(), JSON.stringify(payload));
+  } catch (_) {
+    return moShowError(new Error('Не удалось сохранить действие на устройстве. Попробуй снова.'));
+  }
+  return moRunControl(payload);
+}
+function moConfirmControl(command) {
+  const copy = {
+    leave: [
+      'Покинуть город?',
+      MO.data.phase === 'lobby'
+        ? 'Место освободится для другого игрока.'
+        : 'Ты выйдешь из партии. Твоя роль будет раскрыта по её окончании.',
+      'Покинуть город',
+    ],
+    cancel: [
+      'Закрыть партию?',
+      'История остановится для всех. Вернуть эту партию уже не получится.',
+      'Закрыть для всех',
+    ],
+    skip: [
+      'Перейти к голосованию?',
+      'Разговор закончится. Город начнёт выбирать подозреваемого.',
+      'Начать голосование',
+    ],
+  }[command];
+  if (!copy) return;
+  moSheet(
+    copy[0],
+    `<p>${copy[1]}</p><div class="mo-sheet-actions"><button class="v3-pill" onclick="moControl('${command}',${MO.data.phase_number})">${copy[2]}</button><button class="v3-link" onclick="moSheetClose()">Остаться</button></div>`,
+    'confirm',
+  );
+}
+async function moAgain() {
+  return moBusy(async () => {
+    const g = MO.gen,
+      d = await moRequest('/quick', {});
+    if (moAlive(g)) moEnter(d.room_id);
+  });
+}
 
-function moTeamChoices(d){if(!d.me.team_choices)return '';const names=new Map(d.players.map(p=>[p.id,moLabel(p)]));return `<h3>Ночной выбор команды</h3><ul class="mo-simple-list">${d.me.team_choices.map(p=>`<li><span>${esc(names.get(p.id)||p.name)}</span><b>${p.target?esc(names.get(p.target)||'Игрок'):'Выбирает…'}</b></li>`).join('')}</ul>`;}
+function moTeamChoices(d) {
+  if (!d.me.team_choices) return '';
+  const names = new Map(d.players.map((p) => [p.id, moLabel(p)]));
+  return [
+    `<h3>Ночной выбор команды</h3><ul class="mo-simple-list">${d.me.team_choices.map((p) => `<li><span>${esc(names.get(p.id) || p.name)}</span><b>${p.target ? esc(names.get(p.target) || 'Игрок') : 'Выбирает…'}</b></li>`).join('')}`,
+    `</ul>`,
+  ].join('');
+}
 
-function moCouncil(){const d=MO.data;if(MO.channel!=='mafia'||d?.phase!=='night'||!d.me.team_choices)return;moSheet('Ночной совет',`<p class="mo-note">Решение видит только живая мафия. Свой ход можно изменить до конца ночи.</p><div id="mo-team-choices">${moTeamChoices(d)}</div><button class="v3-pill" onclick="moChooseTarget()">${d.me.action?'Изменить мой ход':'Выбрать мою цель'}</button>`,'council');}
+function moCouncil() {
+  const d = MO.data;
+  if (MO.channel !== 'mafia' || d?.phase !== 'night' || !d.me.team_choices) return;
+  moSheet(
+    'Ночной совет',
+    [
+      `<p class="mo-note">Решение видит только живая мафия. Свой ход можно изменить до конца ночи.</p><div id="mo-team-choices">${moTeamChoices(d)}</div><button class="v3-pill" onclick="moChooseTarget()">${d.me.action ? 'Изменить мой ход' : 'Выбрать мою цель'}`,
+      `</button>`,
+    ].join(''),
+    'council',
+  );
+}
 
 // Events are derived from two authorized snapshots, never from another player's hidden role.
-function moEventFor(before,d){
- if(!before||before.id!==d.id)return null;
- const changed=before.phase!==d.phase||before.phase_number!==d.phase_number;
- if(d.phase==='finished'&&changed)return{kind:'finale',title:moResultTitle(d),detail:moMyOutcome(d)?`${moMyOutcome(d)}. Нажми «Кто кем был», чтобы увидеть все роли.`:'Нажми «Кто кем был», чтобы увидеть все роли.'};
- if(d.phase==='cancelled'&&changed)return{kind:'closed',title:'Партия закрыта',detail:'Эта партия закончилась. Нажми «Ещё партию», чтобы найти новый стол.'};
- if(!before.me.role&&d.me.role)return{kind:'role',role:d.me.role,title:`Твоя роль — ${MO_ROLE[d.me.role]}`,detail:MO_COPY[d.me.role]};
- if(before.me.alive&&!d.me.alive&&!d.me.left)return{kind:'out',title:'Ты выбыл',detail:'Открыт разговор «Выбывшие». Живые не увидят твои сообщения.'};
- if(d.phase==='paused'&&before.phase!=='paused')return{kind:'pause',title:'Партия на паузе',detail:'Время остановлено. Твоё место и выбор сохранены.'};
- if(before.phase==='paused'&&d.phase!=='paused'&&changed)return{kind:'resume',title:'Партия продолжается',detail:`${MO_PHASE[d.phase]}. Отсчёт снова идёт.`};
- if(d.me.checks.length>before.me.checks.length){const c=d.me.checks[d.me.checks.length-1];return{kind:'check',title:'Проверка готова',detail:`${moLabel(c)} — ${c.mafia?'мафия':'мирный'}. Все проверки — в карточке твоей роли.`};}
- if(changed){
-  const lost=d.players.filter(p=>!p.alive&&!p.left&&before.players.some(old=>old.id===p.id&&old.alive));
-  if(d.phase==='discussion')return{kind:'day',title:'Началось обсуждение',detail:lost.length?`Выбывает ${lost.map(moLabel).join(', ')}. Обсуди подозрения с городом.`:'Никто не выбыл за ночь. Обсуди подозрения с городом.'};
-  if(d.phase==='night')return{kind:'night',title:'Началась ночь',detail:d.me.can_act?'Нажми «Выбрать» над разговором, чтобы сделать ход.':'Общий разговор закрыт до утра. Дождись обсуждения.'};
-  if(d.phase==='voting')return{kind:'vote',title:'Началось голосование',detail:'Нажми «Выбрать» над разговором. Можно проголосовать за игрока или за никого.'};
- }
- if(d.me.choice_reset&&!before.me.choice_reset)return{kind:'reset',title:'Нужен новый выбор',detail:'Прежняя цель вышла из партии. Нажми «Выбрать» и укажи другую.'};
- if(before.host_id!==d.host_id){const host=d.players.find(p=>p.id===d.host_id);return{kind:'host',title:d.host_id===d.me.id?'Теперь ты ведёшь партию':'Новый хозяин стола',detail:d.host_id===d.me.id?'Пауза и управление — во вкладке «Стол».':`${host?moLabel(host):'Участник стола'} теперь управляет партией.`};}
- return null;
+function moEventFor(before, d) {
+  if (!before || before.id !== d.id) return null;
+  const changed = before.phase !== d.phase || before.phase_number !== d.phase_number;
+  if (d.phase === 'finished' && changed)
+    return {
+      kind: 'finale',
+      title: moResultTitle(d),
+      detail: moMyOutcome(d)
+        ? `${moMyOutcome(d)}. Нажми «Кто кем был», чтобы увидеть все роли.`
+        : 'Нажми «Кто кем был», чтобы увидеть все роли.',
+    };
+  if (d.phase === 'cancelled' && changed)
+    return {
+      kind: 'closed',
+      title: 'Партия закрыта',
+      detail: 'Эта партия закончилась. Нажми «Ещё партию», чтобы найти новый стол.',
+    };
+  if (!before.me.role && d.me.role)
+    return {
+      kind: 'role',
+      role: d.me.role,
+      title: `Твоя роль — ${MO_ROLE[d.me.role]}`,
+      detail: MO_COPY[d.me.role],
+    };
+  if (before.me.alive && !d.me.alive && !d.me.left)
+    return {
+      kind: 'out',
+      title: 'Ты выбыл',
+      detail: 'Открыт разговор «Выбывшие». Живые не увидят твои сообщения.',
+    };
+  if (d.phase === 'paused' && before.phase !== 'paused')
+    return {
+      kind: 'pause',
+      title: 'Партия на паузе',
+      detail: 'Время остановлено. Твоё место и выбор сохранены.',
+    };
+  if (before.phase === 'paused' && d.phase !== 'paused' && changed)
+    return {
+      kind: 'resume',
+      title: 'Партия продолжается',
+      detail: `${MO_PHASE[d.phase]}. Отсчёт снова идёт.`,
+    };
+  if (d.me.checks.length > before.me.checks.length) {
+    const c = d.me.checks[d.me.checks.length - 1];
+    return {
+      kind: 'check',
+      title: 'Проверка готова',
+      detail: `${moLabel(c)} — ${c.mafia ? 'мафия' : 'мирный'}. Все проверки — в карточке твоей роли.`,
+    };
+  }
+  if (changed) {
+    const lost = d.players.filter(
+      (p) => !p.alive && !p.left && before.players.some((old) => old.id === p.id && old.alive),
+    );
+    if (d.phase === 'discussion')
+      return {
+        kind: 'day',
+        title: 'Началось обсуждение',
+        detail: lost.length
+          ? `Выбывает ${lost.map(moLabel).join(', ')}. Обсуди подозрения с городом.`
+          : 'Никто не выбыл за ночь. Обсуди подозрения с городом.',
+      };
+    if (d.phase === 'night')
+      return {
+        kind: 'night',
+        title: 'Началась ночь',
+        detail: d.me.can_act
+          ? 'Нажми «Выбрать» над разговором, чтобы сделать ход.'
+          : 'Общий разговор закрыт до утра. Дождись обсуждения.',
+      };
+    if (d.phase === 'voting')
+      return {
+        kind: 'vote',
+        title: 'Началось голосование',
+        detail: 'Нажми «Выбрать» над разговором. Можно проголосовать за игрока или за никого.',
+      };
+  }
+  if (d.me.choice_reset && !before.me.choice_reset)
+    return {
+      kind: 'reset',
+      title: 'Нужен новый выбор',
+      detail: 'Прежняя цель вышла из партии. Нажми «Выбрать» и укажи другую.',
+    };
+  if (before.host_id !== d.host_id) {
+    const host = d.players.find((p) => p.id === d.host_id);
+    return {
+      kind: 'host',
+      title: d.host_id === d.me.id ? 'Теперь ты ведёшь партию' : 'Новый хозяин стола',
+      detail:
+        d.host_id === d.me.id
+          ? 'Пауза и управление — во вкладке «Стол».'
+          : `${host ? moLabel(host) : 'Участник стола'} теперь управляет партией.`,
+    };
+  }
+  return null;
 }
-function moEventIcon(kind){const paths={night:'<path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/>',day:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',vote:'<path d="M12 3v17M6 20h12M4 7h16M5 7l-3 7h6L5 7Zm14 0-3 7h6l-3-7Z"/>',pause:'<path d="M8 5v14M16 5v14"/>',resume:'<path d="m9 5 10 7-10 7V5Z"/>',check:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6m-14-11 2 2 4-4"/>',out:'<circle cx="12" cy="12" r="8"/><path d="m6 6 12 12"/>',finale:'<path d="m3 7 4 4 5-7 5 7 4-4-2 12H5L3 7Zm2 15h14"/>',reset:'<path d="M5 8a8 8 0 1 1 0 8M5 3v5h5"/>',host:'<circle cx="8" cy="9" r="4"/><path d="m11 12 9 9m-4-4 3-3m-6 0 3-3"/>',closed:'<path d="m6 6 12 12M6 18 18 6"/>',choice:'<path d="m5 12 4 4L19 6"/>'};return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[kind]||paths.choice}</svg>`;}
-function moShowEvent(event){const box=el('mo-event');if(!box||!MO.room)return;clearTimeout(MO.eventTimer);const focused=box.contains(document.activeElement);box.className=`mo-event mo-event-${event.kind}`;box.innerHTML=`<span class="mo-event-symbol" aria-hidden="true">${event.role?`<img src="${BASE}/static/mafia-art/${event.role}.webp" alt="">`:moEventIcon(event.kind)}</span><div class="mo-event-copy"><b>${esc(event.title)}</b><p>${esc(event.detail)}</p></div><button type="button" class="v3-link" aria-label="Скрыть уведомление о событии" onclick="moHideEvent()">×</button>`;box.hidden=false;box.dataset.kind=event.kind;if(el('mo-announcement'))el('mo-announcement').textContent=`${event.title}. ${event.detail}`;
- if(moMotionAllowed())box.animate([{opacity:0,transform:'translateY(-6px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease-out'});
- if(focused)box.querySelector('button').focus({preventScroll:true});const room=MO.room;const dismiss=()=>{if(room!==MO.room)return;if(box.contains(document.activeElement)){MO.eventTimer=setTimeout(dismiss,2000);return;}moHideEvent();};MO.eventTimer=setTimeout(dismiss,7000);box.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();moHideEvent();}};
+function moEventIcon(kind) {
+  const paths = {
+    night: '<path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/>',
+    day: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
+    vote: '<path d="M12 3v17M6 20h12M4 7h16M5 7l-3 7h6L5 7Zm14 0-3 7h6l-3-7Z"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    resume: '<path d="m9 5 10 7-10 7V5Z"/>',
+    check: '<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6m-14-11 2 2 4-4"/>',
+    out: '<circle cx="12" cy="12" r="8"/><path d="m6 6 12 12"/>',
+    finale: '<path d="m3 7 4 4 5-7 5 7 4-4-2 12H5L3 7Zm2 15h14"/>',
+    reset: '<path d="M5 8a8 8 0 1 1 0 8M5 3v5h5"/>',
+    host: '<circle cx="8" cy="9" r="4"/><path d="m11 12 9 9m-4-4 3-3m-6 0 3-3"/>',
+    closed: '<path d="m6 6 12 12M6 18 18 6"/>',
+    choice: '<path d="m5 12 4 4L19 6"/>',
+  };
+  return [
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[kind] || paths.choice}`,
+    `</svg>`,
+  ].join('');
 }
-function moHideEvent(){clearTimeout(MO.eventTimer);const box=el('mo-event');if(!box)return;const focused=box.contains(document.activeElement);box.hidden=true;if(focused)(el('mo-action-open')||el('mo-role-open')||el('mo-tab-chat'))?.focus({preventScroll:true});}
+function moShowEvent(event) {
+  const box = el('mo-event');
+  if (!box || !MO.room) return;
+  clearTimeout(MO.eventTimer);
+  const focused = box.contains(document.activeElement);
+  box.className = `mo-event mo-event-${event.kind}`;
+  box.innerHTML = [
+    `<span class="mo-event-symbol" aria-hidden="true">${event.role ? `<img src="${BASE}/static/mafia-art/${event.role}.webp" alt="">` : moEventIcon(event.kind)}`,
+    `</span><div class="mo-event-copy"><b>${esc(event.title)}</b><p>${esc(event.detail)}</p></div><button type="button" class="v3-link" aria-label="Скрыть уведомление о событии" onclick="moHideEvent()">×</button>`,
+  ].join('');
+  box.hidden = false;
+  box.dataset.kind = event.kind;
+  if (el('mo-announcement')) el('mo-announcement').textContent = `${event.title}. ${event.detail}`;
+  if (moMotionAllowed())
+    box.animate(
+      [
+        { opacity: 0, transform: 'translateY(-6px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ],
+      { duration: 180, easing: 'ease-out' },
+    );
+  if (focused) box.querySelector('button').focus({ preventScroll: true });
+  const room = MO.room;
+  const dismiss = () => {
+    if (room !== MO.room) return;
+    if (box.contains(document.activeElement)) {
+      MO.eventTimer = setTimeout(dismiss, 2000);
+      return;
+    }
+    moHideEvent();
+  };
+  MO.eventTimer = setTimeout(dismiss, 7000);
+  box.onkeydown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      moHideEvent();
+    }
+  };
+}
+function moHideEvent() {
+  clearTimeout(MO.eventTimer);
+  const box = el('mo-event');
+  if (!box) return;
+  const focused = box.contains(document.activeElement);
+  box.hidden = true;
+  if (focused)
+    (el('mo-action-open') || el('mo-role-open') || el('mo-tab-chat'))?.focus({ preventScroll: true });
+}
 
-function moMarkRead(){if(!MO.room||!MO.messages.size)return;MO.read[MO.channel]=Math.max(MO.read[MO.channel]||0,...MO.messages.keys());try{sessionStorage.setItem(`pv_mo_read_${moOwner()}_${MO.room}`,JSON.stringify(MO.read));}catch(_){}}
+function moMarkRead() {
+  if (!MO.room || !MO.messages.size) return;
+  MO.read[MO.channel] = Math.max(MO.read[MO.channel] || 0, ...MO.messages.keys());
+  try {
+    sessionStorage.setItem(`pv_mo_read_${moOwner()}_${MO.room}`, JSON.stringify(MO.read));
+  } catch (_) {}
+}
 
-function moDiscardControl(){if(!moReady()||MO.busy)return;sessionStorage.removeItem(moCommandKey());moSheetClose();moPendingNotice();moToast('Повтор действия отключён');}
-function moPendingControlDialog(){const p=moPendingCommand();if(!p||!moReady())return;moSheet('Проверить действие',`<p>«${MO_COMMAND[p.command]||'Действие'}» могло уже примениться.</p><div class="mo-sheet-actions"><button class="v3-pill" onclick="moRetryControl()">Проверить</button><button class="v3-link" onclick="moDiscardControl()">Не повторять</button></div><p class="mo-note">«Не повторять» не отменяет уже выполненное действие.</p>`,'control-check');}
+function moDiscardControl() {
+  if (!moReady() || MO.busy) return;
+  sessionStorage.removeItem(moCommandKey());
+  moSheetClose();
+  moPendingNotice();
+  moToast('Повтор действия отключён');
+}
+function moPendingControlDialog() {
+  const p = moPendingCommand();
+  if (!p || !moReady()) return;
+  moSheet(
+    'Проверить действие',
+    [
+      `<p>«${MO_COMMAND[p.command] || 'Действие'}» могло уже примениться.</p><div class="mo-sheet-actions"><button class="v3-pill" onclick="moRetryControl()">Проверить</button><button class="v3-link" `,
+      `onclick="moDiscardControl()">Не повторять</button></div><p class="mo-note">«Не повторять» не отменяет уже выполненное действие.</p>`,
+    ].join(''),
+    'control-check',
+  );
+}
 
-function moMotionAllowed(){return !matchMedia('(prefers-reduced-motion:reduce)').matches&&!document.body.classList.contains('no-fx')&&!document.body.classList.contains('ap-low');}
+function moMotionAllowed() {
+  return (
+    !matchMedia('(prefers-reduced-motion:reduce)').matches &&
+    !document.body.classList.contains('no-fx') &&
+    !document.body.classList.contains('ap-low')
+  );
+}

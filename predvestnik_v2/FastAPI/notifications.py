@@ -64,6 +64,9 @@ async def _balance_listener() -> None:
         try:
             event = json.loads(payload)
             user_id = int(event.pop("user_id"))
+            if event.get("type") == "mafia_room_changed":
+                asyncio.create_task(notify(user_id, event, forget_profile=False))
+                return
             if event.get("type") in {
                 "balance_changed", "data_changed", "notification_pending"
             }:
