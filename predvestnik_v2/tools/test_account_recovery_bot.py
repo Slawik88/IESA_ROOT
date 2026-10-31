@@ -30,6 +30,19 @@ class FakeBot:
         return SimpleNamespace(username="predvestnik_bot")
 
 
+class _NoBlocksDb:
+    """Dispatch's silent check asks global moderation first: the stub answers «нет таблицы — нет блокировок»."""
+
+    class _Cursor:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def fetchone(self): return (False,)
+        async def fetchall(self): return []
+
+    def execute(self, sql, args=()):
+        return self._Cursor()
+
+
 async def main() -> None:
     calls = []
 
@@ -43,7 +56,7 @@ async def main() -> None:
 
     account.account_deletion.cancel_deletion = cancel
     account.account_deletion.restore_account = restore
-    db = object()
+    db = _NoBlocksDb()
     first, second = FakeMessage("бот отменить удаление"), FakeMessage("восстановить аккаунт")
     second.text = "бот восстановить аккаунт"
     await dispatch(registry, first, FakeBot(), db)

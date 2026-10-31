@@ -57,6 +57,20 @@ if ($bootstrapExitCode -ne 0) {
     throw "Test database bootstrap failed."
 }
 
+# Freeze the freshly bootstrapped state into a template database: every test below
+# starts from this snapshot (schema, reference rows, empty game data) in seconds.
+$ErrorActionPreference = "Continue"
+try {
+    $snapshotOutput = & $python (Join-Path $PSScriptRoot "reset_test_data.py") --dsn $localDsn --snapshot-refresh 2>&1
+    $snapshotExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = "Stop"
+}
+if ($snapshotExitCode -ne 0) {
+    $snapshotOutput | Write-Output
+    throw "Test database snapshot failed."
+}
+
 # The owner-approved reconstruction plan explicitly retires the former
 # Reconstruction/Chronicle combat product.  These tests describe that removed
 # product (and in a few cases even demand that it remains the only entry), so
@@ -90,6 +104,27 @@ try {
             # The all-tests runner already owns the disposable preprod DSN.
             if (Select-String -LiteralPath $test.FullName -Pattern 'add_argument\(["'']--dsn' -Quiet) {
                 $testArgs += @("--dsn", $localDsn)
+            }
+            # Preprod guard is opt-in per test: it sets PREDVESTNIK_ENV itself when its
+            # scenario needs it (like the --dsn group above). A blanket preprod environment
+            # locked session-token tests out of the stand: require_preprod_user only lets
+            # the listed persona ids through, while these tests sign in as their own
+            # player ids. Tests that need the guard declare it by referencing it.
+            if (Select-String -LiteralPath $test.FullName -Pattern 'PREDVESTNIK_ENV' -Quiet) {
+                $env:PREDVESTNIK_ENV = "preprod"
+            } else {
+                Remove-Item Env:PREDVESTNIK_ENV -ErrorAction SilentlyContinue
+            }
+            # Every proof starts from empty data on the shared database (its schema stays
+            # from the bootstrap): families like bot_admin/chat/coin seed the same id
+            # ranges with plain INSERTs, so leftover rows from an earlier test broke them.
+            $resetProcess = Start-Process -FilePath $python `
+                -ArgumentList @((Join-Path $PSScriptRoot "reset_test_data.py"), "--dsn", $localDsn) `
+                -WorkingDirectory $moduleRoot -WindowStyle Hidden -PassThru -Wait
+            if ($resetProcess.ExitCode -ne 0) {
+                Write-Output "FAIL $($test.Name) (data reset failed)"
+                $failed += $test.Name
+                continue
             }
             $testProcess = Start-Process -FilePath $python -ArgumentList $testArgs `
                 -WorkingDirectory $moduleRoot -RedirectStandardOutput $stdoutPath `
