@@ -1,0 +1,4 @@
+# Инструменты проверки «Домового» (ставятся только в окружение разработки):
+#   python -m pip install -r requirements-dev.txt
+pytest==8.3.4
+pytest-asyncio==0.25.0

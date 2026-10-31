@@ -11,6 +11,13 @@
 @predvestnik_v2/AUTONOMOUS_AGENT_POLICY.md
 @predvestnik_v2/docs/PLAYER_COPY.md
 
+## Домовой: домашний бот (domovoy/)
+
+До правок `domovoy/` прочитай `domovoy/AGENTS.md` — слои, реестры настроек и прав,
+запуск и проверки (`python -m pytest tests -q`, `python -m ruff check .` из каталога
+`domovoy/`). Замысел продукта и статус — `domovoy/DESIGN.md`. Секреты — только в
+`domovoy/.env` (в гит не попадает).
+
 ## Предвестник: патч-ноуты в официальный канал (обязательно)
 
 Каждое обновление Предвестника, которое заметит игрок, выпускается вместе с пунктом в патч-ноуте дня:
