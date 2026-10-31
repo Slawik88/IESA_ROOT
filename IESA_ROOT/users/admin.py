@@ -1,5 +1,4 @@
 import logging
-import os
 
 from django import forms as _dj_forms
 from django.contrib import admin
@@ -73,7 +72,6 @@ import uuid
 from django.utils import timezone
 from users.qr_utils import generate_qr_code_for_user
 from django.core.files.storage import default_storage
-import boto3
 
 
 class CardStatusFilter(admin.SimpleListFilter):
@@ -341,25 +339,6 @@ class UserAdmin(BaseUserAdmin):
             # Генерируем новый QR с тем же ID
             generate_qr_code_for_user(user, request)
 
-            # Устанавливаем ACL как public-read
-            try:
-                s3 = boto3.client(
-                    's3',
-                    endpoint_url=os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com'),
-                    aws_access_key_id=os.getenv('SPACES_KEY'),
-                    aws_secret_access_key=os.getenv('SPACES_SECRET'),
-                    region_name='fra1'
-                )
-                bucket = os.getenv('SPACES_BUCKET', 'iesa-bucket')
-                s3.put_object_acl(
-                    Bucket=bucket,
-                    Key=f'media/cards/{user.permanent_id}.png',
-                    ACL='public-read'
-                )
-            except Exception as e:
-                logger.error("regenerate_qr: S3 ACL error for user %s: %s", user.pk, e)
-                messages.warning(request, f'⚠️ QR сгенерирован, но не удалось установить ACL: {e}')
-
             messages.success(request, f'✅ QR код перегенерирован для {user.username} (permanent_id: {user.permanent_id})')
         
         return redirect(reverse('admin:users_user_change', args=[user_id]))
@@ -394,25 +373,6 @@ class UserAdmin(BaseUserAdmin):
         # Генерируем новый QR код
         generate_qr_code_for_user(user, request)
 
-        # Устанавливаем ACL как public-read
-        try:
-            s3 = boto3.client(
-                's3',
-                endpoint_url=os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com'),
-                aws_access_key_id=os.getenv('SPACES_KEY'),
-                aws_secret_access_key=os.getenv('SPACES_SECRET'),
-                region_name='fra1'
-            )
-            bucket = os.getenv('SPACES_BUCKET', 'iesa-bucket')
-            s3.put_object_acl(
-                Bucket=bucket,
-                Key=f'media/cards/{user.permanent_id}.png',
-                ACL='public-read'
-            )
-        except Exception as e:
-            logger.error("new_permanent_id: S3 ACL error for user %s: %s", user.pk, e)
-            messages.warning(request, f'⚠️ QR создан, но не удалось установить ACL: {e}')
-        
         messages.warning(
             request, 
             f'🆕 НОВАЯ КАРТА для {user.username}! '
