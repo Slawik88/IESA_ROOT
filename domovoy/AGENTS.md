@@ -19,11 +19,16 @@ python -m pip install -r requirements.txt          # runtime (aiogram 3, sqlite/
 python -m pip install -r requirements-dev.txt      # инструменты проверки
 python -m pytest tests -q                          # тесты (обязательно перед коммитом)
 python -m ruff check .                             # линтер (обязательно перед коммитом)
-python -m bot                                      # запуск; токен из .env
+python -m bot                                      # локальный запуск; токен из .env
 ```
 
-БД: по умолчанию sqlite в `data/` (разработка), в проде PostgreSQL через
-`DOMOVOY_DATABASE_URL`. Схема создаётся идемпотентно при старте.
+На проде (App Platform) Домовой запускается **в одном контейнере с Предвестником**
+через лаунчер `scripts/run_bots.sh` (Procfile, процесс `worker`) — экономия
+отдельного воркера. Логи различаются префиксами 🔮/🤖. Если контейнеру не хватает
+памяти — вынести Домового в отдельный воркер (`domovoy: cd domovoy && python -m bot`).
+
+БД: на проде PostgreSQL через `DOMOVOY_DATABASE_URL`, локально — sqlite в `data/`.
+Схема создаётся идемпотентно при старте.
 
 ## Слои и направление зависимостей
 
