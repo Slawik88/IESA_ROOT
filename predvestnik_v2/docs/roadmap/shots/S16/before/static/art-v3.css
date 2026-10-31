@@ -1,0 +1,126 @@
+/* ═══ ART V3 · картинки вкладок: шапка-герой с эмблемой и созвездием, цветные плитки значков, рисованные валюты, подиум ═══
+   Разметку дают v3Head / v3Hero / v3Emblem / v3Cur / v3Podium (app.50.js, app.20.js). Тот же язык, что у Лиги сезона.
+   Движение одноразовое, только transform/opacity, идёт вместе с каскадом страницы (--enter-skip); без него — внизу файла. */
+
+/* ── шапка-герой: эмблема 56px, заголовок, подпись; за ними — статичное созвездие и мягкое свечение цвета образа ── */
+.v3-screen-head.v3-hero .v3-eyebrow { display: block; }
+.v3-head--hero, .v3-hero { position: relative; isolation: isolate; display: flex; align-items: center; gap: 14px; min-height: 92px; margin: -6px -16px 16px; padding: 12px 16px 14px;
+  background: radial-gradient(90% 120% at 100% 0%, rgba(var(--acc-rgb), .2), transparent 62%); }
+.v3-hero-tx { flex: 1; min-width: 0; }
+.v3-hero .v3-title { margin: 0; font-size: 26px; line-height: 1.15; letter-spacing: -.02em; }
+.v3-hero-eb { display: block; margin-bottom: 2px; color: var(--v3-dim); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.v3-hero > :last-child:not(.v3-hero-tx):not(.v3-emblem):not(.v3-sky) { flex: none; margin-left: auto; }
+.v3-sky { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; color: var(--v3-ink); opacity: .75; pointer-events: none; }
+.v3-tw { transform-box: fill-box; transform-origin: center; }
+body[data-dev="high"] .page.active .v3-tw { animation: v3tw 2.6s var(--v3-ease) 1.2s 3 both; }
+body[data-dev="high"] .page.active .v3-tw2 { animation-delay: 2.5s; }
+@keyframes v3tw { 0%, 100% { opacity: 0; transform: scale(.6); } 50% { opacity: .45; transform: scale(1); } }
+
+.v3-emblem { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px; color: var(--v3-acc);
+  background: radial-gradient(circle at 50% 32%, rgba(var(--acc-rgb), .34), rgba(var(--acc-rgb), .07) 72%);
+  box-shadow: inset 0 0 0 1px rgba(var(--acc-rgb), .32), 0 10px 26px -8px rgba(var(--acc-rgb), .45);
+  animation: v3embin .5s var(--v3-ease) both; animation-delay: calc(-1 * var(--enter-skip, 0ms)); }
+.v3-emblem svg { width: 38px; height: 38px; overflow: visible; }
+@keyframes v3embin { from { opacity: 0; transform: translateY(8px) scale(.82) rotate(-6deg); } to { opacity: 1; transform: none; } }
+.v3-head--hero .v3-head-back { margin-right: -6px; }
+
+/* «Справка» и «Ещё» — шапки из index.html, эмблему дорисовывает v3DecorStatic (app.50.js); старые правила справки прятали все span */
+#pg-help .help-hero.v3-hero { display: flex; min-height: 92px; margin: -6px -16px 16px; padding: 12px 16px 14px; overflow: hidden; background: radial-gradient(90% 120% at 100% 0%, rgba(var(--acc-rgb), .2), transparent 62%); box-shadow: none; }
+#pg-help .help-hero.v3-hero > .v3-emblem { display: grid; }
+#pg-help .help-hero.v3-hero h1 { font-size: 28px; }
+
+/* ── плитки значков в строках меню (Ещё, Профиль, Справка, Настройки): у каждого раздела свой цвет ── */
+.v3-row > svg:first-child { --ri: var(--v3-acc); box-sizing: content-box; width: 22px; height: 22px; padding: 9px; border-radius: 13px; color: var(--ri);
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--ri) 28%, transparent), color-mix(in srgb, var(--ri) 8%, transparent) 75%); }
+.v3-row { min-height: 60px; }
+.v3-row[onclick*="'zarniki'"] > svg, .v3-row[onclick*="help-wallet"] > svg, .v3-row[onclick*="showCurrModal"] > svg { --ri: #f5cf73; }
+.v3-row[onclick*="'vip'"] > svg, .v3-row[onclick*="openTopV3"] > svg, .v3-row[onclick*="openAchievements"] > svg { --ri: #ffbf5e; }
+.v3-row[onclick*="openLooksModal"] > svg, .v3-row[onclick*="help-games"] > svg, .v3-row[onclick*="openWhatsNew"] > svg { --ri: #c9a2ff; }
+.v3-row[onclick*="openChestsV1"] > svg { --ri: #ffb86b; }
+.v3-row[onclick*="openInventory"] > svg, .v3-row[onclick*="help-inventory"] > svg { --ri: #5ee6d6; }
+.v3-row[onclick*="openPetsV1"] > svg, .v3-row[onclick*="help-pets"] > svg, .v3-row[onclick*="openChatTracker"] > svg { --ri: #8fdc9c; }
+.v3-row[onclick*="openQuestsV1"] > svg, .v3-row[onclick*="help-profile"] > svg { --ri: #b9a7ff; }
+.v3-row[onclick*="Promo"] > svg, .v3-row[onclick*="Family"] > svg, .v3-row[onclick*="family"] > svg { --ri: #ff9fb6; }
+.v3-row[onclick*="openSettings"] > svg, .v3-row[onclick*="goTo('help')"] > svg { --ri: #8fb8ff; }
+.v3-row[onclick*="refreshPage"] > svg { --ri: var(--v3-dim); }
+.v3-row[onclick*="openBotAdmin"] > svg { --ri: #ff8a8a; }
+a.v3-row > svg:first-child { --ri: #6fc3ff; }
+
+/* ── рисованные валюты в тексте и строках ── */
+/* у кнопок и кошелька свои правила для svg (контур, fill: none) — рисованной валюте они не нужны */
+svg.v3-cur, :is(.v3-pill, .v3-row, .wallet-v4, .v3-link) svg.v3-cur { fill: initial; stroke: none; }
+.v3-cur { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.22em; flex: none; }
+.v3-cur--lg { width: 40px; height: 40px; vertical-align: middle; }
+
+/* ── кошелёк: валюты рисунком, Зарники крупно ── */
+.wallet-summary .wallet-cur { width: 30px; height: 30px; }
+.wallet-asset .wallet-cur { width: 34px; height: 34px; padding: 4px; border-radius: 12px; background: color-mix(in srgb, var(--v3-ink) 6%, transparent); }
+
+/* ── магазин: баланс крупной искрой, горка Зарников у пакета ── */
+.sv-wal { display: flex; align-items: center; gap: 14px; margin: 6px 0 10px; padding: 14px 16px; border-radius: 20px;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(255,195,92,.18), rgba(211,107,255,.06) 70%); }
+.sv-wal-cur { width: 52px; height: 52px; animation: v3coin .6s var(--v3-ease) both; animation-delay: calc(100ms - var(--enter-skip, 0ms)); }
+.sv-wal small { display: block; color: var(--v3-dim); font-size: 12px; }
+.sv-wal b { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sv-opt:has(.sv-pile) { grid-template-columns: 44px minmax(0, 1fr) auto 22px; text-align: left; }
+.sv-pile { position: relative; flex: none; width: 44px; height: 40px; }
+.sv-pile .v3-cur { position: absolute; width: 22px; height: 22px; }
+.sv-pile-0 { left: 11px; bottom: 2px; } .sv-pile-1 { left: 0; bottom: 6px; } .sv-pile-2 { left: 22px; bottom: 6px; }
+.sv-pile-3 { left: 6px; bottom: 16px; } .sv-pile-4 { left: 17px; bottom: 20px; width: 24px !important; height: 24px !important; }
+.sv-opt-main b .v3-cur { width: 18px; height: 18px; }
+
+/* узкий экран: пять областей рейтинга помещаются в одну строку */
+@media (max-width: 360px) { #pg-top .v3-tabs--wide .v3-tab { padding-right: 7px; margin-right: 2px; font-size: 12.5px; } #pg-top .v3-tabs--wide .v3-tab.on::after { right: 7px; } }
+
+/* ── карточка цели (Задания): кольцо периода и награда за всё — рисованные валюты ── */
+.v3-goal { display: flex; align-items: center; gap: 16px; margin: 14px 0 6px; padding: 14px 16px; border-radius: 20px;
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--v3-ink) 9%, transparent), color-mix(in srgb, var(--v3-ink) 3%, transparent) 70%); }
+.v3-goal-ring { position: relative; flex: none; width: 72px; height: 72px; }
+.v3-goal-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); fill: none; stroke-width: 6; stroke-linecap: round; }
+.v3-goal-ring circle:first-child { stroke: var(--v3-track); }
+.v3-goal-arc { stroke: var(--v3-ink); animation: v3goal .9s var(--v3-ease) both; animation-delay: calc(200ms - var(--enter-skip, 0ms)); }
+.v3-goal.is-full .v3-goal-arc { stroke: var(--v3-ok, #7fd6a4); }
+@keyframes v3goal { from { stroke-dashoffset: 188.5; } }
+.v3-goal-ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.v3-goal-ring b small { font-size: 13px; color: var(--v3-dim); font-weight: 400; }
+.v3-goal-ring b { grid-auto-flow: column; align-content: center; justify-content: center; }
+.v3-goal-tx { flex: 1; min-width: 0; }
+.v3-goal-tx > small { display: block; margin-bottom: 8px; color: var(--v3-dim); font-size: 12px; }
+.v3-goal-rs { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.v3-goal-r { display: inline-flex; align-items: center; gap: 6px; }
+.v3-goal-r .v3-cur, .v3-goal-key { width: 26px; height: 26px; }
+.v3-goal-key { display: inline-grid; color: #9ea7b6; } .v3-goal-key svg { width: 100%; height: 100%; }
+.v3-goal-r b { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.v3-goal-r small { color: var(--v3-dim); font-size: 12px; }
+
+/* ── профиль: монета у Моры, искра у Зарников, кольца «Пути» цветом семейства ── */
+.v3-bal-mora { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.v3-bal-coin { width: 40px; height: 40px; flex: none; animation: v3coin .6s var(--v3-ease) both; animation-delay: calc(150ms - var(--enter-skip, 0ms)); }
+@keyframes v3coin { from { opacity: 0; transform: translateY(-10px) rotate(-30deg) scale(.7); } to { opacity: 1; transform: none; } }
+.v3-pill .v3-cur { width: 18px; height: 18px; margin-right: 2px; }
+.v3-aspect { --af: var(--v3-acc); }
+.v3-aspect[data-f="rhythm"] { --af: #5ee6d6; } .v3-aspect[data-f="minesweeper"] { --af: #8fb8ff; } .v3-aspect[data-f="mafia"] { --af: #ff8a9a; }
+.v3-aspect[data-f="chests"] { --af: #ffb86b; } .v3-aspect[data-f="pets"] { --af: #8fdc9c; } .v3-aspect[data-f="care"] { --af: #ff9fb6; }
+.v3-aspect[data-f="builder"] { --af: #a6e3a1; } .v3-aspect[data-f="stylist"] { --af: #c9a2ff; } .v3-aspect[data-f="quester"] { --af: #f5cf73; }
+.v3-aspect .v3-aspect-ring svg circle:last-child { stroke: var(--af); }
+.v3-aspect .v3-aspect-ring { border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--af) 16%, transparent) 0, transparent 70%); }
+
+@media (max-width: 340px) { .v3-head--hero, .v3-hero { gap: 12px; } .v3-emblem { width: 48px; height: 48px; border-radius: 15px; } .v3-emblem svg { width: 32px; height: 32px; } .v3-hero .v3-title { font-size: 23px; } }
+/* без движения: слабый телефон, «Спокойный режим», системная настройка */
+body[data-dev="low"] :is(.v3-emblem, .v3-tw, .v3-pod, .v3-goal-arc, .v3-bal-coin, .sv-wal-cur), .no-fx :is(.v3-emblem, .v3-tw, .v3-pod, .v3-goal-arc, .v3-bal-coin, .sv-wal-cur) { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .v3-emblem, .v3-tw, .v3-pod, .v3-goal-arc, .v3-bal-coin, .sv-wal-cur { animation: none !important; } }
+
+
+/* «Чистка» (app.07.js, S05): ход чистки, форма запуска, лист решений. Полоса хода — тушью, не акцентом. */
+#pg-purge .pg-label { display:block; margin:14px 0 6px; }
+#pg-purge .pg-dates { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; margin-bottom:18px; }
+#pg-purge .pg-state { display:grid; gap:4px; margin:6px 0 8px; font-size:16px; font-variant-numeric:tabular-nums; }
+#pg-purge .pg-state small { color:var(--v3-dim); font-size:12.5px; font-weight:400; }
+#pg-purge .pg-meter { display:block; height:4px; margin-top:8px; border-radius:4px; background:var(--v3-track); overflow:hidden; }
+#pg-purge .pg-meter i { display:block; height:100%; background:var(--v3-ink); transition:width .3s; }
+#pg-purge .pg-row > span:first-child { min-width:0; overflow-wrap:anywhere; }
+#pg-purge .pg-pages { display:flex; justify-content:space-between; gap:10px; margin:8px 0; }
+#pg-purge .pg-finish { margin-top:18px; }
+#pg-purge .pg-help { margin-top:22px; color:var(--v3-dim); font-size:13px; line-height:1.45; }
+#pg-purge .pg-help summary { display:flex; align-items:center; min-height:44px; color:var(--v3-ink); cursor:pointer; }
+.pg-acts { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; margin-top:14px; }

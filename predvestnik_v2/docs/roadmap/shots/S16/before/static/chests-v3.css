@@ -1,0 +1,136 @@
+/* ═══ СУНДУКИ · ключи, одно главное действие, шансы свёрнуты ═══
+   Разметку строит renderChestsV1 (app.12.js). Порядок: шапка → сколько ключей → одно действие (раскрыть · открыть · купить, если ключей нет)
+   → ключи по звёздам и добыча строками → «Точные шансы» внизу. Акцент экрана — главная кнопка или шар раскрытия (docs/MINIAPP_DESIGN_RULES.md). */
+
+.ch-keys { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 0; }
+.ch-keys b { color: var(--v3-ink); font: var(--v3-w-num, 700) 44px/1 var(--v3-font); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ch-keys span { color: var(--v3-dim); font-size: 15px; }
+
+/* выбор ключа: тонкая обводка цвета текста у выбранного, без акцента */
+.ch-tiers { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.chest-tier-chip { min-height: 44px; padding: 0 14px; border: 0; border-radius: 99px; background: var(--v3-faint); color: var(--v3-dim); font: 500 13.5px var(--v3-font); cursor: pointer; }
+.chest-tier-chip b { color: var(--v3-ink); font-variant-numeric: tabular-nums; }
+.chest-tier-chip.is-on { box-shadow: inset 0 0 0 1.5px var(--v3-ink); color: var(--v3-ink); }
+
+.ch-action { display: grid; gap: 4px; margin: 18px 0 0; }
+.ch-action .chest-open-btn { width: 100%; min-height: 52px; }
+.ch-buy-more { justify-self: center; min-height: 44px; color: var(--v3-dim); font-size: 13px; }
+.ch-buy-more:disabled { opacity: .5; }
+.ch-hint { margin: 4px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.45; text-align: center; }
+.ch-action .ch-hint:first-child { margin: 0 0 8px; }
+.ch-last { margin: 14px 0 0; color: var(--v3-ink); font-size: 13.5px; text-align: center; }
+.ch-last span { color: var(--v3-dim); letter-spacing: 1px; }
+
+/* шар раскрытия подготовленного сундука — главное действие, пока он есть */
+.chest-orb { display: grid; place-items: center; align-content: center; gap: 8px; justify-self: center; width: min(70vw, 240px); aspect-ratio: 1; border: 0; border-radius: 50%; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--v3-acc) 38%, transparent), color-mix(in srgb, var(--v3-acc) 8%, transparent) 70%); color: var(--v3-ink); cursor: pointer; }
+.chest-orb span { color: var(--v3-acc); font-size: 46px; line-height: 1; }
+.chest-orb b { font-size: 15px; }
+.chest-orb small { max-width: 80%; color: var(--v3-dim); font-size: 12px; text-align: center; }
+.chest-orb:disabled { opacity: .6; }
+.chest-art { display:block; width:min(46vw,160px); color:var(--v3-acc); }
+.chest-art svg { display:block; width:100%; height:auto; overflow:visible; }
+.chest-shadow { fill:#000; opacity:.28; }
+.chest-body,.chest-lid { fill:color-mix(in srgb,var(--v3-acc) 18%,var(--v3-sheet)); stroke:var(--v3-acc); stroke-width:2; stroke-linejoin:round; }
+.chest-band { fill:none; stroke:color-mix(in srgb,var(--v3-ink) 70%,var(--v3-acc)); stroke-width:4; }
+.chest-lid { transform:translateY(calc(var(--ch-lift,0) * -1px)) rotate(calc(var(--ch-lift,0) * -.7deg)); transform-origin:24px 63px; }
+.chest-lock { fill:var(--v3-acc); }
+.chest-keyhole { stroke:var(--v3-bg); stroke-width:4; stroke-linecap:round; }
+.chest-reveal { display:grid; justify-items:center; gap:13px; padding:4px 0 12px; }
+.chest-reveal-tap,.chest-reveal-final { display:grid; place-items:center; width:min(64vw,224px); aspect-ratio:1; border:0; border-radius:50%; background:radial-gradient(circle,color-mix(in srgb,var(--v3-acc) 24%,transparent),transparent 70%); color:var(--v3-ink); }
+.chest-reveal-tap { cursor:pointer; animation:chestStarPulse .3s ease-out; }
+.chest-reveal-final .chest-lid { transform:translateY(-18px) rotate(-18deg); }
+.chest-reveal-tap:focus-visible { outline:2px solid var(--v3-ink); outline-offset:3px; }
+.chest-reveal-tap:active { transform:scale(.96); }
+.chest-reveal-stars { display:flex; gap:3px; }
+.chest-reveal-stars i { color:var(--v3-track); font-size:18px; font-style:normal; line-height:1.2; }
+.chest-reveal-stars .is-lit { color:var(--v3-acc); }
+.chest-reveal-status { display:grid; gap:6px; text-align:center; }
+.chest-reveal-status b { font-size:21px; font-variant-numeric:tabular-nums; }
+.chest-reveal-status span { color:var(--v3-dim); font-size:13px; }
+.chest-reveal .v3-link { color:var(--v3-dim); }
+.chest-reveal.is-complete { width:100%; gap:24px; padding:8px 0 20px; }
+.chest-result-origin { display:flex; align-items:center; gap:12px; opacity:.8; }
+.chest-result-origin .chest-reveal-final { width:52px; background:none; }
+.chest-result-origin .chest-art { width:52px; }
+.chest-result-origin .chest-reveal-stars i { font-size:14px; }
+.is-complete .chest-reveal-status { width:100%; gap:20px; }
+.chest-reveal-status h2 { margin:0; color:var(--v3-ink); font-size:28px; font-weight:700; letter-spacing:-.6px; }
+.chest-loot-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0; padding:0; list-style:none; text-align:center; }
+.chest-loot-cards.is-single { grid-template-columns:minmax(0,1fr); max-width:260px; width:100%; justify-self:center; }
+.chest-loot-card { --loot-color:var(--v3-acc); display:flex; flex-direction:column; align-items:center; min-width:0; padding:24px 10px 20px; border-radius:22px; background:radial-gradient(ellipse at 50% 18%,color-mix(in srgb,var(--loot-color) 18%,transparent),transparent 75%),var(--v3-sheet); animation:chestLootArrive .35s ease-out; }
+.chest-loot-card.is-mora,.chest-loot-card.is-zarniki { --loot-color:#edbd58; }
+.chest-loot-card.is-food { --loot-color:#86bc7d; }
+.chest-loot-card.is-diamonds { --loot-color:#79c9ed; }
+.chest-loot-icon { display:grid; place-items:center; width:72px; height:72px; margin-bottom:14px; font-size:48px; line-height:1; filter:drop-shadow(0 5px 18px color-mix(in srgb,var(--loot-color) 30%,transparent)); }
+.chest-loot-card strong { color:var(--v3-ink); font-size:clamp(25px,7.5vw,34px); line-height:1.2; font-weight:750; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.chest-loot-card strong small { font-size:13px; font-weight:500; color:var(--v3-dim); }
+.chest-loot-card p { margin:8px 0 0; color:var(--v3-ink); font-size:15px; line-height:1.35; overflow-wrap:anywhere; }
+.is-complete > .v3-pill { min-height:50px; }
+@keyframes chestLootArrive { from { opacity:0; transform:translateY(10px) scale(.97); } to { opacity:1; transform:none; } }
+@media(prefers-reduced-motion:reduce) { .chest-loot-card { animation:none; } }
+@keyframes chestStarPulse { from { opacity:.65; transform:scale(.93); } to { opacity:1; transform:scale(1); } }
+@media(prefers-reduced-motion:reduce) { .chest-reveal-tap { animation:none; } .chest-reveal-tap:active { transform:none; } }
+
+/* ключи по звёздам: строка — название, остаток лимита, цена */
+.ch-list .ch-row + .ch-row { box-shadow: 0 -1px 0 var(--v3-faint); }
+.ch-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 0; }
+.ch-tx { flex: 1; min-width: 0; }
+.ch-tx b { display: block; font-weight: 500; }
+.ch-tx small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12px; }
+.ch-row .v3-pill { flex: none; white-space: nowrap; }
+.ch-loot .ch-loot-t { display: block; }
+
+/* шансы и правила */
+.chest-odds { margin-top: 24px; }
+.chest-odds h2 { margin: 12px 0 6px; color: var(--v3-ink); font-size: 13.5px; font-weight: 600; }
+.chest-odds ul { margin: 0; padding: 0; list-style: none; }
+.chest-odds li { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 7px 0; font-size: 13px; }
+.chest-odds li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
+.chest-odds li b, .chest-odds li em { font-style: normal; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.chest-odds > p { margin: 10px 0 0; color: var(--v3-dim); font-size: 12.5px; line-height: 1.5; }
+.chest-odds > p b { color: var(--v3-ink); }
+.chest-tier + .chest-tier { box-shadow: 0 -1px 0 var(--v3-faint); }
+.chest-tier > summary { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 44px; color: var(--v3-dim); font-size: 12.5px; cursor: pointer; list-style: none; }
+.chest-tier > summary::-webkit-details-marker { display: none; }
+.chest-tier > summary b { color: var(--v3-ink); font-size: 13.5px; }
+.chest-tier li span { display: grid; gap: 2px; min-width: 0; }
+.chest-tier li span > b { text-align: left; }
+.chest-tier li small { color: var(--v3-dim); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+
+@media(max-height:700px) {
+  .chest-reveal.is-complete { gap:16px; padding-top:0; }
+  .is-complete .chest-reveal-status { gap:14px; }
+  .chest-loot-card { padding:16px 10px; }
+  .chest-loot-icon { width:56px; height:56px; font-size:42px; margin-bottom:10px; }
+}
+
+/* ═══ Сцена сундука и «полка» ключей четырёх металлов (chestsScene/chestsShelf, app.47.js) ═══
+   Металл ключа — один цвет (--ch-metal): им светится сундук за выбранным ключом и рисуется ключ. Акцент экрана остаётся у главной кнопки. */
+.ch-m-iron { --ch-metal: #9ea7b6; } .ch-m-bronze { --ch-metal: #e0965a; } .ch-m-silver { --ch-metal: #eef2fa; } .ch-m-platinum { --ch-metal: #a9ecff; }
+.ch-scene { position: relative; display: grid; justify-items: center; margin: 6px 0 0; isolation: isolate; }
+.ch-glow { position: absolute; top: -6%; left: 50%; z-index: -1; width: min(70vw, 260px); aspect-ratio: 1; border-radius: 50%; transform: translateX(-50%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--ch-metal) 26%, transparent) 0, transparent 66%); transition: opacity .3s var(--v3-ease); }
+.ch-scene .chest-art { width: min(44vw, 168px); }
+.ch-scene .chest-lock { fill: var(--ch-metal); }
+.ch-scene :is(.chest-body, .chest-lid) { fill: color-mix(in srgb, var(--ch-metal) 16%, var(--v3-sheet)); stroke: var(--ch-metal); }
+.ch-scene .chest-band { stroke: color-mix(in srgb, var(--ch-metal) 70%, var(--v3-ink)); }
+.ch-keys--name span { color: var(--v3-ink); font-size: 15px; font-weight: 500; }
+.ch-scene .ch-keys { justify-content: center; margin: 6px 0 0; }
+.ch-shelf { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 16px 0 0; }
+.ch-shelf .ch-key { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 92px; padding: 8px 4px; border-radius: 18px;
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--ch-metal) 14%, transparent), transparent 70%), var(--v3-faint); color: var(--v3-dim); }
+.ch-key-art { display: grid; place-items: center; width: 36px; height: 36px; color: var(--ch-metal); }
+.ch-key-art svg { width: 100%; height: 100%; }
+.ch-shelf .ch-key b { color: var(--v3-ink); font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ch-shelf .ch-key small { max-width: 100%; overflow: hidden; font-size: 11px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.ch-shelf .ch-key.is-on { box-shadow: inset 0 0 0 1.5px var(--ch-metal); color: var(--v3-ink); }
+.ch-shelf .ch-key.is-empty { opacity: .45; }
+.ch-shelf .ch-key:not(:disabled):active { transform: scale(.95); }
+.ch-shelf .ch-key.is-on .ch-key-art { animation: chKeyPick .32s var(--v3-ease); }
+@keyframes chKeyPick { from { transform: rotate(-24deg) scale(.8); } to { transform: none; } }
+.ch-fly { position: fixed; left: 0; top: 0; z-index: 80; width: 34px; height: 34px; margin: -17px 0 0 -17px; color: var(--ch-metal); pointer-events: none; }
+.ch-fly svg { width: 100%; height: 100%; }
+@media (max-width: 340px) { .ch-shelf { gap: 6px; } .ch-shelf .ch-key small { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .ch-glow { transition: none; } .ch-shelf .ch-key.is-on .ch-key-art { animation: none; } .ch-shelf .ch-key:active { transform: none; } }
+body:is(.no-fx, .ap-low) .ch-shelf .ch-key.is-on .ch-key-art { animation: none; }
+.chest-loot-icon svg { width: 60px; height: 60px; }

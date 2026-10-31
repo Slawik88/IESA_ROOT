@@ -1,0 +1,15 @@
+/* ═══ SKINS V3 — палитра скина приходит с сервера токенами (core/skins_v3.py: app_tokens) ═══
+   Клиент ставит их на body (app.22.js: v3ApplyLook) или на .v3-scope (витрина и публичная карточка).
+   Обязательные токены: --v3-bg --v3-ink --v3-dim --v3-faint --v3-track --v3-acc --v3-on-acc --v3-ok
+   --v3-sheet --v3-dock --v3-dock-on --v3-wash --acc-rgb. Необязательные: --v3-font --v3-w-num --v3-w-head
+   --v3-vip --v3-fx-a --v3-fx-b (цвета лент и частиц), --v3-dur --v3-ease (темп переходов).
+   Тир скина (D…SSS) включает эффекты в fx-tiers-v3.css, а палитра от тира не зависит.
+   Новый скин = запись в core/skins_v3_catalog.py, ни CSS, ни JS трогать не нужно. */
+
+/* Нейтральная палитра чужой карточки: владелец без VIP показывается в ней, а не в палитре зрителя */
+.v3-scope.pp-neutral {
+  --v3-bg: #08090c; --v3-ink: #f3f4f7; --v3-dim: #8a90a2; --v3-faint: rgba(255,255,255,.09); --v3-track: rgba(255,255,255,.22);
+  --v3-acc: #d8cffd; --v3-on-acc: #15112b; --v3-ok: #7fd6a4; --v3-sheet: #14161e;
+  --v3-wash: radial-gradient(120% 50% at 92% -5%, rgba(120,98,255,.26), transparent 60%), radial-gradient(80% 40% at 0% 105%, rgba(70,110,255,.13), transparent 60%);
+  --acc-rgb: 216,207,253;
+}

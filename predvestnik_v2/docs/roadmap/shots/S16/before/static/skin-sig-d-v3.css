@@ -1,0 +1,57 @@
+/* ═══ ФИРМЕННЫЕ ДЕТАЛИ · набор «Тайное Знание» ═══
+   Образы: quiet_library (.ap-sig-candlelit, SSS), alchemist (.ap-sig-ouroboros, SSS), grimoire (.ap-sig-grimoire, с S).
+   Рисунок это SVG на рамке аватара (app.53.js; позиция .ap-frame svg.sa из skin-sig-a-v3.css), цвет и движение здесь:
+   движение только под .ap-anim и только transform/opacity, .ap-low останавливает (правило .sa), prefers-reduced-motion гасит всё. */
+.ap-sig-candlelit.ap-frame, .ap-sig-ouroboros.ap-frame, .ap-sig-grimoire.ap-frame { filter: none; box-shadow: 0 0 9px 1px color-mix(in srgb, var(--ap-a) 34%, transparent); }
+.sk-flame, .sk-ribbon, .sk-el, .sk-hover, .sk-flip, .sk-gl, .sk-rune { transform-box: fill-box; }
+@keyframes skflick { 0%, 100% { transform: scale(1, 1) rotate(0deg); } 30% { transform: scale(.92, 1.08) rotate(-3deg); } 60% { transform: scale(1.05, .94) rotate(2deg); } }
+@keyframes skglow { 0%, 100% { opacity: .3; } 50% { opacity: .6; } }
+@keyframes sksway { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+@keyframes skturn { to { transform: rotate(360deg); } }
+@keyframes skblink { 0%, 70%, 100% { opacity: .25; } 80% { opacity: 1; } }
+@keyframes skhover { from { transform: translateY(-1.2px) rotate(-1deg); } to { transform: translateY(1.2px) rotate(1deg); } }
+@keyframes skflip { 0%, 40% { transform: scaleX(1); opacity: 1; } 55% { transform: scaleX(-1); opacity: .9; } 70%, 100% { transform: scaleX(-1); opacity: 0; } }
+@keyframes skrise { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(12px, -22px); opacity: 0; } }
+
+/* ── Тихая Библиотека: свеча на оправе, подтёки воска, лента-закладка, пылинки у пламени ── */
+.sk-candle .sk-wax { fill: #efe0bf; } .sk-candle .sk-drip { fill: #fff4dc; }
+.sk-candle .sk-wick { fill: none; stroke: #3a2817; stroke-width: .8; }
+.sk-candle .sk-base { fill: var(--ap-b); }
+.sk-candle .sk-halo { fill: #ffd38a; opacity: .4; }
+.sk-candle .sk-fl { fill: #ffd38a; } .sk-candle .sk-core { fill: #fffaf0; }
+.sk-candle .sk-flame { transform-origin: 50% 100%; }
+.sk-candle .sk-rib { fill: color-mix(in srgb, #8c2f2a 70%, var(--ap-b)); stroke: var(--ap-a); stroke-width: .35; }
+.sk-candle .sk-ribbon { transform-origin: 50% 0; }
+.sk-candle .sk-mote circle { fill: var(--ap-c); }
+.ap-anim .sk-candle .sk-flame { animation: skflick 1.8s ease-in-out infinite; }
+.ap-anim .sk-candle .sk-halo { animation: skglow 2.6s ease-in-out infinite; }
+.ap-anim .sk-candle .sk-ribbon { animation: sksway 6s ease-in-out infinite alternate; }
+.ap-anim .sk-candle .sk-mote { animation: skrise 7s ease-out infinite; }
+
+/* ── Лаборатория Алхимика: уроборос ползёт вокруг кольца, четыре стихии загораются по очереди ── */
+.sk-ouro .sk-body { fill: none; stroke: color-mix(in srgb, var(--ap-a) 55%, #0b2a1a); stroke-width: 4.2; stroke-linecap: round; }
+.sk-ouro .sk-belly { fill: none; stroke: var(--ap-b); stroke-width: 1; stroke-linecap: round; opacity: .55; }
+.sk-ouro .sk-scale { fill: none; stroke: var(--ap-a); stroke-width: .6; stroke-linecap: round; opacity: .8; }
+.sk-ouro .sk-head { fill: color-mix(in srgb, var(--ap-a) 60%, #0b2a1a); stroke: var(--ap-a); stroke-width: .5; }
+.sk-ouro .sk-eye { fill: var(--ap-b); } .sk-ouro .sk-jaw { fill: none; stroke: var(--ap-c); stroke-width: .5; }
+.sk-ouro .sk-turn { transform-origin: 50px 50px; }
+.sk-ouro .sk-el { fill: none; stroke: var(--ap-b); stroke-width: 1; stroke-linejoin: round; opacity: .25; }
+.sk-ouro .sk-el1 { animation-delay: -1.5s !important; } .sk-ouro .sk-el2 { animation-delay: -3s !important; } .sk-ouro .sk-el3 { animation-delay: -4.5s !important; }
+.ap-anim .sk-ouro .sk-turn { animation: skturn 80s linear infinite; }
+.ap-anim .sk-ouro .sk-el { animation: skblink 6s ease-in-out infinite; }
+
+/* ── Живой Гримуар: книга парит над кольцом и листает сама себя, буквы уходят по дуге, руны на кольце вспыхивают ── */
+.sk-grim .sk-aura { fill: var(--ap-b); opacity: .3; }
+.sk-grim .sk-cover { fill: color-mix(in srgb, var(--ap-b) 55%, #1a1030); stroke: var(--ap-c); stroke-width: .5; }
+.sk-grim .sk-pg, .sk-grim .sk-flip { fill: #e9dcc0; } .sk-grim .sk-flip { fill: #f4ead2; }
+.sk-grim .sk-ln { fill: none; stroke: var(--ap-b); stroke-width: .45; opacity: .8; }
+.sk-grim .sk-clasp { fill: none; stroke: var(--ap-c); stroke-width: .8; stroke-linecap: round; }
+.sk-grim .sk-flip { transform-origin: 0% 50%; opacity: 0; }
+.sk-grim .sk-gl, .sk-grim .sk-rune { fill: none; stroke: var(--ap-c); stroke-width: .8; stroke-linecap: round; }
+.sk-grim .sk-gl { opacity: 0; } .sk-grim .sk-rune { stroke: var(--ap-a); opacity: .35; }
+.ap-anim .sk-grim .sk-hover { animation: skhover 4s ease-in-out infinite alternate; }
+.ap-anim .sk-grim .sk-flip { animation: skflip 5s ease-in-out infinite; }
+.ap-anim .sk-grim .sk-gl { animation: skrise 6s ease-out infinite; animation-delay: var(--d); }
+.ap-anim .sk-grim .sk-rune { animation: skblink 8s ease-in-out infinite; animation-delay: calc(var(--i) * 1s); }
+.ap-low .sk-candle .sk-mote, .ap-low .sk-grim .sk-drift, .ap-low .sk-candle .sk-halo { display: none; }
+@media (prefers-reduced-motion: reduce) { .sa[class*="sk-"], .sa[class*="sk-"] * { animation: none !important; } }

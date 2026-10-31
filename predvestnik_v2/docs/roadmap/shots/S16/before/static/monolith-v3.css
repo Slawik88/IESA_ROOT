@@ -1,0 +1,39 @@
+/* ═══ MONOLITH V3 · старые экраны без коробок ═══
+   Сундуки, питомцы, достижения, справка, строки «Образов» и лист подтверждения жили на карточках из app.css.
+   Здесь коробки снимаются: фон, рамка, скругление и тень уходят, группы держатся на отступах и тонких линиях (--v3-faint), как в «Ещё» и «Настройках».
+   Раскладку, размеры касаний и цвета образа это не меняет. Грузится после shell-v3.css. */
+
+/* кнопка «назад» в шапках старых экранов: просто стрелка */
+#pg-pets .looks-back { border: 0; background: none; color: var(--v3-dim); }
+#pg-pets .empty { padding: 18px 0; color: var(--v3-dim); font-size: 13.5px; }
+
+/* ── Питомцы ── */
+#pg-pets .pet-tabs { display: flex; gap: 22px; margin: 4px 0 8px; padding: 0; border: 0; border-radius: 0; background: none; }
+#pg-pets .pet-tabs button { position: relative; padding: 0 2px; border-radius: 0; background: none; color: var(--v3-dim); font: 600 14px/1 var(--v3-font); }
+#pg-pets .pet-tabs button[aria-selected="true"] { background: none; box-shadow: none; color: var(--v3-ink); }
+#pg-pets .pet-tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 8px; height: 2px; border-radius: 2px; background: var(--v3-acc); }
+#pg-pets .pet-key-earned { margin: 0; padding: 14px 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint), 0 -1px 0 var(--v3-faint); }
+
+/* ── Справка ── */
+#pg-help .help-hero { min-height: 0; margin: 2px 0 10px; padding: 8px 0 18px; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); grid-template-columns: minmax(0, 1fr); }
+#pg-help .help-hero > span { display: none; }
+#pg-help .help-hero small { color: var(--v3-dim); font-size: 11px; letter-spacing: .14em; }
+#pg-help .help-hero h1 { margin: 6px 0; color: var(--v3-ink); font: var(--v3-w-head) 34px/1.05 var(--v3-font); letter-spacing: -.03em; }
+#pg-help .help-hero p { color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
+#pg-help .help-card { overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }
+#pg-help .help-card + .help-card { box-shadow: 0 -1px 0 var(--v3-faint); }
+#pg-help .help-card summary { min-height: 64px; padding: 8px 0; grid-template-columns: 34px minmax(0, 1fr) 28px; }
+#pg-help .help-card summary > span { background: none; }
+#pg-help .help-card summary b { font-size: 15px; }
+#pg-help .help-card summary small { font-size: 12.5px; }
+#pg-help .help-card p { padding: 0 0 10px 44px; font-size: 13.5px; line-height: 1.55; }
+#pg-help .help-card > button { min-height: 44px; margin: 0 0 8px 44px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--v3-acc); font: 600 13.5px/1 var(--v3-font); }
+#pg-help .help-card > button::after { content: " ›"; }
+
+/* ── «Образы»: ближайшая цель, образ недели и сезон строками ── */
+#pg-looks :is(.lk-week, .lk-goal) { margin-top: 0; padding: 14px 0; border-radius: 0; background: none; }
+#pg-looks :is(.lk-week, .lk-goal) + :is(.lk-week, .lk-goal) { box-shadow: 0 -1px 0 var(--v3-faint); }
+
+/* ── Лист подтверждения: предмет без рамки ── */
+.cf-item { margin-top: 12px; padding: 4px 0; border-radius: 0; background: none; box-shadow: none; }
+.cf-ico { background: none; font-size: 32px; }

@@ -1,0 +1,115 @@
+/* ═══ Казино «Зал Фортуны» (app.52.js) · монолит: баланс на холсте, текстовые вкладки, сцена игры — единственная поверхность ═══
+   Акцент один: пилюля «Крутить». Выигрыш подсвечивается цветом текста, без плашек. */
+.cs-bank { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.cs-bank-n b { display: block; font: 300 44px/1 var(--v3-font); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--v3-ink); }
+.cs-bank-n small { display: block; margin-top: 6px; color: var(--v3-dim); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.cs-gift-done { color: var(--v3-dim); font-size: 12.5px; padding-bottom: 6px; }
+.cs-funds { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; flex: 1; min-width: 0; }
+.cs-fund { min-width: 0; min-height: 64px; border: 0; border-bottom: 2px solid transparent; padding: 0 0 6px; background: none; color: var(--v3-dim); text-align: left; cursor: pointer; }
+.cs-fund.on { color: var(--v3-ink); border-bottom-color: var(--v3-ink); }
+.cs-fund b { display: block; font: 300 clamp(22px,6vw,30px)/1.15 var(--v3-font); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cs-fund small { display: block; margin-top: 5px; font: 500 11px/1.2 var(--v3-font); }
+.cs-bank > .v3-pill { flex: none; width: 76px; min-height: 44px; padding-inline: 8px; font-size: 11px; white-space: normal; text-align: center; }
+.cs-bank > .cs-gift-done { flex: none; width: 76px; font-size: 11px; }
+.cs-fund:focus-visible { outline: 2px solid var(--v3-ink); outline-offset: 2px; }
+.cs-exchange label { display: block; margin-block: 8px; font-size: 12px; color: var(--v3-dim); }
+.cs-exchange-field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cs-exchange-field input { flex: 1; min-width: 0; }
+.cs-tabs { margin-top: 10px; }
+.cs-tabs .v3-tab.on::after { background: var(--v3-ink); }
+
+/* сцена: одна поверхность экрана */
+.cs-stage { margin-top: 8px; padding: 14px 16px; border-radius: 22px; background: color-mix(in srgb, var(--v3-bg, #0b0d14) 72%, transparent); box-shadow: inset 0 1px 0 var(--v3-faint); text-align: center; }
+.cs-stage-meta { display: flex; justify-content: space-between; margin-bottom: 12px; color: var(--v3-dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.cs-stage-meta span:last-child { color: var(--v3-ink); font-variant-numeric: tabular-nums; }
+.cs-out { display: flex; flex-direction: column; justify-content: center; min-height: 42px; margin: 10px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.4; }
+.cs-out b { color: var(--v3-ink); font-size: 15px; font-weight: 500; }
+.cs-out small { display: block; margin-top: 3px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.cs-out[data-state="win"] { color: var(--v3-ink); font-weight: 600; }
+.cs-out[data-state="back"] { color: var(--v3-ink); }
+
+.cs-reels { --cs-step: 72px; position: relative; display: flex; justify-content: center; gap: 9px; isolation: isolate; }
+.cs-reels::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid var(--v3-faint); z-index: -1; }
+.cs-reel { position: relative; width: 80px; height: calc(var(--cs-step) + 36px); overflow: hidden; border-radius: 12px; background: var(--v3-faint); box-shadow: inset 0 0 0 1px var(--v3-faint); color: var(--v3-ink); }
+.cs-strip { margin-top: 18px; transform: translateY(calc(-1 * var(--cs-step))); }
+.cs-symbol { display: flex; align-items: center; justify-content: center; height: var(--cs-step); font: 400 42px/1 var(--v3-font); }
+.cs-symbol[data-symbol='herald'] { font-size: 46px; }
+.cs-symbol[data-symbol='blank'] { color: var(--v3-dim); }
+.cs-reel::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, color-mix(in srgb, var(--v3-bg, #0b0d14) 88%, transparent), transparent 35%, transparent 65%, color-mix(in srgb, var(--v3-bg, #0b0d14) 88%, transparent)); }
+.cs-reel.spin .cs-strip { will-change: transform; }
+
+.cs-wheel-box { position: relative; width: min(236px, 66vw, 31vh); margin: 0 auto; }   /* «Крутить» видна без прокрутки на 320×640 */
+.cs-wheel { display: block; width: 100%; height: auto; transform-origin: 50% 50%; }
+.cs-sec { stroke: color-mix(in srgb, var(--v3-bg, #0b0d14) 80%, transparent); stroke-width: .8; }
+.cs-sec-lo { fill: color-mix(in srgb, var(--v3-ink) 8%, transparent); }
+.cs-sec-mid { fill: color-mix(in srgb, var(--v3-acc) 26%, transparent); }
+.cs-sec-hi { fill: color-mix(in srgb, var(--v3-acc) 58%, transparent); }
+.cs-wheel text { fill: var(--v3-ink); font: 600 8px/1 var(--v3-font); text-anchor: middle; dominant-baseline: middle; }
+.cs-hub { fill: var(--v3-sheet, #14161e); stroke: var(--v3-faint); }
+.cs-pin { position: absolute; z-index: 1; top: -6px; left: 50%; width: 0; height: 0; margin-left: -9px; border: 9px solid transparent; border-top: 14px solid var(--v3-ink); border-bottom: 0; }
+
+.cs-dice b { display: block; font: 200 64px/1 var(--v3-font); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--v3-ink); }
+.cs-dice b[data-state="miss"] { color: var(--v3-dim); }
+.cs-dice small { display: block; margin-top: 8px; color: var(--v3-dim); font-size: 12px; }
+
+/* выбор ставки и шанса: текстовые переключатели с подчёркиванием (как .v3-tab) */
+.cs-seg { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px; margin-top: 8px; }
+.cs-opt { position: relative; flex: 1 1 0; min-width: 44px; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--v3-dim); font: 600 13px/1.1 var(--v3-font); font-variant-numeric: tabular-nums; cursor: pointer; }
+.cs-opt small { display: block; margin-top: 3px; font-size: 11px; font-weight: 500; }
+.cs-opt.on { color: var(--v3-ink); }
+.cs-opt.on::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 4px; height: 2px; border-radius: 2px; background: var(--v3-ink); }
+.cs-opt:focus-visible, .cs-tabs button:focus-visible, .cs-help summary:focus-visible { outline: 2px solid var(--v3-ink); outline-offset: 2px; border-radius: 4px; }
+.cs-opt:disabled, .cs-tabs button:disabled { cursor: default; opacity: .5; }
+.cs-go { margin-top: 12px; }
+.cs-odds { color: var(--v3-dim); text-align: center; font-size: 11.5px; line-height: 1.5; margin: 4px 0 12px; }
+.cs-history > span { color: var(--v3-ink); font-size: 13px; }
+.cs-history small { display: block; color: var(--v3-dim); font-size: 11px; margin-top: 3px; }
+.cs-history b { color: var(--v3-ink); font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 500; }
+.cs-badge { display: flex; align-items: center; gap: 10px; padding-block: 10px; }
+.cs-badge > i { flex: none; width: 24px; color: var(--v3-dim); font-style: normal; text-align: center; font-size: 21px; }
+.cs-badge > span { flex: 1; min-width: 0; }
+.cs-badge b { color: var(--v3-ink); font-size: 13px; font-weight: 500; }
+.cs-badge small { display: block; color: var(--v3-dim); font-size: 11px; line-height: 1.35; margin-top: 3px; }
+.cs-badge em { flex: none; color: var(--v3-dim); font-style: normal; font-size: 14px; }
+.cs-badge.is-done > i, .cs-badge.is-done em { color: var(--v3-ink); }
+.cs-note { min-height: 18px; margin: 8px 0 0; color: var(--v3-dim); font-size: 13px; text-align: center; }
+.cs-dim { color: var(--v3-dim); font-size: 12.5px; }
+.cs-buy span { font-variant-numeric: tabular-nums; }
+.cs-luck i { color: var(--v3-dim); font-style: normal; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.cs-luck-v { color: var(--v3-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cs-luck.is-me .cs-luck-v { font-weight: 600; }
+.cs-luck > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-luck-empty { margin: 6px 0 0; }
+.cs-help { margin: 22px 0 8px; }
+.cs-help summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--v3-ink); font-size: 13.5px; cursor: pointer; list-style: none; }
+.cs-help summary::-webkit-details-marker { display: none; }
+.cs-help summary::after { content: '+'; color: var(--v3-dim); font-size: 18px; font-weight: 300; }
+.cs-help[open] > summary::after { content: '−'; }
+.cs-help summary > span { margin-left: auto; color: var(--v3-dim); font-size: 11.5px; white-space: nowrap; }
+.cs-badges, .cs-shop { border-block: 1px solid var(--v3-faint); margin: 14px 0 0; }
+.cs-help p { margin: 8px 0 0; color: var(--v3-ink); font-size: 13px; line-height: 1.5; }
+.cs-help p.cs-dim { color: var(--v3-dim); }
+@media (max-width: 359px) {
+  .cs-reels { --cs-step: 60px; }
+  .cs-reel { width: 65px; }
+  .cs-symbol { font-size: 36px; }
+  .cs-bank-n b { font-size: 38px; }
+}
+@media (prefers-reduced-motion: reduce) { .cs-wheel { transition: none !important; } }
+/* невысокие телефоны: сцена ужимается, чтобы «Крутить» оставалась над нижним меню без прокрутки */
+@media (max-height: 700px) {
+  .cs-bank-n b { font-size: 34px; }
+  .cs-bank-n small { margin-top: 4px; }
+  .cs-wheel-box { width: min(180px, 20vh); }
+  .cs-stage { padding: 12px 14px 10px; }
+  .cs-out { margin-top: 6px; }
+  .cs-reels { --cs-step: 54px; }
+  .cs-stage-meta { margin-bottom: 8px; }
+  .cs-symbol { font-size: 34px; }
+  .cs-out { margin-top: 6px; }
+  .cs-dice b { font-size: 52px; }
+}
+
+.cs-form-note { margin:8px 0; color:var(--v3-ink); font-size:13px; line-height:1.45; }
+.cs-form-note:empty { display:none; }
+.cs-exchange input[aria-invalid="true"] { border-color:var(--v3-ink); }

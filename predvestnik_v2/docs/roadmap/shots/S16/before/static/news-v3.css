@@ -1,0 +1,100 @@
+/* ═══ ЧТО НОВОГО · лента обновлений (app.42.js) ═══
+   Одна лента без карточек: слева значок раздела (тот же, что у вкладки внизу), справа раздел, заголовок и одна строка; «Открыть» ведёт на экран, где это появилось.
+   Новое для игрока (новее прочитанного) идёт крупно и с кнопкой, остальное строками по дням, исправления тише и без кнопки. Цвета берутся из образа (токены --v3-*).
+   Движение только opacity и transform, выключается тремя переключателями: «Спокойный режим», .no-fx и слабый телефон. Формат записей: docs/WHATS_NEW_V3.md. */
+
+.wn-sec { margin-top: 10px; scroll-margin-top: calc(var(--v3-bar-h, 56px) + var(--v3-safe-t, 0px) + 12px); }
+.wn-sec > .v3-sec { margin-top: 14px; }
+.wn-sec--fresh > .v3-sec .v3-eyebrow { color: var(--v3-acc); }
+
+/* запись: значок слева, текст справа */
+.wn-it { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 0 14px; padding: 16px 0; }
+.wn-it + .wn-it { box-shadow: 0 -1px 0 var(--v3-faint); }
+.wn-it--fresh { padding: 20px 0 22px; }
+.wn-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--v3-track); color: var(--v3-acc); }
+.wn-ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.wn-it--fresh .wn-ic { background: var(--v3-acc); box-shadow: none; color: var(--v3-on-acc); }
+.wn-bd { min-width: 0; }
+
+/* голова записи: раздел, заголовок, строка; нажатие раскрывает подробности */
+.wn-hd { position: relative; display: block; width: 100%; padding: 0 30px 0 0; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; -webkit-tap-highlight-color: transparent; }
+button.wn-hd { cursor: pointer; }
+button.wn-hd:active { opacity: .6; }
+div.wn-hd { padding-right: 0; }
+.wn-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 10px; margin-bottom: 5px; color: var(--v3-dim); font: 600 11px/1.3 var(--v3-font); letter-spacing: .1em; text-transform: uppercase; }
+.wn-ar { color: var(--v3-acc); }
+.wn-fx { color: var(--v3-ok); }
+.wn-new { color: var(--v3-acc); font-weight: 700; }
+.wn-new::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 6px 1px 0; border-radius: 50%; background: var(--v3-acc); }
+.wn-t { display: block; color: var(--v3-ink); font: 600 16px/1.3 var(--v3-font); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.wn-it--fresh .wn-t { font-size: 18px; letter-spacing: -.015em; }
+.wn-sh { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 4px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.wn-it--fresh .wn-sh, .wn-it.is-open .wn-sh { display: block; overflow: visible; }
+.wn-chev { position: absolute; right: 6px; top: 22px; width: 7px; height: 7px; border: solid var(--v3-dim); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); transition: transform .2s var(--v3-ease); }
+.wn-it.is-open .wn-chev { transform: rotate(225deg); }
+.wn-it--fresh .wn-chev { top: 34px; }
+
+/* исправления: тихая строка, подробности по нажатию */
+.wn-it--fix { padding: 12px 0; }
+.wn-it--fix .wn-ic { width: 32px; height: 32px; justify-self: center; box-shadow: inset 0 0 0 1.5px var(--v3-faint); color: var(--v3-dim); }
+.wn-it--fix .wn-ic svg { width: 17px; height: 17px; }
+.wn-it--fix .wn-t { font-size: 14.5px; font-weight: 500; color: color-mix(in srgb, var(--v3-ink) 80%, var(--v3-dim)); }
+.wn-it--fix .wn-sh { display: none; }
+.wn-it--fix.is-open .wn-sh { display: block; }
+.wn-it--fix .wn-chev { top: 18px; }
+
+/* где искать и куда нажать */
+.wn-where { margin: 8px 0 0; color: var(--v3-ink); font-size: 12.5px; line-height: 1.4; }
+.wn-where span { margin-right: 6px; color: var(--v3-dim); font: 600 10.5px/1 var(--v3-font); letter-spacing: .12em; text-transform: uppercase; }
+.wn-act { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 12px; }
+.wn-it:not(.wn-it--fresh) .wn-act { margin-top: 0; }
+.wn-go { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0; border: 0; background: none; color: var(--v3-acc); font: 600 13px/1 var(--v3-font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wn-go::after { content: ""; position: absolute; inset: -4px -6px; }   /* зона нажатия 44px при строке в 36px */
+.wn-go svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wn-go:active { opacity: .6; }
+.wn-it--fresh .wn-act .v3-pill svg { width: 14px; height: 14px; margin-left: -1px; }
+
+/* подробности: пункты с значком записи (эмодзи) и выделенным началом */
+.wn-x { margin-top: 10px; animation: wnfade .2s var(--v3-ease) both; }
+.wn-rest { margin: 0 0 6px; color: var(--v3-ink); font-size: 13.5px; line-height: 1.5; }
+.wn-ds { margin: 0; padding: 0; list-style: none; }
+.wn-d { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; padding: 6px 0; color: var(--v3-ink); font-size: 13.5px; line-height: 1.5; }
+.wn-d-ic { font-size: 15px; line-height: 1.45; text-align: center; color: var(--v3-dim); }
+.wn-d b { font-weight: 600; }
+.wn-d > span:last-child { overflow-wrap: anywhere; }
+@keyframes wnfade { from { opacity: 0; } to { opacity: 1; } }
+
+/* история: фильтр, дни, «Показать ещё» */
+.wn-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.wn-chip { display: inline-flex; align-items: baseline; gap: 6px; min-height: 40px; padding: 10px 14px; border: 0; border-radius: 99px; background: var(--v3-faint); color: var(--v3-ink); font: 500 13px/1.2 var(--v3-font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wn-chip b { color: var(--v3-dim); font: 700 13px/1 var(--v3-font); font-variant-numeric: tabular-nums; }
+.wn-chip[aria-pressed="true"] { background: var(--v3-acc); color: var(--v3-on-acc); }
+.wn-chip[aria-pressed="true"] b { color: inherit; opacity: .7; }
+.wn-chip:active { transform: scale(.96); }
+.wn-dg { margin-top: 6px; }
+.wn-day { display: flex; align-items: baseline; gap: 8px; margin: 18px 0 0; color: var(--v3-dim); font: 600 11px/1.2 var(--v3-font); letter-spacing: .12em; text-transform: uppercase; }
+.wn-day b { color: var(--v3-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.wn-more { margin-top: 18px; }
+.wn-more[hidden] { display: none; }
+
+/* точка на вкладке дока: здесь есть свежая запись из «Что нового» */
+.nb[data-wn]::before { content: ""; position: absolute; top: 6px; left: calc(50% + 7px); width: 8px; height: 8px; border-radius: 50%; background: var(--v3-acc); box-shadow: 0 0 0 2px var(--v3-dock); }
+
+/* пояснение термина: маленькое, на месте */
+.wn-term { border-bottom: 1px dotted currentColor; color: var(--v3-acc); font-weight: 600; cursor: pointer; }
+.wn-term:active { opacity: .7; }
+.wn-pop { position: absolute; z-index: 200; display: flex; flex-direction: column; gap: 3px; max-width: 240px; padding: 10px 12px; border-radius: 14px; background: var(--v3-sheet); box-shadow: 0 0 0 1px var(--v3-faint), 0 10px 28px rgba(0, 0, 0, .4); animation: wnfade .16s ease-out both; }
+.wn-pop-t { color: var(--v3-acc); font: 700 12px/1.2 var(--v3-font); }
+.wn-pop-d { color: var(--v3-ink); font-size: 12px; line-height: 1.45; }
+
+@media (max-width: 359px) {
+  .wn-it { grid-template-columns: 34px minmax(0, 1fr); gap: 0 12px; }
+  .wn-ic { width: 34px; height: 34px; }
+  .wn-it--fix .wn-ic { width: 28px; height: 28px; }
+  .wn-t { font-size: 15.5px; }
+  .wn-it--fresh .wn-t { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) { .wn-x, .wn-pop { animation: none; } .wn-chev { transition: none; } }
+.no-fx .wn-x, .no-fx .wn-pop, body[data-dev="low"] .wn-x, body[data-dev="low"] .wn-pop { animation: none; }
+.no-fx .wn-chev, body[data-dev="low"] .wn-chev { transition: none; }
+.v3-row[data-wn-page][data-wn] .v3-end::before { content:""; display:block; width:6px; height:6px; border-radius:50%; background:var(--v3-acc); flex:none; }
