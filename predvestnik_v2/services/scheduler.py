@@ -20,8 +20,9 @@ async def player_exchange_match_task() -> None:
         try:
             from infrastructure.repositories import player_exchange_v1 as repo, system_flags
             from services import player_exchange_v1 as exchange
-            async with get_pool().acquire() as conn:
-                db = PGAdapter(conn)
+            # Lazy: the slot is taken per market and given back between them
+            # (one fill per transaction inside match_market), not for the whole round.
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
                 if not await system_flags.is_enabled(db, "economy_player_exchange_v1"):
                     continue
                 for coin_id in await repo.active_market_ids(db):
@@ -31,6 +32,7 @@ async def player_exchange_match_task() -> None:
                         logger.exception(
                             f"Player exchange market {coin_id} failed: {market_error}"
                         )
+                    await db.release_if_idle()
         except Exception as exc:
             logger.exception(f"Player exchange matcher error: {exc}")
 
@@ -40,8 +42,8 @@ async def coin_market_v2_task() -> None:
     while True:
         await asyncio.sleep(15)
         try:
-            async with get_pool().acquire() as conn:
-                await maintenance(PGAdapter(conn))
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
+                await maintenance(db)
         except Exception:
             logger.exception('Coin market v2 maintenance failed; stale trading stays closed')
 
@@ -126,6 +128,7 @@ async def maintenance_task(bot: Bot) -> None:
                         settlement.get("coin_id"), settlement.get("success"),
                         settlement.get("sold_units"),
                     )
+                await db.release_if_idle()   # короткие порции: слот пула свободен между группами
                 for emission in await execute_due_emissions(db, limit=20):
                     if emission.get("error"):
                         logger.error("Player exchange emission failed: {}", emission)
@@ -143,6 +146,7 @@ async def maintenance_task(bot: Bot) -> None:
                         logger.error("Short risk maintenance failed: {}", short_result)
                     elif short_result.get("marked"):
                         logger.warning("Short risk marked for player liquidation: {}", short_result)
+                await db.release_if_idle()   # и перед сезонными итогами: дальше только свои порции
                 try:   # итоги сезонов: снимок мест и выплаты порциями (возобновляемо, повтор безопасен)
                     from services import game_seasons, rhythm_v2
                     season_summary = await game_seasons.settle_due(

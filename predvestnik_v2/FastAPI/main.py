@@ -114,12 +114,15 @@ from loguru import logger as _log
 
 async def _run_coin_market_v2() -> None:
     """Web lifecycle owns price time even with no bot or site visitors."""
+    from infrastructure import lazy_db
     from services.coin_market_v2 import maintenance
     while True:
         await asyncio.sleep(15)
         try:
-            async with get_pool().acquire() as conn:
-                await maintenance(PGAdapter(conn))
+            # Lazy + release between coins (inside maintenance): the 15-second round
+            # never pins a pool slot for its whole pass.
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
+                await maintenance(db)
         except Exception:
             _log.exception("Coin market v2 maintenance failed; stale trading stays closed")
 

@@ -239,6 +239,9 @@ async def maintenance(db):
     # Runs even with entry flags off: existing positions retain maintenance.
     for coin_id in await repo.maintenance_coin_ids(db):
         await advance(db, coin_id)
+        # Each coin commits its own transaction: hand the pool slot back between
+        # coins, so one slow pass never pins the connection the whole round.
+        await db.release_if_idle()
 
 
 def public_coin(row):
