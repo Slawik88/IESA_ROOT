@@ -462,6 +462,7 @@ async def transfer_flow(db, bot):
     await transfer.on_transfer(c, c.data_cb, db)
     assert "целым" in c.alerts[0]
     assert transfer.parse_amount("@ник 12,5") == transfer.Decimal("12.5") and transfer.parse_amount("0") is None
+    await ship_flow(db, bot)   # S21; дальше цепочка обрывается известным красным streak_flow на master
     await streak_flow(db, bot)
 
 
@@ -1087,6 +1088,122 @@ async def rank_guard_flow(db, bot):
     token2 = (await run(db, bot, "бот привязать админ чат", chat=-301)).split("<code>бот админ чат ")[1].split("</code>")[0]
     out = await run(db, bot, f"бот админ чат {token2}", chat=-878, uid=3102, username="adm7")
     assert "нет права" in out and await admin_chat_of(db, chat) == -878, out
+    await ship_flow(db, bot)
+
+
+async def ship_flow(db, bot):
+    """S21 «Шипперим»: случайная пара, детерминизм процента, пауза, отказ, выключатель."""
+    import re
+    from core import ship as ship_core
+    from infrastructure.repositories import ship_v1
+    from bot.chat import ranks
+    from bot.chat.tracking import record_message
+
+    await ship_v1.ensure_tables(db)
+    await ship_v1.ensure_tables(db)   # повторный запуск безопасен
+
+    async def say(text, uid=1001, username="alpha", **kw):
+        from bot.chat import registry
+        from bot.chat.framework import dispatch
+        m = FakeMessage(text, uid, username, **kw)
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies)
+
+    async def reset_pauses(*chat_ids):
+        marks = ", ".join(str(c) for c in chat_ids)
+        await db.execute(f"DELETE FROM ship_cooldowns WHERE chat_id IN ({marks})")
+        await db.execute(f"DELETE FROM ship_recent_pairs WHERE chat_id IN ({marks})")
+
+    # Общий чат: шипперство отвечает парой и не пингует.
+    for uid, uname in ((1003, "quiet"), (1004, "sunny")):
+        await record_message(db, msg(uid, -100, uname))
+    out = await say("бот шипирить")
+    assert "Совместимость:" in out and "tg://user?id=" not in out, out
+
+    # Выделенный чат с четырьмя известными игроками: детерминизм, разнообразие, пауза.
+    ids = {"petra1": 6001, "pavel2": 6002, "polina": 6003, "petya4": 6004}
+    for uname, uid in ids.items():
+        await record_message(db, msg(uid, -600, uname))
+    await reset_pauses(-600)
+
+    out = await say("бот шипирить", chat=-600)
+    shown = int(re.search(r"Совместимость: (\d+)%", out).group(1))
+    names = re.findall(r"@(\w+)", out)
+    assert len(names) == 2 and set(names) <= set(ids), out
+    assert shown == ship_core.compatibility_percent(*sorted(ids[name] for name in names)), (shown, names)
+
+    out = await say("бот шипирить", chat=-600)   # сразу второй раз — пауза
+    assert re.search(r"\d+ с", out) and "Совместимость" not in out, out
+
+    seen_pairs = set()
+    for _ in range(6):
+        await reset_pauses(-600)
+        out = await say("бот шипирить", chat=-600)
+        names = re.findall(r"@(\w+)", out)
+        if len(names) == 2:
+            seen_pairs.add(frozenset(names))
+    assert len(seen_pairs) >= 2, seen_pairs
+
+    # «шипирить меня»: пара для автора; себя в пару по @нику не поставить; не нашёл — честно.
+    await reset_pauses(-600)
+    out = await say("шипирить меня", uid=6001, username="petra1", chat=-600)
+    assert "Совместимость:" in out and "@petra1" in out, out
+    out = await say("шипирить @petra1", uid=6001, username="petra1", chat=-600)
+    assert "Себя в пару не поставить" in out, out
+    out = await say("бот шипирить, @ghost", chat=-600)
+    assert "Не нашёл" in out, out
+
+    # Личный отказ: отказавшийся не попадает в пары и не шиперится по @нику.
+    await reset_pauses(-600)
+    out = await say("не шипирить меня", uid=6003, username="polina", chat=-600)
+    assert "не выбирает" in out, out
+    out = await say("не шипирить меня", uid=6003, username="polina", chat_type="private")
+    assert "уже вне игры" in out, out
+    await reset_pauses(-600)
+    out = await say("бот шипирить, @polina", chat=-600)
+    assert "Совместимость" not in out and "@polina" in out, out   # пару не создали, виновник назван
+    for _ in range(5):
+        await reset_pauses(-600)
+        out = await say("бот шипирить", chat=-600)
+        assert "@polina" not in out, out
+    out = await say("шипирить меня разрешаю", uid=6003, username="polina", chat=-600)
+    assert "Снова в игре" in out, out
+
+    # Мало активных: честный ответ вместо выдуманной пары.
+    await record_message(db, msg(3001, -300, "lone"))
+    await reset_pauses(-300)
+    out = await say("бот шипирить", chat=-300)
+    assert "Совместимость" not in out and out.strip(), out
+
+    # Двое в чате: повтор единственной пары допустим (меньше четырёх кандидатов),
+    # и автор команды оказывается в паре — своя категория текстов.
+    await record_message(db, msg(8001, -500, "first"))
+    await record_message(db, msg(8002, -500, "second"))
+    await ship_v1.record_pair(db, -500, 8001, 8002)
+    await reset_pauses(-500)
+    out = await say("бот шипирить", uid=8001, username="first", chat=-500)
+    assert "@first" in out and "@second" in out, out
+    assert ("автор команды" in out or "заказчик" in out or "один из них" in out), out
+
+    # Выключатель владельца чата: «бот шипирить выкл/вкл» и запрет для тех без права.
+    await record_message(db, msg(8003, -700, "boss"))
+    await record_message(db, msg(8004, -700, "pleb"))
+    await ranks.set_owner(db, -700, 8003)
+    out = await say("бот шипирить выкл", uid=8004, username="pleb", chat=-700)
+    assert "тот, кто настраивает права" in out, out
+    out = await say("бот шипирить выкл", uid=8003, username="boss", chat=-700)
+    assert "выключен" in out, out
+    out = await say("бот шипирить", chat=-700)
+    assert "включить" in out and "Совместимость" not in out, out
+    out = await say("бот шипирить вкл", uid=8003, username="boss", chat=-700)
+    assert "включён" in out, out
+    out = await say("бот шипирить вкл", uid=8003, username="boss", chat=-700)
+    assert "уже" in out, out
+    # «выкл.» с точкой — тот же выключатель (norm снимает знаки).
+    out = await say("бот шипирить выкл.", uid=8003, username="boss", chat=-700)
+    assert "выключен" in out, out
+    out = await say("бот шипирить вкл", uid=8003, username="boss", chat=-700)
+    assert "включён" in out, out
 
 
 asyncio.run(main())

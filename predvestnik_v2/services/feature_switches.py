@@ -40,7 +40,8 @@ SITE_AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
 SITE_ALWAYS_OPEN = ("/bot-admin", "/auth", "/legal", "/support", "/api/health", "/api/ready", "/static", "/manifest.json",
                     "/telemetry")   # ошибки игроков нужны именно тогда, когда сайт выключен
 NOTICES = {"achievements": "🏆 Объявления о новых уровнях достижений"}
-GROUPS = {"warps": "🤗 Все варп-команды (обнять, погладить…)", "pets": "🐾 Управление питомцами", "star_dust": "🌠 Звёздная пыль"}
+GROUPS = {"warps": "🤗 Все варп-команды (обнять, погладить…)", "pets": "🐾 Управление питомцами", "star_dust": "🌠 Звёздная пыль",
+          "ship": "💞 Шипперим: случайные пары по команде «шипирить»"}
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS bot_feature_switches (
@@ -154,6 +155,7 @@ def catalog() -> list[dict]:
         chat.append({"key": f"section:{key}", "title": title, "hint": "Весь раздел", "items": by_section[key]})
     chat.append({"key": "group:warps", "title": GROUPS["warps"], "hint": "122 команды разом"})
     chat.append({"key":"group:star_dust","title":GROUPS["star_dust"],"hint":"Звездопад и VIP за пыль"})
+    chat.append({"key": "group:ship", "title": GROUPS["ship"], "hint": "Команды «шипирить» и личные отказы"})
     chat.append({"key": "group:pets", "title": GROUPS["pets"], "hint": "Все команды и кнопки питомцев"})
     if other:
         chat.append({"key": "", "title": "Прочие команды", "items": other})

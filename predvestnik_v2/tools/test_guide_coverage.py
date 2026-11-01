@@ -44,7 +44,8 @@ SECTION_TOPIC = {"basic": "bot", "stats": "profile", "profile": "profile", "fami
 GROUP_SECTIONS = {"moderation", "purge", "settings", "pets"}
 COMMAND_TOPIC = {"перевод": "transfers", "стрик": "streak", "вип": "vip", "промокод": "promo", "достижения": "ach", "тег": "chat-admin", "теги": "chat-admin",
                  "отменить удаление": "settings", "восстановить аккаунт": "settings", "баланс": "wallet", "мафия": "mafia", "мафия онлайн": "mafia-online",
-                 "слова": "words", "слово": "words", "ритм": "rhythm", "квесты": "quests", "неактивы": "bot", "18+": "warps"}
+                 "слова": "words", "слово": "words", "ритм": "rhythm", "квесты": "quests", "неактивы": "bot", "18+": "warps",
+                 "шипирить": "ship", "шипирить меня": "ship", "не шипирить меня": "ship", "шипирить меня разрешаю": "ship"}
 # ── Выключатели: ключ → тема или причина ──────────────────────────────────────────────────────────────────────────────────────
 FLAGS = {"tab_economy": "transfers", "tab_purge": "chat-admin", "tab_cosmetics": "looks", "tab_quests": "quests", "game_rhythm_v2": "rhythm",
          "game_minesweeper_v2": "mines", "game_mafia_v1": "mafia", "game_casino_v1": "casino", "game_mafia_online": "mafia-online", "content_chests_v1": "keys",
