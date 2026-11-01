@@ -167,10 +167,15 @@ _INDEXES = (
 )
 
 
+def _pg_statement(statement: str) -> str:
+    """SQLite-DDL → PostgreSQL-DDL: автоинкремент через BIGSERIAL."""
+    return statement.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+
+
 async def ensure_schema() -> None:
     async with db.acquire() as conn:
         for statement in _STATEMENTS:
-            await conn.execute(statement)
+            await conn.execute(_pg_statement(statement) if db.is_postgres else statement)
         for index in _INDEXES:
             await conn.execute(index)
     logger.info("🗄️ Схема «Домового» готова")

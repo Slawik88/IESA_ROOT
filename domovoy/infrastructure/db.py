@@ -26,6 +26,11 @@ class DB:
         self._pool: asyncpg.Pool | None = None
         self._sqlite: aiosqlite.Connection | None = None
 
+    @property
+    def is_postgres(self) -> bool:
+        """Текущий диалект: True — PostgreSQL, False — sqlite."""
+        return self._is_pg
+
     # ── Жизненный цикл ───────────────────────────────────────────────────────
     async def connect(self) -> None:
         if self._is_pg:
