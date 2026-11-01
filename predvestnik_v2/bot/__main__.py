@@ -135,10 +135,12 @@ async def main():
             import uvicorn
             from FastAPI.main import app as _fastapi_app
             from FastAPI.prefix import strip_prefix_middleware
+            from FastAPI.private_house_gateway import PrivateHouseGateway
             _root_path = os.getenv("ROOT_PATH", "").rstrip("/")
+            _private_app = PrivateHouseGateway(_fastapi_app)
             _mounted_app = (
-                strip_prefix_middleware(_fastapi_app, _root_path)
-                if _root_path else _fastapi_app
+                strip_prefix_middleware(_private_app, _root_path)
+                if _root_path else _private_app
             )
             _api_cfg = uvicorn.Config(
                 _mounted_app,
