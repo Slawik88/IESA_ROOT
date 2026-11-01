@@ -16,7 +16,7 @@
 
 Корень проекта (`IESA_ROOT/IESA_ROOT/`): `settings.py` (+ `settings_addon.py`: логи, почта, CleverReach, Telegram),
 `settings_dev.py` (локально), `urls.py`, `security_middleware.py` (CSP и заголовки; HTMX-перехват логина),
-`cleverreach_email_backend.py`, `storage.py` (DigitalOcean Spaces), `protected_media_views.py`.
+`cleverreach_email_backend.py`, `storage.py` (production: Cloudflare R2; настройка в `03-hosting-and-deploy.md`), `protected_media_views.py`.
 
 ## Где что искать
 

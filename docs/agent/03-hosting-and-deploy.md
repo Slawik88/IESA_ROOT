@@ -38,7 +38,7 @@ Settings → «App-Level Environment Variables» → Edit (там их ~29; зн
 Компонентные переменные — Settings → компонент → Environment Variables.
 
 **Сайт:** `SECRET_KEY_DJANGO`, `DEBUG`, `DATABASE_URL`, `DATABASE_POOL_URL` (PgBouncer), `DB_CONN_MAX_AGE`,
-`USE_SPACES`, `SPACES_KEY`, `SPACES_SECRET`, `SPACES_BUCKET`, `SPACES_ENDPOINT` (медиа в DO Spaces),
+`USE_SPACES`, `SPACES_KEY`, `SPACES_SECRET`, `SPACES_BUCKET`, `SPACES_ENDPOINT` (production: Cloudflare R2; исторические имена переменных сохранены),
 `CLEVERREACH_CLIENT_ID|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|SENDER_EMAIL|SENDER_NAME` (почта),
 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_NAME` (бот-администратор сайта), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`. Компонент `iesa-root`: `BOT_USERNAME`, `DATABASE_URL`.
