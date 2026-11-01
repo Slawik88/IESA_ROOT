@@ -7,7 +7,7 @@
 | Папка | `IESA_ROOT/` (Django-проект, внутри ещё одна `IESA_ROOT/IESA_ROOT/` с настройками) | `predvestnik_v2/` |
 | Стек | Django 5.2, Python 3.11, шаблоны + HTMX, PostgreSQL (прод) / SQLite (локально) | aiogram (Telegram-бот) + FastAPI (веб/мини-приложение), asyncpg |
 | Где живёт на проде | компонент DO `iesa-root`, домен `https://iesasport.ch` | компонент DO `predvestnik-bot`, путь `https://iesasport.ch/predvestnik` (порт 8000) |
-| Запуск | `Procfile` → `web: cd IESA_ROOT && sh start.sh` (Daphne, порт 8080) | `cd predvestnik_v2 && python -m bot` |
+| Запуск | `Procfile` → `web: cd IESA_ROOT && sh start.sh` (Daphne, порт 8080) | `worker: sh scripts/run_bots.sh` — Предвестник и Домовой в одном контейнере; отдельный воркер `domovoy` убран (двойной polling давал бы Telegram 409). Вернуть при нехватке памяти: `domovoy: cd domovoy && python -m bot` |
 | Своя база | `DATABASE_URL` / `DATABASE_POOL_URL` (Managed PostgreSQL 17) | `PREDVESTNIK_DATABASE_URL` |
 | Правила работы | этот каталог `docs/agent/` | `predvestnik_v2/AGENTS.md` и его маршрутизация |
 
@@ -17,7 +17,7 @@
   Source Directory `/`, Autodeploy ON. Пуш → оба пересобираются и перезапускаются.
 - **Корневой `requirements.txt`**: один на оба проекта (ставится в обеих сборках). Добавляя зависимость
   для сайта, помни, что она встанет и в сборку бота; не закрепляй версии, конфликтующие с `predvestnik_v2`.
-- **`Procfile`** в корне: содержит и `web` (сайт), и `worker` (бот). Не править без нужды.
+- **`Procfile`** в корне: `web` (сайт) и `worker` (оба бота: Предвестник + Домовой, см. строку «Запуск» выше). Не править без нужды.
 - **Приложение DO `iesaroot-app`** (одно) с общей базой Postgres-кластера и общими «App-level» переменными
   окружения — в списке переменных вперемешку ключи сайта и бота (см. `03-hosting-and-deploy.md`).
 - **`app.yaml` в `IESA_ROOT/`** — устаревший черновик, **не** реальная конфигурация DO (имена компонентов
