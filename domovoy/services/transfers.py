@@ -13,6 +13,7 @@ from infrastructure.repositories import transactions as repo
 from services import households, settings
 from services.households import DomainError
 from services.transaction_dates import parse_date, parse_month
+from services.journal import JournalQuery, filter_rows
 
 FORMATS = {"csv": ";", "tsv": "\t", "json": None}
 FIELDS = (
@@ -43,7 +44,9 @@ def _unprotect_cell(text: str) -> str:
     return text[1:] if text.startswith("'") and text[1:].lstrip().startswith(("=", "+", "-", "@")) else text
 
 
-async def export_file(house_id: int, actor: int, extension: str, month: str | None = None) -> bytes:
+async def export_file(
+    house_id: int, actor: int, extension: str, month: str | None = None, *, query: JournalQuery | None = None,
+) -> bytes:
     await households.require_member(house_id, actor)
     if extension not in FORMATS:
         raise DomainError("Выберите CSV, TSV или JSON")
@@ -51,7 +54,10 @@ async def export_file(house_id: int, actor: int, extension: str, month: str | No
         month = parse_month(month)
     currency = await settings.house_setting(house_id, "currency")
     rows = []
-    for item in await repo.all_rows(house_id):
+    source = await repo.all_rows(house_id)
+    if query is not None:
+        source = filter_rows(source, query)
+    for item in source:
         if month and item["month"] != month:
             continue
         kop = int(item["amount_kop"])
@@ -171,13 +177,14 @@ async def preview_import(house_id: int, actor: int, content: bytes, extension: s
     # Экспорт своих уже существующих операций тоже не должен создавать копии.
     for row in await repo.all_rows(house_id):
         key = row["source_key"] or f"domovoy:{house_id}:{row['kind']}:{row['id']}"
-        if key not in known:
-            kop = int(row["amount_kop"])
-            canonical = normalize_row({
-                **dict(row), "member_tg_id": row["tg_id"], "amount": f"{kop // 100}.{kop % 100:02d}",
-                "currency": current["currency"], "source_key": key,
-            }, settings.house_today(current), current["currency"], members | {row["tg_id"]})
-            known[key] = canonical["fingerprint"]
+        # Журнал запросов хранит исходное намерение для безопасного повтора POST.
+        # Экспорт же сравнивается с текущим состоянием, в том числе после возврата/правки.
+        kop = int(row["amount_kop"])
+        canonical = normalize_row({
+            **dict(row), "member_tg_id": row["tg_id"], "amount": f"{kop // 100}.{kop % 100:02d}",
+            "currency": current["currency"], "source_key": key,
+        }, settings.house_today(current), current["currency"], members | {row["tg_id"]})
+        known[key] = canonical["fingerprint"]
     rows, errors = [], []
     duplicates = delta = 0
     for index, raw in enumerate(raw_rows, 2 if extension != "json" else 1):

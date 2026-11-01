@@ -1,16 +1,17 @@
 """Тонкий HTTP-адаптер с отдельной Telegram-авторизацией и проверкой дома."""
 import base64
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from core import config
-from infrastructure.repositories import transactions
-from services import cleaning, households, money, settings, transfers, web_commands
+from core.constants import JOURNAL_SEARCH_LIMIT
+from services import cleaning, households, journal, money, settings, transfers, web_commands
 from services.households import DomainError
 from services.transaction_dates import parse_month
 from services.web_auth import verify_init_data
@@ -43,6 +44,22 @@ class ImportInput(BaseModel):
 
 class Decision(BaseModel):
     confirm: bool
+
+
+class ExpenseEditInput(TransactionInput):
+    kind: Literal["expense"] = "expense"
+    version: str = Field(min_length=64, max_length=64)
+
+
+class RecordVersion(BaseModel):
+    version: str = Field(min_length=64, max_length=64)
+
+
+def journal_params(
+    month: str | None = None, q: str = Query(default="", max_length=JOURNAL_SEARCH_LIMIT), kind: str = "all",
+    member: int | None = None, category: int | None = None, mode: str = "all", sort: str = "newest",
+) -> journal.JournalQuery:
+    return journal.JournalQuery(month, q, kind, member, category, mode, sort)
 
 
 def create_app(*, bot=None) -> FastAPI:
@@ -87,27 +104,30 @@ def create_app(*, bot=None) -> FastAPI:
         return {"houses": [dict(row) for row in await households.houses_of_user(request.state.actor)]}
 
     @app.get("/api/houses/{house_id}")
-    async def overview(request: Request, house_id: int, month: str | None = None, page: int = 0):
+    async def overview(
+        request: Request, house_id: int, query: journal.JournalQuery = Depends(journal_params),
+        page: int = 0, all_months: bool = False,
+    ):
         values = await context(request, house_id)
         today = settings.house_today(values)
-        selected = parse_month(month or today[:7])
+        selected = None if all_months else parse_month(query.month or today[:7])
+        query = replace(query, month=selected)
         await cleaning.ensure_days(house_id, today)
-        rows = [dict(row) for row in await transactions.all_rows(house_id) if row["month"] == selected]
-        page = max(0, min(page, max(0, (len(rows) - 1) // 20)))
+        entries = await journal.view(house_id, request.state.actor, query, page)
         permissions = {}
-        for code in ("confirm_contributions", "import_transactions", "manage_schedule"):
+        for code in ("confirm_contributions", "import_transactions", "manage_schedule", "close_others_days"):
             permissions[code] = await households.can(house_id, request.state.actor, code)
         house = await households.get_house(house_id)
         return {
             "title": "Домовой", "actor": request.state.actor, "house": {"id": house_id, "name": house["name"]},
-            "today": today, "month": selected, "currency": values["currency"],
+            "today": today, "month": selected or today[:7], "all_months": all_months, "currency": values["currency"],
             "balance": await money.pot_balance(house_id), "permissions": permissions,
             "categories": [dict(row) for row in await money.categories(house_id)],
             "members": [dict(row) for row in await households.members(house_id)],
             "cleaning": [dict(row) for row in await cleaning.open_days_up_to(house_id, today)],
             "pending": [dict(row) for row in await money.pending_contributions(house_id)]
                        if permissions["confirm_contributions"] else [],
-            "rows": rows[page * 20:(page + 1) * 20], "page": page, "total": len(rows),
+            **entries,
         }
 
     @app.post("/api/houses/{house_id}/transactions")
@@ -115,6 +135,19 @@ def create_app(*, bot=None) -> FastAPI:
         await context(request, house_id)
         return await web_commands.create_transaction(house_id, request.state.actor,
                                                      payload.model_dump(mode="json"), bot=bot)
+
+    @app.post("/api/houses/{house_id}/expenses/{expense_id}/edit")
+    async def edit(request: Request, house_id: int, expense_id: int, payload: ExpenseEditInput):
+        await context(request, house_id)
+        return await web_commands.edit_expense(house_id, request.state.actor, expense_id,
+                                               payload.model_dump(mode="json"), payload.version)
+
+    @app.post("/api/houses/{house_id}/expenses/{expense_id}/reimburse")
+    async def reimburse(request: Request, house_id: int, expense_id: int, payload: RecordVersion):
+        await context(request, house_id)
+        await money.reimburse_expense(house_id, expense_id, request.state.actor,
+                                      expected_version=payload.version, idempotent=True)
+        return {"ok": True}
 
     @app.post("/api/houses/{house_id}/clean/{day_id}")
     async def close_cleaning(request: Request, house_id: int, day_id: int):
@@ -130,9 +163,11 @@ def create_app(*, bot=None) -> FastAPI:
         return {"status": row["status"]}
 
     @app.get("/api/houses/{house_id}/export/{extension}")
-    async def export(request: Request, house_id: int, extension: str, month: str | None = None):
+    async def export(
+        request: Request, house_id: int, extension: str, query: journal.JournalQuery = Depends(journal_params),
+    ):
         await context(request, house_id)
-        content = await transfers.export_file(house_id, request.state.actor, extension, month)
+        content = await transfers.export_file(house_id, request.state.actor, extension, query=query)
         return Response(content, media_type="application/octet-stream", headers={
             "Content-Disposition": f'attachment; filename="operations.{extension}"',
         })

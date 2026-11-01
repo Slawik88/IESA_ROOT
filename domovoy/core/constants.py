@@ -38,6 +38,9 @@ MAX_CATEGORY_NAME_LEN = 24
 TRANSFER_MAX_BYTES = 2 * 1024 * 1024
 TRANSFER_MAX_ROWS = 1000
 TRANSACTION_PAGE_SIZE = 8
+WEB_JOURNAL_PAGE_SIZE = 20
+QUICK_TRANSACTION_LIMIT = 4
+JOURNAL_SEARCH_LIMIT = 80
 
 # ── Категории трат по умолчанию (сидятся при создании дома) ──────────────────
 DEFAULT_CATEGORIES = ("Продукты", "Бытовая химия", "Коммуналка", "Ремонт", "Прочее")

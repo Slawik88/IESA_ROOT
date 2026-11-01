@@ -150,7 +150,18 @@ _STATEMENTS = (
         UNIQUE (house_id, tg_id, key)
     )
     """,
-    # Журнал сработок планировщика: защита от повторной отправки после рестарта
+    # Изменение траты сохраняет исходные поля и автора правки.
+    """
+    CREATE TABLE IF NOT EXISTS expense_edits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        house_id INTEGER NOT NULL REFERENCES houses(id),
+        expense_id BIGINT NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+        actor BIGINT NOT NULL,
+        changed_at TEXT NOT NULL,
+        before_json TEXT NOT NULL,
+        after_json TEXT NOT NULL
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS money_import_items (
         house_id INTEGER NOT NULL REFERENCES houses(id),

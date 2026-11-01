@@ -7,23 +7,37 @@
 <main id="main"><section id="gate" class="gate"><p class="eyebrow">ЛИЧНОЕ ПРОСТРАНСТВО</p>
 <h1>Всё под рукой.</h1><p id="gate-text">Откройте эту страницу из личного чата, где вы получили ссылку.</p></section>
 <div id="workspace" hidden>
+<nav class="jump-nav" aria-label="Разделы кабинета"><a href="#overview">Обзор</a><a href="#cleaning-card">Уборка</a>
+<a href="#journal-card">Операции</a><a href="#files-card">Файлы</a><button id="reload" class="quiet">Обновить</button></nav>
+<p id="connection" class="error" role="status" hidden>Нет соединения. Введённые поля остаются в форме; попробуйте снова после подключения.</p>
 <header><div><p class="eyebrow" id="brand"></p><h1>Хорошо быть дома.</h1></div>
 <label class="house-label">Ваш дом<select id="house" aria-label="Выбрать дом"></select></label></header>
-<div class="overview">
+<div id="drafts" class="drafts" hidden></div><div id="quick-repeat" class="quick-repeat" hidden></div>
+<div class="overview" id="overview">
 <section class="balance"><p class="eyebrow">ОБЩИЙ КОТЁЛ</p><p class="amount" id="balance"></p>
 <p id="balance-detail"></p><div class="actions"><button id="add-expense" class="light">Добавить трату</button>
 <button id="add-contribution" class="ghost-light">Внести деньги</button></div></section>
-<section class="card chores"><div class="section-title"><h2>Уборка</h2><span class="tag" id="today"></span></div>
+<section class="card chores" id="cleaning-card"><div class="section-title"><h2>Уборка</h2><span class="tag" id="today"></span></div>
 <div id="chores"></div><p class="subtle">Отметка закроет выбранный день сегодняшней датой.</p></section></div>
 <section class="card" id="pending-card" hidden><h2>Подтвердить взносы</h2><div id="pending"></div></section>
-<section class="card"><div class="section-title"><div><p class="eyebrow">ПРОЗРАЧНЫЙ УЧЁТ</p><h2>Все операции</h2></div>
+<section class="card" id="journal-card"><div class="section-title"><div><p class="eyebrow">ПРОЗРАЧНЫЙ УЧЁТ</p><h2>Все операции</h2></div>
 <label>Месяц учёта<input id="month" type="month"></label></div>
-<p class="subtle">У взноса месяц учёта может отличаться от дня платежа.</p><div id="history"></div>
+<div class="month-nav"><button id="month-back" class="quiet">‹ Месяц</button><button id="month-today" class="quiet">Текущий</button>
+<button id="month-next" class="quiet">Месяц ›</button><label class="check-label"><input id="all-months" type="checkbox">Все месяцы</label></div>
+<div class="filters"><label class="search-label">Поиск<input id="search" type="search" maxlength="80" placeholder="Описание, категория, имя или дата"></label>
+<label>Операции<select id="filter-kind"><option value="all">Все</option><option value="expense">Траты</option><option value="contribution">Взносы</option></select></label>
+<label>Кто<select id="filter-member"><option value="">Все жильцы</option></select></label>
+<label>Категория<select id="filter-category"><option value="">Все категории</option></select></label>
+<label>Оплата<select id="filter-mode"><option value="all">Любая</option><option value="house">Из котла</option><option value="personal">За свои</option><option value="waiting_return">Ждёт возврата</option></select></label>
+<label>Порядок<select id="filter-sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="largest">Сначала крупные</option><option value="smallest">Сначала небольшие</option></select></label>
+<button id="clear-filters" class="quiet">Сбросить фильтры</button></div>
+<p class="subtle" id="results-count"></p><div id="summary" class="summary"></div>
+<p class="subtle">У взноса месяц учёта может отличаться от дня платежа. «Повторить» открывает новую запись за сегодня — без автоматического списания.</p><div id="history"></div>
 <div class="pager"><button id="previous" class="quiet">← Назад</button><span id="page"></span>
 <button id="next" class="quiet">Дальше →</button></div></section>
-<section class="card"><div class="section-title"><div><p class="eyebrow">ВАШИ ДАННЫЕ С ВАМИ</p><h2>Файлы и перенос</h2></div></div>
-<p class="subtle">Взносы и траты, без фотографий чеков. Выбранный месяц — из журнала выше.</p>
-<div class="file-row"><label>Период<select id="export-period"><option value="month">Выбранный месяц</option>
+<section class="card" id="files-card"><div class="section-title"><div><p class="eyebrow">ВАШИ ДАННЫЕ С ВАМИ</p><h2>Файлы и перенос</h2></div></div>
+<p class="subtle">Текущая выборка включает поиск и фильтры со всех страниц журнала. Фотографии чеков остаются в боте.</p>
+<div class="file-row"><label>Что скачать<select id="export-period"><option value="selection">Текущая выборка</option><option value="month">Месяц без фильтров</option>
 <option value="all">Вся история</option></select></label><button data-export="csv" class="quiet">CSV</button>
 <button data-export="tsv" class="quiet">TSV</button><button data-export="json" class="quiet">JSON</button></div>
 <div id="import-area" hidden><hr><label class="file-label">Загрузить операции из CSV, TSV или JSON
@@ -33,10 +47,11 @@
 <button id="import-confirm">Подтвердить импорт</button><button id="import-cancel" class="quiet">Отменить</button></div></div>
 </section><footer>Сделано для спокойной жизни вместе. Настройки дома и чеки доступны в боте.</footer></div>
 </main>
-<dialog id="transaction-dialog"><form id="transaction-form"><div class="section-title"><h2 id="form-title"></h2>
+<dialog id="transaction-dialog"><form id="transaction-form"><fieldset id="transaction-fields"><div class="section-title"><h2 id="form-title"></h2>
 <button type="button" class="quiet" id="close-form" aria-label="Закрыть форму">Закрыть</button></div>
 <p class="subtle">Всё в одной записи. Дату и остальные поля можно изменить до сохранения.</p>
 <label>Сумма<input id="tx-amount" inputmode="decimal" autocomplete="off" required placeholder="Например, 1200,50"></label>
+<div id="quick-amounts" class="quick-amounts" aria-label="Недавние суммы"></div>
 <div class="two"><label>Когда была операция<input id="tx-date" type="date" required></label>
 <label id="tx-month-label">За какой месяц<input id="tx-month" type="month" required></label></div>
 <div class="date-shortcuts"><button type="button" class="quiet" id="date-today">Сегодня</button>
@@ -45,6 +60,8 @@
 <label>Как оплатили<select id="tx-mode"><option value="house">Из общего котла</option>
 <option value="personal">За свои — ждёт возврата</option></select></label>
 <label>Описание <span class="subtle">необязательно</span><textarea id="tx-description" maxlength="200" rows="2"></textarea></label></div>
-<p id="form-error" class="error" role="alert"></p><button id="save-transaction" class="full" type="submit">Сохранить запись</button>
-<p class="subtle" id="save-hint"></p></form></dialog>
+<p id="form-error" class="error" role="alert" tabindex="-1"></p><button id="save-transaction" class="full" type="submit">Сохранить запись</button>
+<button id="save-another" class="quiet full" type="submit">Сохранить и добавить ещё</button>
+<button id="discard-draft" class="quiet full" type="button">Удалить черновик</button>
+<p class="subtle" id="save-hint"></p><p class="subtle">Закрытие формы оставляет черновик в этом открытом приложении. После перезапуска он исчезнет.</p></fieldset></form></dialog>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden></div></body></html>

@@ -9,7 +9,7 @@ async def all_rows(house_id: int) -> list:
             SELECT 'expense' AS kind, e.id AS id, e.tg_id, m.display_name,
                    e.spent_on AS date, SUBSTR(e.spent_on, 1, 7) AS month,
                    e.amount_kop, c.name AS category, e.mode, 'confirmed' AS status,
-                   e.reimbursed, e.description, i.source_key
+                   e.reimbursed, e.description, i.source_key, e.category_id
             FROM expenses e
             LEFT JOIN memberships m ON m.house_id = e.house_id AND m.tg_id = e.tg_id
             LEFT JOIN categories c ON c.id = e.category_id
@@ -18,7 +18,7 @@ async def all_rows(house_id: int) -> list:
             UNION ALL
             SELECT 'contribution' AS kind, c.id AS id, c.tg_id, m.display_name,
                    c.paid_on AS date, c.month, c.amount_kop, '' AS category, '' AS mode,
-                   c.status, 0 AS reimbursed, '' AS description, i.source_key
+                   c.status, 0 AS reimbursed, '' AS description, i.source_key, NULL AS category_id
             FROM contributions c
             LEFT JOIN memberships m ON m.house_id = c.house_id AND m.tg_id = c.tg_id
             LEFT JOIN money_import_items i ON i.house_id = c.house_id

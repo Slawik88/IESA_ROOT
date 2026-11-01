@@ -2,6 +2,8 @@
 infrastructure/repositories/money.py — категории, взносы, траты, фото-чеки.
 Деньги — целые копейки. Баланс считает сервис, здесь только данные.
 """
+import json
+
 from infrastructure.db import db, now_utc
 
 
@@ -195,6 +197,28 @@ async def get_expense(expense_id: int):
         )
 
 
+async def edit_expense(house_id: int, actor: int, before: dict, after: dict) -> bool:
+    async with db.transaction() as conn:
+        changed = await conn.execute(
+            """UPDATE expenses SET amount_kop = ?, category_id = ?, spent_on = ?, mode = ?, description = ?
+               WHERE id = ? AND house_id = ? AND reimbursed = 0
+                 AND amount_kop = ? AND COALESCE(category_id, 0) = ? AND spent_on = ?
+                 AND mode = ? AND description = ?""",
+            after["amount_kop"], after["category_id"], after["spent_on"], after["mode"], after["description"],
+            before["id"], house_id, before["amount_kop"], before["category_id"] or 0,
+            before["spent_on"], before["mode"], before["description"],
+        )
+        if not changed:
+            return False
+        await conn.insert(
+            """INSERT INTO expense_edits
+               (house_id, expense_id, actor, changed_at, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?)""",
+            house_id, before["id"], actor, now_utc(), json.dumps(before, ensure_ascii=False),
+            json.dumps(after, ensure_ascii=False),
+        )
+    return True
+
+
 async def recent_expenses(house_id: int, limit: int) -> list:
     async with db.acquire() as conn:
         return await conn.fetch(
@@ -232,16 +256,16 @@ async def delete_expense(expense_id: int) -> None:
         await conn.execute("DELETE FROM expenses WHERE id = ?", expense_id)
 
 
-async def reimburse_expense(expense_id: int, confirmed_by: int) -> bool:
+async def reimburse_expense(expense_id: int, confirmed_by: int, *, expected: dict | None = None) -> bool:
     """Вернуть «за свои» из котла: одна атомарная смена флага, повтор не проходит."""
+    sql = "UPDATE expenses SET reimbursed = 1 WHERE id = ? AND mode = 'personal' AND reimbursed = 0"
+    args = [expense_id]
+    if expected is not None:
+        sql += " AND amount_kop = ? AND COALESCE(category_id, 0) = ? AND spent_on = ? AND description = ?"
+        args.extend((expected["amount_kop"], expected["category_id"] or 0,
+                     expected["spent_on"], expected["description"]))
     async with db.acquire() as conn:
-        rowcount = await conn.execute(
-            """
-            UPDATE expenses SET reimbursed = 1
-            WHERE id = ? AND mode = 'personal' AND reimbursed = 0
-            """,
-            expense_id,
-        )
+        rowcount = await conn.execute(sql, *args)
         return rowcount > 0
 
 

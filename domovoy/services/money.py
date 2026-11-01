@@ -12,6 +12,7 @@ from core.constants import (
 from infrastructure import repositories as repo
 from services.households import DomainError, require, require_member
 from services.transaction_dates import parse_date, parse_month
+from core.transaction_versions import expense_version
 
 MODE_HOUSE = "house"        # трата из котла
 MODE_PERSONAL = "personal"  # заплатил за всех своими — ждёт возврата из котла
@@ -129,7 +130,9 @@ async def delete_expense(house_id: int, expense_id: int) -> None:
     await repo.money.delete_expense(expense_id)
 
 
-async def reimburse_expense(house_id: int, expense_id: int, resolved_by: int) -> None:
+async def reimburse_expense(
+    house_id: int, expense_id: int, resolved_by: int, *, expected_version: str | None = None, idempotent: bool = False,
+) -> None:
     """Вернуть «за свои» из котла — однократно."""
     await require(house_id, resolved_by, "confirm_contributions")
     expense = await repo.money.get_expense(expense_id)
@@ -137,7 +140,17 @@ async def reimburse_expense(house_id: int, expense_id: int, resolved_by: int) ->
         raise DomainError("Трата не найдена")
     if expense["mode"] != MODE_PERSONAL:
         raise DomainError("Эта трата и так из котла")
-    if not await repo.money.reimburse_expense(expense_id, resolved_by):
+    if idempotent and expense["reimbursed"]:
+        return
+    if expected_version and expense_version(expense) != expected_version:
+        raise DomainError("Трату уже изменили. Обновите историю и проверьте сумму возврата.")
+    expected = dict(expense) if expected_version else None
+    if not await repo.money.reimburse_expense(expense_id, resolved_by, expected=expected):
+        current = await repo.money.get_expense(expense_id)
+        if idempotent and current and current["reimbursed"]:
+            return
+        if expected_version:
+            raise DomainError("Трата изменилась. Обновите историю и проверьте возврат.")
         raise DomainError("Эта трата уже возвращена")
 
 
