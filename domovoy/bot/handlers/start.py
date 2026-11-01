@@ -10,6 +10,7 @@ from bot import cb, keyboards as kb
 from bot.states import CreateHouse
 from bot.util import guard, resolve_house
 from core.constants import MAX_HOUSE_NAME_LEN
+from core.private_entry import public_url
 from infrastructure import repositories as repo
 from services import households
 
@@ -27,6 +28,10 @@ async def cancel_action(message: Message, state: FSMContext):
 
 def _menu_text(house) -> str:
     return f"🏠 Дом «{house['name']}»\nЧто делаем?"
+
+
+def _main_menu(can_switch_house: bool):
+    return kb.main_menu(can_switch_house=can_switch_house, web_url=public_url())
 
 
 @router.message(CommandStart())
@@ -48,7 +53,7 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
     await state.clear()
     house = await resolve_house(tg_id)
     if house is not None:
-        await message.answer(_menu_text(house), reply_markup=kb.main_menu(
+        await message.answer(_menu_text(house), reply_markup=_main_menu(
             can_switch_house=len(await households.houses_of_user(tg_id)) > 1))
     elif len(await households.houses_of_user(tg_id)) > 1:
         await message.answer("У вас несколько домов. Выберите, с каким работаем:",
@@ -91,7 +96,7 @@ async def _join_by_invite(message: Message, token: str, state: FSMContext):
         f"{greeting} «{house['name']}» 🏠\n\n"
         "Кнопки: «Сегодня» — чей день уборки, «Баланс» — котёл квартиры, "
         "«Траты» — что куплено, «Скинулся» — ваш взнос.",
-        reply_markup=kb.main_menu(can_switch_house=False),
+        reply_markup=_main_menu(can_switch_house=False),
     )
 
 
@@ -106,10 +111,10 @@ async def show_menu(cbq: CallbackQuery, state: FSMContext):
     houses_count = len(await households.houses_of_user(cbq.from_user.id))
     try:
         await cbq.message.edit_text(_menu_text(house),
-                                    reply_markup=kb.main_menu(can_switch_house=houses_count > 1))
+                                    reply_markup=_main_menu(can_switch_house=houses_count > 1))
     except Exception:
         await cbq.message.answer(_menu_text(house),
-                                 reply_markup=kb.main_menu(can_switch_house=houses_count > 1))
+                                 reply_markup=_main_menu(can_switch_house=houses_count > 1))
     await cbq.answer()
 
 
@@ -140,7 +145,7 @@ async def select_house(cbq: CallbackQuery, state: FSMContext):
     await state.clear()
     house = await households.get_house(house_id)
     await cbq.message.edit_text(_menu_text(house),
-                                reply_markup=kb.main_menu(
+                                reply_markup=_main_menu(
                                     can_switch_house=len(await households.houses_of_user(cbq.from_user.id)) > 1))
     await cbq.answer()
 
@@ -172,5 +177,5 @@ async def create_house_named(message: Message, state: FSMContext):
         f"1. Пригласите жильцов: {link}\n"
         f"2. Настройте график: «Настройки» → или кнопку «График» в меню.\n\n"
         f"Ссылку можно обновить в «Настройки» → «Ссылка-приглашение».",
-        reply_markup=kb.main_menu(can_switch_house=False),
+        reply_markup=_main_menu(can_switch_house=False),
     )

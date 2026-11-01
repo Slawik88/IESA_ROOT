@@ -113,7 +113,7 @@ def _read_file(content: bytes, extension: str) -> list[dict]:
         raise DomainError("Не удалось прочитать файл. Нужен UTF-8 CSV/TSV или JSON Домового.") from exc
 
 
-def _normalize(raw: dict, today: str, currency: str, members: set[int]) -> dict:
+def normalize_row(raw: dict, today: str, currency: str, members: set[int]) -> dict:
     if not isinstance(raw, dict):
         raise DomainError("Операция должна содержать поля, а не строку или число")
     kind = str(raw.get("kind", "")).strip()
@@ -173,7 +173,7 @@ async def preview_import(house_id: int, actor: int, content: bytes, extension: s
         key = row["source_key"] or f"domovoy:{house_id}:{row['kind']}:{row['id']}"
         if key not in known:
             kop = int(row["amount_kop"])
-            canonical = _normalize({
+            canonical = normalize_row({
                 **dict(row), "member_tg_id": row["tg_id"], "amount": f"{kop // 100}.{kop % 100:02d}",
                 "currency": current["currency"], "source_key": key,
             }, settings.house_today(current), current["currency"], members | {row["tg_id"]})
@@ -182,7 +182,7 @@ async def preview_import(house_id: int, actor: int, content: bytes, extension: s
     duplicates = delta = 0
     for index, raw in enumerate(raw_rows, 2 if extension != "json" else 1):
         try:
-            row = _normalize(raw, settings.house_today(current), current["currency"], members)
+            row = normalize_row(raw, settings.house_today(current), current["currency"], members)
             previous = known.get(row["source_key"])
             if previous is not None:
                 if previous != row["fingerprint"]:

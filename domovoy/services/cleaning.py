@@ -117,10 +117,15 @@ async def close_own_day(house_id: int, tg_id: int, actual_date: str):
 
 async def close_day_for(house_id: int, day_id: int, closed_by: int, actual_date: str):
     """Закрыть день за другого с проверкой права close_others_days."""
-    await require(house_id, closed_by, "close_others_days")
     day = await repo.schedule.get_day(day_id)
     if day is None or day["house_id"] != house_id or day["status"] != "open":
         raise DomainError("Этот день уже закрыт или отменён")
+    if day["planned_date"] > actual_date:
+        raise DomainError("Нельзя отметить будущий день уборки")
+    if day["tg_id"] == closed_by:
+        await require_member(house_id, closed_by)
+    else:
+        await require(house_id, closed_by, "close_others_days")
     if not await repo.schedule.close_day(day_id, actual_date, closed_by):
         raise DomainError("Этот день уже закрыт или отменён")
     return day

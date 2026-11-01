@@ -8,6 +8,7 @@ from loguru import logger
 
 from core import settings_registry as reg
 from infrastructure import repositories as repo
+from core.money import format_amount
 
 
 async def _resolve_targets(house, event_key: str, tg_ids: list[int]) -> tuple[list[int], list[int]]:
@@ -66,3 +67,19 @@ async def broadcast(
     members = await repo.houses.list_active_members(house["id"])
     texts = {m["tg_id"]: text for m in members if m["tg_id"] not in exclude_tg_ids}
     await deliver(bot, house, event_key, texts, chat_text=text if texts else None)
+
+
+async def contribution_declared(bot, house, contribution, currency: str, markup=None) -> None:
+    from services import households
+
+    member = await households.membership(house["id"], contribution["tg_id"])
+    who = member["display_name"] if member else "Жилец"
+    texts = {}
+    for recipient in await households.members(house["id"]):
+        if await households.can(house["id"], recipient["tg_id"], "confirm_contributions"):
+            texts[recipient["tg_id"]] = (
+                f"💸 {who} заявил взнос {format_amount(contribution['amount_kop'], currency)} "
+                f"за {contribution['month']}. Подтверждаете?"
+            )
+    if texts:
+        await deliver(bot, house, "contribution_declared", texts, markup=markup)

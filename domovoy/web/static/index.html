@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer">
+<title>Закрытое приложение</title><link rel="stylesheet" href="./app.css">
+<script src="https://telegram.org/js/telegram-web-app.js" defer></script><script src="./app.js" defer></script></head>
+<body><a class="skip" href="#main">К содержимому</a>
+<main id="main"><section id="gate" class="gate"><p class="eyebrow">ЛИЧНОЕ ПРОСТРАНСТВО</p>
+<h1>Всё под рукой.</h1><p id="gate-text">Откройте эту страницу из личного чата, где вы получили ссылку.</p></section>
+<div id="workspace" hidden>
+<header><div><p class="eyebrow" id="brand"></p><h1>Хорошо быть дома.</h1></div>
+<label class="house-label">Ваш дом<select id="house" aria-label="Выбрать дом"></select></label></header>
+<div class="overview">
+<section class="balance"><p class="eyebrow">ОБЩИЙ КОТЁЛ</p><p class="amount" id="balance"></p>
+<p id="balance-detail"></p><div class="actions"><button id="add-expense" class="light">Добавить трату</button>
+<button id="add-contribution" class="ghost-light">Внести деньги</button></div></section>
+<section class="card chores"><div class="section-title"><h2>Уборка</h2><span class="tag" id="today"></span></div>
+<div id="chores"></div><p class="subtle">Отметка закроет выбранный день сегодняшней датой.</p></section></div>
+<section class="card" id="pending-card" hidden><h2>Подтвердить взносы</h2><div id="pending"></div></section>
+<section class="card"><div class="section-title"><div><p class="eyebrow">ПРОЗРАЧНЫЙ УЧЁТ</p><h2>Все операции</h2></div>
+<label>Месяц учёта<input id="month" type="month"></label></div>
+<p class="subtle">У взноса месяц учёта может отличаться от дня платежа.</p><div id="history"></div>
+<div class="pager"><button id="previous" class="quiet">← Назад</button><span id="page"></span>
+<button id="next" class="quiet">Дальше →</button></div></section>
+<section class="card"><div class="section-title"><div><p class="eyebrow">ВАШИ ДАННЫЕ С ВАМИ</p><h2>Файлы и перенос</h2></div></div>
+<p class="subtle">Взносы и траты, без фотографий чеков. Выбранный месяц — из журнала выше.</p>
+<div class="file-row"><label>Период<select id="export-period"><option value="month">Выбранный месяц</option>
+<option value="all">Вся история</option></select></label><button data-export="csv" class="quiet">CSV</button>
+<button data-export="tsv" class="quiet">TSV</button><button data-export="json" class="quiet">JSON</button></div>
+<div id="import-area" hidden><hr><label class="file-label">Загрузить операции из CSV, TSV или JSON
+<input id="import-file" type="file" accept=".csv,.tsv,.json"></label><p class="subtle">До 2 МБ и 1000 строк.
+Используйте экспорт или шаблон из бота. Сначала покажем проверку, затем спросим подтверждение.</p>
+<div id="import-preview" hidden><p id="import-summary"></p><pre id="import-errors"></pre>
+<button id="import-confirm">Подтвердить импорт</button><button id="import-cancel" class="quiet">Отменить</button></div></div>
+</section><footer>Сделано для спокойной жизни вместе. Настройки дома и чеки доступны в боте.</footer></div>
+</main>
+<dialog id="transaction-dialog"><form id="transaction-form"><div class="section-title"><h2 id="form-title"></h2>
+<button type="button" class="quiet" id="close-form" aria-label="Закрыть форму">Закрыть</button></div>
+<p class="subtle">Всё в одной записи. Дату и остальные поля можно изменить до сохранения.</p>
+<label>Сумма<input id="tx-amount" inputmode="decimal" autocomplete="off" required placeholder="Например, 1200,50"></label>
+<div class="two"><label>Когда была операция<input id="tx-date" type="date" required></label>
+<label id="tx-month-label">За какой месяц<input id="tx-month" type="month" required></label></div>
+<div class="date-shortcuts"><button type="button" class="quiet" id="date-today">Сегодня</button>
+<button type="button" class="quiet" id="date-yesterday">Вчера</button></div>
+<div id="expense-fields"><label>Категория<select id="tx-category"></select></label>
+<label>Как оплатили<select id="tx-mode"><option value="house">Из общего котла</option>
+<option value="personal">За свои — ждёт возврата</option></select></label>
+<label>Описание <span class="subtle">необязательно</span><textarea id="tx-description" maxlength="200" rows="2"></textarea></label></div>
+<p id="form-error" class="error" role="alert"></p><button id="save-transaction" class="full" type="submit">Сохранить запись</button>
+<p class="subtle" id="save-hint"></p></form></dialog>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div></body></html>

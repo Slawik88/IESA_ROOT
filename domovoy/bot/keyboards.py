@@ -1,7 +1,7 @@
 """
 bot/keyboards.py — все inline-клавиатуры бота. Только кнопки; правила — в services.
 """
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from bot import cb
 from core import settings_registry as reg
@@ -16,7 +16,7 @@ def _kb(rows: list[list[Btn]]) -> InlineKeyboardMarkup:
 
 # ── Главное меню ─────────────────────────────────────────────────────────────
 
-def main_menu(can_switch_house: bool) -> InlineKeyboardMarkup:
+def main_menu(can_switch_house: bool, web_url: str | None = None) -> InlineKeyboardMarkup:
     rows = [
         [Btn(text="🧹 Сегодня", callback_data=cb.today()), Btn(text="📅 График", callback_data=cb.schedule_view())],
         [Btn(text="💰 Деньги и операции", callback_data=cb.balance())],
@@ -25,6 +25,8 @@ def main_menu(can_switch_house: bool) -> InlineKeyboardMarkup:
     ]
     if can_switch_house:
         rows.append([Btn(text="🏠 Сменить дом", callback_data=cb.houses_list())])
+    if web_url:
+        rows.insert(0, [Btn(text="Открыть домашний кабинет", web_app=WebAppInfo(url=web_url))])
     return _kb(rows)
 
 

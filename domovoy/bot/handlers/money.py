@@ -29,19 +29,8 @@ async def _context(tg_id: int):
 
 async def _notify_confirmers(bot, house, settings, contribution, currency):
     """Тем, у кого право подтверждать взносы, — кнопки решения."""
-    declarer = await households.membership(house["id"], contribution["tg_id"])
-    who = declarer["display_name"] if declarer else "Жилец"
-    texts = {}
-    for member in await households.members(house["id"]):
-        if await households.can(house["id"], member["tg_id"], "confirm_contributions"):
-            texts[member["tg_id"]] = (
-                f"💸 {who} заявил взнос {format_amount(contribution['amount_kop'], currency)} "
-                f"за {contribution['month']}. Подтверждаете?"
-            )
-    if not texts:
-        return
-    await notify.deliver(
-        bot, house, "contribution_declared", texts,
+    await notify.contribution_declared(
+        bot, house, contribution, currency,
         markup=kb.contribution_decision_keyboard(contribution["id"]),
     )
 

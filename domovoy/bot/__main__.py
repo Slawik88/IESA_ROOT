@@ -3,6 +3,7 @@ bot/__main__.py — точка входа «Домового». Запуск: `c
 """
 import asyncio
 import sys
+from contextlib import contextmanager
 
 from aiogram import Bot
 from loguru import logger
@@ -13,6 +14,20 @@ from core.constants import SCHEDULER_TICK_SECONDS
 from infrastructure.db import db
 from infrastructure.schema import ensure_schema
 from services import scheduler
+
+
+def web_server(bot):
+    import uvicorn
+    from web.app import create_app
+
+    class EmbeddedServer(uvicorn.Server):
+        @contextmanager
+        def capture_signals(self):
+            # Завершением процесса управляет aiogram.
+            yield
+
+    return EmbeddedServer(uvicorn.Config(create_app(bot=bot), host="127.0.0.1", port=8011,
+                                         access_log=False, log_level="warning", lifespan="off"))
 
 
 async def scheduler_loop(bot: Bot) -> None:
@@ -42,14 +57,21 @@ async def main() -> None:
 
     dp = build_dispatcher()
     reminders = asyncio.create_task(scheduler_loop(bot), name="domovoy-reminders")
+    server = web_server(bot)
+    site = asyncio.create_task(server.serve(), name="domovoy-web")
+    polling = asyncio.create_task(dp.start_polling(bot), name="domovoy-polling")
     try:
-        await dp.start_polling(bot)
+        done, _ = await asyncio.wait({polling, site}, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
+            task.result()
+        if site in done:
+            raise RuntimeError("Закрытый веб-сервис неожиданно остановлен")
     finally:
-        reminders.cancel()
-        try:
-            await reminders
-        except asyncio.CancelledError:
-            pass
+        server.should_exit = True
+        for task in (reminders, site, polling):
+            task.cancel()
+        await asyncio.gather(reminders, site, polling, return_exceptions=True)
+        await bot.session.close()
         await db.close()
         logger.info("👋 Домовой остановлен")
 
