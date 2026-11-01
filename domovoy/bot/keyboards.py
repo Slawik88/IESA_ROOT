@@ -19,7 +19,7 @@ def _kb(rows: list[list[Btn]]) -> InlineKeyboardMarkup:
 def main_menu(can_switch_house: bool) -> InlineKeyboardMarkup:
     rows = [
         [Btn(text="🧹 Сегодня", callback_data=cb.today()), Btn(text="📅 График", callback_data=cb.schedule_view())],
-        [Btn(text="💰 Баланс", callback_data=cb.balance()), Btn(text="🧾 Траты", callback_data=cb.expenses_list())],
+        [Btn(text="💰 Деньги и операции", callback_data=cb.balance())],
         [Btn(text="💸 Скинулся", callback_data=cb.contribute()), Btn(text="➕ Трата", callback_data=cb.expense_new())],
         [Btn(text="⚙️ Настройки", callback_data=cb.settings_root())],
     ]
@@ -116,8 +116,13 @@ def balance_keyboard(pending_count: int, can_confirm: bool) -> InlineKeyboardMar
     rows = []
     if can_confirm and pending_count:
         rows.append([Btn(text=f"⏳ Подтвердить взносы ({pending_count})", callback_data=cb.pending())])
-    rows.append([Btn(text="🧾 Последние траты", callback_data=cb.expenses_list()),
-                 Btn(text="← Меню", callback_data=cb.menu())])
+    rows.extend([
+        [Btn(text="➕ Трата", callback_data=cb.expense_new()),
+         Btn(text="💸 Внести деньги", callback_data=cb.contribute())],
+        [Btn(text="📋 Все операции", callback_data=cb.money_history())],
+        [Btn(text="📁 Экспорт и импорт", callback_data=cb.money_files())],
+        [Btn(text="← Меню", callback_data=cb.menu())],
+    ])
     return _kb(rows)
 
 
@@ -182,7 +187,13 @@ def expenses_list_keyboard(expenses: list) -> InlineKeyboardMarkup:
     rows = [[Btn(text=f"{row['spent_on'][8:10]}.{row['spent_on'][5:7]} · {row['display_name'] or '?'} · "
                  f"{row['category_name'] or '—'}", callback_data=cb.expense_card(row["id"]))]
             for row in expenses]
-    rows.append([Btn(text="← Меню", callback_data=cb.menu())])
+    rows.extend([
+        [Btn(text="➕ Трата", callback_data=cb.expense_new()),
+         Btn(text="💸 Внести деньги", callback_data=cb.contribute())],
+        [Btn(text="📋 Все операции", callback_data=cb.money_history())],
+        [Btn(text="📁 Экспорт и импорт", callback_data=cb.money_files())],
+        [Btn(text="← Меню", callback_data=cb.menu())],
+    ])
     return _kb(rows)
 
 
@@ -209,17 +220,25 @@ def history_keyboard(month: str, prev_month: str, next_month: str, can_nav_next:
 
 # ── Настройки ────────────────────────────────────────────────────────────────
 
-def settings_root_keyboard(is_owner: bool, chat_bound: bool) -> InlineKeyboardMarkup:
+def settings_root_keyboard(
+    is_owner: bool, chat_bound: bool, *, can_manage_members: bool | None = None,
+    can_manage_categories: bool | None = None,
+) -> InlineKeyboardMarkup:
+    members_allowed = is_owner if can_manage_members is None else can_manage_members
+    categories_allowed = is_owner if can_manage_categories is None else can_manage_categories
     rows = [
         [Btn(text="🔔 Мои уведомления", callback_data=cb.settings_notify())],
     ]
     if is_owner:
         rows.append([Btn(text="🏠 Настройки дома", callback_data=cb.settings_house())])
+    if members_allowed:
         rows.append([Btn(text="👥 Права участников", callback_data=cb.settings_perms())])
+        rows.append([Btn(text="💌 Ссылка-приглашение", callback_data=cb.settings_invite())])
+    if categories_allowed:
         rows.append([Btn(text="🏷 Категории трат", callback_data=cb.settings_categories())])
+    if is_owner:
         rows.append([Btn(text="🔗 Привязать этот чат" if not chat_bound else "🔗 Чат привязан ✓",
                          callback_data=cb.settings_bind_chat())])
-        rows.append([Btn(text="💌 Ссылка-приглашение", callback_data=cb.settings_invite())])
     rows.append([Btn(text="← Меню", callback_data=cb.menu())])
     return _kb(rows)
 
@@ -292,6 +311,81 @@ def categories_manage_keyboard(categories: list) -> InlineKeyboardMarkup:
 
 def invite_keyboard(link: str) -> InlineKeyboardMarkup:
     return _kb([
-        [Btn(text="🔄 Обновить ссылку", callback_data=cb.settings_invite())],
+        [Btn(text="🔄 Обновить ссылку", callback_data=cb.settings_invite_refresh())],
         [Btn(text="← Настройки", callback_data=cb.settings_root())],
     ])
+
+
+def transaction_cancel_keyboard() -> InlineKeyboardMarkup:
+    return _kb([[Btn(text="Отмена → деньги", callback_data=cb.balance())]])
+
+
+def transaction_back_keyboard() -> InlineKeyboardMarkup:
+    return _kb([[Btn(text="← К записи", callback_data="tx_back")],
+                [Btn(text="Отмена → деньги", callback_data=cb.balance())]])
+
+
+def transaction_review_keyboard(kind: str, token: str) -> InlineKeyboardMarkup:
+    rows = [
+        [Btn(text="✅ Сохранить", callback_data=cb.transaction_save(token))],
+        [Btn(text="Изменить сумму", callback_data=cb.transaction_field("amount")),
+         Btn(text="Дата", callback_data=cb.transaction_field("date"))],
+    ]
+    if kind == "expense":
+        rows += [
+            [Btn(text="Категория", callback_data=cb.transaction_field("category")),
+             Btn(text="Из котла / за свои", callback_data=cb.transaction_field("mode"))],
+            [Btn(text="Описание", callback_data=cb.transaction_field("description")),
+             Btn(text="Прикрепить чеки", callback_data=cb.transaction_field("photos"))],
+        ]
+    else:
+        rows.append([Btn(text="За какой месяц", callback_data=cb.transaction_field("month"))])
+    rows.append([Btn(text="Отмена → деньги", callback_data=cb.balance())])
+    return _kb(rows)
+
+
+def transaction_date_keyboard() -> InlineKeyboardMarkup:
+    return _kb([
+        [Btn(text="Сегодня", callback_data="tx_date:today"), Btn(text="Вчера", callback_data="tx_date:yesterday")],
+        [Btn(text="← К записи", callback_data="tx_back")],
+    ])
+
+
+def transaction_categories_keyboard(categories: list) -> InlineKeyboardMarkup:
+    rows = [[Btn(text=row["name"], callback_data=f"tx_cat:{row['id']}")] for row in categories]
+    rows += [[Btn(text="Без категории", callback_data="tx_cat:0")],
+             [Btn(text="← К записи", callback_data="tx_back")]]
+    return _kb(rows)
+
+
+def transaction_success_keyboard(kind: str) -> InlineKeyboardMarkup:
+    return _kb([
+        [Btn(text="Добавить ещё", callback_data=cb.expense_new() if kind == "expense" else cb.contribute())],
+        [Btn(text="📋 Все операции", callback_data=cb.money_history())],
+        [Btn(text="← Деньги", callback_data=cb.balance())],
+    ])
+
+
+def money_files_keyboard(month: str, can_import: bool) -> InlineKeyboardMarkup:
+    rows = [
+        [Btn(text="Текущий месяц", callback_data="files_period:current"),
+         Btn(text="Вся история", callback_data="files_period:all")],
+        [Btn(text="Другой месяц", callback_data="files_period:custom")],
+        [Btn(text=f"Скачать {fmt.upper()}", callback_data=f"file_export:{fmt}:{month}")
+         for fmt in ("csv", "tsv", "json")],
+    ]
+    if can_import:
+        rows += [[Btn(text="📥 Загрузить операции", callback_data="file_import")],
+                 [Btn(text="Шаблон CSV", callback_data="file_template:csv"),
+                  Btn(text="Шаблон JSON", callback_data="file_template:json")]]
+    rows.append([Btn(text="← Деньги", callback_data=cb.balance())])
+    return _kb(rows)
+
+
+def import_review_keyboard(token: str | None) -> InlineKeyboardMarkup:
+    rows = []
+    if token:
+        rows.append([Btn(text="✅ Подтвердить импорт", callback_data=f"file_apply:{token}")])
+    rows += [[Btn(text="Загрузить другой файл", callback_data="file_import")],
+             [Btn(text="← Файлы / отмена", callback_data=cb.money_files())]]
+    return _kb(rows)

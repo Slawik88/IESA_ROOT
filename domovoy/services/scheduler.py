@@ -5,8 +5,6 @@ services/scheduler.py — напоминания: утро, вечер, меся
 проверить тестами. Каждая сработка отмечается в scheduler_log — после рестарта
 ничего не уходит дважды (идемпотентность).
 """
-from datetime import date as date_cls
-
 from loguru import logger
 
 from core.constants import DEFAULT_MONTHLY_REPORT_HOUR, DATE_FMT
@@ -59,21 +57,26 @@ async def _morning_job(bot, house, today: str) -> None:
     texts = {}
     for day in open_days:
         texts[day["tg_id"]] = (
-            f"🧹 Сегодня ваш день уборки в «{house['name']}».\n"
+            f"🧹 {day['display_name'] or 'Жилец'}, сегодня ваш день уборки в «{house['name']}».\n"
             f"Как уберётесь — нажмите «Убрался» в меню."
         )
     await notify.deliver(bot, house, "morning_reminder", texts)
 
 
 async def _evening_job(bot, house, today: str) -> None:
-    earliest = date_cls(2000, 1, 1).strftime(DATE_FMT)
-    open_days = await repo.schedule.open_days_between(house["id"], earliest, today)
+    await cleaning.ensure_days(house["id"], today)
+    open_days = await cleaning.open_days_up_to(house["id"], today)
     if not open_days:
         return
-    texts = {}
+    by_member = {}
     for day in open_days:
-        texts[day["tg_id"]] = (
-            f"🌙 День уборки {day['planned_date']} в «{house['name']}» ещё не закрыт.\n"
+        by_member.setdefault(day["tg_id"], []).append(day)
+    texts = {}
+    for tg_id, days in by_member.items():
+        dates = ", ".join(day["planned_date"] for day in days)
+        texts[tg_id] = (
+            f"🌙 {days[0]['display_name'] or 'Жилец'}, в «{house['name']}» "
+            f"ещё не закрыта уборка: {dates}.\n"
             f"Если убрались — нажмите «Убрался», если день пропущен — владелец отменит его."
         )
     await notify.deliver(bot, house, "evening_reminder", texts)

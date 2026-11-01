@@ -59,8 +59,11 @@ async def get_day(day_id: int):
     async with db.acquire() as conn:
         return await conn.fetchrow(
             """
-            SELECT id, house_id, tg_id, planned_date, status, actual_date, closed_by, closed_at
-            FROM cleaning_days WHERE id = ?
+            SELECT d.id, d.house_id, d.tg_id, d.planned_date, d.status,
+                   d.actual_date, d.closed_by, d.closed_at, m.display_name
+            FROM cleaning_days d
+            LEFT JOIN memberships m ON m.house_id = d.house_id AND m.tg_id = d.tg_id
+            WHERE d.id = ?
             """,
             day_id,
         )
@@ -115,18 +118,20 @@ async def open_days_between(house_id: int, from_date: str, to_date: str) -> list
     async with db.acquire() as conn:
         return await conn.fetch(
             """
-            SELECT id, house_id, tg_id, planned_date, status
-            FROM cleaning_days
-            WHERE house_id = ? AND status = 'open' AND planned_date BETWEEN ? AND ?
-            ORDER BY planned_date
+            SELECT d.id, d.house_id, d.tg_id, d.planned_date, d.status, m.display_name
+            FROM cleaning_days d
+            JOIN memberships m ON m.house_id = d.house_id AND m.tg_id = d.tg_id
+            WHERE d.house_id = ? AND d.status = 'open' AND d.planned_date BETWEEN ? AND ?
+                  AND m.status = 'active'
+            ORDER BY d.planned_date, d.id
             """,
             house_id, from_date, to_date,
         )
 
 
-async def close_day(day_id: int, actual_date: str, closed_by: int) -> None:
+async def close_day(day_id: int, actual_date: str, closed_by: int) -> bool:
     async with db.acquire() as conn:
-        await conn.execute(
+        count = await conn.execute(
             """
             UPDATE cleaning_days
             SET status = 'done', actual_date = ?, closed_by = ?, closed_at = ?
@@ -134,11 +139,12 @@ async def close_day(day_id: int, actual_date: str, closed_by: int) -> None:
             """,
             actual_date, closed_by, now_utc(), day_id,
         )
+        return count > 0
 
 
-async def cancel_day(day_id: int, closed_by: int) -> None:
+async def cancel_day(day_id: int, closed_by: int) -> bool:
     async with db.acquire() as conn:
-        await conn.execute(
+        count = await conn.execute(
             """
             UPDATE cleaning_days
             SET status = 'canceled', closed_by = ?, closed_at = ?
@@ -146,6 +152,7 @@ async def cancel_day(day_id: int, closed_by: int) -> None:
             """,
             closed_by, now_utc(), day_id,
         )
+        return count > 0
 
 
 async def month_history(house_id: int, month: str) -> list:

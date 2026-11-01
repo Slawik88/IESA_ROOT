@@ -18,9 +18,9 @@ def test_pg_statement_replaces_autoincrement():
 
 def test_sqlite_statement_untouched_by_transformation():
     # На sqlite трансформация не применяется вовсе (см. ensure_schema),
-    # а сама функция обязана быть точечной: не трогает прочий текст.
+    # Прочий текст не меняется, Telegram ID в PostgreSQL расширяются до BIGINT.
     assert _pg_statement("CREATE TABLE t (tg_id INTEGER PRIMARY KEY, v TEXT)") == (
-        "CREATE TABLE t (tg_id INTEGER PRIMARY KEY, v TEXT)"
+        "CREATE TABLE t (tg_id BIGINT PRIMARY KEY, v TEXT)"
     )
 
 

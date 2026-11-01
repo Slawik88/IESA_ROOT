@@ -73,7 +73,9 @@ async def add_member(house_id: int, tg_id: int, display_name: str) -> bool:
             """
             INSERT INTO memberships (house_id, tg_id, display_name, role, status, joined_at)
             VALUES (?, ?, ?, 'member', 'active', ?)
-            ON CONFLICT (house_id, tg_id) DO NOTHING
+            ON CONFLICT (house_id, tg_id) DO UPDATE
+            SET status = 'active', display_name = EXCLUDED.display_name, joined_at = EXCLUDED.joined_at
+            WHERE memberships.status = 'left'
             """,
             house_id, tg_id, display_name, now_utc(),
         )

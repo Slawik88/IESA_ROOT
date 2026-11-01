@@ -69,6 +69,12 @@ async def membership(house_id: int, tg_id: int):
     return await repo.houses.get_membership(house_id, tg_id)
 
 
+async def require_member(house_id: int, tg_id: int) -> None:
+    member = await membership(house_id, tg_id)
+    if member is None or member["status"] != "active":
+        raise DomainError("Вы больше не участник этого дома. Выберите дом через /start.")
+
+
 async def leave_house(house_id: int, tg_id: int) -> None:
     m = await repo.houses.get_membership(house_id, tg_id)
     if m and m["role"] == perms.ROLE_OWNER:
@@ -111,6 +117,7 @@ async def grants_of(house_id: int, tg_id: int) -> frozenset[str]:
 async def set_grant(house_id: int, tg_id: int, code: str, granted: bool) -> None:
     if code not in perms.PERMISSION_CODES:
         raise DomainError("Неизвестное право")
+    await require_member(house_id, tg_id)
     if granted:
         await repo.houses.grant(house_id, tg_id, code)
     else:

@@ -4,6 +4,7 @@ bot/util.py — помощники тонкого слоя: дом пользо�
 from functools import wraps
 from typing import Awaitable, Callable
 
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
 from core.money import AmountError
@@ -55,7 +56,9 @@ async def safe_edit(cb: CallbackQuery, text: str, markup: InlineKeyboardMarkup |
     """Отредактировать сообщение; недоступное — ответить новым (старые кнопки живут часами)."""
     try:
         await cb.message.edit_text(text, reply_markup=markup)
-    except Exception:
+    except TelegramBadRequest as exc:
+        if "message is not modified" in str(exc):
+            return
         await cb.message.answer(text, reply_markup=markup)
 
 

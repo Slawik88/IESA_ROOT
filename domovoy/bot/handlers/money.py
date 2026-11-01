@@ -3,13 +3,11 @@ bot/handlers/money.py — Баланс Квартиры: взносы, трат�
 """
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery
 
 from bot import cb, keyboards as kb
-from bot.states import Contribution, Expense
 from bot.util import fmt_date, guard, resolve_house, safe_edit
-from core.constants import MAX_PHOTOS_PER_EXPENSE
-from core.money import format_amount, parse_amount
+from core.money import format_amount
 from services import households, money, notify
 from services import settings as settings_service
 from services.money import MODE_HOUSE, MODE_PERSONAL
@@ -28,44 +26,6 @@ async def _context(tg_id: int):
 
 
 # ── Взносы («Скинулся») ──────────────────────────────────────────────────────
-
-@router.callback_query(F.data == cb.contribute())
-@guard
-async def start_contribution(cbq: CallbackQuery, state: FSMContext):
-    house, settings = await _context(cbq.from_user.id)
-    if house is None:
-        await cbq.answer("Сначала выберите дом", show_alert=True)
-        return
-    await state.set_state(Contribution.waiting_amount)
-    await cbq.message.answer(
-        f"Сколько вы скинулись в Баланс Квартиры «{house['name']}»?\n"
-        f"Например: 3000 или 2500,50",
-    )
-    await cbq.answer()
-
-
-@router.message(Contribution.waiting_amount, F.text)
-@guard
-async def contribution_amount(message: Message, state: FSMContext):
-    house, settings = await _context(message.from_user.id)
-    if house is None:
-        await state.clear()
-        await message.answer("Сначала выберите дом через /start")
-        return
-    amount_kop = parse_amount(message.text)
-    today = settings_service.house_today(settings)
-    contribution = await money.declare_contribution(house["id"], message.from_user.id,
-                                                    amount_kop, today)
-    await state.clear()
-
-    currency = settings["currency"]
-    await message.answer(
-        f"💸 Взнос {format_amount(amount_kop, currency)} за {today[:7]} заявлен.\n"
-        f"Владелец дома подтвердит получение — уведомлю здесь.",
-        reply_markup=kb.back_to_menu(),
-    )
-    await _notify_confirmers(message.bot, house, settings, contribution, currency)
-
 
 async def _notify_confirmers(bot, house, settings, contribution, currency):
     """Тем, у кого право подтверждать взносы, — кнопки решения."""
@@ -96,17 +56,17 @@ async def resolve_contribution(cbq: CallbackQuery, state: FSMContext):
     parts = cb.parse(cbq.data)
     contribution_id, confirm = int(parts[1]), parts[2] == "1"
     await households.require(house["id"], cbq.from_user.id, "confirm_contributions")
-    contribution = await money.resolve_contribution(contribution_id, confirm, cbq.from_user.id)
+    contribution = await money.resolve_contribution(
+        contribution_id, confirm, cbq.from_user.id, house_id=house["id"],
+    )
     await state.clear()
     currency = settings["currency"]
     verb = "подтверждён" if confirm else "отклонён"
     await cbq.answer(f"Взнос {verb}")
-    try:
-        await cbq.message.edit_text(
-            f"{'✅' if confirm else '❌'} Взнос {format_amount(contribution['amount_kop'], currency)} "
-            f"за {contribution['month']} {verb}.")
-    except Exception:
-        pass
+    await safe_edit(cbq,
+                    f"{'✅' if confirm else '❌'} Взнос "
+                    f"{format_amount(contribution['amount_kop'], currency)} "
+                    f"за {contribution['month']} {verb}.")
     await notify.deliver(
         cbq.bot, house, "contribution_confirmed",
         {contribution["tg_id"]: (
@@ -172,112 +132,19 @@ async def show_pending(cbq: CallbackQuery):
 
 # ── Траты ────────────────────────────────────────────────────────────────────
 
-@router.callback_query(F.data == cb.expense_new())
-@guard
-async def start_expense(cbq: CallbackQuery, state: FSMContext):
-    house, settings = await _context(cbq.from_user.id)
-    if house is None:
-        await cbq.answer("Сначала выберите дом", show_alert=True)
-        return
-    await state.set_state(Expense.waiting_amount)
-    await state.update_data(house_id=house["id"], photos=[])
-    await cbq.message.answer("Сколько потратили? Например: 1200 или 350,50")
-    await cbq.answer()
-
-
-@router.message(Expense.waiting_amount, F.text)
-@guard
-async def expense_amount(message: Message, state: FSMContext):
-    amount_kop = parse_amount(message.text)
-    await state.update_data(amount_kop=amount_kop)
-    await state.set_state(Expense.choosing_category)
-    house, settings = await _context(message.from_user.id)
-    categories = await money.categories(house["id"])
-    await message.answer("Категория траты:", reply_markup=kb.categories_keyboard(categories))
-
-
-@router.callback_query(Expense.choosing_category, F.data.regexp(r"^exp_cat:(\d+)$"))
-@guard
-async def expense_category(cbq: CallbackQuery, state: FSMContext):
-    category_id = int(cb.parse(cbq.data)[1])
-    await state.update_data(category_id=category_id)
-    await state.set_state(Expense.choosing_mode)
-    await cbq.message.edit_text("Откуда деньги?", reply_markup=kb.mode_keyboard())
-    await cbq.answer()
-
-
-@router.callback_query(Expense.choosing_mode, F.data.regexp(r"^exp_mode:(house|personal)$"))
-@guard
-async def expense_mode(cbq: CallbackQuery, state: FSMContext):
-    mode = cb.parse(cbq.data)[1]
-    await state.update_data(mode=mode)
-    await state.set_state(Expense.waiting_photos)
-    hint = ("Пришлите фото чека (можно несколько).\n"
-            "Когда всё — «Готово, сохранить»." if mode == MODE_HOUSE else
-            "Пришлите фото чека (можно несколько) — по нему вернём деньги из котла.\n"
-            "Когда всё — «Готово, сохранить».")
-    await cbq.message.edit_text(hint, reply_markup=kb.photos_keyboard())
-    await cbq.answer()
-
-
-@router.message(Expense.waiting_photos, F.photo)
-@guard
-async def expense_photo(message: Message, state: FSMContext):
-    data = await state.get_data()
-    photos = list(data.get("photos", []))
-    if len(photos) >= MAX_PHOTOS_PER_EXPENSE:
-        await message.answer("Чеков достаточно — нажмите «Готово, сохранить».")
-        return
-    photos.append(message.photo[-1].file_id)
-    await state.update_data(photos=photos)
-    await message.answer(f"📸 Чек {len(photos)} принят. Можно прислать ещё или нажать «Готово».")
-
-
-@router.message(Expense.waiting_photos)
-@guard
-async def expense_photo_other(message: Message, state: FSMContext):
-    await message.answer("Жду фото чека. Если чека нет — нажмите «Готово, сохранить».")
-
-
-@router.callback_query(Expense.waiting_photos, F.data == cb.expense_photos_done())
-@guard
-async def expense_photos_done(cbq: CallbackQuery, state: FSMContext):
-    await state.set_state(Expense.waiting_description)
-    await cbq.message.answer(
-        "Добавить описание? Напишите текст — или нажмите «Без описания».",
-        reply_markup=kb.description_keyboard(),
-    )
-    await cbq.answer()
-
-
-@router.message(Expense.waiting_description, F.text)
-@guard
-async def expense_description(message: Message, state: FSMContext):
-    data = await state.get_data()
-    await state.clear()
-    summary = await persist_expense(message.bot, message.from_user.id, data, message.text)
-    await message.answer(summary, reply_markup=kb.back_to_menu())
-
-
-@router.callback_query(Expense.waiting_description, F.data == cb.expense_desc_skip())
-@guard
-async def expense_description_skip(cbq: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    await state.clear()
-    summary = await persist_expense(cbq.bot, cbq.from_user.id, data, "")
-    await cbq.message.answer(summary, reply_markup=kb.back_to_menu())
-    await cbq.answer("Сохранено")
-
-
-async def persist_expense(bot, tg_id: int, data: dict, description: str) -> str:
+async def persist_expense(
+    bot, tg_id: int, data: dict, description: str, *, state: FSMContext | None = None,
+) -> str:
     """Сохранить трату из накопленных шагов и разослать уведомление. Текст-итог."""
     house = await households.get_house(data["house_id"])
     settings = await settings_service.house_settings(house["id"])
     today = settings_service.house_today(settings)
     await money.add_expense(
         house["id"], tg_id, data["amount_kop"], data.get("category_id"),
-        today, data["mode"], description, data.get("photos", []),
+        data.get("date", today), data["mode"], description, data.get("photos", []),
     )
+    if state is not None:
+        await state.clear()
     currency = settings["currency"]
     category_name = "—"
     if data.get("category_id"):
@@ -292,7 +159,7 @@ async def persist_expense(bot, tg_id: int, data: dict, description: str) -> str:
         exclude_tg_ids={tg_id},
     )
     return (f"🧾 Трата сохранена: {format_amount(data['amount_kop'], currency)} — "
-            f"{category_name} ({MODE_LABEL[data['mode']]})")
+            f"{category_name} ({MODE_LABEL[data['mode']]}) · {data.get('date', today)}")
 
 
 @router.callback_query(F.data == cb.expenses_list())
@@ -349,7 +216,7 @@ async def send_expense_photos(cbq: CallbackQuery):
         await cbq.answer("Сначала выберите дом", show_alert=True)
         return
     expense_id = int(cb.parse(cbq.data)[1])
-    photos = await money.expense_photos(expense_id)
+    photos = await money.expense_photos(house["id"], expense_id)
     if not photos:
         await cbq.answer("Чеков нет", show_alert=True)
         return

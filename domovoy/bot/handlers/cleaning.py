@@ -38,12 +38,13 @@ STATUS_MARK = {"done": "✅", "open": "⏳", "canceled": "⛔"}
 
 # ── Сегодня ──────────────────────────────────────────────────────────────────
 
-async def render_today(cbq: CallbackQuery, state: FSMContext) -> None:
+async def render_today(cbq: CallbackQuery) -> None:
     house, settings, today, yesterday = await _context(cbq.from_user.id)
     if house is None:
         await cbq.answer("Сначала выберите дом", show_alert=True)
         return
 
+    await cleaning.ensure_days(house["id"], today)
     days = await cleaning.days_on(house["id"], today)
     if not await cleaning.weekday_map(house["id"]):
         text = "График ещё не настроен. Задать его можно здесь: «График» → «Изменить график»."
@@ -58,11 +59,13 @@ async def render_today(cbq: CallbackQuery, state: FSMContext) -> None:
             lines.append(f"{mark} {day['display_name']}{suffix}")
         text = "\n".join(lines)
 
-    my_open_dates = [d["planned_date"] for d in days
+    open_days = await cleaning.open_days_up_to(house["id"], today)
+    my_open_dates = [d["planned_date"] for d in open_days
                      if d["tg_id"] == cbq.from_user.id and d["status"] == "open"]
     owner_days: list[tuple[int, str]] = []
     if await households.can(house["id"], cbq.from_user.id, "close_others_days"):
-        owner_days = [(d["id"], d["display_name"] or "?") for d in days
+        owner_days = [(d["id"], f"{d['display_name'] or '?'} · {fmt_date(d['planned_date'])}")
+                      for d in open_days
                       if d["status"] == "open" and d["tg_id"] != cbq.from_user.id]
     await safe_edit(cbq, text, kb.today_keyboard(my_open_dates, today, yesterday, owner_days))
 
@@ -83,6 +86,12 @@ async def mark_done(cbq: CallbackQuery, state: FSMContext):
         await cbq.answer("Сначала выберите дом", show_alert=True)
         return
     actual_date = cb.parse(cbq.data)[1]
+    try:
+        date.fromisoformat(actual_date)
+    except ValueError:
+        raise households.DomainError("Некорректная дата уборки") from None
+    if actual_date > today:
+        raise households.DomainError("Нельзя отметить уборку будущей датой")
     day = await cleaning.close_own_day(house["id"], cbq.from_user.id, actual_date)
     await state.clear()
     await cbq.answer(f"Готово! День {fmt_date(day['planned_date'])} закрыт.", show_alert=True)
@@ -215,6 +224,7 @@ async def pick_weekday(cbq: CallbackQuery, state: FSMContext):
 @guard
 async def save_schedule(cbq: CallbackQuery, state: FSMContext):
     data = await state.get_data()
+    await households.require(data["house_id"], cbq.from_user.id, "manage_schedule")
     house = await households.get_house(data["house_id"])
     settings = await settings_service.house_settings(house["id"])
     today = settings_service.house_today(settings)

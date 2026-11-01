@@ -13,9 +13,9 @@ async def month_report_text(house, month: str) -> str:
     currency = house_settings["currency"]
     report = await money.month_report(house["id"], month)
 
-    balance = report["balance"]
+    balance = report["balance"]["balance"]
     lines = [f"📊 Отчёт за {month} — дом «{house['name']}»", ""]
-    lines.append(f"Баланс котла: {format_amount(balance, currency)}")
+    lines.append(f"Текущий баланс котла: {format_amount(balance, currency)}")
     lines.append(
         f"  подтверждённые взносы: {format_amount(report['balance']['confirmed_total'], currency)}"
     )
@@ -34,8 +34,9 @@ async def month_report_text(house, month: str) -> str:
         lines.append("Взносы:")
         for row in confirmed:
             lines.append(f"  {row['display_name']}: {format_amount(row['amount_kop'], currency)}")
-        if declared:
-            lines.append(f"  (ожидают подтверждения: {len(declared)})")
+        lines.append("")
+    if declared:
+        lines.append(f"Ожидают подтверждения взносы: {len(declared)}")
         lines.append("")
 
     if report["by_category"]:

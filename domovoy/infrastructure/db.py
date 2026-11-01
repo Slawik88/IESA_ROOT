@@ -6,6 +6,7 @@ SQL везде пишется с плейсхолдерами `?` и явно п
 PostgreSQL плейсхолдеры переводятся в $1..$N. Строки — отображения по имени
 колонки. Деньги — целые копейки, даты — строки 'YYYY-MM-DD' (UTC).
 """
+import asyncio
 import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -25,6 +26,7 @@ class DB:
         self._is_pg = self._url.startswith(("postgres://", "postgresql://"))
         self._pool: asyncpg.Pool | None = None
         self._sqlite: aiosqlite.Connection | None = None
+        self._sqlite_lock = asyncio.Lock()
 
     @property
     def is_postgres(self) -> bool:
@@ -44,6 +46,7 @@ class DB:
                     path = path[len(prefix):]
                     break
             self._sqlite = await aiosqlite.connect(path)
+            self._sqlite_lock = asyncio.Lock()
             self._sqlite.row_factory = aiosqlite.Row
             await self._sqlite.execute("PRAGMA journal_mode=WAL")
             await self._sqlite.execute("PRAGMA foreign_keys=ON")
@@ -64,7 +67,9 @@ class DB:
             async with self._pool.acquire() as conn:
                 yield _PgConn(conn)
         else:
-            yield _SqliteConn(self._sqlite)
+            # Одно соединение нельзя делить с чужой незавершённой транзакцией.
+            async with self._sqlite_lock:
+                yield _SqliteConn(self._sqlite)
 
     @asynccontextmanager
     async def transaction(self):

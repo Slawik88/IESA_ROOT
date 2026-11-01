@@ -11,7 +11,7 @@ from loguru import logger
 
 from core.constants import DATE_FMT, SCHEDULE_HORIZON_DAYS, WEEKDAY_SHORT
 from infrastructure import repositories as repo
-from services.households import DomainError
+from services.households import DomainError, require, require_member
 
 
 # ── График ───────────────────────────────────────────────────────────────────
@@ -44,6 +44,9 @@ async def save_weekday_map(house_id: int, weekday_map: dict[int, int | None], to
     for tg_id, weekday in weekday_map.items():
         if weekday is not None and weekday not in range(7):
             raise DomainError("День недели должен быть от Пн до Вс")
+    active_members = {member["tg_id"] for member in await repo.houses.list_active_members(house_id)}
+    if not set(weekday_map).issubset(active_members):
+        raise DomainError("В графике есть участник, который больше не живёт в доме")
     version_id = await repo.schedule.replace_open_days(
         house_id,
         json.dumps(weekday_map),
@@ -76,6 +79,8 @@ async def ensure_days(house_id: int, today: str) -> int:
     active_map = await weekday_map(house_id)
     if not active_map:
         return 0
+    active_members = {member["tg_id"] for member in await repo.houses.list_active_members(house_id)}
+    active_map = {tg_id: weekday for tg_id, weekday in active_map.items() if tg_id in active_members}
     created = 0
     for tg_id, planned_date in planned_days(active_map, today):
         if await repo.schedule.add_day(house_id, tg_id, planned_date):
@@ -87,12 +92,17 @@ async def days_on(house_id: int, planned_date: str) -> list:
     return await repo.schedule.days_on(house_id, planned_date)
 
 
+async def open_days_up_to(house_id: int, today: str) -> list:
+    return await repo.schedule.open_days_between(house_id, date.min.isoformat(), today)
+
+
 # ── Факты ────────────────────────────────────────────────────────────────────
 
 async def close_own_day(house_id: int, tg_id: int, actual_date: str):
     """«Убрался» за конкретную дату: закрывает свой план этой даты, а если его нет —
     самый старый ПРОСРОЧЕННЫЙ день (убрался позже, чем должен был). Будущие дни
     не закрываются никогда."""
+    await require_member(house_id, tg_id)
     days = await repo.schedule.days_on(house_id, actual_date)
     own = next(
         (d for d in days if d["tg_id"] == tg_id and d["status"] == "open"),
@@ -100,25 +110,30 @@ async def close_own_day(house_id: int, tg_id: int, actual_date: str):
     )
     if own is None:
         raise DomainError("У вас нет незакрытых дней уборки — всё чисто!")
-    await repo.schedule.close_day(own["id"], actual_date, tg_id)
+    if not await repo.schedule.close_day(own["id"], actual_date, tg_id):
+        raise DomainError("Этот день уже закрыт или отменён")
     return own
 
 
 async def close_day_for(house_id: int, day_id: int, closed_by: int, actual_date: str):
-    """Закрыть день за другого (право close_others_days — на вызывающем)."""
+    """Закрыть день за другого с проверкой права close_others_days."""
+    await require(house_id, closed_by, "close_others_days")
     day = await repo.schedule.get_day(day_id)
     if day is None or day["house_id"] != house_id or day["status"] != "open":
         raise DomainError("Этот день уже закрыт или отменён")
-    await repo.schedule.close_day(day_id, actual_date, closed_by)
+    if not await repo.schedule.close_day(day_id, actual_date, closed_by):
+        raise DomainError("Этот день уже закрыт или отменён")
     return day
 
 
 async def cancel_day(house_id: int, day_id: int, closed_by: int):
     """Отменить день (пропуск): остаётся в истории как отменённый."""
+    await require(house_id, closed_by, "close_others_days")
     day = await repo.schedule.get_day(day_id)
     if day is None or day["house_id"] != house_id or day["status"] != "open":
         raise DomainError("Этот день уже закрыт или отменён")
-    await repo.schedule.cancel_day(day_id, closed_by)
+    if not await repo.schedule.cancel_day(day_id, closed_by):
+        raise DomainError("Этот день уже закрыт или отменён")
     return day
 
 

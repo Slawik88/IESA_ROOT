@@ -8,17 +8,21 @@ class CreateHouse(StatesGroup):
     waiting_name = State()
 
 
-class Contribution(StatesGroup):
-    waiting_amount = State()
-
-
-class Expense(StatesGroup):
-    waiting_amount = State()
-    choosing_category = State()
-    choosing_mode = State()
-    waiting_photos = State()
-    waiting_description = State()
-
-
 class CategoryAdd(StatesGroup):
     waiting_name = State()
+
+
+class TransactionForm(StatesGroup):
+    amount = State()
+    review = State()
+    date = State()
+    month = State()
+    category = State()
+    description = State()
+    photos = State()
+
+
+class MoneyTransfer(StatesGroup):
+    waiting_file = State()
+    review = State()
+    export_month = State()

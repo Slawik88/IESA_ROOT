@@ -24,6 +24,7 @@ PERMISSIONS: tuple[Permission, ...] = (
     Permission("manage_categories", "Категории", "добавлять и убирать категории трат"),
     Permission("manage_house_settings", "Настройки дома", "менять настройки дома"),
     Permission("manage_members", "Участники", "приглашать и назначать права другим"),
+    Permission("import_transactions", "Импорт денег", "загружать историю взносов и трат из файлов"),
 )
 
 PERMISSION_CODES: frozenset[str] = frozenset(p.code for p in PERMISSIONS)

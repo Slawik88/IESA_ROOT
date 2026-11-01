@@ -19,6 +19,9 @@ def parse_amount(raw: str) -> int:
     rubles, _, kops = cleaned.partition(".")
     if len(kops) > 2:
         raise AmountError("Копейки — максимум два знака: 1200.50")
+    rubles = rubles.lstrip("0") or "0"
+    if len(rubles) > len(str(MAX_AMOUNT_RUBLES)):
+        raise AmountError("Слишком большая сумма")
     kop = int(rubles or "0") * KOPECKS_IN_RUBLE + int((kops + "00")[:2] or "0")
     if kop <= 0:
         raise AmountError("Сумма должна быть больше нуля")
@@ -29,8 +32,9 @@ def parse_amount(raw: str) -> int:
 
 def format_amount(kop: int, currency: str) -> str:
     """1050000 → «10 500 ₽»; 105050 → «1 050,50 ₽»."""
-    rubles, kops = divmod(int(kop), KOPECKS_IN_RUBLE)
-    ruble_str = f"{rubles:,}".replace(",", " ")
+    sign = "-" if kop < 0 else ""
+    rubles, kops = divmod(abs(int(kop)), KOPECKS_IN_RUBLE)
+    ruble_str = sign + f"{rubles:,}".replace(",", " ")
     if kops:
         return f"{ruble_str},{kops:02d} {currency}"
     return f"{ruble_str} {currency}"

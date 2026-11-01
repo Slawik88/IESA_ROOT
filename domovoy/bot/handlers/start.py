@@ -2,7 +2,7 @@
 bot/handlers/start.py — /start, выбор дома, создание дома, deep-link приглашения.
 """
 from aiogram import F, Router
-from aiogram.filters import CommandObject, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -16,6 +16,13 @@ from services import households
 router = Router(name="start")
 
 JOIN_PREFIX = "join_"
+
+
+@router.message(Command("cancel"))
+@guard
+async def cancel_action(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Действие отменено. Можно начать заново через меню.", reply_markup=kb.back_to_menu())
 
 
 def _menu_text(house) -> str:
@@ -123,13 +130,14 @@ async def show_houses(cbq: CallbackQuery):
 
 @router.callback_query(F.data.regexp(r"^house:(\d+)$"))
 @guard
-async def select_house(cbq: CallbackQuery):
+async def select_house(cbq: CallbackQuery, state: FSMContext):
     house_id = int(cb.parse(cbq.data)[1])
     membership = await households.membership(house_id, cbq.from_user.id)
     if membership is None or membership["status"] != "active":
         await cbq.answer("Вы не участник этого дома", show_alert=True)
         return
     await repo.users.set_active_house(cbq.from_user.id, house_id)
+    await state.clear()
     house = await households.get_house(house_id)
     await cbq.message.edit_text(_menu_text(house),
                                 reply_markup=kb.main_menu(

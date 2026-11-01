@@ -6,10 +6,12 @@ services/money.py — Баланс Квартиры: взносы, траты, �
 """
 
 from core.constants import (
-    MAX_CATEGORY_NAME_LEN, MAX_DESCRIPTION_LEN, MAX_PHOTOS_PER_EXPENSE,
+    KOPECKS_IN_RUBLE, MAX_AMOUNT_RUBLES, MAX_CATEGORY_NAME_LEN,
+    MAX_DESCRIPTION_LEN, MAX_PHOTOS_PER_EXPENSE,
 )
 from infrastructure import repositories as repo
-from services.households import DomainError
+from services.households import DomainError, require, require_member
+from services.transaction_dates import parse_date, parse_month
 
 MODE_HOUSE = "house"        # трата из котла
 MODE_PERSONAL = "personal"  # заплатил за всех своими — ждёт возврата из котла
@@ -17,6 +19,11 @@ MODE_PERSONAL = "personal"  # заплатил за всех своими — ж
 STATUS_DECLARED = "declared"
 STATUS_CONFIRMED = "confirmed"
 STATUS_REJECTED = "rejected"
+
+
+def _validate_amount(amount_kop: int) -> None:
+    if type(amount_kop) is not int or not 0 < amount_kop <= MAX_AMOUNT_RUBLES * KOPECKS_IN_RUBLE:
+        raise DomainError("Сумма должна быть положительной и не превышать допустимый предел")
 
 
 def month_of(iso_date: str) -> str:
@@ -32,23 +39,36 @@ def shift_month(month: str, delta: int) -> str:
 
 # ── Взносы ───────────────────────────────────────────────────────────────────
 
-async def declare_contribution(house_id: int, tg_id: int, amount_kop: int, today: str):
+async def declare_contribution(
+    house_id: int, tg_id: int, amount_kop: int, today: str, *, month: str | None = None,
+):
     """Жилец заявил взнос за текущий месяц; ждёт подтверждения."""
+    from services.settings import house_setting, house_settings, house_today
+
+    await require_member(house_id, tg_id)
+    _validate_amount(amount_kop)
+    paid_on = parse_date(today, house_today(await house_settings(house_id)))
+    month = parse_month(month or month_of(paid_on))
+    confirmation_required = await house_setting(house_id, "confirm_contributions")
     contribution_id = await repo.money.declare_contribution(
-        house_id, tg_id, amount_kop, month_of(today),
+        house_id, tg_id, amount_kop, month, confirmation_required, paid_on,
     )
     return await repo.money.get_contribution(contribution_id)
 
 
-async def resolve_contribution(contribution_id: int, confirm: bool, resolved_by: int):
+async def resolve_contribution(
+    contribution_id: int, confirm: bool, resolved_by: int, *, house_id: int | None = None,
+):
     """Подтвердить/отклонить. Повторное решение не проходит (идемпотентный переход)."""
     contribution = await repo.money.get_contribution(contribution_id)
-    if contribution is None:
+    if contribution is None or (house_id is not None and contribution["house_id"] != house_id):
         raise DomainError("Взнос не найден")
+    await require(contribution["house_id"], resolved_by, "confirm_contributions")
     if contribution["status"] != STATUS_DECLARED:
         raise DomainError("Этот взнос уже решён")
     status = STATUS_CONFIRMED if confirm else STATUS_REJECTED
-    await repo.money.set_contribution_status(contribution_id, status, resolved_by)
+    if not await repo.money.set_contribution_status(contribution_id, status, resolved_by):
+        raise DomainError("Этот взнос уже решён")
     return await repo.money.get_contribution(contribution_id)
 
 
@@ -62,6 +82,11 @@ async def add_expense(
     house_id: int, tg_id: int, amount_kop: int, category_id: int | None,
     spent_on: str, mode: str, description: str, photo_file_ids: list[str],
 ) -> int:
+    from services.settings import house_settings, house_today
+
+    await require_member(house_id, tg_id)
+    _validate_amount(amount_kop)
+    spent_on = parse_date(spent_on, house_today(await house_settings(house_id)))
     if mode not in (MODE_HOUSE, MODE_PERSONAL):
         raise DomainError("Неизвестный тип траты")
     if category_id is not None:
@@ -72,20 +97,25 @@ async def add_expense(
         raise DomainError(f"Описание — до {MAX_DESCRIPTION_LEN} символов")
     if len(photo_file_ids) > MAX_PHOTOS_PER_EXPENSE:
         raise DomainError(f"Чеков — не больше {MAX_PHOTOS_PER_EXPENSE}")
-    expense_id = await repo.money.add_expense(
+    return await repo.money.add_expense(
         house_id, tg_id, amount_kop, category_id, spent_on, mode, description.strip(),
+        photo_file_ids,
     )
-    for file_id in photo_file_ids:
-        await repo.money.add_photo(expense_id, file_id, None)
-    return expense_id
 
 
 async def get_expense(expense_id: int):
     return await repo.money.get_expense(expense_id)
 
 
-async def expense_photos(expense_id: int) -> list:
+async def expense_photos(house_id: int, expense_id: int) -> list:
+    expense = await repo.money.get_expense(expense_id)
+    if expense is None or expense["house_id"] != house_id:
+        raise DomainError("Трата не найдена")
     return await repo.money.expense_photos(expense_id)
+
+
+async def photos_count(expense_id: int) -> int:
+    return await repo.money.photos_count(expense_id)
 
 
 async def recent_expenses(house_id: int, limit: int) -> list:
@@ -101,6 +131,7 @@ async def delete_expense(house_id: int, expense_id: int) -> None:
 
 async def reimburse_expense(house_id: int, expense_id: int, resolved_by: int) -> None:
     """Вернуть «за свои» из котла — однократно."""
+    await require(house_id, resolved_by, "confirm_contributions")
     expense = await repo.money.get_expense(expense_id)
     if expense is None or expense["house_id"] != house_id:
         raise DomainError("Трата не найдена")

@@ -135,6 +135,10 @@ def settings_bind_chat() -> str:
 def settings_invite() -> str:
     return "st_invite"
 
+
+def settings_invite_refresh() -> str:
+    return "st_invite_refresh"
+
 def houses_list() -> str:
     return "houses"
 
@@ -151,3 +155,19 @@ def parse(data: str) -> list[str]:
     if not parts or not parts[0]:
         raise ValueError("Пустой callback_data")
     return parts
+
+
+def transaction_field(field: str) -> str:
+    return f"tx:{field}"
+
+
+def transaction_save(token: str) -> str:
+    return f"tx_save:{token}"
+
+
+def money_files() -> str:
+    return "money_files"
+
+
+def money_history(month: str = "current", page: int = 0) -> str:
+    return f"money_hist:{month}:{page}"

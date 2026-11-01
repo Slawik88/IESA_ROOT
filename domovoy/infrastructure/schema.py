@@ -6,6 +6,8 @@ infrastructure/schema.py
 метки времени — TEXT UTC 'YYYY-MM-DD HH:MM:SS', деньги — INTEGER копейки,
 bool — INTEGER 0/1. Миграции появятся вместе с продом (schema_meta.version).
 """
+import re
+
 from loguru import logger
 
 from infrastructure.db import db
@@ -100,6 +102,7 @@ _STATEMENTS = (
         month        TEXT NOT NULL,                -- 'YYYY-MM', к какому месяцу взнос
         status       TEXT NOT NULL DEFAULT 'declared',  -- declared | confirmed | rejected
         declared_at  TEXT NOT NULL,
+        paid_on      TEXT,
         confirmed_by INTEGER,
         confirmed_at TEXT
     )
@@ -149,6 +152,18 @@ _STATEMENTS = (
     """,
     # Журнал сработок планировщика: защита от повторной отправки после рестарта
     """
+    CREATE TABLE IF NOT EXISTS money_import_items (
+        house_id INTEGER NOT NULL REFERENCES houses(id),
+        source_key TEXT NOT NULL,
+        fingerprint TEXT NOT NULL,
+        imported_by BIGINT NOT NULL,
+        imported_at TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        target_id BIGINT,
+        UNIQUE (house_id, source_key)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS scheduler_log (
         house_id  INTEGER NOT NULL REFERENCES houses(id),
         event_key TEXT NOT NULL,
@@ -167,15 +182,51 @@ _INDEXES = (
 )
 
 
+_PG_TELEGRAM_COLUMNS = {
+    "users": ("tg_id",),
+    "houses": ("chat_id", "created_by"),
+    "memberships": ("tg_id",),
+    "member_permissions": ("tg_id",),
+    "cleaning_days": ("tg_id", "closed_by"),
+    "contributions": ("tg_id", "confirmed_by"),
+    "expenses": ("tg_id",),
+}
+
+
 def _pg_statement(statement: str) -> str:
-    """SQLite-DDL → PostgreSQL-DDL: автоинкремент через BIGSERIAL."""
-    return statement.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+    """SQLite-DDL → PostgreSQL: автоинкремент и 64-битные Telegram ID."""
+    statement = statement.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+    return re.sub(
+        r"\b(tg_id|chat_id|created_by|closed_by|confirmed_by)(\s+)INTEGER\b",
+        r"\1\2BIGINT", statement,
+    )
+
+
+async def _upgrade_telegram_ids(conn) -> None:
+    """Существующие таблицы тоже должны принимать ID групп и новых аккаунтов."""
+    columns = await conn.fetch(
+        "SELECT table_name, column_name FROM information_schema.columns "
+        "WHERE table_schema = current_schema() AND data_type = 'integer'",
+    )
+    for row in columns:
+        table, column = row["table_name"], row["column_name"]
+        if column in _PG_TELEGRAM_COLUMNS.get(table, ()):
+            # Идентификаторы разрешены только закрытым реестром выше.
+            await conn.execute(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" TYPE BIGINT')
 
 
 async def ensure_schema() -> None:
     async with db.acquire() as conn:
         for statement in _STATEMENTS:
             await conn.execute(_pg_statement(statement) if db.is_postgres else statement)
+        if db.is_postgres:
+            await _upgrade_telegram_ids(conn)
+            await conn.execute("ALTER TABLE contributions ADD COLUMN IF NOT EXISTS paid_on TEXT")
+        else:
+            columns = await conn.fetch("PRAGMA table_info(contributions)")
+            if not any(row["name"] == "paid_on" for row in columns):
+                await conn.execute("ALTER TABLE contributions ADD COLUMN paid_on TEXT")
+        await conn.execute("UPDATE contributions SET paid_on = SUBSTR(declared_at, 1, 10) WHERE paid_on IS NULL")
         for index in _INDEXES:
             await conn.execute(index)
     logger.info("🗄️ Схема «Домового» готова")

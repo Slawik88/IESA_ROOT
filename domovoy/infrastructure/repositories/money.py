@@ -59,14 +59,23 @@ async def category_expense_count(category_id: int) -> int:
 
 # ── Взносы ───────────────────────────────────────────────────────────────────
 
-async def declare_contribution(house_id: int, tg_id: int, amount_kop: int, month: str) -> int:
+async def declare_contribution(
+    house_id: int, tg_id: int, amount_kop: int, month: str,
+    confirmation_required: bool = True,
+    paid_on: str | None = None,
+) -> int:
     async with db.acquire() as conn:
         return await conn.insert(
             """
-            INSERT INTO contributions (house_id, tg_id, amount_kop, month, status, declared_at)
-            VALUES (?, ?, ?, ?, 'declared', ?)
+            INSERT INTO contributions
+                (house_id, tg_id, amount_kop, month, status, declared_at, confirmed_by, confirmed_at, paid_on)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            house_id, tg_id, amount_kop, month, now_utc(),
+            house_id, tg_id, amount_kop, month,
+            "declared" if confirmation_required else "confirmed", now_utc(),
+            None if confirmation_required else tg_id,
+            None if confirmation_required else now_utc(),
+            paid_on or now_utc()[:10],
         )
 
 
@@ -75,7 +84,7 @@ async def get_contribution(contribution_id: int):
         return await conn.fetchrow(
             """
             SELECT id, house_id, tg_id, amount_kop, month, status, declared_at,
-                   confirmed_by, confirmed_at
+                   confirmed_by, confirmed_at, paid_on
             FROM contributions WHERE id = ?
             """,
             contribution_id,
@@ -151,10 +160,10 @@ async def sum_expenses(house_id: int, mode: str, only_reimbursed: bool | None = 
 
 async def add_expense(
     house_id: int, tg_id: int, amount_kop: int, category_id: int | None,
-    spent_on: str, mode: str, description: str,
+    spent_on: str, mode: str, description: str, photo_file_ids: list[str] | None = None,
 ) -> int:
-    async with db.acquire() as conn:
-        return await conn.insert(
+    async with db.transaction() as conn:
+        expense_id = await conn.insert(
             """
             INSERT INTO expenses
                 (house_id, tg_id, amount_kop, category_id, spent_on, mode, reimbursed, description, created_at)
@@ -162,6 +171,12 @@ async def add_expense(
             """,
             house_id, tg_id, amount_kop, category_id, spent_on, mode, description, now_utc(),
         )
+        for file_id in photo_file_ids or []:
+            await conn.insert(
+                "INSERT INTO expense_photos (expense_id, file_id, local_path) VALUES (?, ?, ?)",
+                expense_id, file_id, None,
+            )
+        return expense_id
 
 
 async def get_expense(expense_id: int):
@@ -242,14 +257,6 @@ async def personal_unreimbursed(house_id: int) -> list:
             ORDER BY e.spent_on, e.id
             """,
             house_id,
-        )
-
-
-async def add_photo(expense_id: int, file_id: str, local_path: str | None) -> None:
-    async with db.acquire() as conn:
-        await conn.insert(
-            "INSERT INTO expense_photos (expense_id, file_id, local_path) VALUES (?, ?, ?)",
-            expense_id, file_id, local_path,
         )
 
 

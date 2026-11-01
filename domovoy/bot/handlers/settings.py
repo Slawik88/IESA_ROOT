@@ -33,7 +33,11 @@ async def settings_root(cbq: CallbackQuery, state: FSMContext = None):
         return
     is_owner = await households.can(house["id"], cbq.from_user.id, "manage_house_settings")
     await safe_edit(cbq, "⚙️ Настройки",
-                    kb.settings_root_keyboard(is_owner, chat_bound=house["chat_id"] is not None))
+                    kb.settings_root_keyboard(
+                        is_owner, chat_bound=house["chat_id"] is not None,
+                        can_manage_members=await households.can(house["id"], cbq.from_user.id, "manage_members"),
+                        can_manage_categories=await households.can(house["id"], cbq.from_user.id, "manage_categories"),
+                    ))
     await cbq.answer()
 
 
@@ -62,7 +66,9 @@ async def settings_house_tap(cbq: CallbackQuery):
         return
     await households.require(house["id"], cbq.from_user.id, "manage_house_settings")
     key = cb.parse(cbq.data)[1]
-    definition = reg.HOUSE_SETTING_BY_KEY[key]
+    definition = reg.HOUSE_SETTING_BY_KEY.get(key)
+    if definition is None:
+        raise households.DomainError("Неизвестная настройка")
     value = await settings_service.house_setting(house["id"], key)
     if definition.kind == "bool":
         await settings_service.set_house_setting(house["id"], key, not value)
@@ -86,7 +92,9 @@ async def settings_house_value(cbq: CallbackQuery):
     await households.require(house["id"], cbq.from_user.id, "manage_house_settings")
     parts = cb.parse(cbq.data)
     key, index = parts[1], int(parts[2])
-    definition = reg.HOUSE_SETTING_BY_KEY[key]
+    definition = reg.HOUSE_SETTING_BY_KEY.get(key)
+    if definition is None or not definition.choices or not 0 <= index < len(definition.choices):
+        raise households.DomainError("Недопустимое значение настройки")
     await settings_service.set_house_setting(house["id"], key, definition.choices[index])
     values = await settings_service.house_settings(house["id"])
     await safe_edit(cbq, "🏠 Настройки дома — нажмите, чтобы изменить:",
@@ -103,7 +111,7 @@ async def settings_notify(cbq: CallbackQuery):
     if house is None:
         await cbq.answer("Сначала выберите дом", show_alert=True)
         return
-    is_owner = await households.can(house["id"], cbq.from_user.id, "manage_house_settings")
+    is_owner = await households.can(house["id"], cbq.from_user.id, "confirm_contributions")
     values = await settings_service.notify_settings(house["id"], cbq.from_user.id)
     await safe_edit(cbq, "🔔 Ваши уведомления — нажмите, чтобы переключить личка → чат → выкл:",
                     kb.notify_settings_keyboard(values, is_owner))
@@ -119,11 +127,13 @@ async def settings_notify_cycle(cbq: CallbackQuery):
         return
     key = cb.parse(cbq.data)[1]
     values = await settings_service.notify_settings(house["id"], cbq.from_user.id)
+    if key not in values:
+        raise households.DomainError("Неизвестная настройка уведомлений")
     current = values[key]
     next_channel = reg.NOTIFY_CHANNELS[(reg.NOTIFY_CHANNELS.index(current) + 1) % len(reg.NOTIFY_CHANNELS)]
     await settings_service.set_notify_setting(house["id"], cbq.from_user.id, key, next_channel)
     values = await settings_service.notify_settings(house["id"], cbq.from_user.id)
-    is_owner = await households.can(house["id"], cbq.from_user.id, "manage_house_settings")
+    is_owner = await households.can(house["id"], cbq.from_user.id, "confirm_contributions")
     await safe_edit(cbq, "🔔 Ваши уведомления — нажмите, чтобы переключить личка → чат → выкл:",
                     kb.notify_settings_keyboard(values, is_owner))
     await cbq.answer(reg.channel_label(next_channel))
@@ -220,6 +230,7 @@ async def category_add_start(cbq: CallbackQuery, state: FSMContext):
 @guard
 async def category_add_named(message: Message, state: FSMContext):
     data = await state.get_data()
+    await households.require(data["house_id"], message.from_user.id, "manage_categories")
     house = await households.get_house(data["house_id"])
     await money.add_category(house["id"], message.text)
     await state.clear()
@@ -259,7 +270,8 @@ async def bind_chat(cbq: CallbackQuery):
         return
     await households.set_chat_id(house["id"], cbq.message.chat.id)
     await cbq.answer("Чат привязан к дому!", show_alert=True)
-    await settings_root(cbq, None)
+    await safe_edit(cbq, f"🔗 Этот чат привязан к дому «{house['name']}».\n"
+                    "Настройки и домашние дела — в личке у бота.")
 
 
 @router.callback_query(F.data == cb.settings_invite())
@@ -277,3 +289,14 @@ async def show_invite(cbq: CallbackQuery):
                     "Перешлите её жильцам. Устаревшую ссылку можно заменить кнопкой ниже.",
                     kb.invite_keyboard(link))
     await cbq.answer()
+
+
+@router.callback_query(F.data == cb.settings_invite_refresh())
+@guard
+async def refresh_invite(cbq: CallbackQuery):
+    house = await _house_of(cbq.from_user.id)
+    if house is None:
+        raise households.DomainError("Сначала выберите дом")
+    await households.require(house["id"], cbq.from_user.id, "manage_members")
+    await households.new_invite_token(house["id"])
+    await show_invite(cbq)

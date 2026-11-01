@@ -35,6 +35,9 @@ MAX_HOUSE_NAME_LEN = 32
 MAX_MEMBER_NAME_LEN = 32
 MAX_DESCRIPTION_LEN = 200
 MAX_CATEGORY_NAME_LEN = 24
+TRANSFER_MAX_BYTES = 2 * 1024 * 1024
+TRANSFER_MAX_ROWS = 1000
+TRANSACTION_PAGE_SIZE = 8
 
 # ── Категории трат по умолчанию (сидятся при создании дома) ──────────────────
 DEFAULT_CATEGORIES = ("Продукты", "Бытовая химия", "Коммуналка", "Ремонт", "Прочее")
