@@ -293,3 +293,19 @@ async def test_local_date_search_and_departed_member_filter(client, house):
     result = await client.get(f"/api/houses/{house}?all_months=true&q=12.10.2026&member=200", headers=headers())
     assert result.json()["total"] == 1
     assert any(person["id"] == 200 for person in result.json()["filter_members"])
+
+async def test_home_recent_is_independent_of_history_filters_and_pages(client, house):
+    for index in range(7):
+        result = await client.post(f"/api/houses/{house}/transactions", headers=headers(), json={
+            "request_id": str(uuid4()), "kind": "expense", "amount": str(index + 1),
+            "date": f"2026-10-{index + 1:02}", "description": f"Покупка {index}",
+        })
+        assert result.status_code == 200
+    result = await client.get(f"/api/houses/{house}?month=2026-09&q=нетсовпадений&page=9", headers=headers())
+    data = result.json()
+    assert data["rows"] == [] and data["total"] == 0
+    assert [row["description"] for row in data["recent"]] == [f"Покупка {index}" for index in range(6, 1, -1)]
+    assert all(row["house_id"] == house and row["can_edit"] for row in data["recent"])
+    foreign = await households.create_house(300, "Другой", "Другой дом")
+    result = await client.get(f"/api/houses/{foreign}", headers=headers())
+    assert result.status_code == 422 and "Покупка" not in result.text

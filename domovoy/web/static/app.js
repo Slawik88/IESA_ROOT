@@ -7,7 +7,8 @@
     state: null, house: null, month: '', page: 0, allMonths: false,
     draft: null, drafts: new Map(), saving: false, importPayload: null,
     importVersion: 0, loadVersion: 0, searchTimer: null, noticeTimer: null,
-    showAllChores: false,
+    showAllChores: false, view: 'home', filterSnapshot: null,
+    filters: { kind: 'all', member: '', category: '', mode: 'all', sort: 'newest' },
   };
 
   function node(tag, text, cls) {
@@ -25,6 +26,40 @@
 
   function decimal(kop) {
     return `${Math.floor(kop / 100)}.${String(kop % 100).padStart(2, '0')}`;
+  }
+
+  function dateLabel(value, options = { day: 'numeric', month: 'short' }) {
+    return new Date(`${value}T12:00:00Z`).toLocaleDateString('ru-RU', { ...options, timeZone: 'UTC' });
+  }
+
+  function showView(view, focus = true) {
+    app.view = view;
+    for (const name of ['home', 'journal', 'more']) $(`${name}-view`).hidden = name !== view;
+    document.querySelectorAll('.bottom-nav [data-view]').forEach(button => {
+      if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    if (focus) $(`${view}-title`).focus({ preventScroll: true });
+    syncBackButton();
+  }
+
+  function syncBackButton() {
+    if ($('transaction-dialog').open || $('filter-dialog').open || app.view !== 'home') tg?.BackButton?.show();
+    else tg?.BackButton?.hide();
+  }
+
+  function updateDateSummary() {
+    $('payment-hint').hidden = $('tx-mode').value !== 'personal';
+    const date = $('tx-date').value;
+    const label = date === app.state.today ? 'Сегодня' : date ? dateLabel(date, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Указать дату';
+    const month = app.draft?.kind === 'contribution' && $('tx-month').value
+      ? ` · за ${dateLabel(`${$('tx-month').value}-01`, { month: 'long' })}` : '';
+    $('date-summary').textContent = `${label}${month} · изменить дату`;
+  }
+
+  function saveLabel() {
+    return app.draft?.editId ? 'Сохранить изменения' : app.draft?.kind === 'contribution' ? 'Внести деньги' : 'Записать расход';
   }
 
   function notice(text) {
@@ -73,10 +108,8 @@
     const params = new URLSearchParams();
     if (app.allMonths) params.set('all_months', 'true');
     else if (app.month) params.set('month', app.month);
-    const fields = { q: 'search', kind: 'filter-kind', member: 'filter-member', category: 'filter-category',
-      mode: 'filter-mode', sort: 'filter-sort' };
-    for (const [key, id] of Object.entries(fields)) {
-      const value = $(id).value.trim();
+    if ($('search').value.trim()) params.set('q', $('search').value.trim());
+    for (const [key, value] of Object.entries(app.filters)) {
       if (value && value !== 'all') params.set(key, value);
     }
     return params;
@@ -120,18 +153,17 @@
     $('chores').replaceChildren();
     const own = app.state.cleaning.filter(day => day.tg_id === app.state.actor);
     if (!own.length) $('chores').append(node('p', 'У вас нет незакрытой уборки. Можно выдохнуть.', 'subtle'));
-    else $('chores').append(node('p', `Ждут отметки: ${own.length}`, 'subtle'));
-    const days = app.showAllChores ? own : own.slice(0, 5);
+    const days = app.showAllChores ? own : own.slice(0, 1);
     for (const day of days) {
-      const item = row(`День ${day.planned_date}`, day.planned_date === app.state.today ? 'Сегодня ваша очередь' : 'Прошлый день ещё не отмечен');
-      item.append(action('Убрался', async () => {
+      const item = row(day.planned_date === app.state.today ? 'Сегодня ваша очередь' : `За ${dateLabel(day.planned_date)}`, day.planned_date === app.state.today ? 'Когда закончите — отметьте здесь' : 'Ещё не отмечено');
+      item.append(action('Готово', async () => {
         await post(`houses/${app.house}/clean/${day.id}`);
         await refresh();
         notice('Уборка отмечена');
       }));
       $('chores').append(item);
     }
-    if (own.length > 5) $('chores').append(action(app.showAllChores ? 'Свернуть' : 'Показать все дни', () => {
+    if (own.length > 1) $('chores').append(action(app.showAllChores ? 'Свернуть' : `Ещё дней: ${own.length - 1}`, () => {
       app.showAllChores = !app.showAllChores;
       renderChores();
     }));
@@ -139,9 +171,10 @@
 
   function renderPending() {
     $('pending-card').hidden = !app.state.pending.length;
+    $('pending-count').textContent = app.state.pending.length;
     $('pending').replaceChildren();
     for (const entry of app.state.pending) {
-      const item = row(entry.display_name, `За ${entry.month}`, amount(entry.amount_kop));
+      const item = row(entry.display_name, `За ${dateLabel(`${entry.month}-01`, { month: 'long', year: 'numeric' })}`, amount(entry.amount_kop));
       for (const [label, confirm] of [['Принять', true], ['Отклонить', false]]) item.append(action(label, async () => {
         await post(`houses/${app.house}/contributions/${entry.id}`, { confirm });
         await refresh();
@@ -152,7 +185,11 @@
 
   function renderJournal() {
     const data = app.state;
-    $('results-count').textContent = `Найдено операций: ${data.total}${app.allMonths ? ' · за всё время' : ''}`;
+    $('results-count').textContent = `Записей: ${data.total}${app.allMonths ? ' · за всё время' : ''}`;
+    const filters = Object.values(app.filters).filter(value => !['', 'all', 'newest'].includes(value)).length + Number(app.allMonths);
+    $('open-filters').textContent = `Фильтры${filters ? ` · ${filters}` : ''}`;
+    $('clear-filters').hidden = !filters && !$('search').value;
+    $('export-context').textContent = `${app.allMonths ? 'Всё время' : dateLabel(`${app.month}-01`, { month: 'long', year: 'numeric' })} · записей в выборке: ${data.total}`;
     $('summary').replaceChildren();
     for (const [key, label] of [['expenses', 'Траты'], ['contributions', 'Зачтённые взносы'],
       ['pending', 'Ждут подтверждения'], ['waiting_return', 'Ждут возврата']]) {
@@ -169,29 +206,45 @@
         await refresh();
       }));
     }
-    for (const entry of data.rows) {
-      const contribution = entry.kind === 'contribution';
-      const status = { declared: 'ждёт подтверждения', rejected: 'отклонён', confirmed: 'зачтён' }[entry.status];
-      const title = contribution ? 'Взнос' : entry.category || 'Без категории';
-      const detail = contribution ? status : entry.mode === 'personal'
-        ? (entry.reimbursed ? 'за свои · возвращено' : 'за свои · ждёт возврата') : 'из котла';
-      const item = row(title, `${entry.date} · ${entry.display_name || 'Жилец'} · ${detail}`, amount(entry.amount_kop));
-      if (entry.description) item.firstChild.append(node('div', entry.description, 'meta'));
-      const actions = node('div', undefined, 'row-actions');
-      actions.append(action('Повторить', () => openForm(entry.kind, entry)));
-      if (entry.can_edit) actions.append(action('Изменить', () => openForm('expense', entry, true)));
-      if (!contribution && entry.mode === 'personal' && !entry.reimbursed && data.permissions.confirm_contributions) {
-        actions.append(action('Вернуть из котла', async () => {
-          if (!window.confirm(`Отметить возврат ${amount(entry.amount_kop)} для ${entry.display_name}? Сумма спишется из котла.`)) return;
-          await post(`houses/${app.house}/expenses/${entry.id}/reimburse`, { version: entry.version });
-          await refresh();
-          notice('Возврат отмечен');
-        }));
-      }
-      item.append(actions);
-      $('history').append(item);
-    }
+    for (const entry of data.rows) $('history').append(transactionRow(entry));
+    $('recent').replaceChildren();
+    const recent = data.recent || [];
+    for (const entry of recent) $('recent').append(transactionRow(entry));
+    if (!recent.length) $('recent').append(node('p', 'Здесь появятся покупки и взносы. Начните с кнопки «Записать расход».', 'subtle'));
     renderPager();
+  }
+
+  function transactionRow(entry) {
+    const contribution = entry.kind === 'contribution';
+    const status = { declared: 'ждёт подтверждения', rejected: 'отклонён', confirmed: 'зачтён' }[entry.status];
+    const title = contribution ? 'Взнос' : entry.description || entry.category || 'Расход';
+    const detail = contribution ? status : entry.mode === 'personal'
+      ? (entry.reimbursed ? 'за свои · возвращено' : 'за свои · ждёт возврата') : 'из котла';
+    const item = node('details', undefined, `entry${contribution ? ' incoming' : ''}`);
+    const heading = node('summary');
+    const content = node('span', undefined, 'row-content');
+    const shortStatus = contribution && entry.status !== 'confirmed' ? ` · ${status}`
+      : !contribution && entry.mode === 'personal' ? ' · за свои' : '';
+    content.append(node('span', title, 'entry-title'), node('span', `${dateLabel(entry.date)} · ${entry.display_name || 'Жилец'}${shortStatus}`, 'meta'));
+    heading.append(node('span', contribution ? '↓' : '↑', 'entry-icon'), content,
+      node('span', `${contribution ? entry.status === 'confirmed' ? '+' : '' : '−'}${amount(entry.amount_kop)}`, 'sum'));
+    const expanded = node('div', undefined, 'entry-detail');
+    expanded.append(node('p', `${entry.category ? `${entry.category} · ` : ''}${detail}${contribution ? ` · за ${entry.month}` : ''}`));
+    if (entry.description) expanded.append(node('p', entry.description));
+    const actions = node('div', undefined, 'row-actions');
+    actions.append(action('Повторить', () => openForm(entry.kind, entry)));
+    if (entry.can_edit) actions.append(action('Изменить', () => openForm('expense', entry, true)));
+    if (!contribution && entry.mode === 'personal' && !entry.reimbursed && app.state.permissions.confirm_contributions) {
+      actions.append(action('Вернуть из котла', async () => {
+        if (!window.confirm(`Отметить возврат ${amount(entry.amount_kop)} для ${entry.display_name}? Сумма спишется из котла.`)) return;
+        await post(`houses/${app.house}/expenses/${entry.id}/reimburse`, { version: entry.version });
+        await refresh();
+        notice('Возврат отмечен');
+      }));
+    }
+    expanded.append(actions);
+    item.append(heading, expanded);
+    return item;
   }
 
   function renderPager() {
@@ -199,15 +252,16 @@
     $('page').textContent = `${app.page + 1} / ${Math.max(1, Math.ceil(app.state.total / size))}`;
     $('previous').disabled = app.page === 0;
     $('next').disabled = (app.page + 1) * size >= app.state.total;
+    $('page').parentElement.hidden = app.state.total <= size;
   }
 
   function renderDrafts() {
     $('drafts').replaceChildren();
     const drafts = [...app.drafts.values()].filter(draft => draft.house === app.house);
     $('drafts').hidden = !drafts.length;
-    if (drafts.length) $('drafts').append(node('p', 'Незаконченные записи · только в этом открытом приложении', 'subtle'));
+    if (drafts.length) $('drafts').append(node('p', 'Вы не закончили запись', 'subtle'));
     for (const draft of drafts) $('drafts').append(action(
-      draft.editId ? 'Продолжить правку' : draft.kind === 'expense' ? 'Продолжить трату' : 'Продолжить взнос',
+      draft.editId ? 'Продолжить правку' : draft.kind === 'expense' ? 'Продолжить расход' : 'Продолжить взнос',
       () => showDraft(draft),
     ));
   }
@@ -215,12 +269,13 @@
   function render() {
     const data = app.state;
     document.title = data.title;
-    $('brand').textContent = data.title.toUpperCase();
+    $('brand').textContent = data.title;
+    $('house-name').textContent = data.house.name;
     $('gate').hidden = true;
     $('workspace').hidden = false;
     $('balance').textContent = amount(data.balance.balance);
     $('balance-detail').textContent = `Внесено ${amount(data.balance.confirmed_total)} · потрачено и возвращено ${amount(data.balance.house_spent + data.balance.reimbursed)}`;
-    $('today').textContent = data.today;
+    $('today').textContent = dateLabel(data.today, { weekday: 'long', day: 'numeric', month: 'long' });
     $('month').value = app.month;
     $('month').disabled = app.allMonths;
     $('all-months').checked = app.allMonths;
@@ -253,6 +308,7 @@
       || app.draft.mode === 'personal' || app.draft.date !== app.state.today;
     if (hasContent) app.drafts.set(app.draft.request_id, { ...app.draft });
     else app.drafts.delete(app.draft.request_id);
+    updateDateSummary();
     if (app.drafts.size) tg?.enableClosingConfirmation?.();
     else tg?.disableClosingConfirmation?.();
   }
@@ -261,7 +317,11 @@
     app.draft = { ...draft };
     $('transaction-form').reset();
     $('form-error').textContent = '';
-    $('form-title').textContent = draft.editId ? 'Изменить трату' : draft.kind === 'expense' ? 'Новая трата' : 'Внести деньги';
+    $('form-title').textContent = draft.editId ? 'Изменить расход' : draft.kind === 'expense' ? 'Записать расход' : 'Внести деньги';
+    $('form-currency').textContent = app.state.currency;
+    $('save-transaction').textContent = saveLabel();
+    $('date-details').open = draft.date !== app.state.today || (draft.kind === 'contribution' && draft.month !== app.state.today.slice(0, 7));
+    document.querySelector('.form-extras').open = false;
     $('expense-fields').hidden = draft.kind !== 'expense';
     $('tx-month-label').hidden = draft.kind !== 'contribution';
     $('tx-month').required = draft.kind === 'contribution';
@@ -312,7 +372,7 @@
     else rememberDraft();
     $('transaction-dialog').close();
     app.draft = null;
-    tg?.BackButton?.hide();
+    syncBackButton();
     if (!app.drafts.size) tg?.disableClosingConfirmation?.();
     renderDrafts();
   }
@@ -336,7 +396,7 @@
       app.drafts.delete(saved.request_id);
       app.draft = null;
       $('transaction-dialog').close();
-      tg?.BackButton?.hide();
+      syncBackButton();
       if (!app.drafts.size) tg?.disableClosingConfirmation?.();
       renderDrafts();
       let refreshed = true;
@@ -355,7 +415,7 @@
       app.saving = false;
       $('transaction-fields').disabled = false;
       $('transaction-form').removeAttribute('aria-busy');
-      $('save-transaction').textContent = 'Сохранить запись';
+      $('save-transaction').textContent = saveLabel();
       $('save-transaction').disabled = $('save-another').disabled = false;
       if (another && app.draft) $('tx-amount').focus();
     }
@@ -365,6 +425,12 @@
     $('search').value = '';
     for (const [id, value] of [['filter-kind', 'all'], ['filter-member', ''], ['filter-category', ''],
       ['filter-mode', 'all'], ['filter-sort', 'newest']]) $(id).value = value;
+    app.filters = { kind: 'all', member: '', category: '', mode: 'all', sort: 'newest' };
+  }
+
+  function commitFilters() {
+    for (const key of Object.keys(app.filters)) app.filters[key] = $(`filter-${key}`).value;
+    app.filterSnapshot = null;
   }
 
   async function filterChanged() {
@@ -388,6 +454,7 @@
     app.month = '';
     app.allMonths = false;
     app.showAllChores = false;
+    showView('home', false);
     resetFilters();
     $('workspace').hidden = true;
     $('gate').hidden = false;
@@ -467,7 +534,41 @@
   $('transaction-dialog').addEventListener('cancel', event => { event.preventDefault(); closeForm(); });
   $('transaction-form').oninput = rememberDraft;
   $('transaction-form').onsubmit = submit;
-  tg?.BackButton?.onClick(() => closeForm());
+  tg?.BackButton?.onClick(() => {
+    if ($('transaction-dialog').open) closeForm();
+    else if ($('filter-dialog').open) { $('filter-dialog').close(); syncBackButton(); }
+    else showView('home');
+  });
+  document.querySelectorAll('[data-view]').forEach(button => { button.onclick = () => showView(button.dataset.view); });
+  $('journal-add').onclick = () => openForm('expense');
+  $('journal-files').onclick = () => {
+    showView('more');
+    $('export-details').open = true;
+    $('files-card').scrollIntoView({ block: 'start' });
+  };
+  $('open-filters').onclick = () => {
+    app.filterSnapshot = Object.fromEntries(['filter-kind', 'filter-member', 'filter-category', 'filter-mode', 'filter-sort']
+      .map(id => [id, $(id).value]));
+    $('all-months').checked = app.allMonths;
+    $('filter-dialog').showModal();
+    syncBackButton();
+  };
+  $('close-filters').onclick = () => { $('filter-dialog').close(); syncBackButton(); };
+  $('filter-dialog').addEventListener('close', () => {
+    if (app.filterSnapshot) {
+      for (const [id, value] of Object.entries(app.filterSnapshot)) $(id).value = value;
+      $('all-months').checked = app.allMonths;
+      app.filterSnapshot = null;
+    }
+    syncBackButton();
+  });
+  $('apply-filters').onclick = async () => {
+    commitFilters();
+    app.allMonths = $('all-months').checked;
+    $('filter-dialog').close();
+    syncBackButton();
+    await filterChanged();
+  };
   $('add-expense').onclick = () => openForm('expense');
   $('add-contribution').onclick = () => openForm('contribution');
   $('date-today').onclick = () => { $('tx-date').value = app.state.today; rememberDraft(); };
@@ -479,13 +580,20 @@
   };
   $('house').onchange = changeHouse;
   $('month').onchange = () => { app.month = $('month').value; filterChanged(); };
-  $('all-months').onchange = () => { app.allMonths = $('all-months').checked; filterChanged(); };
   $('month-back').onclick = () => shiftMonth(-1);
   $('month-next').onclick = () => shiftMonth(1);
-  $('month-today').onclick = () => { app.month = app.state.today.slice(0, 7); app.allMonths = false; filterChanged(); };
+  $('month-today').onclick = () => {
+    commitFilters();
+    app.month = app.state.today.slice(0, 7);
+    app.allMonths = false;
+    $('filter-dialog').close();
+    filterChanged();
+  };
   $('search').oninput = () => { clearTimeout(app.searchTimer); app.searchTimer = setTimeout(filterChanged, 250); };
-  for (const id of ['filter-kind', 'filter-member', 'filter-category', 'filter-mode', 'filter-sort']) $(id).onchange = filterChanged;
-  $('clear-filters').onclick = () => { resetFilters(); filterChanged(); };
+  $('clear-filters').onclick = () => { resetFilters(); app.allMonths = false; filterChanged(); };
+  $('tx-date').onchange = rememberDraft;
+  $('tx-month').onchange = rememberDraft;
+  for (const id of ['tx-date', 'tx-month']) $(id).addEventListener('invalid', () => { $('date-details').open = true; });
   $('previous').onclick = () => busy($('previous'), async () => { app.page = Math.max(0, app.page - 1); await refresh(); });
   $('next').onclick = () => busy($('next'), async () => { app.page++; await refresh(); });
   $('reload').onclick = () => busy($('reload'), refresh);

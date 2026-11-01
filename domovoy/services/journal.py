@@ -1,7 +1,7 @@
 """Поиск, фильтры и итоги по одному набору денежных операций."""
 from dataclasses import dataclass
 
-from core.constants import JOURNAL_SEARCH_LIMIT, QUICK_TRANSACTION_LIMIT, WEB_JOURNAL_PAGE_SIZE
+from core.constants import JOURNAL_SEARCH_LIMIT, QUICK_TRANSACTION_LIMIT, WEB_HOME_RECENT_LIMIT, WEB_JOURNAL_PAGE_SIZE
 from core.transaction_versions import expense_version
 from infrastructure.repositories import transactions
 from services import households
@@ -89,7 +89,8 @@ async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0) ->
             seen.add(identity)
         if len(templates) == QUICK_TRANSACTION_LIMIT:
             break
-    return {"rows": selected[page * WEB_JOURNAL_PAGE_SIZE:(page + 1) * WEB_JOURNAL_PAGE_SIZE],
+    return {"recent": filter_rows(all_rows, JournalQuery())[:WEB_HOME_RECENT_LIMIT],
+            "rows": selected[page * WEB_JOURNAL_PAGE_SIZE:(page + 1) * WEB_JOURNAL_PAGE_SIZE],
             "page": page, "total": len(selected), "summary": summary, "templates": templates,
             "page_size": WEB_JOURNAL_PAGE_SIZE,
             "filter_members": [{"id": actor_id, "name": name} for actor_id, name in
