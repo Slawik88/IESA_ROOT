@@ -52,8 +52,10 @@ Settings → «App-Level Environment Variables» → Edit (там их ~29; зн
 ### Перенос файлов из Spaces в Cloudflare R2
 
 Код поддерживает R2 через существующие `SPACES_*` переменные. Само наличие этой
-поддержки не означает, что production уже переключён. На 2026-10-31 перенос ещё
-не выполнен: исходные 62 объекта остаются в `iesa-bucket`.
+поддержки не означает, что production уже переключён. На 2026-11-01 все 62
+объекта скопированы и дважды проверены по SHA-256: 61 публичный объект —
+в `iesa-media`, `predvestnik-bot/db.sqlite3` — в закрытом `iesa-backups`.
+Исходный `iesa-bucket` пока сохраняется, сайт ещё не переключён.
 
 - Для R2 нужны `SPACES_ENDPOINT=https://<account>.r2.cloudflarestorage.com`,
   `SPACES_REGION=auto`, ключи R2 в `SPACES_KEY` / `SPACES_SECRET` и бакет медиа
@@ -63,6 +65,12 @@ Settings → «App-Level Environment Variables» → Edit (там их ~29; зн
 - Публичный hostname готовится в Cloudflare после проверки скопированных
   объектов. `r2.dev` предназначен для разработки и не заменяет production-домен.
   Смена DNS сайта — отдельное решение владельца, не обязательная часть переноса.
+- Без переноса DNS файлы раздаёт Worker `iesa-media.iesa-157.workers.dev`.
+  Исходник и конфигурация: `IESA_ROOT/cloudflare/media-worker.mjs` и
+  `wrangler.jsonc`. Единственная привязка — `MEDIA=iesa-media`; закрытый бакет
+  не подключается к Worker. Разрешены только GET/HEAD, ключи файлов сохраняются.
+  Worker использует Free plan (100 000 запросов в сутки); платный план не включён.
+  Проверка: `node --test IESA_ROOT/cloudflare/media-worker.test.mjs`.
 - R2 не поддерживает объектные ACL: код не отправляет `public-read` / `private`.
   Публичность задаётся на уровне бакета. Для закрытых объектов нужен отдельный
   бакет **без публичного доступа**, включая `predvestnik-bot/db.sqlite3` и дампы БД.
