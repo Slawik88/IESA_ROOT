@@ -40,6 +40,13 @@
 При отсутствующем/несовпадающем токене вход скрыт, при недоступном backend —
 нейтральный 503. Игровые маршруты продолжают работать независимо.
 
+Проверено в панели 2026-11-01: фактический Run Command `predvestnik-bot` уже
+`sh scripts/run_bots.sh`. Деплой кода `7d43f6565` (deployment
+`f9f9afc3-300f-409e-bff7-eae066dec857`) завершился **Success / Live**.
+После него закрытая оболочка отвечает 200 с `Cache-Control: no-store`, API без
+авторизации и случайный закрытый префикс — 404; `/predvestnik/api/health` — 200.
+Проверки не создавали операций и не подделывали пользовательский вход в production.
+
 1. Пуш в `master` → DO собирает **оба** компонента (корневой `requirements.txt`, `collectstatic` выполняет buildpack).
 2. Сайт стартует `IESA_ROOT/start.sh`: `migrate` → `update_translation_fields` → `scripts/sync_translations.py` →
    `compilemessages` → `daphne -b 0.0.0.0 -p 8080 --proxy-headers IESA_ROOT.asgi:application`.
