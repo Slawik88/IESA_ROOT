@@ -25,6 +25,26 @@ ON_WORDS = ("вкл", "включить", "on", "да")
 OFF_WORDS = ("выкл", "выключить", "off", "нет")
 WHAT = "<i>Бот случайно выбирает двоих в чате и объявляет процент их совместимости. Случайных людей бот не пингует.</i>"
 
+# Частые опечатки слова «шипирить»: щ вместо ш, ы вместо и, -ер- вместо -ир-, лишняя п,
+# потерянная гласная. Матрица одна — ею снабжаются все четыре команды шиппера ниже.
+_TYPO_STEMS = tuple(sorted(
+    {f"{head}{vowel}{pp}{tail}"
+     for head in ("ш", "щ")
+     for vowel in ("и", "ы")
+     for pp in ("п", "пп")
+     for tail in ("ирить", "ирим", "ерить", "ерим", "ырым")}
+    | {"шиприть", "щиприть"}
+    - {"шипирить"},   # точное имя команды само себе алиас не нужен
+))
+
+
+def _register_typo_aliases() -> None:
+    """Опечатки работают как команда, но в «бот помощь» не попадают (hidden_alias)."""
+    registry.hidden_alias("шипирить", *_TYPO_STEMS)
+    registry.hidden_alias("шипирить меня", *(f"{stem} меня" for stem in _TYPO_STEMS))
+    registry.hidden_alias("не шипирить меня", *(f"не {stem} меня" for stem in _TYPO_STEMS))
+    registry.hidden_alias("шипирить меня разрешаю", *(f"{stem} меня разрешаю" for stem in _TYPO_STEMS))
+
 
 def _display(user_id: int, username: str | None) -> str:
     """Имя без пинга: ссылка на профиль t.me или текст «id…» (tg://user?id= запрещён)."""
@@ -104,8 +124,8 @@ async def cmd_ship(ctx: Ctx) -> None:
     await _ship_random(ctx, chat_id)
 
 
-@registry.command("шипирить меня", aliases=("шипперим меня", "шиперим меня"), usage="шипирить меня",
-                  bare=True, private=False, section="social", group="ship",
+@registry.command("шипирить меня", usage="шипирить меня", bare=True, private=False,
+                  section="social", group="ship",
                   summary="Судьба подберёт пару для тебя самого.",
                   example="шипирить меня")
 async def cmd_ship_me(ctx: Ctx) -> None:
@@ -239,3 +259,6 @@ async def cmd_ship_opt_in(ctx: Ctx) -> None:
     if commit:
         await commit()
     await ctx.reply("💞 Снова в игре: судьба может выбрать тебя в пару. Отказ в любой момент: <code>не шипирить меня</code>")
+
+
+_register_typo_aliases()
