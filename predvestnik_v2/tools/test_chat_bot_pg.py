@@ -1222,6 +1222,67 @@ async def ship_flow(db, bot):
     assert "выключен" in out, out
     out = await say("бот шипирить вкл", uid=8003, username="boss", chat=-700)
     assert "включён" in out, out
+    await article_flow(db, bot)
+
+
+async def article_flow(db, bot):
+    """S22 «Моя статья»: статья дня, повтор, пауза, выключатель."""
+    import re
+    from infrastructure.repositories import article_v1
+    from bot.chat import ranks
+    from bot.chat.tracking import record_message
+
+    await article_v1.ensure_tables(db)
+    await article_v1.ensure_tables(db)   # повторный запуск безопасен
+
+    async def say(text, uid=9001, username="caseman", chat=-900, **kw):
+        from bot.chat import registry
+        from bot.chat.framework import dispatch
+        m = FakeMessage(text, uid, username, chat, **kw)
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies)
+
+    async def reset_articles(*chat_ids):
+        marks = ", ".join(str(c) for c in chat_ids)
+        await db.execute(f"DELETE FROM article_state WHERE chat_id IN ({marks})")
+
+    for uid, uname in ((9001, "caseman"), (9002, "clerk")):
+        await record_message(db, msg(uid, -900, uname))
+    await reset_articles(-900, -901)
+
+    # Первое дело: статья + описание + пометка пародии, без пингов.
+    out = await say("моя статья")
+    assert "Ст. " in out and "Пародия" in out and ">@caseman</a>" in out, out
+    assert "tg://user?id=" not in out, out
+    first = re.search(r"Ст\. (\d+(?:\.\d)?)", out).group(1)
+
+    # Сразу второй вызов — пауза.
+    out = await say("моя статья")
+    assert re.search(r"\d+ с", out) and "Ст. " not in out, out
+
+    # Остывшая пауза, дата та же — повтор даёт ту же статью.
+    await db.execute("UPDATE article_state SET last_at = NOW() - interval '1 hour' WHERE chat_id = -900")
+    out = await say("моя статья")
+    assert re.search(r"Ст\. (\d+(?:\.\d)?)", out).group(1) == first, out
+    assert ">@caseman</a>" in out, out
+
+    # Та же статья в другом чате того же дня (hash по игроку и дате, не по чату).
+    await record_message(db, msg(9001, -901, "caseman"))
+    await reset_articles(-901)
+    out = await say("моя статья", chat=-901)
+    assert re.search(r"Ст\. (\d+(?:\.\d)?)", out).group(1) == first, out
+
+    # Выключатель владельца чата: выкл -> честный отказ -> вкл.
+    await ranks.set_owner(db, -900, 9001)
+    out = await say("бот статья выкл", uid=9002, username="clerk")
+    assert "тот, кто настраивает права" in out, out
+    out = await say("бот статья выкл")
+    assert "выключена" in out, out
+    out = await say("моя статья")
+    assert "бот статья вкл" in out and "Ст. " not in out, out
+    out = await say("бот статья вкл")
+    assert "включена" in out, out
+    await reset_articles(-900)
 
 
 asyncio.run(main())

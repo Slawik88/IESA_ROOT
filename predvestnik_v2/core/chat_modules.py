@@ -13,6 +13,7 @@ CHAT_MODULES: Final = {
     "module_echo": {"icon": "🔔", "name": "Эхо", "description": "Ручной чат-ивент без наград и личного спама.", "default_enabled": False},
     "module_cosmetics": {"icon": "🎨", "name": "Косметика в чате", "description": "Скины игроков в карточках, списках и новостях бота.", "default_enabled": True},
     "module_ship": {"icon": "💞", "name": "Шипперим", "description": "Случайные пары игроков по команде «шипирить».", "default_enabled": True},
+    "module_article": {"icon": "⚖️", "name": "Моя статья", "description": "Пародийная «уголовная статья» про самого игрока по команде «моя статья».", "default_enabled": True},
 }
 
 CHAT_MODULE_KEYS: Final = frozenset(CHAT_MODULES)

@@ -128,7 +128,10 @@ for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/i
                  "bot/chat/ship.py", "bot/chat/ship_texts/announce.py", "bot/chat/ship_texts/compat.py",
                  "bot/chat/ship_texts/self_pair.py", "bot/chat/ship_texts/author_included.py",
                  "bot/chat/ship_texts/nobody.py", "bot/chat/ship_texts/cooldown.py",
-                 "bot/chat/ship_texts/opted_out.py", "bot/chat/text_banks.py"):
+                 "bot/chat/ship_texts/opted_out.py", "bot/chat/text_banks.py",
+                 "bot/chat/article.py", "bot/chat/article_texts/articles.py", "bot/chat/article_texts/descriptions.py",
+                 "bot/chat/article_texts/intro.py", "bot/chat/article_texts/verdict.py", "bot/chat/article_texts/repeat.py",
+                 "bot/chat/article_texts/cooldown.py", "bot/chat/article_texts/disabled.py", "bot/chat/article_texts/service.py"):
     tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"[А-Яа-яЁё]", node.value):

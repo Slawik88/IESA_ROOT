@@ -11,7 +11,7 @@ from infrastructure.repositories import pet_chat, star_dust, mafia_online, leagu
 from infrastructure.repositories import support_reports
 from infrastructure.repositories import ops_telemetry
 from infrastructure.repositories import (
-    achievements_v1 as achievements_v1_repo, game_seasons as game_seasons_repo, gifts_v2 as gifts_v2_repo, global_skins_v1 as global_skins_v1_repo, mafia_v1 as mafia_v1_repo, marks_v1 as marks_v1_repo,
+    achievements_v1 as achievements_v1_repo, article_v1 as article_v1_repo, game_seasons as game_seasons_repo, gifts_v2 as gifts_v2_repo, global_skins_v1 as global_skins_v1_repo, mafia_v1 as mafia_v1_repo, marks_v1 as marks_v1_repo,
     minesweeper_v2 as minesweeper_v2_repo, nicknames_retired, pet_nudge_v1 as pet_nudge_v1_repo, casino_v1 as casino_v1_repo, pets_v1 as pets_v1_repo, pets_v2 as pets_v2_repo, player_exchange_v1 as player_exchange_v1_repo, presence_v1 as presence_v1_repo,
     public_profiles_v1 as public_profiles_v1_repo, rhythm_v2 as rhythm_v2_repo, season_pass as season_pass_repo, ship_v1 as ship_v1_repo, shop_v1 as shop_v1_repo, skin_chat_v1 as skin_chat_v1_repo, skins_v3 as skins_v3_repo,
     system_flags, vip_v2 as vip_v2_repo, patch_notes as patch_notes_repo,
@@ -46,6 +46,7 @@ ENSURES = (
     ("skins_v3", skins_v3_repo.ensure_tables),          # образы, Эссенция: профиль читает их в первом же запросе
     ("skin_chat_v1", skin_chat_v1_repo.ensure_tables),  # скины в чате: выключатель и очередь новостей; покупка пишет в неё в своей транзакции
     ("ship_v1", ship_v1_repo.ensure_tables),            # «Шипперим»: отказ, паузы и последние пары (S21)
+    ("article_v1", article_v1_repo.ensure_tables),      # «Моя статья»: статья дня и пауза (S22)
     ("marks_v1", marks_v1_repo.ensure_tables),          # регалии
     ("presence_v1", presence_v1_repo.ensure_tables),    # «был в сети»
     ("shop_v1", shop_v1_repo.ensure_tables),            # чеки магазина (Шлифовка); после economic_operations из init_db
