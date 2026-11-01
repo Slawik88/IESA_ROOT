@@ -1169,6 +1169,24 @@ async def ship_flow(db, bot):
     out = await say("шипирить меня разрешаю", uid=6003, username="polina", chat=-600)
     assert "Снова в игре" in out, out
 
+    # Частые опечатки работают как команда и не мусорят в «бот помощь» (S21, вопрос владельца).
+    await reset_pauses(-600)
+    out = await say("шипирим", chat=-600)
+    assert "Совместимость:" in out, out
+    await reset_pauses(-600)
+    out = await say("Щипперим", chat=-600)
+    assert "Совместимость:" in out, out
+    await reset_pauses(-600)
+    out = await say("шипирим меня", uid=6001, username="petra1", chat=-600)
+    assert "Совместимость:" in out and "@petra1" in out, out
+    out = await say("не шиперим меня", uid=6003, username="polina", chat=-600)
+    assert "не выбирает" in out, out
+    out = await say("шипирить меня разрешаю", uid=6003, username="polina", chat=-600)
+    assert "Снова в игре" in out, out
+    from bot.chat import help as chat_help
+    social_text = chat_help.section_text("social")
+    assert "щипирим" not in social_text and "шипирим" not in social_text, "опечатки не видны в справке"
+
     # Мало активных: честный ответ вместо выдуманной пары.
     await record_message(db, msg(3001, -300, "lone"))
     await reset_pauses(-300)
