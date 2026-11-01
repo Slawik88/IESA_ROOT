@@ -18,32 +18,32 @@ def _kb(rows: list[list[Btn]]) -> InlineKeyboardMarkup:
 
 def main_menu(can_switch_house: bool) -> InlineKeyboardMarkup:
     rows = [
-        [Btn("🧹 Сегодня", cb.today()), Btn("📅 График", cb.schedule_view())],
-        [Btn("💰 Баланс", cb.balance()), Btn("🧾 Траты", cb.expenses_list())],
-        [Btn("💸 Скинулся", cb.contribute()), Btn("➕ Трата", cb.expense_new())],
-        [Btn("⚙️ Настройки", cb.settings_root())],
+        [Btn(text="🧹 Сегодня", callback_data=cb.today()), Btn(text="📅 График", callback_data=cb.schedule_view())],
+        [Btn(text="💰 Баланс", callback_data=cb.balance()), Btn(text="🧾 Траты", callback_data=cb.expenses_list())],
+        [Btn(text="💸 Скинулся", callback_data=cb.contribute()), Btn(text="➕ Трата", callback_data=cb.expense_new())],
+        [Btn(text="⚙️ Настройки", callback_data=cb.settings_root())],
     ]
     if can_switch_house:
-        rows.append([Btn("🏠 Сменить дом", cb.houses_list())])
+        rows.append([Btn(text="🏠 Сменить дом", callback_data=cb.houses_list())])
     return _kb(rows)
 
 
 def onboarding() -> InlineKeyboardMarkup:
-    return _kb([[Btn("🏠 Создать дом", cb.house_create())]])
+    return _kb([[Btn(text="🏠 Создать дом", callback_data=cb.house_create())]])
 
 
 def house_selector(houses: list) -> InlineKeyboardMarkup:
-    rows = [[Btn(f"«{h['name']}»", cb.house_select(h["id"]))] for h in houses]
-    rows.append([Btn("🏠 Создать новый дом", cb.house_create())])
+    rows = [[Btn(text=f"«{h['name']}»", callback_data=cb.house_select(h["id"]))] for h in houses]
+    rows.append([Btn(text="🏠 Создать новый дом", callback_data=cb.house_create())])
     return _kb(rows)
 
 
 def back_to_menu() -> InlineKeyboardMarkup:
-    return _kb([[Btn("← Меню", cb.menu())]])
+    return _kb([[Btn(text="← Меню", callback_data=cb.menu())]])
 
 
 def bind_chat_keyboard() -> InlineKeyboardMarkup:
-    return _kb([[Btn("🔗 Привязать этот чат", cb.settings_bind_chat())]])
+    return _kb([[Btn(text="🔗 Привязать этот чат", callback_data=cb.settings_bind_chat())]])
 
 
 # ── Сегодня / дни ────────────────────────────────────────────────────────────
@@ -54,33 +54,34 @@ def today_keyboard(
 ) -> InlineKeyboardMarkup:
     rows = []
     if today_iso in my_open_dates:
-        rows.append([Btn("✅ Убрался", cb.done(today_iso))])
+        rows.append([Btn(text="✅ Убрался", callback_data=cb.done(today_iso))])
     elif my_open_dates:
-        rows.append([Btn("✅ Убрался (закрыть пропуск)", cb.done(today_iso))])
+        rows.append([Btn(text="✅ Убрался (закрыть пропуск)", callback_data=cb.done(today_iso))])
     if yesterday_iso in my_open_dates:
-        rows.append([Btn("✅ Убрался вчера", cb.done(yesterday_iso))])
+        rows.append([Btn(text="✅ Убрался вчера", callback_data=cb.done(yesterday_iso))])
     for day_id, name in owner_days:
         rows.append([
-            Btn(f"🧹 {name}: закрыть за него", cb.day_close(day_id)),
-            Btn("⛔", cb.day_cancel(day_id)),
+            Btn(text=f"🧹 {name}: закрыть за него", callback_data=cb.day_close(day_id)),
+            Btn(text="⛔", callback_data=cb.day_cancel(day_id)),
         ])
-    rows.append([Btn("🔄 Обновить", cb.today()), Btn("← Меню", cb.menu())])
+    rows.append([Btn(text="🔄 Обновить", callback_data=cb.today()), Btn(text="← Меню", callback_data=cb.menu())])
     return _kb(rows)
 
 
 def day_owner_keyboard(day_id: int) -> InlineKeyboardMarkup:
     return _kb([
-        [Btn("✅ Закрыть за него", cb.day_close(day_id)), Btn("⛔ Отменить день", cb.day_cancel(day_id))],
+        [Btn(text="✅ Закрыть за него", callback_data=cb.day_close(day_id)),
+         Btn(text="⛔ Отменить день", callback_data=cb.day_cancel(day_id))],
     ])
 
 
 # ── График ───────────────────────────────────────────────────────────────────
 
 def schedule_keyboard(can_edit: bool) -> InlineKeyboardMarkup:
-    rows = [[Btn("🗓 Уборка за месяц", cb.history("current"))]]
+    rows = [[Btn(text="🗓 Уборка за месяц", callback_data=cb.history("current"))]]
     if can_edit:
-        rows.append([Btn("✏️ Изменить график", cb.schedule_edit())])
-    rows.append([Btn("← Меню", cb.menu())])
+        rows.append([Btn(text="✏️ Изменить график", callback_data=cb.schedule_edit())])
+    rows.append([Btn(text="← Меню", callback_data=cb.menu())])
     return _kb(rows)
 
 
@@ -92,19 +93,20 @@ def schedule_editor_keyboard(members: list, draft: dict[int, int | None], picked
         weekday = draft.get(tg_id)
         value = WEEKDAY_SHORT[weekday] if weekday is not None else "—"
         prefix = "▸ " if tg_id == picked_tg else ""
-        rows.append([Btn(f"{prefix}{member['display_name']}: {value}", cb.schedule_member(tg_id))])
+        rows.append([Btn(text=f"{prefix}{member['display_name']}: {value}", callback_data=cb.schedule_member(tg_id))])
     if picked_tg is not None:
         day_rows = []
         row = []
         for weekday in range(7):
-            row.append(Btn(WEEKDAY_SHORT[weekday], cb.schedule_pick(picked_tg, weekday)))
+            row.append(Btn(text=WEEKDAY_SHORT[weekday], callback_data=cb.schedule_pick(picked_tg, weekday)))
             if len(row) == 4:
                 day_rows.append(row)
                 row = []
-        row.append(Btn("—", cb.schedule_pick(picked_tg, None)))
+        row.append(Btn(text="—", callback_data=cb.schedule_pick(picked_tg, None)))
         day_rows.append(row)
         rows.extend(day_rows)
-    rows.append([Btn("💾 Сохранить", cb.schedule_save()), Btn("✖️ Отмена", cb.schedule_cancel())])
+    rows.append([Btn(text="💾 Сохранить", callback_data=cb.schedule_save()),
+                 Btn(text="✖️ Отмена", callback_data=cb.schedule_cancel())])
     return _kb(rows)
 
 
@@ -113,8 +115,9 @@ def schedule_editor_keyboard(members: list, draft: dict[int, int | None], picked
 def balance_keyboard(pending_count: int, can_confirm: bool) -> InlineKeyboardMarkup:
     rows = []
     if can_confirm and pending_count:
-        rows.append([Btn(f"⏳ Подтвердить взносы ({pending_count})", cb.pending())])
-    rows.append([Btn("🧾 Последние траты", cb.expenses_list()), Btn("← Меню", cb.menu())])
+        rows.append([Btn(text=f"⏳ Подтвердить взносы ({pending_count})", callback_data=cb.pending())])
+    rows.append([Btn(text="🧾 Последние траты", callback_data=cb.expenses_list()),
+                 Btn(text="← Меню", callback_data=cb.menu())])
     return _kb(rows)
 
 
@@ -126,17 +129,17 @@ def pending_keyboard(pending_rows: list, currency: str) -> InlineKeyboardMarkup:
         who = row["display_name"] or "?"
         label = f"{who} · {format_amount(row['amount_kop'], currency)}"[:24]
         rows.append([
-            Btn(f"✅ {label}", cb.contribution_resolve(row["id"], True)),
-            Btn("❌", cb.contribution_resolve(row["id"], False)),
+            Btn(text=f"✅ {label}", callback_data=cb.contribution_resolve(row["id"], True)),
+            Btn(text="❌", callback_data=cb.contribution_resolve(row["id"], False)),
         ])
-    rows.append([Btn("← Баланс", cb.balance())])
+    rows.append([Btn(text="← Баланс", callback_data=cb.balance())])
     return _kb(rows)
 
 
 def contribution_decision_keyboard(contribution_id: int) -> InlineKeyboardMarkup:
     return _kb([[
-        Btn("✅ Подтвердить", cb.contribution_resolve(contribution_id, True)),
-        Btn("❌ Отклонить", cb.contribution_resolve(contribution_id, False)),
+        Btn(text="✅ Подтвердить", callback_data=cb.contribution_resolve(contribution_id, True)),
+        Btn(text="❌ Отклонить", callback_data=cb.contribution_resolve(contribution_id, False)),
     ]])
 
 
@@ -144,60 +147,63 @@ def categories_keyboard(categories: list) -> InlineKeyboardMarkup:
     rows = []
     row = []
     for category in categories:
-        row.append(Btn(category["name"], cb.expense_category(category["id"])))
+        row.append(Btn(text=category["name"], callback_data=cb.expense_category(category["id"])))
         if len(row) == 3:
             rows.append(row)
             row = []
     if row:
         rows.append(row)
-    rows.append([Btn("✖️ Отмена", cb.menu())])
+    rows.append([Btn(text="✖️ Отмена", callback_data=cb.menu())])
     return _kb(rows)
 
 
 def mode_keyboard() -> InlineKeyboardMarkup:
     return _kb([
-        [Btn("🏦 Из котла", cb.expense_mode("house"))],
-        [Btn("👛 За свои (ждёт возврата)", cb.expense_mode("personal"))],
-        [Btn("✖️ Отмена", cb.menu())],
+        [Btn(text="🏦 Из котла", callback_data=cb.expense_mode("house"))],
+        [Btn(text="👛 За свои (ждёт возврата)", callback_data=cb.expense_mode("personal"))],
+        [Btn(text="✖️ Отмена", callback_data=cb.menu())],
     ])
 
 
 def photos_keyboard() -> InlineKeyboardMarkup:
     return _kb([
-        [Btn("📸 Готово, сохранить", cb.expense_photos_done())],
-        [Btn("✖️ Отмена", cb.menu())],
+        [Btn(text="📸 Готово, сохранить", callback_data=cb.expense_photos_done())],
+        [Btn(text="✖️ Отмена", callback_data=cb.menu())],
     ])
 
 
 def description_keyboard() -> InlineKeyboardMarkup:
     return _kb([
-        [Btn("Без описания", cb.expense_desc_skip())],
+        [Btn(text="Без описания", callback_data=cb.expense_desc_skip())],
     ])
 
 
 def expenses_list_keyboard(expenses: list) -> InlineKeyboardMarkup:
-    rows = [[Btn(f"{row['spent_on'][8:10]}.{row['spent_on'][5:7]} · {row['display_name'] or '?'} · "
-                 f"{row['category_name'] or '—'}", cb.expense_card(row["id"]))]
+    rows = [[Btn(text=f"{row['spent_on'][8:10]}.{row['spent_on'][5:7]} · {row['display_name'] or '?'} · "
+                 f"{row['category_name'] or '—'}", callback_data=cb.expense_card(row["id"]))]
             for row in expenses]
-    rows.append([Btn("← Меню", cb.menu())])
+    rows.append([Btn(text="← Меню", callback_data=cb.menu())])
     return _kb(rows)
 
 
 def expense_card_keyboard(expense, photos_count: int, can_manage: bool, can_reimburse: bool) -> InlineKeyboardMarkup:
     rows = []
     if photos_count:
-        rows.append([Btn(f"📎 Чеки ({photos_count})", cb.expense_photos(expense["id"]))])
+        rows.append([Btn(text=f"📎 Чеки ({photos_count})", callback_data=cb.expense_photos(expense["id"]))])
     if can_reimburse and expense["mode"] == "personal" and not expense["reimbursed"]:
-        rows.append([Btn("↩️ Вернуть из котла", cb.expense_reimburse(expense["id"]))])
+        rows.append([Btn(text="↩️ Вернуть из котла", callback_data=cb.expense_reimburse(expense["id"]))])
     if can_manage:
-        rows.append([Btn("🗑 Удалить трату", cb.expense_delete(expense["id"]))])
-    rows.append([Btn("← Траты", cb.expenses_list())])
+        rows.append([Btn(text="🗑 Удалить трату", callback_data=cb.expense_delete(expense["id"]))])
+    rows.append([Btn(text="← Траты", callback_data=cb.expenses_list())])
     return _kb(rows)
 
 
 def history_keyboard(month: str, prev_month: str, next_month: str, can_nav_next: bool) -> InlineKeyboardMarkup:
-    rows = [[Btn("‹", cb.history(prev_month)), Btn("›", cb.history(next_month) if can_nav_next else cb.noop())]]
-    rows.append([Btn("← Меню", cb.menu())])
+    rows = [[
+        Btn(text="‹", callback_data=cb.history(prev_month)),
+        Btn(text="›", callback_data=cb.history(next_month) if can_nav_next else cb.noop()),
+    ]]
+    rows.append([Btn(text="← Меню", callback_data=cb.menu())])
     return _kb(rows)
 
 
@@ -205,16 +211,16 @@ def history_keyboard(month: str, prev_month: str, next_month: str, can_nav_next:
 
 def settings_root_keyboard(is_owner: bool, chat_bound: bool) -> InlineKeyboardMarkup:
     rows = [
-        [Btn("🔔 Мои уведомления", cb.settings_notify())],
+        [Btn(text="🔔 Мои уведомления", callback_data=cb.settings_notify())],
     ]
     if is_owner:
-        rows.append([Btn("🏠 Настройки дома", cb.settings_house())])
-        rows.append([Btn("👥 Права участников", cb.settings_perms())])
-        rows.append([Btn("🏷 Категории трат", cb.settings_categories())])
-        rows.append([Btn("🔗 Привязать этот чат" if not chat_bound else "🔗 Чат привязан ✓",
-                         cb.settings_bind_chat())])
-        rows.append([Btn("💌 Ссылка-приглашение", cb.settings_invite())])
-    rows.append([Btn("← Меню", cb.menu())])
+        rows.append([Btn(text="🏠 Настройки дома", callback_data=cb.settings_house())])
+        rows.append([Btn(text="👥 Права участников", callback_data=cb.settings_perms())])
+        rows.append([Btn(text="🏷 Категории трат", callback_data=cb.settings_categories())])
+        rows.append([Btn(text="🔗 Привязать этот чат" if not chat_bound else "🔗 Чат привязан ✓",
+                         callback_data=cb.settings_bind_chat())])
+        rows.append([Btn(text="💌 Ссылка-приглашение", callback_data=cb.settings_invite())])
+    rows.append([Btn(text="← Меню", callback_data=cb.menu())])
     return _kb(rows)
 
 
@@ -226,8 +232,8 @@ def house_settings_keyboard(values: dict) -> InlineKeyboardMarkup:
             shown = "вкл" if value else "выкл"
         else:
             shown = definition.choice_labels.get(value, value) if definition.choice_labels else value
-        rows.append([Btn(f"{definition.label}: {shown}", cb.settings_house_set(definition.key))])
-    rows.append([Btn("← Настройки", cb.settings_root())])
+        rows.append([Btn(text=f"{definition.label}: {shown}", callback_data=cb.settings_house_set(definition.key))])
+    rows.append([Btn(text="← Настройки", callback_data=cb.settings_root())])
     return _kb(rows)
 
 
@@ -235,13 +241,13 @@ def house_setting_choices_keyboard(key: str, choices: tuple) -> InlineKeyboardMa
     rows = []
     row = []
     for index, value in enumerate(choices):
-        row.append(Btn(str(value), cb.settings_house_value(key, index)))
+        row.append(Btn(text=str(value), callback_data=cb.settings_house_value(key, index)))
         if len(row) == 4:
             rows.append(row)
             row = []
     if row:
         rows.append(row)
-    rows.append([Btn("← Настройки дома", cb.settings_house())])
+    rows.append([Btn(text="← Настройки дома", callback_data=cb.settings_house())])
     return _kb(rows)
 
 
@@ -251,15 +257,16 @@ def notify_settings_keyboard(values: dict, is_owner: bool) -> InlineKeyboardMark
         if definition.for_owner_only and not is_owner:
             continue
         channel = reg.channel_label(values[definition.key])
-        rows.append([Btn(f"{definition.label}: {channel}", cb.settings_notify_cycle(definition.key))])
-    rows.append([Btn("← Настройки", cb.settings_root())])
+        rows.append([Btn(text=f"{definition.label}: {channel}",
+                         callback_data=cb.settings_notify_cycle(definition.key))])
+    rows.append([Btn(text="← Настройки", callback_data=cb.settings_root())])
     return _kb(rows)
 
 
 def perm_members_keyboard(members: list) -> InlineKeyboardMarkup:
-    rows = [[Btn(member["display_name"], cb.settings_perm_member(member["tg_id"]))]
+    rows = [[Btn(text=member["display_name"], callback_data=cb.settings_perm_member(member["tg_id"]))]
             for member in members]
-    rows.append([Btn("← Настройки", cb.settings_root())])
+    rows.append([Btn(text="← Настройки", callback_data=cb.settings_root())])
     return _kb(rows)
 
 
@@ -269,21 +276,22 @@ def perm_toggle_keyboard(member, grants: frozenset[str]) -> InlineKeyboardMarkup
     rows = []
     for permission in perms.PERMISSIONS:
         mark = "✅" if permission.code in grants else "❌"
-        rows.append([Btn(f"{mark} {permission.label}", cb.settings_perm_toggle(member["tg_id"], permission.code))])
-    rows.append([Btn("← Участники", cb.settings_perms())])
+        rows.append([Btn(text=f"{mark} {permission.label}",
+                         callback_data=cb.settings_perm_toggle(member["tg_id"], permission.code))])
+    rows.append([Btn(text="← Участники", callback_data=cb.settings_perms())])
     return _kb(rows)
 
 
 def categories_manage_keyboard(categories: list) -> InlineKeyboardMarkup:
-    rows = [[Btn(f"🗑 {category['name']}", cb.settings_category_delete(category["id"]))]
+    rows = [[Btn(text=f"🗑 {category['name']}", callback_data=cb.settings_category_delete(category["id"]))]
             for category in categories]
-    rows.append([Btn("➕ Добавить категорию", cb.category_add())])
-    rows.append([Btn("← Настройки", cb.settings_root())])
+    rows.append([Btn(text="➕ Добавить категорию", callback_data=cb.category_add())])
+    rows.append([Btn(text="← Настройки", callback_data=cb.settings_root())])
     return _kb(rows)
 
 
 def invite_keyboard(link: str) -> InlineKeyboardMarkup:
     return _kb([
-        [Btn("🔄 Обновить ссылку", cb.settings_invite())],
-        [Btn("← Настройки", cb.settings_root())],
+        [Btn(text="🔄 Обновить ссылку", callback_data=cb.settings_invite())],
+        [Btn(text="← Настройки", callback_data=cb.settings_root())],
     ])
