@@ -40,7 +40,7 @@ class TransactionInput(BaseModel):
 
 
 class ImportInput(BaseModel):
-    extension: Literal["csv", "tsv", "json"]
+    extension: Literal["csv", "tsv", "json", "xlsx"]
     content: str = Field(max_length=2800000)
 
 

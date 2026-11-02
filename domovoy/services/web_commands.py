@@ -41,7 +41,9 @@ async def create_transaction(house_id: int, actor: int, data: dict, *, bot=None)
             await notify.broadcast(bot, house, "expense_added",
                                    f"🧾 {member['display_name']}: {formatted} "
                                    f"— {category_name or 'Без категории'} · {row['date']}", exclude_tg_ids={actor})
-    return {"added": added, "duplicate": bool(skipped), "status": status}
+    target_id = await transactions.imported_target_id(house_id, row["source_key"])
+    return {"added": added, "duplicate": bool(skipped), "status": status,
+            "id": target_id}
 
 
 async def edit_expense(house_id: int, actor: int, expense_id: int, data: dict, version: str) -> dict:

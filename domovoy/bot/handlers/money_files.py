@@ -32,7 +32,7 @@ async def _files(event: CallbackQuery | Message, month: str):
     house, _ = await _context(event.from_user.id)
     allowed = await households.can(house["id"], event.from_user.id, "import_transactions")
     text = (f"Файлы · {house['name']}\nПериод: {'вся история' if month == 'all' else month}\n\n"
-            "CSV / TSV — таблицы для Excel и Google Sheets.\nJSON — перенос истории в Домового.\n"
+            "Excel / CSV / TSV — таблицы для Excel и Google Sheets.\nJSON — перенос истории в Домового.\n"
             "Экспорт содержит взносы и траты, без фотографий чеков.\n"
             "Импорт сначала покажет проверку и изменение баланса. Ничего не удаляется.")
     markup = kb.money_files_keyboard(month, allowed)
@@ -75,7 +75,7 @@ async def export_month_entered(message: Message, state: FSMContext):
     await _files(message, month)
 
 
-@router.callback_query(F.data.regexp(r"^file_export:(csv|tsv|json):(all|\d{4}-\d{2})$"))
+@router.callback_query(F.data.regexp(r"^file_export:(xlsx|csv|tsv|json):(all|\d{4}-\d{2})$"))
 @guard
 async def export_document(event: CallbackQuery):
     house, _ = await _context(event.from_user.id)
@@ -89,7 +89,7 @@ async def export_document(event: CallbackQuery):
     )
 
 
-@router.callback_query(F.data.regexp(r"^file_template:(csv|json)$"))
+@router.callback_query(F.data.regexp(r"^file_template:(xlsx|csv|tsv|json)$"))
 @guard
 async def template_document(event: CallbackQuery):
     house, _ = await _context(event.from_user.id)
@@ -115,7 +115,7 @@ async def start_import(event: CallbackQuery, state: FSMContext):
     await state.update_data(house_id=house["id"])
     members = await households.members(house["id"])
     people = "\n".join(f"{member['display_name']}: {member['tg_id']}" for member in members)
-    await safe_edit(event, "Пришлите CSV, TSV или JSON до 2 МБ, не больше 1000 операций.\n"
+    await safe_edit(event, "Пришлите XLSX, CSV, TSV или JSON до 2 МБ, не больше 1000 операций.\n"
                     "Используйте наш шаблон или экспорт. Чужие банковские форматы нужно привести к шаблону.\n"
                     "Повторные ключи пропускаются, изменённые записи требуют другого ключа.\n\n"
                     f"ID жильцов для member_tg_id:\n{people}", kb.import_review_keyboard(None))
@@ -131,7 +131,7 @@ async def import_uploaded(message: Message, state: FSMContext):
         raise DomainError("Файл должен быть не больше 2 МБ")
     extension = (message.document.file_name or "").rsplit(".", 1)[-1].lower()
     if extension not in transfers.FORMATS:
-        raise DomainError("Нужен файл .csv, .tsv или .json")
+        raise DomainError("Нужен файл .xlsx, .csv, .tsv или .json")
     buffer = io.BytesIO()
     await message.bot.download(message.document, destination=buffer)
     content = buffer.getvalue()

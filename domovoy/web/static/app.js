@@ -221,7 +221,9 @@
     const filters = Object.values(app.filters).filter(value => !['', 'all', 'newest'].includes(value)).length + Number(app.allMonths);
     $('filter-label').textContent = `Фильтры${filters ? ` · ${filters}` : ''}`;
     $('clear-filters').hidden = !filters && !$('search').value;
-    $('export-context').textContent = `${app.allMonths ? 'Всё время' : dateLabel(`${app.month}-01`, { month: 'long', year: 'numeric' })} · записей в выборке: ${data.total}`;
+    renderExportContext();
+    document.querySelector('[data-preset="mine"]').setAttribute('aria-pressed', String(String(app.filters.member) === String(data.actor)));
+    document.querySelector('[data-preset="waiting"]').setAttribute('aria-pressed', String(app.filters.mode === 'waiting_return' && app.allMonths));
     $('summary').replaceChildren();
     for (const [key, label] of [['expenses', 'Траты'], ['contributions', 'Зачтённые взносы'],
       ['pending', 'Ждут подтверждения'], ['waiting_return', 'Ждут возврата']]) {
@@ -229,6 +231,7 @@
       card.append(node('span', label, 'subtle'), node('strong', amount(data.summary[key])));
       $('summary').append(card);
     }
+    renderBreakdown();
     $('history').replaceChildren();
     if (!data.rows.length) {
       const empty = emptyState('Нет совпадений', 'Измените фильтры или выберите другой месяц.', 'search');
@@ -252,6 +255,57 @@
     for (const entry of recent) $('recent').append(transactionRow(entry));
     if (!recent.length) $('recent').append(emptyState('Пока нет записей', 'Запишите расход или внесите деньги в общий котёл.', 'wallet'));
     renderPager();
+  }
+
+  function renderBreakdown() {
+    const breakdown = app.state.analytics || { categories: [], members: [] };
+    const categories = $('category-breakdown'), members = $('member-breakdown');
+    categories.replaceChildren();
+    members.replaceChildren();
+    const total = app.state.summary.expenses;
+    if (!breakdown.categories.length) categories.append(node('p', 'В выбранных записях нет расходов.', 'panel-note'));
+    for (const category of breakdown.categories) {
+      const item = node('div', undefined, 'breakdown-row');
+      const caption = node('div', undefined, 'section-title');
+      caption.append(node('span', category.name), node('strong', amount(category.amount_kop)));
+      const bar = node('meter');
+      bar.min = 0; bar.max = total; bar.value = category.amount_kop;
+      bar.setAttribute('aria-label', `${category.name}: ${amount(category.amount_kop)} из ${amount(total)}`);
+      item.append(caption, bar);
+      categories.append(item);
+    }
+    for (const person of breakdown.members) {
+      const item = node('div', undefined, 'member-summary');
+      item.append(node('h3', person.name));
+      for (const [key, label] of [['contributions', 'Внёс'], ['expenses', 'Записал расходов'], ['waiting_return', 'Ждёт возврата']]) {
+        const line = node('div', undefined, 'section-title');
+        line.append(node('span', label, 'subtle'), node('span', amount(person[key]), 'sum'));
+        item.append(line);
+      }
+      members.append(item);
+    }
+    if (!breakdown.members.length) members.append(node('p', 'Нет записей по выбранным условиям.', 'panel-note'));
+  }
+
+  function renderExportContext() {
+    const period = $('export-period').value;
+    const month = dateLabel(`${app.month}-01`, { month: 'long', year: 'numeric' });
+    $('export-context').textContent = period === 'all' ? 'Вся история дома. Фильтры не применяются.'
+      : period === 'month' ? `${month} · все записи месяца без фильтров.`
+      : `${app.allMonths ? 'Всё время' : month} · записей с текущими фильтрами: ${app.state.total}`;
+  }
+
+  async function quickFilter(preset) {
+    clearTimeout(app.searchTimer);
+    if (preset === 'mine') {
+      app.filters.member = String(app.filters.member) === String(app.state.actor) ? '' : String(app.state.actor);
+    } else {
+      const active = app.filters.mode === 'waiting_return' && app.allMonths;
+      app.filters.mode = active ? 'all' : 'waiting_return';
+      if (!active) { app.filters.kind = 'expense'; app.allMonths = true; }
+    }
+    for (const [key, value] of Object.entries(app.filters)) $(`filter-${key}`).value = value;
+    await filterChanged();
   }
 
   function transactionRow(entry) {
@@ -365,12 +419,14 @@
       amount: $('tx-amount').value, date: $('tx-date').value, month: $('tx-month').value,
       category_id: $('tx-category').value ? Number($('tx-category').value) : null,
       mode: $('tx-mode').value, description: $('tx-description').value,
+      addReceipt: $('tx-add-receipt').checked,
     });
     const hasContent = app.draft.amount.trim() || app.draft.description.trim() || app.draft.category_id
-      || app.draft.mode === 'personal' || app.draft.date !== app.state.today;
+      || app.draft.mode === 'personal' || app.draft.date !== app.state.today || app.draft.addReceipt;
     if (hasContent) app.drafts.set(app.draft.request_id, { ...app.draft });
     else app.drafts.delete(app.draft.request_id);
     updateDateSummary();
+    $('save-another').hidden = !!app.draft.editId || app.draft.addReceipt;
     if (app.drafts.size) tg?.enableClosingConfirmation?.();
     else tg?.disableClosingConfirmation?.();
   }
@@ -393,6 +449,7 @@
     $('tx-month').value = draft.month;
     $('tx-mode').value = draft.mode;
     $('tx-description').value = draft.description;
+    $('tx-add-receipt').checked = !!draft.addReceipt;
     $('tx-category').value = draft.category_id || '';
     $('category-picker').open = false;
     renderCategoryPicker();
@@ -488,6 +545,11 @@
       }
       notice(refreshed ? (saved.editId ? 'Изменения сохранены' : result.status === 'declared' ? 'Взнос ждёт подтверждения' : 'Запись сохранена')
         : 'Запись сохранена. Список пока не обновился — нажмите «Обновить».');
+      if (saved.kind === 'expense' && saved.addReceipt && app.house === saved.house && (saved.editId || result.id)) {
+        void receiptUI.open(saved.house, { id: saved.editId || result.id, description: saved.description })
+          .catch(error => notice(error.message || 'Расход сохранён, но чеки не открылись.'));
+        syncBackButton();
+      }
     } catch (error) {
       $('form-error').textContent = error.message || 'Нет соединения. Поля сохранены; можно повторить отправку.';
       $('form-error').focus();
@@ -573,7 +635,8 @@
     const params = period === 'selection' ? selectionParams() : new URLSearchParams();
     if (period === 'month') params.set('month', app.month);
     const response = await api(`houses/${app.house}/export/${format}?${params}`, { raw: true });
-    await downloadFile(response, `operations-${period === 'all' || app.allMonths ? 'all' : app.month}.${format}`);
+    const scope = period === 'all' || (period === 'selection' && app.allMonths) ? 'all' : app.month;
+    await downloadFile(response, `operations-${scope}.${format}`);
   }
 
   async function downloadFile(response, filename) {
@@ -602,7 +665,7 @@
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) return notice('Максимальный размер — 2 МБ');
     const extension = file.name.split('.').pop().toLowerCase();
-    if (!['csv', 'tsv', 'json'].includes(extension)) return notice('Выберите CSV, TSV или JSON');
+    if (!['xlsx', 'csv', 'tsv', 'json'].includes(extension)) return notice('Выберите Excel, CSV, TSV или JSON');
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = '';
@@ -654,12 +717,18 @@
   document.querySelectorAll('[data-payment]').forEach(button => { button.onclick = () => { $('tx-mode').value = button.dataset.payment; rememberDraft(); }; });
   document.querySelectorAll('[data-view]').forEach(button => { button.onclick = () => showView(button.dataset.view); });
   $('journal-add').onclick = () => openForm('expense');
-  $('journal-files').onclick = () => {
-    showView('more');
-    houseUI.open('files');
+  const openFiles = () => {
+    renderExportContext();
     $('export-details').open = true;
-    $('files-card').scrollIntoView({ block: 'start' });
+    $('files-dialog').showModal();
+    syncBackButton();
   };
+  $('journal-files').onclick = openFiles;
+  $('journal-files-top').onclick = openFiles;
+  $('export-period').onchange = renderExportContext;
+  document.querySelectorAll('[data-preset]').forEach(button => {
+    button.onclick = () => busy(button, () => quickFilter(button.dataset.preset));
+  });
   $('open-filters').onclick = () => {
     app.filterSnapshot = Object.fromEntries(['filter-kind', 'filter-member', 'filter-category', 'filter-mode', 'filter-sort']
       .map(id => [id, $(id).value]));

@@ -38,6 +38,15 @@ async def imported_keys(house_id: int) -> dict[str, str]:
     return {row["source_key"]: row["fingerprint"] for row in rows}
 
 
+async def imported_target_id(house_id: int, source_key: str) -> int | None:
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT target_id FROM money_import_items WHERE house_id = ? AND source_key = ?",
+            house_id, source_key,
+        )
+    return row["target_id"] if row else None
+
+
 async def apply_import(house_id: int, actor: int, rows: list[dict]) -> tuple[int, int]:
     added = skipped = 0
     async with db.transaction() as conn:

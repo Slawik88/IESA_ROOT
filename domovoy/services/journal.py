@@ -92,7 +92,35 @@ async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0) ->
             break
     return {"recent": recent_rows[:WEB_HOME_RECENT_LIMIT],
             "rows": selected[page * WEB_JOURNAL_PAGE_SIZE:(page + 1) * WEB_JOURNAL_PAGE_SIZE],
-            "page": page, "total": len(selected), "summary": summary, "templates": templates,
+            "page": page, "total": len(selected), "summary": summary, "analytics": expense_breakdown(selected),
+            "templates": templates,
             "page_size": WEB_JOURNAL_PAGE_SIZE,
             "filter_members": [{"id": actor_id, "name": name} for actor_id, name in
                                {row["tg_id"]: row["display_name"] or "Жилец" for row in all_rows}.items()]}
+
+
+def expense_breakdown(rows: list[dict]) -> dict:
+    """Расходы из полной выборки; возврат не является второй покупкой."""
+    categories, members = {}, {}
+    for row in rows:
+        member = members.setdefault(row["tg_id"], {
+            "id": row["tg_id"], "name": row["display_name"] or "Жилец",
+            "expenses": 0, "contributions": 0, "waiting_return": 0,
+        })
+        kop = row["amount_kop"]
+        if row["kind"] == "contribution":
+            if row["status"] == "confirmed":
+                member["contributions"] += kop
+            continue
+        member["expenses"] += kop
+        if row["mode"] == "personal" and not row["reimbursed"]:
+            member["waiting_return"] += kop
+        category = categories.setdefault(row["category_id"], {
+            "id": row["category_id"], "name": row["category"] or "Без категории", "amount_kop": 0, "count": 0,
+        })
+        category["amount_kop"] += kop
+        category["count"] += 1
+    return {
+        "categories": sorted(categories.values(), key=lambda item: (-item["amount_kop"], item["name"])),
+        "members": sorted(members.values(), key=lambda item: (-item["expenses"], item["id"])),
+    }

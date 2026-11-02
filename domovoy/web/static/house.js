@@ -3,7 +3,7 @@
 window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, showView, initialName = '' }) => {
   const $ = id => document.getElementById(id);
   let context = null, panel = null, generation = 0;
-  const titles = { people: 'Люди и приглашения', schedule: 'График уборки', money: 'Деньги и категории', notifications: 'Мои уведомления', settings: 'Настройки дома', add: 'Ещё один дом', files: 'Записи и файлы' };
+  const titles = { people: 'Люди и приглашения', schedule: 'График уборки', money: 'Деньги и категории', notifications: 'Мои уведомления', settings: 'Настройки дома', add: 'Ещё один дом' };
   const weekdays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
   const node = (tag, text, cls) => {
     const item = document.createElement(tag);
@@ -82,7 +82,6 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     generation++;
     $('house-menu').hidden = false;
     $('house-detail').hidden = true;
-    $('files-card').hidden = true;
     $('house-content').replaceChildren();
     $('more-view').classList.remove('has-panel');
   }
@@ -92,13 +91,11 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     const version = ++generation, house = context?.house.id;
     $('house-menu').hidden = true;
     $('house-detail').hidden = false;
-    $('files-card').hidden = name !== 'files';
     $('house-panel-title').textContent = titles[name] || 'Ваш дом';
     $('more-view').classList.add('has-panel');
     $('house-panel-title').focus({ preventScroll: true });
     const content = $('house-content');
     content.replaceChildren();
-    if (name === 'files') return;
     if (name === 'add') return renderMembership(content);
     content.append(node('p', 'Открываем…', 'subtle'));
     try {

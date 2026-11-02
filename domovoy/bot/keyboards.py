@@ -374,11 +374,14 @@ def money_files_keyboard(month: str, can_import: bool) -> InlineKeyboardMarkup:
          Btn(text="Вся история", callback_data="files_period:all")],
         [Btn(text="Другой месяц", callback_data="files_period:custom")],
         [Btn(text=f"Скачать {fmt.upper()}", callback_data=f"file_export:{fmt}:{month}")
-         for fmt in ("csv", "tsv", "json")],
+         for fmt in ("xlsx", "csv")],
+        [Btn(text=f"Скачать {fmt.upper()}", callback_data=f"file_export:{fmt}:{month}")
+         for fmt in ("tsv", "json")],
     ]
     if can_import:
         rows += [[Btn(text="📥 Загрузить операции", callback_data="file_import")],
-                 [Btn(text="Шаблон CSV", callback_data="file_template:csv"),
+                 [Btn(text="Шаблон Excel", callback_data="file_template:xlsx"),
+                  Btn(text="Шаблон CSV", callback_data="file_template:csv"),
                   Btn(text="Шаблон JSON", callback_data="file_template:json")]]
     rows.append([Btn(text="← Деньги", callback_data=cb.balance())])
     return _kb(rows)

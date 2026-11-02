@@ -19,9 +19,28 @@ from core.transaction_versions import expense_version
 from infrastructure.db import db
 from services.web_auth import verify_init_data
 from services.households import DomainError
+from services.journal import expense_breakdown
 from web.app import create_app
 
 TOKEN = "123456:TEST_HOME_BOT"
+
+
+def test_breakdown_keeps_same_named_members_separate_and_does_not_double_refunds():
+    common = {"kind": "expense", "category_id": None, "category": None, "display_name": "Саша",
+              "mode": "personal", "status": "confirmed", "reimbursed": 0}
+    rows = [
+        {**common, "tg_id": 100, "amount_kop": 29},
+        {**common, "tg_id": 200, "amount_kop": 71, "reimbursed": 1},
+        {**common, "tg_id": 100, "amount_kop": 300, "kind": "contribution"},
+        {**common, "tg_id": 100, "amount_kop": 999, "kind": "contribution", "status": "declared"},
+        {**common, "tg_id": 100, "amount_kop": 999, "kind": "contribution", "status": "rejected"},
+    ]
+    report = expense_breakdown(rows)
+    assert report["categories"] == [{"id": None, "name": "Без категории", "amount_kop": 100, "count": 2}]
+    people = {person["id"]: person for person in report["members"]}
+    assert len(people) == 2 and people[100]["contributions"] == 300
+    assert people[100]["waiting_return"] == 29 and people[200]["waiting_return"] == 0
+    assert expense_breakdown([]) == {"categories": [], "members": []}
 
 
 def signed(actor=100, token=TOKEN, age=0):
@@ -89,6 +108,8 @@ async def test_web_retry_does_not_duplicate_money(client, house):
     second = await client.post(path, headers=headers(200), json=payload)
     assert first.status_code == second.status_code == 200
     assert first.json()["added"] == 1 and second.json()["duplicate"]
+    assert first.json()["id"] == second.json()["id"]
+    assert (await transactions.all_rows(house))[0]["id"] == first.json()["id"]
     assert len(await transactions.all_rows(house)) == 1
     changed = await client.post(path, headers=headers(200), json={**payload, "amount": "300"})
     assert changed.status_code == 422
@@ -228,6 +249,10 @@ async def test_search_summary_and_export_cover_all_pages(client, house):
     assert response.status_code == 200 and data["total"] == 25 and len(data["rows"]) == 20
     assert data["rows"][0]["amount_kop"] == 124
     assert data["summary"]["expenses"] == sum(range(100, 125))
+    assert data["analytics"]["categories"] == [
+        {"id": None, "name": "Без категории", "amount_kop": sum(range(100, 125)), "count": 25},
+    ]
+    assert data["analytics"]["members"][0]["expenses"] == sum(range(100, 125))
     export = await client.get(f"/api/houses/{house}/export/json?{query}", headers=headers())
     rows = export.json()["transactions"]
     assert len(rows) == 25 and all("Чай" in row["description"] for row in rows)

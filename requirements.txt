@@ -77,3 +77,7 @@ oauthlib==4.0.0
 
 # Sanitize rich-text posts before rendering, including legacy content.
 nh3==0.3.7
+
+# Domovoy money workbook exchange
+openpyxl==3.1.5
+defusedxml==0.7.1

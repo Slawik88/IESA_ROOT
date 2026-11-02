@@ -1,8 +1,10 @@
 """Деньги: перенос между домами, дубли, отказы и прошлые даты."""
 import asyncio
 import json
+import io
 
 import pytest
+from openpyxl import Workbook
 
 from infrastructure.repositories import transactions
 from services import households, money, settings, transfers
@@ -26,7 +28,7 @@ async def homes(database):
     return first, second
 
 
-@pytest.mark.parametrize("extension", ["csv", "tsv", "json"])
+@pytest.mark.parametrize("extension", ["csv", "tsv", "json", "xlsx"])
 async def test_roundtrip_preserves_balance_dates_and_statuses(homes, extension):
     first, second = homes
     await settings.set_house_setting(first, "confirm_contributions", False)
@@ -57,6 +59,21 @@ async def test_invalid_row_blocks_entire_import(homes):
         await transfers.import_file(first, 100, content, "json")
     assert not await transactions.all_rows(first)
     assert not await transactions.imported_keys(first)
+
+
+async def test_excel_errors_keep_physical_row_number_after_blank_rows(homes):
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Операции"
+    sheet.append(["kind", "date", "member_tg_id", "amount"])
+    sheet.cell(9, 1, "expense")
+    sheet.cell(9, 2, "2026-10-12")
+    sheet.cell(9, 3, "100")
+    sheet.cell(9, 4, "invalid")
+    output = io.BytesIO()
+    book.save(output)
+    preview = await transfers.preview_import(homes[0], 100, output.getvalue(), "xlsx")
+    assert len(preview.errors) == 1 and preview.errors[0].startswith("Строка 9:")
 
 
 async def test_conflicting_source_key_is_not_silently_overwritten(homes):

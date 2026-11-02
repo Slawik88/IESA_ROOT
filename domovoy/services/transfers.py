@@ -1,4 +1,5 @@
-"""Перенос денег CSV/TSV/JSON: единый контракт, предпросмотр и дедупликация."""
+"""Перенос денег XLSX/CSV/TSV/JSON: единый контракт, предпросмотр и дедупликация."""
+import asyncio
 import csv
 import hashlib
 import io
@@ -10,12 +11,12 @@ from core.constants import (
 )
 from core.money import AmountError, parse_amount
 from infrastructure.repositories import transactions as repo
-from services import households, settings
+from services import households, settings, workbooks
 from services.households import DomainError
 from services.transaction_dates import parse_date, parse_month
 from services.journal import JournalQuery, filter_rows
 
-FORMATS = {"csv": ";", "tsv": "\t", "json": None}
+FORMATS = {"csv": ";", "tsv": "\t", "json": None, "xlsx": None}
 FIELDS = (
     "source_key", "kind", "date", "month", "member_tg_id", "member_name",
     "amount", "category", "mode", "status", "reimbursed", "description", "currency",
@@ -46,7 +47,9 @@ def _unprotect_cell(text: str) -> str:
 
 def template_file(extension: str) -> bytes:
     if extension not in FORMATS:
-        raise DomainError("Выберите CSV, TSV или JSON")
+        raise DomainError("Выберите Excel, CSV, TSV или JSON")
+    if extension == "xlsx":
+        return workbooks.write_workbook(FIELDS, [])
     if extension == "json":
         return json.dumps({"format": "domovoy-money", "version": 1, "transactions": []}).encode()
     output = io.StringIO(newline="")
@@ -59,7 +62,7 @@ async def export_file(
 ) -> bytes:
     await households.require_member(house_id, actor)
     if extension not in FORMATS:
-        raise DomainError("Выберите CSV, TSV или JSON")
+        raise DomainError("Выберите Excel, CSV, TSV или JSON")
     if month:
         month = parse_month(month)
     currency = await settings.house_setting(house_id, "currency")
@@ -79,7 +82,9 @@ async def export_file(
         ))))
     if len(rows) > TRANSFER_MAX_ROWS:
         raise DomainError(f"Больше {TRANSFER_MAX_ROWS} операций. Выберите отдельный месяц.")
-    if extension == "json":
+    if extension == "xlsx":
+        result = await asyncio.to_thread(workbooks.write_workbook, FIELDS, rows)
+    elif extension == "json":
         result = json.dumps({"format": "domovoy-money", "version": 1, "transactions": rows},
                             ensure_ascii=False, indent=2).encode("utf-8")
     else:
@@ -97,7 +102,12 @@ def _read_file(content: bytes, extension: str) -> list[dict]:
     if len(content) > TRANSFER_MAX_BYTES:
         raise DomainError("Файл слишком большой. Максимум 2 МБ.")
     if extension not in FORMATS:
-        raise DomainError("Пришлите файл .csv, .tsv или .json")
+        raise DomainError("Пришлите файл .xlsx, .csv, .tsv или .json")
+    if extension == "xlsx":
+        rows = workbooks.read_workbook(content)
+        if not rows:
+            raise DomainError("В Excel нет операций. Заполните строки под заголовками.")
+        return rows
     try:
         text = content.decode("utf-8-sig")
         if extension == "json":
@@ -180,7 +190,7 @@ def normalize_row(raw: dict, today: str, currency: str, members: set[int]) -> di
 
 async def preview_import(house_id: int, actor: int, content: bytes, extension: str) -> Preview:
     await households.require(house_id, actor, "import_transactions")
-    raw_rows = _read_file(content, extension)
+    raw_rows = await asyncio.to_thread(_read_file, content, extension)
     current = await settings.house_settings(house_id)
     members = {member["tg_id"] for member in await households.members(house_id)}
     known = await repo.imported_keys(house_id)
@@ -198,6 +208,8 @@ async def preview_import(house_id: int, actor: int, content: bytes, extension: s
     rows, errors = [], []
     duplicates = delta = 0
     for index, raw in enumerate(raw_rows, 2 if extension != "json" else 1):
+        if extension == "xlsx":
+            index = raw["_xlsx_row"]
         try:
             row = normalize_row(raw, settings.house_today(current), current["currency"], members)
             previous = known.get(row["source_key"])
