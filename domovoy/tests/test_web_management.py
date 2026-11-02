@@ -228,11 +228,11 @@ async def test_categories_require_right_and_cannot_remove_foreign_or_used(client
     foreign_categories = (await client.get(f"/api/houses/{foreign}/management", headers=headers(300))).json()[
         "categories"
     ]
-    assert (await client.delete(base + f"/{foreign_categories[0]['id']}", headers=headers())).status_code == 422
-    assert (await client.delete(base + f"/{first['category_id']}", headers=headers())).status_code == 200
+    assert (await client.post(base + f"/{foreign_categories[0]['id']}/delete", headers=headers())).status_code == 422
+    assert (await client.post(base + f"/{first['category_id']}/delete", headers=headers())).status_code == 200
     category = (await client.post(base, headers=headers(), json={"name": "Книги"})).json()["category_id"]
     await money.add_expense(house, 100, 100, category, "2026-10-01", "house", "Книга", [])
-    assert (await client.delete(base + f"/{category}", headers=headers())).status_code == 422
+    assert (await client.post(base + f"/{category}/delete", headers=headers())).status_code == 422
 
 
 async def test_schedule_validates_members_rights_and_repeat_keeps_version(client, house):

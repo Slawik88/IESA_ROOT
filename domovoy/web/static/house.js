@@ -306,7 +306,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
       row.append(node('span', category.name));
       if (data.permissions.manage_categories) row.append(button('Убрать', async () => {
         if (!window.confirm(`Убрать категорию «${category.name}»?`)) return;
-        await api(`${base(data)}/categories/${category.id}`, { method: 'DELETE' });
+        await post(`${base(data)}/categories/${category.id}/delete`);
         await updateCategories();
       }, 'text-button'));
         list.append(row);

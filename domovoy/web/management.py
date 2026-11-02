@@ -132,6 +132,7 @@ async def add_category(request: Request, house_id: int, payload: Category):
 
 
 @router.delete("/houses/{house_id}/categories/{category_id}")
+@router.post("/houses/{house_id}/categories/{category_id}/delete")
 async def remove_category(request: Request, house_id: int, category_id: int):
     await web_households.remove_category(house_id, request.state.actor, category_id)
     return {"ok": True}

@@ -110,6 +110,8 @@
         if (typeof data.detail === 'string') text = data.detail;
       } catch { /* Сеть может вернуть HTML вместо ответа API. */ }
       if (response.status === 404) text = 'Вход недоступен. Откройте приложение заново из личного чата.';
+      if ([502, 503, 504].includes(response.status)) text = 'Сервис временно недоступен. Введённые поля сохранены — попробуйте ещё раз чуть позже.';
+      if (response.status === 413) text = 'Файл слишком большой. Выберите файл до 2 МБ.';
       throw new Error(text);
     }
     return options.raw ? response : response.json();

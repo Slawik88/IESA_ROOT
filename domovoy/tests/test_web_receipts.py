@@ -206,3 +206,21 @@ async def test_photo_id_cannot_be_used_for_different_expense(receipts_client, re
     second = await money.add_expense(house_id, 100, 100, None, "2026-10-01", "house", "", [])
     assert (await client.get(path(house_id, second) + f"/receipts/{photo_id}", headers=headers())).status_code == 422
     assert len(await money_repo.expense_photos(expense_id)) == 1
+
+async def test_receipt_lookup_timeout_is_bounded_and_retry_does_not_send_photo(
+    receipts_client, receipt_house, monkeypatch,
+):
+    from services import web_receipts
+    client, bot = receipts_client
+    house, expense = receipt_house
+    uploaded = await client.post(path(house, expense) + '/receipts', headers=headers(), json=upload())
+    photo_id = uploaded.json()['id']
+
+    async def never_returns(file_id):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(bot, 'get_file', never_returns)
+    monkeypatch.setattr(web_receipts, 'RECEIPT_TRANSFER_TIMEOUT', 0.01)
+    result = await client.get(path(house, expense) + f'/receipts/{photo_id}', headers=headers())
+    assert result.status_code == 422
+    assert len(bot.sent) == 1

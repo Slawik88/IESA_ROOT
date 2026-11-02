@@ -1,5 +1,6 @@
 """Приватные фото-чеков сайта; Telegram остаётся закрытым транспортом файлов."""
 import base64
+import asyncio
 import binascii
 import hashlib
 from io import BytesIO
@@ -75,11 +76,12 @@ async def download_receipt(house_id: int, expense_id: int, photo_id: int, actor:
     if bot is None:
         raise DomainError("Просмотр чеков временно недоступен")
     try:
-        remote = await bot.get_file(photo["file_id"])
-        if not remote.file_path or (remote.file_size or 0) > MAX_RECEIPT_DOWNLOAD_BYTES:
-            raise DomainError("Фото слишком большое для просмотра")
-        buffer = _BoundedImage()
-        await bot.download_file(remote.file_path, destination=buffer, timeout=RECEIPT_TRANSFER_TIMEOUT)
+        async with asyncio.timeout(RECEIPT_TRANSFER_TIMEOUT):
+            remote = await bot.get_file(photo["file_id"])
+            if not remote.file_path or (remote.file_size or 0) > MAX_RECEIPT_DOWNLOAD_BYTES:
+                raise DomainError("Фото слишком большое для просмотра")
+            buffer = _BoundedImage()
+            await bot.download_file(remote.file_path, destination=buffer, timeout=RECEIPT_TRANSFER_TIMEOUT)
     except (TelegramAPIError, OSError, TimeoutError) as exc:
         logger.warning("Не удалось загрузить приватный чек из Telegram: {}", type(exc).__name__)
         raise DomainError("Не удалось открыть чек. Попробуйте ещё раз позже.") from exc
@@ -104,13 +106,17 @@ async def upload_receipt(house_id: int, expense_id: int, actor: int, request_id:
     if not created:
         if reservation["state"] == "complete":
             return {"id": reservation["photo_id"], "duplicate": True}
-        raise DomainError("Предыдущая загрузка ещё не завершена. Обновите список чеков; фото повторно не отправлено.")
+        if reservation["state"] == "reserved":
+            raise DomainError("Предыдущая загрузка ещё идёт. Обновите список чеков; фото повторно не отправлено.")
+        raise DomainError("Результат прошлой загрузки не подтверждён. Проверьте чеки и личный чат; "
+                          "выберите фото заново только после проверки. Повторной отправки не было.")
     try:
         filename = "receipt.png" if media_type == "image/png" else "receipt.jpg"
-        message = await bot.send_photo(
-            actor, BufferedInputFile(content, filename=filename),
-            caption="Чек к расходу в домашнем кабинете", request_timeout=RECEIPT_TRANSFER_TIMEOUT,
-        )
+        async with asyncio.timeout(RECEIPT_TRANSFER_TIMEOUT):
+            message = await bot.send_photo(
+                actor, BufferedInputFile(content, filename=filename),
+                caption="Чек к расходу в домашнем кабинете", request_timeout=RECEIPT_TRANSFER_TIMEOUT,
+            )
         file_id = message.photo[-1].file_id
     except TelegramBadRequest as exc:
         await receipts.fail_upload(request_id, uncertain=False)
