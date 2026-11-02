@@ -38,7 +38,13 @@ async def get_category(category_id: int):
 
 
 async def add_category(house_id: int, name: str) -> int:
-    async with db.acquire() as conn:
+    async with db.transaction() as conn:
+        suffix = " FOR UPDATE" if db.is_postgres else ""
+        await conn.fetchrow("SELECT id FROM houses WHERE id = ?" + suffix, house_id)
+        existing = await conn.fetch("SELECT id, name FROM categories WHERE house_id = ?", house_id)
+        match = next((category for category in existing if category["name"].casefold() == name.casefold()), None)
+        if match:
+            return match["id"]
         return await conn.insert(
             "INSERT INTO categories (house_id, name, is_default, sort) VALUES (?, ?, 0, 100)",
             house_id, name,

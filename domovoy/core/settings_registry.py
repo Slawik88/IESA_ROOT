@@ -11,6 +11,8 @@ core/settings_registry.py
 from dataclasses import dataclass
 from typing import Any
 
+from core.constants import DEFAULT_CURRENCY
+
 # Куда доставать уведомление
 NOTIFY_PRIVATE = "private"   # в личку
 NOTIFY_CHAT = "chat"         # в привязанный чат дома
@@ -38,7 +40,9 @@ HOUSE_SETTINGS: tuple[SettingDef, ...] = (
                choices=tuple(range(18, 24))),
     SettingDef("evening_repeat", "Напоминать о пропущенном дне каждый вечер", "bool", True),
     SettingDef("monthly_report", "Ежемесячный отчёт по балансу", "bool", True),
-    SettingDef("currency", "Символ валюты", "choice", "₽", choices=("₽", "₴", "$", "€", "Br", "тг")),
+    SettingDef("currency", "Валюта дома", "choice", DEFAULT_CURRENCY,
+               choices=("CHF", "₽", "₴", "$", "€", "Br", "тг"),
+               choice_labels={"CHF": "CHF — швейцарский франк"}),
     SettingDef("tz_offset_hours", "Часовой пояс дома (UTC+)", "choice", 3,
                choices=tuple(range(-10, 13))),
 )

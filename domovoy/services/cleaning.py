@@ -13,6 +13,8 @@ from core.constants import DATE_FMT, SCHEDULE_HORIZON_DAYS, WEEKDAY_SHORT
 from infrastructure import repositories as repo
 from services.households import DomainError, require, require_member
 
+_ANY_SCHEDULE_VERSION = object()
+
 
 # ── График ───────────────────────────────────────────────────────────────────
 
@@ -37,7 +39,10 @@ def planned_days(weekday_map: dict[int, int | None], today: str) -> list[tuple[i
     return result
 
 
-async def save_weekday_map(house_id: int, weekday_map: dict[int, int | None], today: str) -> int:
+async def save_weekday_map(
+    house_id: int, weekday_map: dict[int, int | None], today: str,
+    *, expected_version: int | None | object = _ANY_SCHEDULE_VERSION,
+) -> int:
     """Новая версия графика + переложить будущие открытые дни — атомарно."""
     if not weekday_map:
         raise DomainError("График не может быть пустым: у кого-то должен быть день")
@@ -47,12 +52,13 @@ async def save_weekday_map(house_id: int, weekday_map: dict[int, int | None], to
     active_members = {member["tg_id"] for member in await repo.houses.list_active_members(house_id)}
     if not set(weekday_map).issubset(active_members):
         raise DomainError("В графике есть участник, который больше не живёт в доме")
-    version_id = await repo.schedule.replace_open_days(
-        house_id,
-        json.dumps(weekday_map),
-        today,
-        planned_days(weekday_map, today),
-    )
+    options = {} if expected_version is _ANY_SCHEDULE_VERSION else {"expected_version": expected_version}
+    try:
+        version_id = await repo.schedule.replace_open_days(
+            house_id, json.dumps(weekday_map), today, planned_days(weekday_map, today), **options,
+        )
+    except repo.schedule.ScheduleConflict as exc:
+        raise DomainError("График уже изменили. Обновите его перед сохранением; ваши изменения не записаны.") from exc
     logger.info(f"📅 Дом {house_id}: новая версия графика id={version_id}")
     return version_id
 
@@ -76,16 +82,11 @@ def describe_weekday_map(weekday_map: dict[int, int | None], members: list) -> s
 
 async def ensure_days(house_id: int, today: str) -> int:
     """Разложить дни на горизонт планирования (идемпотентно). Число новых дней."""
-    active_map = await weekday_map(house_id)
-    if not active_map:
+    version = await repo.schedule.get_latest_version(house_id)
+    if version is None:
         return 0
-    active_members = {member["tg_id"] for member in await repo.houses.list_active_members(house_id)}
-    active_map = {tg_id: weekday for tg_id, weekday in active_map.items() if tg_id in active_members}
-    created = 0
-    for tg_id, planned_date in planned_days(active_map, today):
-        if await repo.schedule.add_day(house_id, tg_id, planned_date):
-            created += 1
-    return created
+    active_map = {int(tg_id): weekday for tg_id, weekday in json.loads(version["weekday_map"]).items()}
+    return await repo.schedule.add_days_if_current(house_id, version["id"], planned_days(active_map, today))
 
 
 async def days_on(house_id: int, planned_date: str) -> list:

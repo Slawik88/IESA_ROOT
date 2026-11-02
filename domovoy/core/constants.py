@@ -24,7 +24,7 @@ SCHEDULER_TICK_SECONDS = 60
 # Все суммы хранятся целыми копейками (CLEAN_CODE 5.7).
 KOPECKS_IN_RUBLE = 100
 MAX_AMOUNT_RUBLES = 10_000_000
-DEFAULT_CURRENCY = "₽"
+DEFAULT_CURRENCY = "CHF"
 
 # ── Чеки ─────────────────────────────────────────────────────────────────────
 MAX_PHOTOS_PER_EXPENSE = 10

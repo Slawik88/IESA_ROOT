@@ -1,55 +1,111 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer">
-<title>Закрытое приложение</title><link rel="stylesheet" href="./app.css">
-<script src="https://telegram.org/js/telegram-web-app.js" defer></script><script src="./app.js" defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Закрытое приложение</title>
+  <link rel="preload" href="./onest.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="./app.css">
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+  <script src="./house.js" defer></script>
+  <script src="./receipts.js" defer></script>
+  <script src="./app.js" defer></script>
 </head>
 <body>
+<svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 7h14l1 14H4ZM9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M8 16a7 7 0 1 1 8 0v3H8ZM9 22h6M10 11l2 3 2-3M12 14v5"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="m14 4 3 3 4-1a6 6 0 0 1-8 8L6 21l-3-3 7-7a6 6 0 0 1 4-8Z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="m3 3 9 1 9 9-8 8-9-9Z"/><circle cx="8" cy="8" r="1"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 6h16v15H4ZM4 6l13-4v4M16 11h5v5h-5Z"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 5h16v16H4ZM4 10h16M8 3v4M16 3v4M8 14h3M8 17h6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="m5 3 2 1 2-1 3 1 3-1 2 1 2-1v18l-2-1-2 1-3-1-3 1-2-1-2 1ZM8 8h8M8 12h8M8 16h4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M5 17h14l-2-3V9A5 5 0 0 0 7 9v5ZM10 21h4M12 2v2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></symbol>
+</svg>
 <a class="skip" href="#main">К содержимому</a>
 <main id="main">
-<section id="gate" class="gate"><h1>Всё под рукой.</h1><p id="gate-text">Откройте эту страницу из личного чата, где вы получили ссылку.</p></section>
-<div id="workspace" hidden>
-<header class="app-header"><div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v9H4Z"/><path d="M9 20v-6h6v6"/></svg></span><span id="brand"></span></div><span id="house-name" class="house-name"></span></header>
-<p id="connection" class="error connection" role="status" hidden>Нет сети. Запись останется в форме — сохраните её, когда связь вернётся.</p>
-<section id="home-view" class="view" aria-labelledby="home-title">
-<div class="page-heading"><h1 id="home-title" tabindex="-1">Вы дома.</h1><p id="today" class="subtle"></p></div>
-<section class="balance" aria-label="Деньги дома"><p class="balance-label">В общем котле</p><p class="amount" id="balance"></p><p class="subtle balance-caption">На общие покупки и счета</p>
-<div class="actions"><button id="add-expense"><span aria-hidden="true">＋</span> Записать расход</button><button id="add-contribution" class="secondary">Внести деньги</button></div>
-<details class="balance-explanation"><summary>Как получился остаток</summary><p id="balance-detail" class="subtle"></p></details></section>
-<div id="drafts" class="drafts" hidden></div>
-<section class="card chores" id="cleaning-card"><div class="section-title"><h2>Моя уборка</h2><span class="small-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span></div><div id="chores"></div></section>
-<details class="card attention" id="pending-card" hidden><summary><span>Подтвердить взносы</span><span id="pending-count" class="count"></span></summary><div id="pending"></div></details>
-<section class="card recent-card"><div class="section-title"><h2>Последние записи</h2><button class="text-button" data-view="journal">Все записи <span aria-hidden="true">→</span></button></div><div id="recent"></div></section>
-</section>
-<section id="journal-view" class="view" aria-labelledby="journal-title" hidden>
-<div class="page-heading section-title"><div><h1 id="journal-title" tabindex="-1">История</h1><p class="subtle">Все деньги дома, по порядку.</p></div><button id="journal-add" class="small-primary">＋ Расход</button></div>
-<div class="journal-toolbar"><div class="month-control"><button id="month-back" class="icon-button" aria-label="Предыдущий месяц">‹</button><label class="sr-only" for="month">Месяц учёта</label><input id="month" type="month"><button id="month-next" class="icon-button" aria-label="Следующий месяц">›</button></div><button id="open-filters" class="secondary" aria-haspopup="dialog">Фильтры</button></div>
-<label class="search-label"><span class="sr-only">Поиск операций</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="search" type="search" maxlength="80" placeholder="Найти запись"></label>
-<div class="results-line"><p id="results-count" class="subtle" aria-live="polite"></p><button id="clear-filters" class="text-button" hidden>Сбросить</button></div>
-<details class="totals"><summary>Итоги выбранных записей</summary><div id="summary" class="summary"></div></details>
-<section class="card journal-list" aria-label="Записи"><div id="history"></div><div class="pager"><button id="previous" class="secondary" aria-label="Предыдущая страница">←</button><span id="page"></span><button id="next" class="secondary" aria-label="Следующая страница">→</button></div></section>
-<button id="journal-files" class="secondary full">Скачать или загрузить записи</button>
-</section>
-<section id="more-view" class="view" aria-labelledby="more-title" hidden>
-<div class="page-heading"><h1 id="more-title" tabindex="-1">Ещё</h1><p class="subtle">Дом и ваши данные.</p></div>
-<section class="card"><h2>Ваш дом</h2><label class="house-label"><span class="sr-only">Выбрать дом</span><select id="house" aria-label="Выбрать дом"></select></label><button id="reload" class="secondary full">Обновить данные</button></section>
-<section class="card" id="files-card"><h2>Перенос записей</h2><p class="subtle">Скачайте историю или добавьте записи из файла.</p>
-<details id="export-details" class="file-disclosure"><summary>Скачать записи</summary><div class="disclosure-content"><label>Какие записи<select id="export-period"><option value="selection">Из истории с текущими фильтрами</option><option value="month">За выбранный месяц</option><option value="all">За всё время</option></select></label><p id="export-context" class="subtle"></p><div class="file-row"><button data-export="csv" class="secondary">CSV</button><button data-export="tsv" class="secondary">TSV</button><button data-export="json" class="secondary">JSON</button></div></div></details>
-<details id="import-area" class="file-disclosure" hidden><summary>Загрузить из файла</summary><div class="disclosure-content"><label class="file-label">Файл CSV, TSV или JSON<input id="import-file" type="file" accept=".csv,.tsv,.json"></label><p class="subtle">До 2 МБ и 1000 строк. Сначала проверим файл — записи появятся только после вашего подтверждения.</p><div id="import-preview" hidden><p id="import-summary"></p><pre id="import-errors"></pre><div class="file-row"><button id="import-confirm">Добавить записи</button><button id="import-cancel" class="secondary">Отмена</button></div></div></div></details></section>
-<p class="footer-note">Настройки дома, приглашения и чеки — в личном чате с ботом.</p>
-</section>
-<nav class="bottom-nav" aria-label="Основная навигация"><button data-view="home" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/></svg><span>Главная</span></button><button data-view="journal"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>История</span></button><button data-view="more"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>Ещё</span></button></nav>
-</div>
+  <section id="gate" class="gate"><span class="gate-mark" aria-hidden="true"><svg><use href="#i-home"/></svg></span><h1>Всё начинается с дома.</h1><p id="gate-text">Откройте эту страницу из личного чата, где вы получили ссылку.</p><div id="onboarding"></div></section>
+  <div id="workspace" hidden>
+    <header class="app-header">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><svg><use href="#i-home"/></svg></span><span id="brand"></span></div>
+      <button id="open-house" class="house-switch" aria-haspopup="dialog"><span id="house-name"></span><span aria-hidden="true">⌄</span></button>
+    </header>
+    <p id="connection" class="connection" role="status" hidden>Нет сети. Ваш ввод останется в форме. Попробуйте сохранить, когда связь вернётся.</p>
+    <section id="home-view" class="view" aria-labelledby="home-title">
+      <div class="page-heading home-heading"><div><p id="today" class="eyebrow"></p><h1 id="home-title" tabindex="-1">Дом под рукой.</h1></div></div>
+      <div class="home-layout">
+        <section class="balance" aria-label="Деньги дома">
+          <div class="balance-top"><p class="eyebrow">Общий котёл</p><button id="balance-info" class="info-button" aria-label="Как рассчитан остаток" aria-haspopup="dialog">i</button></div>
+          <div class="balance-number"><p id="balance" class="amount"></p><span id="balance-currency" class="currency-token"></span></div>
+          <p class="balance-caption">На покупки, счета и общие планы.</p>
+          <div class="actions"><button id="add-expense"><svg aria-hidden="true"><use href="#i-plus"/></svg>Записать расход</button><button id="add-contribution" class="hero-secondary">Внести деньги</button></div>
+        </section>
+        <div class="home-aside">
+          <section class="chores" id="cleaning-card"><div class="section-title"><h2>Моя уборка</h2><span id="cleaning-status" class="micro-label"></span></div><div id="chores"></div></section>
+          <details class="attention" id="pending-card" hidden><summary><span>Проверить взносы</span><span id="pending-count" class="count"></span></summary><div id="pending"></div></details>
+          <div id="drafts" class="drafts" hidden></div>
+        </div>
+        <section class="recent-card"><div class="section-title"><h2>Лента дома</h2><button class="text-button" data-view="journal">Вся история <svg aria-hidden="true"><use href="#i-arrow"/></svg></button></div><div id="recent"></div></section>
+      </div>
+    </section>
+    <section id="journal-view" class="view" aria-labelledby="journal-title" hidden>
+      <div class="page-heading section-title"><div><p class="eyebrow">Ничего не теряется</p><h1 id="journal-title" tabindex="-1">История дома</h1></div><button id="journal-add" class="compact-primary"><svg aria-hidden="true"><use href="#i-plus"/></svg>Расход</button></div>
+      <div class="journal-toolbar"><div class="month-control"><button id="month-back" class="icon-button" aria-label="Предыдущий месяц">‹</button><div class="month-caption"><label for="month">Месяц учёта</label><input id="month" type="month"></div><button id="month-next" class="icon-button" aria-label="Следующий месяц">›</button></div><button id="open-filters" class="secondary" aria-haspopup="dialog"><svg aria-hidden="true"><use href="#i-sliders"/></svg><span id="filter-label">Фильтры</span></button></div>
+      <label class="search-label"><span class="sr-only">Поиск операций</span><svg aria-hidden="true"><use href="#i-search"/></svg><input id="search" type="search" maxlength="80" placeholder="Покупка, имя или дата"></label>
+      <div class="results-line"><p id="results-count" class="subtle" aria-live="polite"></p><button id="clear-filters" class="text-button" hidden>Сбросить</button></div>
+      <details class="totals"><summary>Итоги выбранных записей</summary><div id="summary" class="summary"></div></details>
+      <section class="journal-list" aria-label="Записи"><div id="history"></div><div class="pager"><button id="previous" class="secondary" aria-label="Предыдущая страница">←</button><span id="page"></span><button id="next" class="secondary" aria-label="Следующая страница">→</button></div></section>
+      <button id="journal-files" class="file-link"><svg aria-hidden="true"><use href="#i-receipt"/></svg><span>Скачать или загрузить записи</span><span aria-hidden="true">↗</span></button>
+    </section>
+    <section id="more-view" class="view" aria-labelledby="more-title" hidden>
+      <div class="page-heading"><p class="eyebrow">Жить вместе проще</p><h1 id="more-title" tabindex="-1">Ваш дом</h1><p id="house-subtitle" class="subtle"></p></div>
+      <div id="house-menu" class="house-menu">
+        <button data-house-panel="people"><svg aria-hidden="true"><use href="#i-people"/></svg><span><strong>Люди и приглашения</strong><small id="members-count"></small></span><span aria-hidden="true">›</span></button>
+        <button data-house-panel="schedule"><svg aria-hidden="true"><use href="#i-calendar"/></svg><span><strong>График уборки</strong><small>Дни, отметки и история</small></span><span aria-hidden="true">›</span></button>
+        <button data-house-panel="money"><svg aria-hidden="true"><use href="#i-wallet"/></svg><span><strong>Деньги и категории</strong><small id="house-currency-label"></small></span><span aria-hidden="true">›</span></button>
+        <button data-house-panel="notifications"><svg aria-hidden="true"><use href="#i-bell"/></svg><span><strong>Мои уведомления</strong><small>Что и куда присылать</small></span><span aria-hidden="true">›</span></button>
+        <button data-house-panel="settings"><svg aria-hidden="true"><use href="#i-sliders"/></svg><span><strong>Настройки дома</strong><small>Правила, время и мой профиль</small></span><span aria-hidden="true">›</span></button>
+        <div class="house-menu-footer"><button class="text-button" id="reload">Обновить данные</button><button class="text-button" data-house-panel="add">Другой дом <span aria-hidden="true">＋</span></button></div>
+      </div>
+      <section id="house-detail" hidden><button id="house-back" class="back-link">← К дому</button><h2 id="house-panel-title" tabindex="-1"></h2><div id="house-content"></div>
+        <section id="files-card" class="files-card" hidden>
+          <p class="subtle">Ваши записи всегда с вами.</p>
+          <details id="export-details" class="file-disclosure"><summary>Скачать записи</summary><div class="disclosure-content"><label>Какие записи<select id="export-period"><option value="selection">Из истории с текущими фильтрами</option><option value="month">За выбранный месяц</option><option value="all">За всё время</option></select></label><p id="export-context" class="subtle"></p><div class="file-row"><button data-export="csv" class="secondary">CSV</button><button data-export="tsv" class="secondary">TSV</button><button data-export="json" class="secondary">JSON</button></div></div></details>
+          <details id="import-area" class="file-disclosure" hidden><summary>Загрузить из файла</summary><div class="disclosure-content"><label class="file-label">Файл CSV, TSV или JSON<input id="import-file" type="file" accept=".csv,.tsv,.json"></label><p class="subtle">До 2 МБ и 1000 строк. Сначала проверим файл; добавим записи после вашего подтверждения.</p><details class="import-help"><summary>Шаблоны и заполнение</summary><p class="subtle">Скачайте шаблон или используйте свой экспорт. Даты — YYYY-MM-DD, суммы — с точкой или запятой. Для каждой новой строки нужен свой source_key.</p><div class="file-row"><button data-template="csv" class="secondary">CSV</button><button data-template="tsv" class="secondary">TSV</button><button data-template="json" class="secondary">JSON</button></div><p class="subtle">Авторы записей · member_tg_id</p><ul id="import-members"></ul><p class="subtle">kind: expense — расход, contribution — взнос. mode: house — из котла, personal — за свои. Валюта должна совпадать с валютой дома.</p></details><div id="import-preview" hidden><p id="import-summary"></p><pre id="import-errors"></pre><div class="file-row"><button id="import-confirm">Добавить записи</button><button id="import-cancel" class="secondary">Отмена</button></div></div></div></details>
+        </section>
+      </section>
+    </section>
+    <nav class="bottom-nav" aria-label="Основная навигация"><button data-view="home" aria-current="page"><svg aria-hidden="true"><use href="#i-home"/></svg><span>Главная</span></button><button data-view="journal"><svg aria-hidden="true"><use href="#i-clock"/></svg><span>История</span></button><button data-view="more"><svg aria-hidden="true"><use href="#i-people"/></svg><span>Дом</span></button></nav>
+  </div>
 </main>
-<dialog id="filter-dialog" aria-labelledby="filter-title"><div class="section-title"><h2 id="filter-title">Найти нужные записи</h2><button id="close-filters" class="icon-button" aria-label="Закрыть фильтры">×</button></div><div class="filters"><label class="check-label"><input id="all-months" type="checkbox">За всё время</label><button id="month-today" class="text-button">Вернуться к текущему месяцу</button><label>Тип записи<select id="filter-kind"><option value="all">Все записи</option><option value="expense">Расходы</option><option value="contribution">Взносы</option></select></label><label>Кто<select id="filter-member"><option value="">Все жильцы</option></select></label><label>Категория<select id="filter-category"><option value="">Все категории</option></select></label><label>Откуда деньги<select id="filter-mode"><option value="all">Любой источник</option><option value="house">Из общего котла</option><option value="personal">За свои</option><option value="waiting_return">Ждёт возврата</option></select></label><label>Порядок<select id="filter-sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="largest">Сначала крупные</option><option value="smallest">Сначала небольшие</option></select></label></div><button id="apply-filters" class="full">Показать записи</button></dialog>
-<dialog id="transaction-dialog" aria-labelledby="form-title"><form id="transaction-form"><fieldset id="transaction-fields"><div class="section-title"><h2 id="form-title"></h2><button type="button" class="icon-button" id="close-form" aria-label="Закрыть форму">×</button></div>
-<label class="amount-label">Сумма<span class="amount-input"><input id="tx-amount" inputmode="decimal" autocomplete="off" required placeholder="0"><span id="form-currency"></span></span></label>
-<div id="expense-fields"><label>Категория<select id="tx-category"></select></label><label>Откуда деньги<select id="tx-mode"><option value="house">Из общего котла</option><option value="personal">За свои</option></select></label><p id="payment-hint" class="subtle" hidden>Дом будет должен вам эту сумму.</p><label><span>На что <span class="subtle">· необязательно</span></span><textarea id="tx-description" maxlength="200" rows="1" placeholder="Например, продукты на ужин"></textarea></label></div>
-<details id="date-details" class="date-details"><summary id="date-summary">Сегодня · изменить дату</summary><div class="disclosure-content"><label>Когда была операция<input id="tx-date" type="date" required></label><div class="date-shortcuts"><button type="button" class="secondary" id="date-today">Сегодня</button><button type="button" class="secondary" id="date-yesterday">Вчера</button></div><label id="tx-month-label">За какой месяц взнос<input id="tx-month" type="month" required></label></div></details>
-<p id="form-error" class="error" role="alert" tabindex="-1"></p><button id="save-transaction" class="full" type="submit">Записать расход</button><button id="save-another" class="text-button full" type="submit">Сохранить и записать ещё</button>
-<details class="form-extras"><summary>Повтор и черновик</summary><p class="subtle">Черновик хранится до перезагрузки приложения.</p><div id="quick-repeat" class="quick-repeat" hidden></div><div id="quick-amounts" class="quick-amounts" aria-label="Недавние суммы"></div><button id="discard-draft" class="text-button danger" type="button">Удалить черновик</button><p class="subtle" id="save-hint"></p></details>
+<dialog id="balance-dialog" aria-labelledby="balance-title"><div class="section-title"><h2 id="balance-title">Остаток в котле</h2><button class="icon-button" data-close="balance-dialog" aria-label="Закрыть сведения о балансе">×</button></div><p class="subtle">Подтверждённые взносы за всё время за вычетом общих трат и возвратов. Личные покупки уменьшают котёл только после возврата.</p><p id="balance-detail" class="balance-detail"></p></dialog>
+<dialog id="house-switch-dialog" aria-labelledby="switch-title"><div class="section-title"><h2 id="switch-title">В каком вы доме?</h2><button class="icon-button" data-close="house-switch-dialog" aria-label="Закрыть выбор дома">×</button></div><label>Ваши дома<select id="house" aria-label="Выбрать дом"></select></label><div class="switch-actions"><button class="secondary full" data-house-panel="add">Создать дом или вступить</button></div></dialog>
+<dialog id="filter-dialog" aria-labelledby="filter-title"><div class="sheet-grip" aria-hidden="true"></div><div class="section-title"><h2 id="filter-title">Найти нужное</h2><button id="close-filters" class="icon-button" aria-label="Закрыть фильтры">×</button></div><div class="filters"><label class="check-label"><input id="all-months" type="checkbox">За всё время</label><button id="month-today" class="text-button">Текущий месяц</button><label>Тип записи<select id="filter-kind"><option value="all">Все записи</option><option value="expense">Расходы</option><option value="contribution">Взносы</option></select></label><label>Кто<select id="filter-member"><option value="">Все жильцы</option></select></label><label>Категория<select id="filter-category"><option value="">Все категории</option></select></label><label>Откуда деньги<select id="filter-mode"><option value="all">Любой источник</option><option value="house">Из общего котла</option><option value="personal">За свои</option><option value="waiting_return">Ждёт возврата</option></select></label><label>Порядок<select id="filter-sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="largest">Сначала крупные</option><option value="smallest">Сначала небольшие</option></select></label></div><button id="apply-filters" class="full">Показать записи</button></dialog>
+<dialog id="transaction-dialog" aria-labelledby="form-title"><form id="transaction-form"><fieldset id="transaction-fields">
+  <div class="sheet-grip" aria-hidden="true"></div><div class="section-title"><h2 id="form-title"></h2><button type="button" class="icon-button" id="close-form" aria-label="Закрыть форму">×</button></div>
+  <label class="amount-label">Сумма<span class="amount-input"><input id="tx-amount" inputmode="decimal" autocomplete="off" required placeholder="0,00"><span id="form-currency"></span></span></label>
+  <div id="expense-fields">
+    <fieldset class="payment-field"><legend>Откуда деньги</legend><input id="tx-mode" type="hidden" value="house"><div class="payment-switch"><button type="button" data-payment="house" aria-pressed="true"><svg aria-hidden="true"><use href="#i-wallet"/></svg>Из котла</button><button type="button" data-payment="personal" aria-pressed="false"><svg aria-hidden="true"><use href="#i-people"/></svg>За свои</button></div><p id="payment-hint" class="subtle" hidden>Дом будет должен вам эту сумму.</p></fieldset>
+    <details id="category-picker" class="category-picker"><summary><span>Категория</span><strong id="category-label">Без категории</strong></summary><input id="tx-category" type="hidden"><div id="category-options" class="category-options"></div></details>
+    <label class="description-label">На что <span class="sr-only">необязательно</span><textarea id="tx-description" maxlength="200" rows="1" placeholder="Например, продукты к ужину"></textarea></label>
+  </div>
+  <details id="date-details" class="date-details"><summary id="date-summary">Сегодня · изменить дату</summary><div class="disclosure-content"><label>Когда была операция<input id="tx-date" type="date" required></label><div class="date-shortcuts"><button type="button" class="secondary" id="date-today">Сегодня</button><button type="button" class="secondary" id="date-yesterday">Вчера</button></div><label id="tx-month-label">За какой месяц взнос<input id="tx-month" type="month" required></label></div></details>
+  <p id="form-error" class="error" role="alert" tabindex="-1"></p>
+  <details class="form-extras"><summary>Заполнить из недавнего</summary><div id="quick-repeat" class="quick-repeat" hidden></div><div id="quick-amounts" class="quick-amounts" aria-label="Недавние суммы"></div><p class="subtle">Черновик хранится до перезагрузки приложения.</p><button id="discard-draft" class="text-button danger" type="button">Удалить черновик</button><p class="subtle" id="save-hint"></p></details>
+  <div class="form-save"><button id="save-transaction" class="full" type="submit">Записать расход</button><button id="save-another" class="text-button full" type="submit">Сохранить и записать ещё</button></div>
 </fieldset></form></dialog>
+<dialog id="receipt-dialog" aria-labelledby="receipt-title"><div class="section-title"><h2 id="receipt-title">Чеки к расходу</h2><button class="icon-button" data-close="receipt-dialog" aria-label="Закрыть чеки">×</button></div><div id="receipt-content"></div></dialog>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-</body></html>
+</body>
+</html>

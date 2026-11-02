@@ -1,7 +1,15 @@
 """
 infrastructure/repositories/schedule.py — версии графика и дни уборки.
 """
+import json
+
 from infrastructure.db import db, now_utc
+
+_ANY_VERSION = object()
+
+
+class ScheduleConflict(ValueError):
+    """Клиент меняет уже устаревшую версию графика."""
 
 
 # ── Версии графика ───────────────────────────────────────────────────────────
@@ -21,12 +29,25 @@ async def get_latest_version(house_id: int):
 async def replace_open_days(
     house_id: int, weekday_map_json: str, active_from: str,
     planned: list[tuple[int, str]],
+    *, expected_version: int | None | object = _ANY_VERSION,
 ) -> int:
     """Смена графика одной транзакцией: новая версия + переложить будущие планы.
 
     Прошлые дни и уже закрытые не трогаются. Возвращает id новой версии.
     """
     async with db.transaction() as conn:
+        # Все изменения графика (включая бот) сериализуются по одному дому.
+        suffix = " FOR UPDATE" if db.is_postgres else ""
+        await conn.fetchrow("SELECT id FROM houses WHERE id = ?" + suffix, house_id)
+        if expected_version is not _ANY_VERSION:
+            current = await conn.fetchrow(
+                "SELECT id, weekday_map FROM schedule_versions WHERE house_id = ? ORDER BY id DESC LIMIT 1",
+                house_id,
+            )
+            if current and json.loads(current["weekday_map"]) == json.loads(weekday_map_json):
+                return current["id"]
+            if (current["id"] if current else None) != expected_version:
+                raise ScheduleConflict("График уже изменён")
         version_id = await conn.insert(
             """
             INSERT INTO schedule_versions (house_id, weekday_map, active_from, created_at)
@@ -45,10 +66,11 @@ async def replace_open_days(
             await conn.execute(
                 """
                 INSERT INTO cleaning_days (house_id, tg_id, planned_date, status)
-                VALUES (?, ?, ?, 'open')
+                SELECT ?, ?, ?, 'open' WHERE EXISTS
+                (SELECT 1 FROM memberships WHERE house_id = ? AND tg_id = ? AND status = 'active')
                 ON CONFLICT (house_id, planned_date, tg_id) DO NOTHING
                 """,
-                house_id, tg_id, planned_date,
+                house_id, tg_id, planned_date, house_id, tg_id,
             )
     return version_id
 
@@ -83,6 +105,28 @@ async def add_day(house_id: int, tg_id: int, planned_date: str) -> bool:
             house_id, tg_id, planned_date,
         )
         return rowcount > 0
+
+
+async def add_days_if_current(house_id: int, version_id: int, planned: list[tuple[int, str]]) -> int:
+    """Планирование по прочитанной версии не может восстановить отменённый график."""
+    async with db.transaction() as conn:
+        suffix = " FOR UPDATE" if db.is_postgres else ""
+        await conn.fetchrow("SELECT id FROM houses WHERE id = ?" + suffix, house_id)
+        current = await conn.fetchrow(
+            "SELECT id FROM schedule_versions WHERE house_id = ? ORDER BY id DESC LIMIT 1", house_id,
+        )
+        if current is None or current["id"] != version_id:
+            return 0
+        created = 0
+        for tg_id, planned_date in planned:
+            created += await conn.execute(
+                "INSERT INTO cleaning_days (house_id, tg_id, planned_date, status) "
+                "SELECT ?, ?, ?, 'open' WHERE EXISTS "
+                "(SELECT 1 FROM memberships WHERE house_id = ? AND tg_id = ? AND status = 'active') "
+                "ON CONFLICT (house_id, planned_date, tg_id) DO NOTHING",
+                house_id, tg_id, planned_date, house_id, tg_id,
+            )
+        return created
 
 
 async def days_on(house_id: int, planned_date: str) -> list:

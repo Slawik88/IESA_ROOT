@@ -160,14 +160,16 @@ async def categories(house_id: int) -> list:
     return await repo.money.list_categories(house_id)
 
 
-async def add_category(house_id: int, name: str) -> int:
+async def add_category(house_id: int, name: str, *, reuse_existing: bool = False) -> int:
     name = name.strip()
     if not name:
         raise DomainError("Название категории не может быть пустым")
     if len(name) > MAX_CATEGORY_NAME_LEN:
         raise DomainError(f"Название категории — до {MAX_CATEGORY_NAME_LEN} символов")
-    existing = {row["name"].lower() for row in await repo.money.list_categories(house_id)}
-    if name.lower() in existing:
+    existing = {row["name"].casefold(): row["id"] for row in await repo.money.list_categories(house_id)}
+    if name.casefold() in existing:
+        if reuse_existing:
+            return existing[name.casefold()]
         raise DomainError("Такая категория уже есть")
     return await repo.money.add_category(house_id, name)
 

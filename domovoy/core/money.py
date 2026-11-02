@@ -1,6 +1,6 @@
 """
 core/money.py
-Деньги «Домового»: целые копейки внутри, человекочитаемый рубль снаружи.
+Деньги «Домового»: целые сотые единицы внутри, валюта дома при отображении.
 """
 from core.constants import KOPECKS_IN_RUBLE, MAX_AMOUNT_RUBLES
 
@@ -18,7 +18,7 @@ def parse_amount(raw: str) -> int:
         raise AmountError("Лишние точки в сумме")
     rubles, _, kops = cleaned.partition(".")
     if len(kops) > 2:
-        raise AmountError("Копейки — максимум два знака: 1200.50")
+        raise AmountError("После запятой — максимум два знака: 1200.50")
     rubles = rubles.lstrip("0") or "0"
     if len(rubles) > len(str(MAX_AMOUNT_RUBLES)):
         raise AmountError("Слишком большая сумма")

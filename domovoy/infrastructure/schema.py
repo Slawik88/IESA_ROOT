@@ -131,6 +131,19 @@ _STATEMENTS = (
         local_path TEXT
     )
     """,
+    # Исходный ключ загрузки защищает от повторной отправки фото через Telegram.
+    """
+    CREATE TABLE IF NOT EXISTS web_receipt_uploads (
+        request_id TEXT PRIMARY KEY,
+        house_id BIGINT NOT NULL REFERENCES houses(id),
+        expense_id BIGINT NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+        actor_id BIGINT NOT NULL REFERENCES users(tg_id),
+        fingerprint TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'reserved',
+        photo_id BIGINT REFERENCES expense_photos(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL
+    )
+    """,
     # Настройки домов: ключи из core/settings_registry.HOUSE_SETTINGS
     """
     CREATE TABLE IF NOT EXISTS house_settings (
@@ -190,6 +203,7 @@ _INDEXES = (
     "CREATE INDEX IF NOT EXISTS idx_days_open ON cleaning_days(status, planned_date)",
     "CREATE INDEX IF NOT EXISTS idx_expenses_house ON expenses(house_id, spent_on)",
     "CREATE INDEX IF NOT EXISTS idx_contrib_house ON contributions(house_id, month)",
+    "CREATE INDEX IF NOT EXISTS idx_web_receipt_uploads_expense ON web_receipt_uploads(expense_id, state)",
 )
 
 

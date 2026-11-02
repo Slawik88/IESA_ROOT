@@ -309,3 +309,31 @@ async def test_home_recent_is_independent_of_history_filters_and_pages(client, h
     foreign = await households.create_house(300, "Другой", "Другой дом")
     result = await client.get(f"/api/houses/{foreign}", headers=headers())
     assert result.status_code == 422 and "Покупка" not in result.text
+
+async def test_recent_shows_newly_added_backdated_contribution(client, house):
+    for index in range(6):
+        expense_id = await money.add_expense(house, 100, 100, None, '2026-10-20', 'house', str(index), [])
+        async with db.acquire() as conn:
+            await conn.execute('UPDATE expenses SET created_at = ? WHERE id = ?', '2026-10-20 10:00:00', expense_id)
+    result = await client.post(f'/api/houses/{house}/transactions', headers=headers(), json={
+        'request_id': str(uuid4()), 'kind': 'contribution', 'amount': '120', 'date': '2026-09-01', 'month': '2026-09',
+    })
+    assert result.status_code == 200
+    overview = (await client.get(f'/api/houses/{house}?month=2026-10', headers=headers())).json()
+    assert overview['recent'][0]['kind'] == 'contribution'
+    assert overview['recent'][0]['date'] == '2026-09-01'
+    assert all(row['kind'] == 'expense' for row in overview['rows'])
+    assert len(await money.pending_contributions(house)) == 1
+
+@pytest.mark.parametrize('extension', ['csv', 'tsv', 'json'])
+async def test_site_templates_are_downloadable_but_require_import_permission(client, house, extension):
+    assert (await client.get(f'/api/houses/{house}/template/{extension}')).status_code == 404
+    await households.join_house(await households.get_house(house), 200, 'Жилец')
+    assert (await client.get(f'/api/houses/{house}/template/{extension}', headers=headers(200))).status_code == 422
+    result = await client.get(f'/api/houses/{house}/template/{extension}', headers=headers())
+    assert result.status_code == 200
+    if extension == 'json':
+        assert result.json()['transactions'] == []
+    else:
+        assert 'member_tg_id' in result.text and 'source_key' in result.text
+    assert result.headers['cache-control'] == 'no-store'

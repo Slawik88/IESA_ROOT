@@ -6,10 +6,37 @@
   const app = {
     state: null, house: null, month: '', page: 0, allMonths: false,
     draft: null, drafts: new Map(), saving: false, importPayload: null,
-    importVersion: 0, loadVersion: 0, searchTimer: null, noticeTimer: null,
+    importVersion: 0, loadVersion: 0, houseListVersion: 0, searchTimer: null, noticeTimer: null,
     showAllChores: false, view: 'home', filterSnapshot: null,
     filters: { kind: 'all', member: '', category: '', mode: 'all', sort: 'newest' },
   };
+  const houseUI = window.createHouseWorkspace({ api, post, notice, refresh, onHouseChanged: loadHouses, showView,
+    initialName: tg?.initDataUnsafe?.user?.first_name || '' });
+  const receiptUI = window.createReceiptWorkspace({ api, post, notice, refresh });
+
+  function icon(name) {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    element.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', `#i-${name}`);
+    element.append(use);
+    return element;
+  }
+
+  function categoryIcon(name = '') {
+    const text = (name || '').toLowerCase();
+    if (text.includes('продукт')) return 'bag';
+    if (text.includes('хими') || text.includes('уборк')) return 'spark';
+    if (text.includes('коммун')) return 'bulb';
+    if (text.includes('ремонт')) return 'tool';
+    return 'tag';
+  }
+
+  function emptyState(title, description, name = 'receipt') {
+    const box = node('div', undefined, 'empty-state');
+    box.append(icon(name), node('h3', title), node('p', description));
+    return box;
+  }
 
   function node(tag, text, cls) {
     const element = document.createElement(tag);
@@ -18,10 +45,10 @@
     return element;
   }
 
-  function amount(kop) {
+  function amount(kop, withCurrency = true) {
     const value = Math.abs(kop);
-    const fraction = value % 100 ? `,${String(value % 100).padStart(2, '0')}` : '';
-    return `${kop < 0 ? '-' : ''}${Math.floor(value / 100).toLocaleString('ru-RU')}${fraction} ${app.state?.currency || ''}`;
+    const fraction = value % 100 || app.state?.currency === 'CHF' ? `,${String(value % 100).padStart(2, '0')}` : '';
+    return `${kop < 0 ? '−' : ''}${Math.floor(value / 100).toLocaleString('ru-RU')}${fraction}${withCurrency ? ` ${app.state?.currency || ''}` : ''}`;
   }
 
   function decimal(kop) {
@@ -40,17 +67,18 @@
       else button.removeAttribute('aria-current');
     });
     window.scrollTo({ top: 0, behavior: 'instant' });
-    if (focus) $(`${view}-title`).focus({ preventScroll: true });
+    if (focus) $(view === 'more' && !$('house-detail').hidden ? 'house-panel-title' : `${view}-title`).focus({ preventScroll: true });
     syncBackButton();
   }
 
   function syncBackButton() {
-    if ($('transaction-dialog').open || $('filter-dialog').open || app.view !== 'home') tg?.BackButton?.show();
+    if (document.querySelector('dialog[open]') || app.view !== 'home') tg?.BackButton?.show();
     else tg?.BackButton?.hide();
   }
 
   function updateDateSummary() {
     $('payment-hint').hidden = $('tx-mode').value !== 'personal';
+    document.querySelectorAll('[data-payment]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.payment === $('tx-mode').value)));
     const date = $('tx-date').value;
     const label = date === app.state.today ? 'Сегодня' : date ? dateLabel(date, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Указать дату';
     const month = app.draft?.kind === 'contribution' && $('tx-month').value
@@ -152,7 +180,8 @@
   function renderChores() {
     $('chores').replaceChildren();
     const own = app.state.cleaning.filter(day => day.tg_id === app.state.actor);
-    if (!own.length) $('chores').append(node('p', 'У вас нет незакрытой уборки. Можно выдохнуть.', 'subtle'));
+    $('cleaning-status').textContent = own.length ? 'К отметке' : 'Свободны';
+    if (!own.length) $('chores').append(node('p', 'Сегодня можно выдохнуть. Незакрытых дней нет.', 'subtle'));
     const days = app.showAllChores ? own : own.slice(0, 1);
     for (const day of days) {
       const item = row(day.planned_date === app.state.today ? 'Сегодня ваша очередь' : `За ${dateLabel(day.planned_date)}`, day.planned_date === app.state.today ? 'Когда закончите — отметьте здесь' : 'Ещё не отмечено');
@@ -187,7 +216,7 @@
     const data = app.state;
     $('results-count').textContent = `Записей: ${data.total}${app.allMonths ? ' · за всё время' : ''}`;
     const filters = Object.values(app.filters).filter(value => !['', 'all', 'newest'].includes(value)).length + Number(app.allMonths);
-    $('open-filters').textContent = `Фильтры${filters ? ` · ${filters}` : ''}`;
+    $('filter-label').textContent = `Фильтры${filters ? ` · ${filters}` : ''}`;
     $('clear-filters').hidden = !filters && !$('search').value;
     $('export-context').textContent = `${app.allMonths ? 'Всё время' : dateLabel(`${app.month}-01`, { month: 'long', year: 'numeric' })} · записей в выборке: ${data.total}`;
     $('summary').replaceChildren();
@@ -199,18 +228,26 @@
     }
     $('history').replaceChildren();
     if (!data.rows.length) {
-      $('history').append(node('p', 'По выбранным условиям операций нет. Сбросьте фильтры или найдите за все месяцы.', 'subtle'));
-      $('history').append(action('Искать за все месяцы', async () => {
+      const empty = emptyState('Пока ничего не нашли', 'Попробуйте другую дату или поиск по всей истории.', 'search');
+      empty.append(action('Искать за всё время', async () => {
         app.allMonths = true;
         app.page = 0;
         await refresh();
       }));
+      $('history').append(empty);
     }
-    for (const entry of data.rows) $('history').append(transactionRow(entry));
+    let previousDate = '';
+    for (const entry of data.rows) {
+      if (['newest', 'oldest'].includes(app.filters.sort) && entry.date !== previousDate) {
+        $('history').append(node('h3', entry.date === data.today ? 'Сегодня' : dateLabel(entry.date, { day: 'numeric', month: 'long', year: 'numeric' }), 'day-heading'));
+        previousDate = entry.date;
+      }
+      $('history').append(transactionRow(entry));
+    }
     $('recent').replaceChildren();
     const recent = data.recent || [];
     for (const entry of recent) $('recent').append(transactionRow(entry));
-    if (!recent.length) $('recent').append(node('p', 'Здесь появятся покупки и взносы. Начните с кнопки «Записать расход».', 'subtle'));
+    if (!recent.length) $('recent').append(emptyState('Здесь начнётся ваша история', 'Первая покупка или взнос появится здесь. Всё остальное уже готово.', 'wallet'));
     renderPager();
   }
 
@@ -223,10 +260,12 @@
     const item = node('details', undefined, `entry${contribution ? ' incoming' : ''}`);
     const heading = node('summary');
     const content = node('span', undefined, 'row-content');
-    const shortStatus = contribution && entry.status !== 'confirmed' ? ` · ${status}`
-      : !contribution && entry.mode === 'personal' ? ' · за свои' : '';
-    content.append(node('span', title, 'entry-title'), node('span', `${dateLabel(entry.date)} · ${entry.display_name || 'Жилец'}${shortStatus}`, 'meta'));
-    heading.append(node('span', contribution ? '↓' : '↑', 'entry-icon'), content,
+    const shortStatus = contribution && entry.status !== 'confirmed' ? `${status} · `
+      : !contribution && entry.mode === 'personal' ? 'за свои · ' : '';
+    content.append(node('span', title, 'entry-title'), node('span', `${shortStatus}${dateLabel(entry.date)} · ${entry.display_name || 'Жилец'}`, 'meta'));
+    const glyph = node('span', undefined, 'entry-icon');
+    glyph.append(icon(contribution ? 'wallet' : categoryIcon(entry.category)));
+    heading.append(glyph, content,
       node('span', `${contribution ? entry.status === 'confirmed' ? '+' : '' : '−'}${amount(entry.amount_kop)}`, 'sum'));
     const expanded = node('div', undefined, 'entry-detail');
     expanded.append(node('p', `${entry.category ? `${entry.category} · ` : ''}${detail}${contribution ? ` · за ${entry.month}` : ''}`));
@@ -234,6 +273,7 @@
     const actions = node('div', undefined, 'row-actions');
     actions.append(action('Повторить', () => openForm(entry.kind, entry)));
     if (entry.can_edit) actions.append(action('Изменить', () => openForm('expense', entry, true)));
+    if (!contribution) actions.append(action('Чеки', async () => { const loading = receiptUI.open(app.house, entry); syncBackButton(); await loading; }));
     if (!contribution && entry.mode === 'personal' && !entry.reimbursed && app.state.permissions.confirm_contributions) {
       actions.append(action('Вернуть из котла', async () => {
         if (!window.confirm(`Отметить возврат ${amount(entry.amount_kop)} для ${entry.display_name}? Сумма спишется из котла.`)) return;
@@ -241,6 +281,16 @@
         await refresh();
         notice('Возврат отмечен');
       }));
+    }
+    if (entry.can_edit) {
+      const remove = action('Удалить', async () => {
+        if (!window.confirm(`Удалить расход ${amount(entry.amount_kop)} за ${dateLabel(entry.date)}? Остаток пересчитается. Вернуть запись кнопкой отмены будет нельзя.`)) return;
+        await post(`houses/${app.house}/expenses/${entry.id}/delete`, { version: entry.version });
+        await refresh();
+        notice('Расход удалён');
+      });
+      remove.classList.add('danger');
+      actions.append(remove);
     }
     expanded.append(actions);
     item.append(heading, expanded);
@@ -273,21 +323,27 @@
     $('house-name').textContent = data.house.name;
     $('gate').hidden = true;
     $('workspace').hidden = false;
-    $('balance').textContent = amount(data.balance.balance);
+    $('onboarding').replaceChildren();
+    $('balance').textContent = amount(data.balance.balance, false);
+    $('balance-currency').textContent = data.currency;
     $('balance-detail').textContent = `Внесено ${amount(data.balance.confirmed_total)} · потрачено и возвращено ${amount(data.balance.house_spent + data.balance.reimbursed)}`;
     $('today').textContent = dateLabel(data.today, { weekday: 'long', day: 'numeric', month: 'long' });
     $('month').value = app.month;
     $('month').disabled = app.allMonths;
-    $('all-months').checked = app.allMonths;
+    if (!$('filter-dialog').open) $('all-months').checked = app.allMonths;
     const people = new Map(data.members.map(member => [member.tg_id, { id: member.tg_id, name: member.display_name }]));
     for (const person of data.filter_members || []) people.set(person.id, person);
-    syncOptions('filter-member', [...people.values()], 'Все жильцы');
-    syncOptions('filter-category', data.categories, 'Все категории');
+    if (!$('filter-dialog').open) {
+      syncOptions('filter-member', [...people.values()], 'Все жильцы');
+      syncOptions('filter-category', data.categories, 'Все категории');
+    }
     $('import-area').hidden = !data.permissions.import_transactions;
+    $('import-members').replaceChildren(...data.members.map(member => node('li', `${member.display_name}: ${member.tg_id}`)));
     renderChores();
     renderPending();
     renderJournal();
     renderDrafts();
+    houseUI.setContext(data);
     $('quick-repeat').replaceChildren();
     $('quick-repeat').hidden = !data.templates.length;
     if (data.templates.length) $('quick-repeat').append(node('span', 'Повторить недавнее: ', 'subtle'));
@@ -331,9 +387,9 @@
     $('tx-month').value = draft.month;
     $('tx-mode').value = draft.mode;
     $('tx-description').value = draft.description;
-    $('tx-category').replaceChildren(new Option('Без категории', ''));
-    for (const category of app.state.categories) $('tx-category').add(new Option(category.name, category.id));
     $('tx-category').value = draft.category_id || '';
+    $('category-picker').open = false;
+    renderCategoryPicker();
     $('save-another').hidden = !!draft.editId;
     $('save-hint').textContent = draft.editId
       ? 'Правка сохранит историю изменений. Если запись уже изменили, она не будет перезаписана.'
@@ -348,6 +404,24 @@
     if (!$('transaction-dialog').open) $('transaction-dialog').showModal();
     $('tx-amount').focus();
     tg?.BackButton?.show();
+  }
+
+  function renderCategoryPicker() {
+    const selected = $('tx-category').value;
+    const choices = [{ id: '', name: 'Без категории' }, ...app.state.categories];
+    $('category-label').textContent = choices.find(category => String(category.id) === selected)?.name || 'Без категории';
+    $('category-options').replaceChildren();
+    for (const category of choices) {
+      const button = action(category.name, () => {
+        $('tx-category').value = category.id;
+        $('category-picker').open = false;
+        renderCategoryPicker();
+        rememberDraft();
+      });
+      button.prepend(icon(categoryIcon(category.name)));
+      button.setAttribute('aria-pressed', String(String(category.id) === selected));
+      $('category-options').append(button);
+    }
   }
 
   function openForm(kind, seed = null, edit = false) {
@@ -392,7 +466,7 @@
       description: saved.kind === 'expense' ? saved.description : '' };
     try {
       const path = saved.editId ? `houses/${saved.house}/expenses/${saved.editId}/edit` : `houses/${saved.house}/transactions`;
-      await post(path, payload);
+      const result = await post(path, payload);
       app.drafts.delete(saved.request_id);
       app.draft = null;
       $('transaction-dialog').close();
@@ -402,11 +476,11 @@
       let refreshed = true;
       try { await refresh(); }
       catch { refreshed = false; }
-      if (another) {
+      if (another && app.house === saved.house && app.state?.house.id === saved.house) {
         showDraft({ ...saved, request_id: crypto.randomUUID(), amount: '', date: app.state.today,
           month: app.state.today.slice(0, 7), editId: null, version: null });
       }
-      notice(refreshed ? (saved.editId ? 'Изменения сохранены' : 'Запись сохранена')
+      notice(refreshed ? (saved.editId ? 'Изменения сохранены' : result.status === 'declared' ? 'Взнос ждёт подтверждения' : 'Запись сохранена')
         : 'Запись сохранена. Список пока не обновился — нажмите «Обновить».');
     } catch (error) {
       $('form-error').textContent = error.message || 'Нет соединения. Поля сохранены; можно повторить отправку.';
@@ -439,14 +513,17 @@
   }
 
   function shiftMonth(delta) {
-    const [year, month] = app.month.split('-').map(Number);
+    const [year, month] = (app.month || app.state.today.slice(0, 7)).split('-').map(Number);
     const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+    if (!Number.isFinite(date.getTime()) || date.getUTCFullYear() < 1 || date.getUTCFullYear() > 9999) return notice('Выберите месяц от 0001 до 9999 года');
     app.month = date.toISOString().slice(0, 7);
     app.allMonths = false;
     return filterChanged();
   }
 
   async function changeHouse() {
+    app.houseListVersion++;
+    $('house-switch-dialog').close();
     app.house = Number($('house').value);
     app.importVersion++;
     app.importPayload = null;
@@ -465,14 +542,38 @@
     catch (error) { $('gate-text').textContent = error.message; }
   }
 
+  async function loadHouses(selected) {
+    const version = ++app.houseListVersion;
+    const data = await api('houses');
+    if (version !== app.houseListVersion) return;
+    $('house').replaceChildren();
+    for (const house of data.houses) $('house').add(new Option(house.name, house.id));
+    if (!data.houses.length) {
+      app.house = null;
+      app.state = null;
+      $('workspace').hidden = true;
+      $('gate').hidden = false;
+      $('gate-text').textContent = 'Создайте пространство для своего дома или присоединитесь к соседям.';
+      houseUI.reset();
+      houseUI.showOnboarding();
+      return;
+    }
+    if (data.houses.some(house => house.id === selected)) $('house').value = selected;
+    await changeHouse();
+  }
+
   async function exportFile(button) {
     const format = button.dataset.export, period = $('export-period').value;
     const params = period === 'selection' ? selectionParams() : new URLSearchParams();
     if (period === 'month') params.set('month', app.month);
     const response = await api(`houses/${app.house}/export/${format}?${params}`, { raw: true });
+    await downloadFile(response, `operations-${period === 'all' || app.allMonths ? 'all' : app.month}.${format}`);
+  }
+
+  async function downloadFile(response, filename) {
     const url = URL.createObjectURL(await response.blob()), link = node('a');
     link.href = url;
-    link.download = `operations-${period === 'all' || app.allMonths ? 'all' : app.month}.${format}`;
+    link.download = filename;
     document.body.append(link);
     link.click();
     link.remove();
@@ -536,13 +637,20 @@
   $('transaction-form').onsubmit = submit;
   tg?.BackButton?.onClick(() => {
     if ($('transaction-dialog').open) closeForm();
-    else if ($('filter-dialog').open) { $('filter-dialog').close(); syncBackButton(); }
+    else if (document.querySelector('dialog[open]')) { document.querySelector('dialog[open]').close(); syncBackButton(); }
+    else if (app.view === 'more' && houseUI.back()) $('more-title').focus();
     else showView('home');
   });
+  document.querySelectorAll('[data-close]').forEach(button => { button.onclick = () => $(button.dataset.close).close(); });
+  document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', syncBackButton));
+  $('balance-info').onclick = () => { $('balance-dialog').showModal(); syncBackButton(); };
+  $('open-house').onclick = () => { $('house-switch-dialog').showModal(); syncBackButton(); };
+  document.querySelectorAll('[data-payment]').forEach(button => { button.onclick = () => { $('tx-mode').value = button.dataset.payment; rememberDraft(); }; });
   document.querySelectorAll('[data-view]').forEach(button => { button.onclick = () => showView(button.dataset.view); });
   $('journal-add').onclick = () => openForm('expense');
   $('journal-files').onclick = () => {
     showView('more');
+    houseUI.open('files');
     $('export-details').open = true;
     $('files-card').scrollIntoView({ block: 'start' });
   };
@@ -579,7 +687,7 @@
     rememberDraft();
   };
   $('house').onchange = changeHouse;
-  $('month').onchange = () => { app.month = $('month').value; filterChanged(); };
+  $('month').onchange = () => { app.month = $('month').value || app.state.today.slice(0, 7); filterChanged(); };
   $('month-back').onclick = () => shiftMonth(-1);
   $('month-next').onclick = () => shiftMonth(1);
   $('month-today').onclick = () => {
@@ -598,6 +706,11 @@
   $('next').onclick = () => busy($('next'), async () => { app.page++; await refresh(); });
   $('reload').onclick = () => busy($('reload'), refresh);
   document.querySelectorAll('[data-export]').forEach(button => { button.onclick = () => busy(button, () => exportFile(button)); });
+  document.querySelectorAll('[data-template]').forEach(button => {
+    button.onclick = () => busy(button, async () => downloadFile(
+      await api(`houses/${app.house}/template/${button.dataset.template}`, { raw: true }), `template.${button.dataset.template}`,
+    ));
+  });
   $('import-file').onchange = importSelected;
   $('import-cancel').onclick = cancelImport;
   $('import-confirm').onclick = () => busy($('import-confirm'), confirmImport);
@@ -611,14 +724,7 @@
     tg?.ready();
     tg?.expand();
     try {
-      const data = await api('houses');
-      if (!data.houses.length) {
-        $('gate-text').textContent = 'Сначала создайте дом или примите приглашение в личном чате.';
-        return;
-      }
-      for (const house of data.houses) $('house').add(new Option(house.name, house.id));
-      app.house = data.houses[0].id;
-      await refresh();
+      await loadHouses();
     } catch (error) { $('gate-text').textContent = error.message; }
   })();
 })();

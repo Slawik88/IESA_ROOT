@@ -1,8 +1,6 @@
 """Файлы и общий журнал денег: все действия доступны из раздела денег."""
 import base64
-import csv
 import io
-import json
 import secrets
 from collections import Counter
 
@@ -97,12 +95,7 @@ async def template_document(event: CallbackQuery):
     house, _ = await _context(event.from_user.id)
     await households.require(house["id"], event.from_user.id, "import_transactions")
     extension = cb.parse(event.data)[1]
-    if extension == "csv":
-        output = io.StringIO()
-        csv.writer(output, delimiter=";").writerow(transfers.FIELDS)
-        content = output.getvalue().encode("utf-8-sig")
-    else:
-        content = json.dumps({"format": "domovoy-money", "version": 1, "transactions": []}).encode()
+    content = transfers.template_file(extension)
     await event.message.answer_document(
         BufferedInputFile(content, filename=f"domovoy-template.{extension}"),
         caption="Заполните шаблон или измените экспорт. kind: expense / contribution; "

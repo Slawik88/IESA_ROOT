@@ -44,6 +44,16 @@ def _unprotect_cell(text: str) -> str:
     return text[1:] if text.startswith("'") and text[1:].lstrip().startswith(("=", "+", "-", "@")) else text
 
 
+def template_file(extension: str) -> bytes:
+    if extension not in FORMATS:
+        raise DomainError("Выберите CSV, TSV или JSON")
+    if extension == "json":
+        return json.dumps({"format": "domovoy-money", "version": 1, "transactions": []}).encode()
+    output = io.StringIO(newline="")
+    csv.writer(output, delimiter=FORMATS[extension]).writerow(FIELDS)
+    return output.getvalue().encode("utf-8-sig")
+
+
 async def export_file(
     house_id: int, actor: int, extension: str, month: str | None = None, *, query: JournalQuery | None = None,
 ) -> bytes:

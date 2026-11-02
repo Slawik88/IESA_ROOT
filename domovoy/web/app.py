@@ -15,13 +15,15 @@ from services import cleaning, households, journal, money, settings, transfers, 
 from services.households import DomainError
 from services.transaction_dates import parse_month
 from services.web_auth import verify_init_data
+from web.receipt_routes import register_receipt_routes
+from web.management import router as management_router
 
 STATIC = Path(__file__).with_name("static")
 SECURITY_HEADERS = {
     "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow, noarchive",
     "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; script-src 'self' https://telegram.org; "
-    "style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; "
+    "style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self' data: blob:; base-uri 'none'; "
     "form-action 'self'; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
 }
 
@@ -99,6 +101,18 @@ def create_app(*, bot=None) -> FastAPI:
     async def style():
         return FileResponse(STATIC / "app.css", media_type="text/css")
 
+    @app.get("/house.js")
+    async def house_script():
+        return FileResponse(STATIC / "house.js", media_type="text/javascript")
+
+    @app.get("/receipts.js")
+    async def receipts_script():
+        return FileResponse(STATIC / "receipts.js", media_type="text/javascript")
+
+    @app.get("/onest.ttf")
+    async def font():
+        return FileResponse(STATIC / "fonts" / "onest.ttf", media_type="font/ttf")
+
     @app.get("/api/houses")
     async def houses(request: Request):
         return {"houses": [dict(row) for row in await households.houses_of_user(request.state.actor)]}
@@ -172,6 +186,13 @@ def create_app(*, bot=None) -> FastAPI:
             "Content-Disposition": f'attachment; filename="operations.{extension}"',
         })
 
+    @app.get("/api/houses/{house_id}/template/{extension}")
+    async def template(request: Request, house_id: int, extension: str):
+        await households.require(house_id, request.state.actor, "import_transactions")
+        return Response(transfers.template_file(extension), media_type="application/octet-stream", headers={
+            "Content-Disposition": f'attachment; filename="template.{extension}"',
+        })
+
     async def import_content(payload: ImportInput) -> bytes:
         try:
             return base64.b64decode(payload.content, validate=True)
@@ -193,4 +214,6 @@ def create_app(*, bot=None) -> FastAPI:
                                                      await import_content(payload), payload.extension)
         return {"added": added, "duplicates": skipped}
 
+    app.include_router(management_router)
+    register_receipt_routes(app, bot)
     return app

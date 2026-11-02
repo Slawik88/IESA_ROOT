@@ -79,8 +79,9 @@ async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0) ->
             summary["contributions"] += row["amount_kop"]
         elif row["status"] == "declared":
             summary["pending"] += row["amount_kop"]
+    recent_rows = sorted(all_rows, key=lambda row: (row["created_at"], row["id"], row["kind"]), reverse=True)
     templates, seen = [], set()
-    for row in all_rows:
+    for row in recent_rows:
         if row["tg_id"] != actor:
             continue
         identity = (row["kind"], row["amount_kop"], row["category_id"], row["mode"], row["description"])
@@ -89,7 +90,7 @@ async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0) ->
             seen.add(identity)
         if len(templates) == QUICK_TRANSACTION_LIMIT:
             break
-    return {"recent": filter_rows(all_rows, JournalQuery())[:WEB_HOME_RECENT_LIMIT],
+    return {"recent": recent_rows[:WEB_HOME_RECENT_LIMIT],
             "rows": selected[page * WEB_JOURNAL_PAGE_SIZE:(page + 1) * WEB_JOURNAL_PAGE_SIZE],
             "page": page, "total": len(selected), "summary": summary, "templates": templates,
             "page_size": WEB_JOURNAL_PAGE_SIZE,

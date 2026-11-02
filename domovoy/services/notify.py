@@ -16,6 +16,9 @@ async def _resolve_targets(house, event_key: str, tg_ids: list[int]) -> tuple[li
     private_ids: list[int] = []
     chat_ids: list[int] = []
     for tg_id in tg_ids:
+        member = await repo.houses.get_membership(house["id"], tg_id)
+        if member is None or member["status"] != "active":
+            continue
         raw = await repo.settings.notify_settings_all(house["id"], tg_id)
         definition = reg.NOTIFY_SETTING_BY_KEY.get(event_key)
         channel = raw.get(event_key, definition.default if definition else reg.NOTIFY_OFF)

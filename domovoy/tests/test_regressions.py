@@ -69,7 +69,7 @@ async def test_report_with_negative_balance_and_only_pending_contributions(house
     await money.declare_contribution(house["id"], 100, 10000, "2026-10-31")
     await money.add_expense(house["id"], 100, 150, None, "2026-10-31", "house", "", [])
     text = await reports.month_report_text(house, "2026-10")
-    assert "Текущий баланс котла: -1,50 ₽" in text
+    assert "Текущий баланс котла: -1,50 CHF" in text
     assert "Ожидают подтверждения взносы: 1" in text
 
 
