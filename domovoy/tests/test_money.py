@@ -17,12 +17,15 @@ from services.households import DomainError
     ("1200.5", 120050),
     ("0.99", 99),
     ("10 000", 1000000),
+    ("1\u202f234,50", 123450),
+    ("1’234.50", 123450),
+    ("1'234.50", 123450),
 ])
 def test_parse_amount_ok(raw, kop):
     assert parse_amount(raw) == kop
 
 
-@pytest.mark.parametrize("raw", ["", "abc", "12.3.4", "-5", "0", "10.123", "1,2,3"])
+@pytest.mark.parametrize("raw", ["", "abc", "12.3.4", "-5", "0", "10.123", "1,2,3", "1'2", "12'34.50", "'123"])
 def test_parse_amount_error(raw):
     with pytest.raises(AmountError):
         parse_amount(raw)

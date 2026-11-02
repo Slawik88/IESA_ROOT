@@ -63,6 +63,13 @@ h1:focus, h2:focus { outline: none; }
 .brand-mark svg { width: 28px; height: 28px; stroke-width: 1.65; }
 .house-switch { color: var(--muted); background: transparent; font-size: .8rem; padding: 6px 0 6px 12px; min-height: 44px; max-width: 55%; text-align: right; }
 .house-switch #house-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 65%; }
+.header-tools .house-switch { max-width: none; min-width: 0; }
+.language-choice { flex-shrink: 0; margin: 0; }
+.language-choice select { width: 60px; min-height: 44px; padding: 7px; font-size: 12px; border-radius: 22px; }
+.gate>.language-choice { position: absolute; top: 18px; right: 20px; }
+html:not([lang=ru]) .actions button { white-space: normal; }
+html:not([lang=ru]) .journal-toolbar { flex-wrap: wrap; }
 .page-heading { margin-bottom: 28px; }
 .page-heading .eyebrow { margin-bottom: 8px; }
 .page-heading .subtle { margin-top: 8px; }
@@ -311,6 +318,7 @@ dialog label { margin-bottom: 16px; }
   .notice { bottom: 32px; }
 }
 @media (max-width: 760px) {
+  .app-header { gap: 12px; }
   main { padding: 18px 20px calc(112px + env(safe-area-inset-bottom)); }
   .app-header { margin-bottom: 22px; }
   .brand { font-size: 1.2rem; }

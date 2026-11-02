@@ -1,10 +1,11 @@
 'use strict';
 
 window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, showView, initialName = '' }) => {
+  const { t, locale } = window.DomovoyI18n;
   const $ = id => document.getElementById(id);
   let context = null, panel = null, generation = 0;
-  const titles = { people: 'Люди и приглашения', schedule: 'График уборки', money: 'Деньги и категории', notifications: 'Мои уведомления', settings: 'Настройки дома', add: 'Ещё один дом' };
-  const weekdays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+  const titles = { people: t("Люди и приглашения"), schedule: t("График уборки"), money: t("Деньги и категории"), notifications: t("Мои уведомления"), settings: t("Настройки дома"), add: t("Ещё один дом") };
+  const weekdays = [t("Понедельник"), t("Вторник"), t("Среда"), t("Четверг"), t("Пятница"), t("Суббота"), t("Воскресенье")];
   const node = (tag, text, cls) => {
     const item = document.createElement(tag);
     if (text !== undefined) item.textContent = text;
@@ -22,7 +23,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
       item.disabled = true;
       item.setAttribute('aria-busy', 'true');
       try { await work(); }
-      catch (error) { notice(error.message || 'Нет соединения. Попробуйте ещё раз.'); }
+      catch (error) { notice(window.DomovoyI18n.error(error.message) || t("Нет соединения. Попробуйте ещё раз.")); }
       finally { item.disabled = false; item.removeAttribute('aria-busy'); }
     };
     return item;
@@ -61,9 +62,9 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
       group.disabled = true;
       submit.setAttribute('aria-busy', 'true');
       error.textContent = '';
-      try { await work(); }
+      try { await work(); element.dataset.dirty = 'false'; }
       catch (failure) {
-        error.textContent = failure.message || 'Нет соединения. Введённые поля сохранены.';
+        error.textContent = window.DomovoyI18n.error(failure.message) || t("Нет соединения. Введённые поля сохранены.");
         if (error.isConnected) error.focus();
       } finally { group.disabled = false; submit.removeAttribute('aria-busy'); }
     };
@@ -91,13 +92,13 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     const version = ++generation, house = context?.house.id;
     $('house-menu').hidden = true;
     $('house-detail').hidden = false;
-    $('house-panel-title').textContent = titles[name] || 'Ваш дом';
+    $('house-panel-title').textContent = titles[name] || t("Ваш дом");
     $('more-view').classList.add('has-panel');
     $('house-panel-title').focus({ preventScroll: true });
     const content = $('house-content');
     content.replaceChildren();
     if (name === 'add') return renderMembership(content);
-    content.append(node('p', 'Открываем…', 'subtle'));
+    content.append(node('p', t("Открываем…"), 'subtle'));
     try {
       const data = await api(`houses/${house}/management`);
       if (version !== generation || house !== context?.house.id) return;
@@ -105,30 +106,30 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
       ({ people: renderPeople, schedule: renderSchedule, money: renderMoney, notifications: renderNotifications, settings: renderSettings })[name](content, data);
     } catch (error) {
       if (version !== generation) return;
-      content.replaceChildren(node('p', error.message, 'error'), button('Попробовать ещё раз', () => open(name)));
+      content.replaceChildren(node('p', window.DomovoyI18n.error(error.message), 'error'), button(t("Попробовать ещё раз"), () => open(name)));
     }
   }
 
   function renderMembership(container) {
     container.replaceChildren();
-    const choice = section('Добавить дом', 'Создайте дом или войдите по приглашению. Данные разных домов не смешиваются.');
+    const choice = section(t("Добавить дом"), t("Создайте дом или войдите по приглашению. Данные разных домов не смешиваются."));
     const actions = node('div', undefined, 'payment-switch membership-choices');
     const target = node('div');
     const choose = joining => {
       [...actions.children].forEach((item, index) => item.setAttribute('aria-pressed', String(Boolean(index) === joining)));
       target.replaceChildren();
-      const display = input('Ваше имя в доме', { value: context?.members.find(member => member.tg_id === context.actor)?.display_name || initialName, maxLength: 32 });
-      const key = input(joining ? 'Код или ссылка приглашения' : 'Название дома', { maxLength: joining ? 2048 : 32, placeholder: joining ? 'Вставьте приглашение' : 'Например, Дом на Садовой' });
-      target.append(form([key.wrapper, display.wrapper], joining ? 'Присоединиться' : 'Создать дом', async () => {
+      const display = input(t("Ваше имя в доме"), { value: context?.members.find(member => member.tg_id === context.actor)?.display_name || initialName, maxLength: 32 });
+      const key = input(joining ? t("Код или ссылка приглашения") : t("Название дома"), { maxLength: joining ? 2048 : 32, placeholder: joining ? t("Вставьте приглашение") : t("Например, Дом на Садовой") });
+      target.append(form([key.wrapper, display.wrapper], joining ? t("Присоединиться") : t("Создать дом"), async () => {
         const result = await post(joining ? 'houses/join' : 'houses', joining
           ? { invite_token: key.control.value.trim(), display_name: display.control.value.trim() }
           : { name: key.control.value.trim(), display_name: display.control.value.trim() });
         await onHouseChanged(result.house_id);
-        notice(joining ? result.joined ? 'Вы вступили в дом' : 'Вы уже живёте в этом доме'
-          : result.created ? 'Дом создан' : 'Открыли ваш существующий дом');
+        notice(joining ? result.joined ? t("Вы вступили в дом") : t("Вы уже живёте в этом доме")
+          : result.created ? t("Дом создан") : t("Открыли ваш существующий дом"));
       }));
     };
-    actions.append(button('Новый дом', () => choose(false)), button('Приглашение', () => choose(true)));
+    actions.append(button(t("Новый дом"), () => choose(false)), button(t("Приглашение"), () => choose(true)));
     choice.append(actions);
     container.append(choice, target);
     choose(false);
@@ -136,50 +137,50 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
 
   function renderPeople(container, data) {
     if (data.permissions.manage_members) {
-      const invite = section('Пригласить соседей', 'Отправьте код человеку, с которым живёте. Он сможет вступить в этот дом на сайте.');
-      invite.append(button('Показать приглашение', async () => {
+      const invite = section(t("Пригласить соседей"), t("Отправьте код человеку, с которым живёте. Он сможет вступить в этот дом на сайте."));
+      invite.append(button(t("Показать приглашение"), async () => {
         const result = await api(`${base(data)}/invite`);
         if (!current(data)) return;
-        const field = input('Код приглашения', { value: result.invite_token, required: false });
+        const field = input(t("Код приглашения"), { value: result.invite_token, required: false });
         field.control.readOnly = true;
         const actions = node('div', undefined, 'file-row');
-        actions.append(button('Скопировать код', async () => {
-          try { await navigator.clipboard.writeText(field.control.value); notice('Код скопирован'); }
-          catch { field.control.focus(); field.control.select(); notice('Выделили код — скопируйте его'); }
-        }), button('Обновить код', async () => {
-          if (!window.confirm('Создать новый код? Старые приглашения перестанут работать. Жильцы останутся в доме.')) return;
+        actions.append(button(t("Скопировать код"), async () => {
+          try { await navigator.clipboard.writeText(field.control.value); notice(t("Код скопирован")); }
+          catch { field.control.focus(); field.control.select(); notice(t("Выделили код — скопируйте его")); }
+        }), button(t("Обновить код"), async () => {
+          if (!window.confirm(t("Создать новый код? Старые приглашения перестанут работать. Жильцы останутся в доме."))) return;
           const changed = await post(`${base(data)}/invite/rotate`);
           if (current(data)) field.control.value = changed.invite_token;
         }));
-        invite.replaceChildren(node('h3', 'Приглашение в дом'), node('p', 'Делитесь только с будущими жильцами.', 'subtle'), field.wrapper, actions);
+        invite.replaceChildren(node('h3', t("Приглашение в дом")), node('p', t("Делитесь только с будущими жильцами."), 'subtle'), field.wrapper, actions);
       }));
       container.append(invite);
     }
-    const people = section('Жильцы');
+    const people = section(t("Жильцы"));
     for (const member of data.members) {
       const person = node('div', undefined, 'person'), heading = node('div', undefined, 'section-title');
       const name = node('div');
-      name.append(node('h3', member.display_name), node('p', member.role === 'owner' ? 'Владелец дома' : member.tg_id === data.actor ? 'Это вы' : 'Жилец', 'subtle'));
+      name.append(node('h3', member.display_name), node('p', member.role === 'owner' ? t("Владелец дома") : member.tg_id === data.actor ? t("Это вы") : t("Жилец"), 'subtle'));
       heading.append(name);
       person.append(heading);
       if (member.can_manage) {
-        const permissions = node('details'), title = node('summary', 'Доступ и права');
+        const permissions = node('details'), title = node('summary', t("Доступ и права"));
         permissions.append(title);
         for (const definition of data.permission_definitions) {
           const label = node('label', undefined, 'permission-row'), control = node('input');
           control.type = 'checkbox';
           control.checked = member.grants.includes(definition.code);
-          const description = node('span', definition.label);
-          description.append(node('small', definition.hint));
+          const description = node('span', t(definition.label));
+          description.append(node('small', t(definition.hint)));
           label.append(control, description);
           control.onchange = async () => {
             const wanted = control.checked;
-            if (!window.confirm(`${wanted ? 'Разрешить' : 'Запретить'} «${definition.label}» для ${member.display_name}?`)) { control.checked = !wanted; return; }
+            if (!window.confirm(t("{0} «{1}» для {2}?", [wanted ? t("Разрешить") : t("Запретить"), t(definition.label), member.display_name]))) { control.checked = !wanted; return; }
             control.disabled = true;
             try {
               await post(`${base(data)}/members/${member.tg_id}/permissions/${definition.code}`, { granted: wanted });
-              notice('Права обновлены');
-            } catch (error) { control.checked = !wanted; notice(error.message); }
+              notice(t("Права обновлены"));
+            } catch (error) { control.checked = !wanted; notice(window.DomovoyI18n.error(error.message)); }
             finally { control.disabled = false; }
           };
           permissions.append(label);
@@ -193,25 +194,25 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
 
   function renderSchedule(container, data) {
     const panelVersion = generation;
-    const schedule = section('Дни недели', 'Каждому жильцу можно выбрать день. Изменения касаются будущих открытых дней; прошлые отметки останутся в истории.');
+    const schedule = section(t("Дни недели"), t("Каждому жильцу можно выбрать день. Изменения касаются будущих открытых дней; прошлые отметки останутся в истории."));
     const fields = [];
     for (const member of data.members) {
-      const item = select(member.display_name, [{ value: '', label: 'Без дня' }, ...weekdays.map((label, value) => ({ value, label }))], data.schedule.weekday_map[member.tg_id]);
+      const item = select(member.display_name, [{ value: '', label: t("Без дня") }, ...weekdays.map((label, value) => ({ value, label }))], data.schedule.weekday_map[member.tg_id]);
       item.control.disabled = !data.permissions.manage_schedule;
       item.wrapper.classList.add('schedule-row');
       fields.push({ member, ...item });
     }
-    if (data.permissions.manage_schedule) schedule.append(form(fields.map(item => item.wrapper), 'Сохранить график', async () => {
+    if (data.permissions.manage_schedule) schedule.append(form(fields.map(item => item.wrapper), t("Сохранить график"), async () => {
       const result = await post(`${base(data)}/schedule`, { version: data.schedule.version, weekday_map: Object.fromEntries(fields.map(item => [item.member.tg_id, item.control.value === '' ? null : Number(item.control.value)])) });
       data.schedule.version = result.version;
       await refresh();
       if (current(data) && generation === panelVersion) await loadDays();
-      notice('График обновлён');
+      notice(t("График обновлён"));
     }));
     else schedule.append(...fields.map(item => item.wrapper));
     container.append(schedule);
-    const history = section('Дни и отметки', `Показан ${new Date(`${data.schedule.month}-01T12:00:00Z`).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' })}.`);
-    const month = input('Месяц истории', { type: 'month', value: data.schedule.month });
+    const history = section(t("Дни и отметки"), t("Показан {0}.", [new Date(`${data.schedule.month}-01T12:00:00Z`).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' })]));
+    const month = input(t("Месяц истории"), { type: 'month', value: data.schedule.month });
     history.append(month.wrapper);
     const list = node('div', undefined, 'schedule-history');
     let historyGeneration = 0;
@@ -223,21 +224,21 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     };
     const renderDays = snapshot => {
       list.replaceChildren();
-      if (!snapshot.schedule.history.length) list.append(node('p', 'Дней за этот месяц пока нет.', 'subtle'));
+      if (!snapshot.schedule.history.length) list.append(node('p', t("Дней за этот месяц пока нет."), 'subtle'));
       for (const day of snapshot.schedule.history) {
         const item = node('div', undefined, 'row'), text = node('div', undefined, 'row-content');
-        const date = new Date(`${day.planned_date}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-        text.append(node('div', `${day.display_name} · ${date}`), node('span', { open: day.planned_date > snapshot.schedule.today ? 'Впереди' : 'Ждёт отметки', done: 'Убрано', canceled: 'Пропущено' }[day.status], 'meta'));
+        const date = new Date(`${day.planned_date}T12:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+        text.append(node('div', `${day.display_name} · ${date}`), node('span', { open: day.planned_date > snapshot.schedule.today ? t("Впереди") : t("Ждёт отметки"), done: t("Убрано"), canceled: t("Пропущено") }[day.status], 'meta'));
         item.append(text);
         if (day.status === 'open' && day.planned_date <= snapshot.schedule.today && (day.tg_id === data.actor || data.permissions.close_others_days)) {
           const actions = node('div', undefined, 'row-actions');
-          actions.append(button('Отметить уборку', async () => {
+          actions.append(button(t("Отметить уборку"), async () => {
             await post(`${base(data)}/cleaning/${day.id}/close`);
             await refresh();
             if (current(data) && generation === panelVersion) await loadDays();
           }));
-          if (data.permissions.close_others_days) actions.append(button('Пропустить', async () => {
-            if (!window.confirm(`Отметить день ${date} для ${day.display_name} как пропущенный?`)) return;
+          if (data.permissions.close_others_days) actions.append(button(t("Пропустить"), async () => {
+            if (!window.confirm(t("Отметить день {0} для {1} как пропущенный?", [date, day.display_name]))) return;
             await post(`${base(data)}/cleaning/${day.id}/cancel`);
             await refresh();
             if (current(data) && generation === panelVersion) await loadDays();
@@ -249,7 +250,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     };
     month.control.onchange = async () => {
       try { await loadDays(); }
-      catch (error) { notice(error.message); }
+      catch (error) { notice(window.DomovoyI18n.error(error.message)); }
     };
     renderDays(data);
     history.append(list);
@@ -257,9 +258,9 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
   }
 
   function settingControl(definition, value, notification = false) {
-    if (definition.kind === 'bool') return select(definition.label, [{ value: 'true', label: 'Включено' }, { value: 'false', label: 'Выключено' }], String(value));
-    const labels = notification ? { private: 'Личный чат', chat: 'Общий чат дома', off: 'Не присылать' } : definition.choice_labels;
-    return select(definition.label, definition.choices.map(choice => ({ value: choice, label: labels?.[choice] ?? String(choice) })), value);
+    if (definition.kind === 'bool') return select(t(definition.label), [{ value: 'true', label: t("Включено") }, { value: 'false', label: t("Выключено") }], String(value));
+    const labels = notification ? { private: t("Личный чат"), chat: t("Общий чат дома"), off: t("Не присылать") } : definition.choice_labels;
+    return select(t(definition.label), definition.choices.map(choice => ({ value: choice, label: t(labels?.[choice] ?? String(choice)) })), value);
   }
 
   function settingRow(data, definition, value, notification = false) {
@@ -268,18 +269,21 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     const field = settingControl(definition, value, notification);
     const canEdit = notification || data.permissions.manage_house_settings;
     if (!canEdit) {
-      const label = definition.kind === 'bool' ? value ? 'Включено' : 'Выключено' : definition.choice_labels?.[value] ?? String(value);
-      item.append(node('h3', definition.label), node('p', label, 'subtle'));
+      const label = definition.kind === 'bool' ? value ? t("Включено") : t("Выключено") : definition.choice_labels?.[value] ?? String(value);
+      item.append(node('h3', t(definition.label)), node('p', t(label), 'subtle'));
       return item;
     }
-    item.append(form([field.wrapper], 'Сохранить', async () => {
+    item.append(form([field.wrapper], t("Сохранить"), async () => {
       const selected = definition.kind === 'bool' ? field.control.value === 'true'
         : typeof definition.default === 'number' ? Number(field.control.value) : field.control.value;
-      if (definition.key === 'currency' && selected !== savedValue && !window.confirm('Изменить обозначение валюты у всех записей дома? Суммы останутся прежними — пересчёта по курсу не будет.')) return;
+      if (definition.key === 'currency' && selected !== savedValue && !window.confirm(t("Изменить обозначение валюты у всех записей дома? Суммы останутся прежними — пересчёта по курсу не будет."))) {
+        field.control.value = String(savedValue);
+        return;
+      }
       await post(`${base(data)}/${notification ? 'notifications' : 'settings'}/${definition.key}`, { value: selected });
       savedValue = selected;
       await refresh();
-      notice('Сохранено');
+      notice(t("Сохранено"));
     }));
     return item;
   }
@@ -288,7 +292,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     const panelVersion = generation;
     const currency = data.house_setting_definitions.find(item => item.key === 'currency');
     container.append(settingRow(data, currency, data.house_settings.currency));
-    const categories = section('Категории расходов', 'Названия помогают находить покупки в истории. Категория с расходами не удаляется.');
+    const categories = section(t("Категории расходов"), t("Названия помогают находить покупки в истории. Категория с расходами не удаляется."));
     const list = node('div');
     categories.append(list);
     const updateCategories = async () => {
@@ -301,8 +305,8 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
       for (const category of rows) {
       const row = node('div', undefined, 'row');
       row.append(node('span', category.name));
-      if (data.permissions.manage_categories) row.append(button('Убрать', async () => {
-        if (!window.confirm(`Убрать категорию «${category.name}»?`)) return;
+      if (data.permissions.manage_categories) row.append(button(t("Убрать"), async () => {
+        if (!window.confirm(t("Убрать категорию «{0}»?", [category.name]))) return;
         await post(`${base(data)}/categories/${category.id}/delete`);
         await updateCategories();
       }, 'text-button'));
@@ -311,49 +315,49 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     };
     renderCategories(data.categories);
     if (data.permissions.manage_categories) {
-      const name = input('Новая категория', { maxLength: 24, placeholder: 'Например, Для кухни' });
-      categories.append(form([name.wrapper], 'Добавить категорию', async () => {
+      const name = input(t("Новая категория"), { maxLength: 24, placeholder: t("Например, Для кухни") });
+      categories.append(form([name.wrapper], t("Добавить категорию"), async () => {
         await post(`${base(data)}/categories`, { name: name.control.value.trim() });
         await updateCategories();
         name.control.value = '';
-        notice('Категория добавлена');
+        notice(t("Категория добавлена"));
       }));
     }
     container.append(categories);
   }
 
   function renderNotifications(container, data) {
-    container.append(node('p', 'Это только ваши настройки. Уведомления приходят в личный чат или общий чат дома, если он подключён.', 'panel-note'));
-    if (!data.house.chat_bound) container.append(node('p', 'Общий чат пока не подключён. Чтобы получать сообщения сейчас, выбирайте «Личный чат».', 'panel-note'));
+    container.append(node('p', t("Это только ваши настройки. Уведомления приходят в личный чат или общий чат дома, если он подключён."), 'panel-note'));
+    if (!data.house.chat_bound) container.append(node('p', t("Общий чат пока не подключён. Чтобы получать сообщения сейчас, выбирайте «Личный чат»."), 'panel-note'));
     for (const definition of data.notify_setting_definitions) container.append(settingRow(data, definition, data.notify_settings[definition.key], true));
   }
 
   function renderSettings(container, data) {
     if (data.permissions.manage_house_settings) {
-      const identity = section('Название дома');
-      const houseName = input('Как называется ваш дом', { value: data.house.name, maxLength: 32 });
-      identity.append(form([houseName.wrapper], 'Сохранить название', async () => {
+      const identity = section(t("Название дома"));
+      const houseName = input(t("Как называется ваш дом"), { value: data.house.name, maxLength: 32 });
+      identity.append(form([houseName.wrapper], t("Сохранить название"), async () => {
         await post(`${base(data)}/name`, { name: houseName.control.value.trim() });
         data.house.name = houseName.control.value.trim();
         await refresh();
-        notice('Название обновлено');
+        notice(t("Название обновлено"));
       }));
       container.append(identity);
     }
-    const profile = section('Как к вам обращаться');
-    const name = input('Ваше имя в этом доме', { value: data.profile.display_name, maxLength: 32 });
-    profile.append(form([name.wrapper], 'Сохранить имя', async () => {
+    const profile = section(t("Как к вам обращаться"));
+    const name = input(t("Ваше имя в этом доме"), { value: data.profile.display_name, maxLength: 32 });
+    profile.append(form([name.wrapper], t("Сохранить имя"), async () => {
       await post(`${base(data)}/profile`, { display_name: name.control.value.trim() });
       await refresh();
-      notice('Имя обновлено');
+      notice(t("Имя обновлено"));
     }));
     container.append(profile);
-    if (!data.permissions.manage_house_settings) container.append(node('p', 'Правила дома меняет владелец или участник с соответствующим доступом.', 'panel-note'));
+    if (!data.permissions.manage_house_settings) container.append(node('p', t("Правила дома меняет владелец или участник с соответствующим доступом."), 'panel-note'));
     for (const definition of data.house_setting_definitions.filter(item => item.key !== 'currency')) container.append(settingRow(data, definition, data.house_settings[definition.key]));
     if (data.profile.can_leave) {
       const leave = node('div', undefined, 'danger-zone');
-      leave.append(node('h3', 'Выйти из дома'), node('p', 'Доступ к данным этого дома закроется. Старые записи сохранятся у жильцов.', 'subtle'), button('Выйти из дома', async () => {
-        if (!window.confirm(`Выйти из «${data.house.name}»? Вы потеряете доступ к этому дому.`)) return;
+      leave.append(node('h3', t("Выйти из дома")), node('p', t("Доступ к данным этого дома закроется. Старые записи сохранятся у жильцов."), 'subtle'), button(t("Выйти из дома"), async () => {
+        if (!window.confirm(t("Выйти из «{0}»? Вы потеряете доступ к этому дому.", [data.house.name]))) return;
         await post(`${base(data)}/leave`);
         await onHouseChanged(null);
       }, 'danger'));
@@ -378,9 +382,9 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     setContext(data) {
       if (context && context.house.id !== data.house.id) home();
       context = data;
-      $('more-title').textContent = 'Дом';
-      $('members-count').textContent = `Жильцов: ${data.members.length}`;
-      $('house-currency-label').textContent = `Валюта дома · ${data.currency}`;
+      $('more-title').textContent = t("Дом");
+      $('members-count').textContent = t("Жильцов: {0}", [data.members.length]);
+      $('house-currency-label').textContent = t("Валюта дома · {0}", [data.currency]);
     },
   };
 };

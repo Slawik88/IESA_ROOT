@@ -2,6 +2,8 @@
 core/money.py
 Деньги «Домового»: целые сотые единицы внутри, валюта дома при отображении.
 """
+import re
+
 from core.constants import KOPECKS_IN_RUBLE, MAX_AMOUNT_RUBLES
 
 
@@ -11,7 +13,10 @@ class AmountError(ValueError):
 
 def parse_amount(raw: str) -> int:
     """«1200», «1 200,50», «1200.5» → копейки. Ошибка ввода → AmountError."""
-    cleaned = raw.replace(" ", "").replace("\u00a0", "").replace(",", ".")
+    cleaned = raw.replace(" ", "").replace("\u00a0", "").replace("\u202f", "").replace("’", "'")
+    if re.fullmatch(r"\d{1,3}(?:'\d{3})+(?:[.,]\d{1,2})?", cleaned):
+        cleaned = cleaned.replace("'", "")
+    cleaned = cleaned.replace(",", ".")
     if not cleaned or any(ch not in "0123456789." for ch in cleaned):
         raise AmountError("Сумма должна быть числом, например: 1200 или 1200.50")
     if cleaned.count(".") > 1:

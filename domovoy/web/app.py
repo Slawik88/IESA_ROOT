@@ -105,6 +105,10 @@ def create_app(*, bot=None) -> FastAPI:
     async def house_script():
         return FileResponse(STATIC / "house.js", media_type="text/javascript")
 
+    @app.get("/i18n.js")
+    async def language_script():
+        return FileResponse(STATIC / "i18n.js", media_type="text/javascript")
+
     @app.get("/receipts.js")
     async def receipts_script():
         return FileResponse(STATIC / "receipts.js", media_type="text/javascript")
