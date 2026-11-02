@@ -114,21 +114,21 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
 
   function renderMembership(container) {
     container.replaceChildren();
-    const choice = section('Ваше пространство', 'Создайте дом или войдите по приглашению. Данные разных домов не смешиваются.');
+    const choice = section('Добавить дом', 'Создайте дом или войдите по приглашению. Данные разных домов не смешиваются.');
     const actions = node('div', undefined, 'payment-switch membership-choices');
     const target = node('div');
     const choose = joining => {
       [...actions.children].forEach((item, index) => item.setAttribute('aria-pressed', String(Boolean(index) === joining)));
       target.replaceChildren();
-      const display = input('Как вас будут звать дома', { value: context?.members.find(member => member.tg_id === context.actor)?.display_name || initialName, maxLength: 32 });
+      const display = input('Ваше имя в доме', { value: context?.members.find(member => member.tg_id === context.actor)?.display_name || initialName, maxLength: 32 });
       const key = input(joining ? 'Код или ссылка приглашения' : 'Название дома', { maxLength: joining ? 2048 : 32, placeholder: joining ? 'Вставьте приглашение' : 'Например, Дом на Садовой' });
       target.append(form([key.wrapper, display.wrapper], joining ? 'Присоединиться' : 'Создать дом', async () => {
         const result = await post(joining ? 'houses/join' : 'houses', joining
           ? { invite_token: key.control.value.trim(), display_name: display.control.value.trim() }
           : { name: key.control.value.trim(), display_name: display.control.value.trim() });
         await onHouseChanged(result.house_id);
-        notice(joining ? result.joined ? 'Вы дома. Добро пожаловать!' : 'Вы уже живёте в этом доме'
-          : result.created ? 'Дом создан. Можно приглашать соседей.' : 'Открыли ваш существующий дом');
+        notice(joining ? result.joined ? 'Вы вступили в дом' : 'Вы уже живёте в этом доме'
+          : result.created ? 'Дом создан' : 'Открыли ваш существующий дом');
       }));
     };
     actions.append(button('Новый дом', () => choose(false)), button('Приглашение', () => choose(true)));
@@ -196,7 +196,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
 
   function renderSchedule(container, data) {
     const panelVersion = generation;
-    const schedule = section('Одна неделя — понятный ритм', 'Каждому жильцу можно выбрать день. Изменения касаются будущих открытых дней; прошлые отметки останутся в истории.');
+    const schedule = section('Дни недели', 'Каждому жильцу можно выбрать день. Изменения касаются будущих открытых дней; прошлые отметки останутся в истории.');
     const fields = [];
     for (const member of data.members) {
       const item = select(member.display_name, [{ value: '', label: 'Без дня' }, ...weekdays.map((label, value) => ({ value, label }))], data.schedule.weekday_map[member.tg_id]);
@@ -381,7 +381,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     setContext(data) {
       if (context && context.house.id !== data.house.id) home();
       context = data;
-      $('house-subtitle').textContent = data.house.name;
+      $('more-title').textContent = 'Дом';
       $('members-count').textContent = `Жильцов: ${data.members.length}`;
       $('house-currency-label').textContent = `Валюта дома · ${data.currency}`;
     },

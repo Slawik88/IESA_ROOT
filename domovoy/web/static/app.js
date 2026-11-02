@@ -67,6 +67,7 @@
       else button.removeAttribute('aria-current');
     });
     window.scrollTo({ top: 0, behavior: 'instant' });
+    if (app.state) $('house-name').textContent = view === 'home' ? 'Сменить дом' : app.state.house.name;
     if (focus) $(view === 'more' && !$('house-detail').hidden ? 'house-panel-title' : `${view}-title`).focus({ preventScroll: true });
     syncBackButton();
   }
@@ -183,7 +184,7 @@
     $('chores').replaceChildren();
     const own = app.state.cleaning.filter(day => day.tg_id === app.state.actor);
     $('cleaning-status').textContent = own.length ? 'К отметке' : 'Свободны';
-    if (!own.length) $('chores').append(node('p', 'Сегодня можно выдохнуть. Незакрытых дней нет.', 'subtle'));
+    if (!own.length) $('chores').append(node('p', 'Незакрытых дней нет.', 'subtle'));
     const days = app.showAllChores ? own : own.slice(0, 1);
     for (const day of days) {
       const item = row(day.planned_date === app.state.today ? 'Сегодня ваша очередь' : `За ${dateLabel(day.planned_date)}`, day.planned_date === app.state.today ? 'Когда закончите — отметьте здесь' : 'Ещё не отмечено');
@@ -230,7 +231,7 @@
     }
     $('history').replaceChildren();
     if (!data.rows.length) {
-      const empty = emptyState('Пока ничего не нашли', 'Попробуйте другую дату или поиск по всей истории.', 'search');
+      const empty = emptyState('Нет совпадений', 'Измените фильтры или выберите другой месяц.', 'search');
       empty.append(action('Искать за всё время', async () => {
         app.allMonths = true;
         app.page = 0;
@@ -249,7 +250,7 @@
     $('recent').replaceChildren();
     const recent = data.recent || [];
     for (const entry of recent) $('recent').append(transactionRow(entry));
-    if (!recent.length) $('recent').append(emptyState('Здесь начнётся ваша история', 'Первая покупка или взнос появится здесь. Всё остальное уже готово.', 'wallet'));
+    if (!recent.length) $('recent').append(emptyState('Пока нет записей', 'Запишите расход или внесите деньги в общий котёл.', 'wallet'));
     renderPager();
   }
 
@@ -322,7 +323,8 @@
     const data = app.state;
     document.title = data.title;
     $('brand').textContent = data.title;
-    $('house-name').textContent = data.house.name;
+    $('house-name').textContent = app.view === 'home' ? 'Сменить дом' : data.house.name;
+    $('home-title').textContent = data.house.name;
     $('gate').hidden = true;
     $('workspace').hidden = false;
     $('onboarding').replaceChildren();

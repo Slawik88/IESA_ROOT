@@ -27,7 +27,7 @@ window.createReceiptWorkspace = ({ api, post, notice, refresh }) => {
         container.append(node('p', 'Хранилище чеков временно недоступно. Сам расход сохранён.', 'panel-note'));
         return;
       }
-      if (!data.receipts.length) container.append(node('p', 'Чеков пока нет. Добавьте фото, чтобы всё было в одном месте.', 'panel-note'));
+      if (!data.receipts.length) container.append(node('p', 'Чеков пока нет. Можно добавить фото.', 'panel-note'));
       const grid = node('div', undefined, 'receipt-grid');
       container.append(grid);
       data.receipts.forEach((receipt, index) => {

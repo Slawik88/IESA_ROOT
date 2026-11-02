@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Домовой — домашние финансы</title>
+  <desc id="description">Дом с учётным журналом внутри: строки операций и знаки поступлений и расходов. Знак расположен в безопасной зоне круглой аватарки.</desc>
+  <rect width="512" height="512" fill="#15191F"/>
+  <g stroke="none" transform="translate(256 256) scale(1.12) translate(-256 -256)">
+    <path fill="#F1F2F4" d="M256 114c4 0 8 2 11 5l133 115c7 6 8 14 2 20s-16 6-22 0l-12-10v138c0 13-10 23-23 23H167c-13 0-23-10-23-23V244l-12 10c-6 6-16 6-22 0s-5-14 2-20l133-115c3-3 7-5 11-5Z"/>
+    <rect x="176" y="238" width="160" height="128" rx="12" fill="#15191F"/>
+    <path d="M197 274h49m-49 54h49" fill="none" stroke="#F1F2F4" stroke-width="16" stroke-linecap="round"/>
+    <path d="M279 274h36m-18-18v36m-18 36h36" fill="none" stroke="#94B3D9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
