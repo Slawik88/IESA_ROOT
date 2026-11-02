@@ -51,12 +51,15 @@
     <section id="home-view" class="view" aria-labelledby="home-title">
       <div class="page-heading home-heading"><div><p id="today" class="eyebrow"></p><h1 id="home-title" tabindex="-1"></h1></div></div>
       <div class="home-layout">
+        <div class="money-overview">
         <section class="balance" aria-label="Деньги дома">
           <div class="balance-top"><p class="eyebrow">Общий котёл</p><button id="balance-info" class="info-button" aria-label="Как рассчитан остаток" aria-haspopup="dialog">i</button></div>
           <div class="balance-number"><p id="balance" class="amount"></p><span id="balance-currency" class="currency-token"></span></div>
 
-          <div class="actions"><button id="add-expense"><svg aria-hidden="true"><use href="#i-plus"/></svg>Записать расход</button><button id="add-contribution" class="hero-secondary">Внести деньги</button></div>
+          <div class="balance-flow" aria-label="Движение денег за всё время"><div><span>Внесено за всё время</span><strong id="balance-in"></strong></div><div><span>Траты и возвраты</span><strong id="balance-out"></strong></div></div>
         </section>
+        <div class="actions" aria-label="Действия с деньгами"><button id="add-expense"><span class="action-icon"><svg aria-hidden="true"><use href="#i-plus"/></svg></span><span>Расход</span></button><button id="add-contribution"><span class="action-icon"><svg aria-hidden="true"><use href="#i-wallet"/></svg></span><span>Взнос</span></button><button data-view="journal"><span class="action-icon"><svg aria-hidden="true"><use href="#i-clock"/></svg></span><span>История</span></button></div>
+        </div>
         <div class="home-aside">
           <section class="chores" id="cleaning-card"><div class="section-title"><h2>Моя уборка</h2><span id="cleaning-status" class="micro-label"></span></div><div id="chores"></div></section>
           <details class="attention" id="pending-card" hidden><summary><span>Проверить взносы</span><span id="pending-count" class="count"></span></summary><div id="pending"></div></details>

@@ -330,6 +330,8 @@
     $('onboarding').replaceChildren();
     $('balance').textContent = amount(data.balance.balance, false);
     $('balance-currency').textContent = data.currency;
+    $('balance-in').textContent = amount(data.balance.confirmed_total);
+    $('balance-out').textContent = amount(data.balance.house_spent + data.balance.reimbursed);
     $('balance-detail').textContent = `Внесено ${amount(data.balance.confirmed_total)} · потрачено и возвращено ${amount(data.balance.house_spent + data.balance.reimbursed)}`;
     $('today').textContent = dateLabel(data.today, { weekday: 'long', day: 'numeric', month: 'long' });
     $('month').value = app.month;
