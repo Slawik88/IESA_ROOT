@@ -1,5 +1,6 @@
 """Тонкий HTTP-адаптер с отдельной Telegram-авторизацией и проверкой дома."""
 import base64
+import hashlib
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal
@@ -19,6 +20,10 @@ from web.receipt_routes import register_receipt_routes
 from web.management import router as management_router
 
 STATIC = Path(__file__).with_name("static")
+ASSET_TYPES = {".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2"}
+# Файлы интерфейса одинаковы для всех и без данных; адрес содержит отпечаток содержимого, поэтому
+# браузер хранит их навсегда, а любая правка получает новый адрес. Страница и API остаются no-store.
+ASSET_HEADERS = {"Cache-Control": "private, max-age=31536000, immutable"}
 SECURITY_HEADERS = {
     "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow, noarchive",
     "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
@@ -64,8 +69,20 @@ def journal_params(
     return journal.JournalQuery(month, q, kind, member, category, mode, sort)
 
 
+def asset_version() -> str:
+    """Короткий отпечаток всех файлов интерфейса: меняется с любой правкой."""
+    digest = hashlib.sha256()
+    for path in sorted(STATIC.rglob("*")):
+        if path.is_file() and path.suffix in (*ASSET_TYPES, ".html"):
+            digest.update(path.relative_to(STATIC).as_posix().encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()[:12]
+
+
 def create_app(*, bot=None) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, redirect_slashes=False)
+    app.state.bot = bot
+    page = (STATIC / "index.html").read_text(encoding="utf-8").replace("__V__", asset_version())
 
     @app.middleware("http")
     async def private_boundary(request: Request, call_next):
@@ -78,7 +95,8 @@ def create_app(*, bot=None) -> FastAPI:
             except DomainError:
                 return JSONResponse({"detail": "Not Found"}, status_code=404, headers=SECURITY_HEADERS)
         response = await call_next(request)
-        response.headers.update(SECURITY_HEADERS)
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
         return response
 
     @app.exception_handler(DomainError)
@@ -91,31 +109,25 @@ def create_app(*, bot=None) -> FastAPI:
 
     @app.get("/")
     async def index():
-        return FileResponse(STATIC / "index.html")
+        return Response(page, media_type="text/html; charset=utf-8")
 
-    @app.get("/app.js")
-    async def script():
-        return FileResponse(STATIC / "app.js", media_type="text/javascript")
+    @app.get("/v/{build}/{asset:path}")
+    async def static_asset(build: str, asset: str):
+        path = (STATIC / asset).resolve()
+        if STATIC.resolve() not in path.parents or path.suffix not in ASSET_TYPES or not path.is_file():
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return FileResponse(path, media_type=ASSET_TYPES[path.suffix], headers=ASSET_HEADERS)
 
-    @app.get("/app.css")
-    async def style():
-        return FileResponse(STATIC / "app.css", media_type="text/css")
+    def legacy_asset(name: str, media_type: str, folder: str = "") -> None:
+        """Действующий интерфейс подключает файлы по коротким адресам, пока не заменён новым."""
+        async def serve():
+            return FileResponse(STATIC / folder / name, media_type=media_type)
+        app.get(f"/{name}")(serve)
 
-    @app.get("/house.js")
-    async def house_script():
-        return FileResponse(STATIC / "house.js", media_type="text/javascript")
-
-    @app.get("/i18n.js")
-    async def language_script():
-        return FileResponse(STATIC / "i18n.js", media_type="text/javascript")
-
-    @app.get("/receipts.js")
-    async def receipts_script():
-        return FileResponse(STATIC / "receipts.js", media_type="text/javascript")
-
-    @app.get("/onest.ttf")
-    async def font():
-        return FileResponse(STATIC / "fonts" / "onest.ttf", media_type="font/ttf")
+    for script in ("app.js", "house.js", "i18n.js", "receipts.js"):
+        legacy_asset(script, "text/javascript")
+    legacy_asset("app.css", "text/css")
+    legacy_asset("onest.ttf", "font/ttf", "fonts")
 
     @app.get("/api/houses")
     async def houses(request: Request):
@@ -143,6 +155,7 @@ def create_app(*, bot=None) -> FastAPI:
             "categories": [dict(row) for row in await money.categories(house_id)],
             "members": [dict(row) for row in await households.members(house_id)],
             "cleaning": [dict(row) for row in await cleaning.open_days_up_to(house_id, today)],
+            "upcoming": [dict(row) for row in await cleaning.upcoming_days(house_id, today)],
             "pending": [dict(row) for row in await money.pending_contributions(house_id)]
                        if permissions["confirm_contributions"] else [],
             **entries,

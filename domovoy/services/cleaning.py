@@ -9,7 +9,7 @@ from datetime import date, timedelta
 
 from loguru import logger
 
-from core.constants import DATE_FMT, SCHEDULE_HORIZON_DAYS, WEEKDAY_SHORT
+from core.constants import DATE_FMT, SCHEDULE_HORIZON_DAYS, UPCOMING_CLEANING_LIMIT, WEEKDAY_SHORT
 from infrastructure import repositories as repo
 from services.households import DomainError, require, require_member
 
@@ -95,6 +95,14 @@ async def days_on(house_id: int, planned_date: str) -> list:
 
 async def open_days_up_to(house_id: int, today: str) -> list:
     return await repo.schedule.open_days_between(house_id, date.min.isoformat(), today)
+
+
+async def upcoming_days(house_id: int, today: str) -> list:
+    """Ближайшие открытые дни после сегодняшнего — чтобы видеть, кто убирает следующим."""
+    tomorrow = date.fromisoformat(today) + timedelta(days=1)
+    horizon = date.fromisoformat(today) + timedelta(days=SCHEDULE_HORIZON_DAYS)
+    rows = await repo.schedule.open_days_between(house_id, tomorrow.strftime(DATE_FMT), horizon.strftime(DATE_FMT))
+    return rows[:UPCOMING_CLEANING_LIMIT]
 
 
 # ── Факты ────────────────────────────────────────────────────────────────────
