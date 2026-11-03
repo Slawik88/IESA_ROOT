@@ -359,7 +359,7 @@ def alerts_for(window: ops_metrics.Window) -> list[tuple[str, str]]:
     if refused or (total and limit and total.peak >= limit.peak - DB_SERVER_SPARE):
         ours = window.timings.get(("db_server", "ours"))
         busy = f"занято до {total.peak:.0f} из {limit.peak:.0f}, из них Предвестник — {ours.peak if ours else 0:.0f}" if total and limit else "сервер базы отказал в соединении"
-        found.append(("db_server", f"На сервере базы кончаются соединения: {busy}. Остальные держат другие подключения к той же базе (сайт IESA)."))
+        found.append(("db_server", f"На сервере базы кончаются соединения: {busy}. Остальные — сайт IESA, Домовой и служебные подключения самой базы."))
     requests = sum(s.count for (kind, _), s in window.timings.items() if kind == "http")
     errors_5xx = sum(c for (kind, _), c in window.counters.items() if kind == "http_5xx")
     if errors_5xx >= HTTP_5XX_MIN and errors_5xx >= HTTP_5XX_SHARE * max(requests, 1):

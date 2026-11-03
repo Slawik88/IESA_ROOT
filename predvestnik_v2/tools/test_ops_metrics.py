@@ -90,6 +90,7 @@ def test_alert_thresholds() -> None:
     assert ops_health.alerts_for(server(10, 6, 22)) == []
     (key, text), = ops_health.alerts_for(server(20, 9, 22))
     assert key == "db_server" and "20 из 22" in text and "Предвестник — 9" in text, text
+    assert "сайт IESA" in text and "Домовой" in text, text      # the other holders are named, not only the site
     refused = ops_metrics.Window()
     refused.counters[("db_refused", "server_full")] = 1
     assert [k for k, _ in ops_health.alerts_for(refused)] == ["db_server"]

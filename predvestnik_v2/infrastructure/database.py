@@ -245,11 +245,13 @@ async def _set_schema(conn: asyncpg.Connection):
 async def server_connection_usage(conn: asyncpg.Connection) -> dict:
     """Connections open on the whole database server (all databases and apps), ours, and the limit for
     ordinary roles. When ``total`` reaches ``limit`` the server refuses new connections
-    ("remaining connection slots are reserved ...") to everyone, the site included."""
+    ("remaining connection slots are reserved ...") to everyone, the site included.
+    Only client backends take a slot: background workers (pg_cron, walsender, TimescaleDB launcher, ...)
+    also have a row in pg_stat_activity but are not counted against max_connections."""
     row = await conn.fetchrow(
         """
-        SELECT count(*) FILTER (WHERE usesysid IS NOT NULL) AS total,
-               count(*) FILTER (WHERE usesysid IS NOT NULL AND application_name = $1) AS ours,
+        SELECT count(*) FILTER (WHERE backend_type = 'client backend') AS total,
+               count(*) FILTER (WHERE backend_type = 'client backend' AND application_name = $1) AS ours,
                current_setting('max_connections')::int
                  - current_setting('superuser_reserved_connections')::int
                  - COALESCE(current_setting('reserved_connections', true), '0')::int AS limit
