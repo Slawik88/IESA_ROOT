@@ -57,6 +57,28 @@
 Проверка после выкладки: Overview показывает `Healthy`; Activity — статус последнего деплоя; Runtime Logs —
 ошибки при старте. Затем руками: главная, `/auth/login/`, `/auth/register/`, `/privacy/` отвечают 200.
 
+## Соединения с базой (бюджет 22 слота)
+
+Кластер `db-s-1vcpu-1gb`: `max_connections=25`, 3 зарезервированы → **22 слота на всех**: сайт, Предвестник,
+Домовой и служебные подключения DO (бэкап, управление). Снимок 2026-11-03: сайт 12, Предвестник 5, Домовой 1,
+служебные ~2 (запаса оставалось 2). Исчерпание даёт на сайте 500 `remaining connection slots are reserved…`.
+
+- **Сайт ходит через PgBouncer** (пул `gBouncer_fix`, порт **25061**, режим transaction, размер 5) — переменная
+  `DATABASE_POOL_URL`. Раньше она молча игнорировалась: `dj_database_url.config(default=…)` сначала читает
+  `DATABASE_URL`; теперь `settings.py` использует `parse()` (тест `scripts/test_database_settings.py`).
+  Не-пул (порт 25060) — только запасной вариант, когда `DATABASE_POOL_URL` пуст.
+- **Предвестник — напрямую** (порт 25060): ему нужны advisory lock и LISTEN, через transaction-пул они не работают.
+  Потолок процесса `DB_POOL_MAX_SIZE` (по умолчанию 10, из них 3 вне пула). **Домовой**: пул ≤ 3, соединения подписаны
+  `application_name=domovoy`.
+- Тревога «Здоровье сервиса» считает только `backend_type = 'client backend'`; фоновые процессы Postgres слотов не
+  занимают (раньше завышало число на ~5).
+- Посмотреть, кто держит слоты: `pg_stat_activity` по `usename`/`application_name`/`state` (read-only). Подключение —
+  с доверенного IP (Databases → кластер → Settings → Trusted Sources); строку подключения брать у `doctl databases
+  connection <id>` и **не печатать**.
+- `doctl` (winget `DigitalOcean.Doctl`) настроен токеном в `%APPDATA%\doctl\config.yaml` (`auth init` без TTY не
+  работает — токен кладут в этот файл). Операции на проде (изменение spec/переменных, пуш в `master`) выполняются
+  по явному разрешению пользователя.
+
 ## Переменные окружения (только имена)
 
 Settings → «App-Level Environment Variables» → Edit (там их ~29; значения скрыты, секреты зашифрованы).

@@ -170,8 +170,10 @@ if 'DATABASE_URL' in os.environ:
     # "remaining connection slots are reserved for superuser" errors.
     # If not set, falls back to the direct DATABASE_URL (port 25060).
     _db_url = os.getenv('DATABASE_POOL_URL') or os.environ['DATABASE_URL']
-    DATABASES['default'] = dj_database_url.config(
-        default=_db_url,
+    # parse(), not config(default=...): config() reads os.environ['DATABASE_URL']
+    # first and only falls back to `default`, so the pool URL was never used.
+    DATABASES['default'] = dj_database_url.parse(
+        _db_url,
         conn_max_age=_CONN_MAX_AGE,
         ssl_require=True,
         conn_health_checks=True,
