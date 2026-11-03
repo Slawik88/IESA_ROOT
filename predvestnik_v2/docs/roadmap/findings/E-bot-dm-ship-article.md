@@ -13,6 +13,7 @@
   звёздопад и VIP за пыль.
 - **Не учитывается в ЛС:** сообщения, достижения чата, чистка, мафия-ворота.
 - **В коде нет:** обработчиков `business_*`, inline-режима, топиков в личных чатах.
+- **Обновление 2026-11-03 (S23a): в `requirements.txt` теперь aiogram 3.31.0 (Bot API 10.3)**: `User.has_topics_enabled`, `CreateForumTopic` для личек и события `business_*` доступны; описание ниже — состояние на 3.22.0 до подъёма.
 - **aiogram 3.22.0** (`requirements.txt:60`) = **Bot API 9.2** (`aiogram/__meta__.py`). Проверено в облаке 2026-10-27 по самим пакетам с PyPI:
   - **Business есть уже в 3.22.0:** события `business_connection`, `business_message`, `edited_business_message`, `deleted_business_messages`; типы `BusinessConnection`, `BusinessBotRights`; методы `get_business_connection`, `read_business_message`, `delete_business_messages` и др.
   - **Темы в личных чатах** (`User.has_topics_enabled`) появляются в **aiogram 3.24.0 = Bot API 9.3**; 3.23.0 (API 9.2) их не имеет. Последняя версия на PyPI на сегодня 3.31.0 (Bot API 10.3).
