@@ -203,5 +203,5 @@ export function createHistory(root) {
     });
   }
 
-  return { update, resetSearch() { search.value = ''; } };
+  return { update };
 }

@@ -3,7 +3,7 @@ import { t } from '../i18n.js';
 import { badge, h, icon } from '../ui.js';
 import { dayLabel, money } from '../state.js';
 
-export function categoryIcon(name) {
+function categoryIcon(name) {
   const text = (name ?? '').toLowerCase(); // у расхода без категории сервер присылает null
   if (!name) return 'receipt';
   if (text.includes('продукт')) return 'bag';
@@ -14,8 +14,8 @@ export function categoryIcon(name) {
 }
 
 export const entryIconName = entry => (entry.kind === 'contribution' ? 'wallet' : categoryIcon(entry.category));
-export const entryTitle = entry => (entry.kind === 'contribution' ? t("Взнос") : entry.description || entry.category || t("Расход"));
-export const entryMeta = entry => `${entry.display_name || t("Жилец")} · ${dayLabel(entry.date)}`;
+const entryTitle = entry => (entry.kind === 'contribution' ? t("Взнос") : entry.description || entry.category || t("Расход"));
+const entryMeta = entry => `${entry.display_name || t("Жилец")} · ${dayLabel(entry.date)}`;
 
 export function entryBadge(entry) {
   if (entry.kind === 'contribution') {

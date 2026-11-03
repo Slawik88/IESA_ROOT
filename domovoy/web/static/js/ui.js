@@ -64,7 +64,7 @@ export function iconButton({ icon: iconName, label, onClick, className = '' }) {
 }
 
 // Единый обработчик отказа: устаревший вход — отдельный экран, остальное — понятное уведомление.
-export const GENERIC_ERROR = () => t("Не удалось выполнить действие. Попробуйте ещё раз.");
+const GENERIC_ERROR = () => t("Не удалось выполнить действие. Попробуйте ещё раз.");
 
 // Сообщения сервера и сети (ApiError с kind) показываются как есть; неожиданный сбой — общим текстом, подробности в консоль.
 export const errorText = error => {
@@ -225,6 +225,8 @@ export function toast(text, { kind = 'info', ms = TOAST_MS } = {}) {
 const stack = [];
 export const openSheetCount = () => stack.length;
 export const closeTopSheet = () => stack.at(-1)?.close();
+// Закрытие листа завершается событием позже, поэтому закрываем снимок списка, а не ждём пустого стека.
+export const closeAllSheets = () => [...stack].forEach(sheet => sheet.close());
 
 function syncSheets() {
   document.documentElement.classList.toggle('has-sheet', stack.length > 0);

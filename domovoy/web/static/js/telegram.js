@@ -8,6 +8,7 @@ function call(action) {
 }
 
 let backHandler = null;
+let backWired = false;
 
 export const telegram = {
   initData: webApp?.initData || '',
@@ -26,8 +27,11 @@ export const telegram = {
     call(() => webApp.setBottomBarColor(color));
   },
 
+  // Подписка на Telegram одна на всё время жизни страницы; обработчик можно заменить.
   setBackHandler(handler) {
     backHandler = handler;
+    if (backWired) return;
+    backWired = true;
     call(() => webApp.BackButton.onClick(() => backHandler?.()));
   },
   showBack(visible) {

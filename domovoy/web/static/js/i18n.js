@@ -1,6 +1,6 @@
 // Языки интерфейса: русский — исходный текст в коде, остальные берутся из js/i18n/<язык>.js.
 // Ключ перевода — русская строка; {0}, {1} — подставляемые значения.
-export const LANGUAGES = { ru: 'ru-RU', uk: 'uk-UA', fr: 'fr-CH', de: 'de-CH' };
+const LANGUAGES = { ru: 'ru-RU', uk: 'uk-UA', fr: 'fr-CH', de: 'de-CH' };
 export const LANGUAGE_NAMES = { ru: 'Русский', uk: 'Українська', fr: 'Français', de: 'Deutsch' };
 const STORAGE_KEY = 'domovoy.locale';
 const DEFAULT_LANGUAGE = 'ru';
@@ -9,7 +9,7 @@ let dictionary = {};
 export let language = DEFAULT_LANGUAGE;
 export let locale = LANGUAGES[DEFAULT_LANGUAGE];
 
-export const isSupported = value => Object.hasOwn(LANGUAGES, value);
+const isSupported = value => Object.hasOwn(LANGUAGES, value);
 
 function savedLanguage() {
   try { return localStorage.getItem(STORAGE_KEY) || ''; }

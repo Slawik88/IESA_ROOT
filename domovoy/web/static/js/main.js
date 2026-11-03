@@ -4,7 +4,7 @@ import { createApi } from './api.js';
 import { telegram } from './telegram.js';
 import { app, nav } from './state.js';
 import { loadHouses, redraw, refresh, selectHouse, subscribe } from './data.js';
-import { button, closeTopSheet, configureUi, confirmSheet, errorText, fail, h, icon, openSheet, openSheetCount, skeleton } from './ui.js';
+import { button, closeAllSheets, closeTopSheet, configureUi, confirmSheet, errorText, fail, h, icon, openSheet, openSheetCount, skeleton } from './ui.js';
 import { renderHome } from './views/home.js';
 import { createHistory } from './views/history.js';
 import { renderHouse } from './views/house.js';
@@ -21,6 +21,8 @@ const root = document.getElementById('app');
 let shell = null;
 let shownHouse;
 let loadedAt = Date.now();
+let expired = false;
+let wired = false;
 
 const hasUnsaved = () => hasDrafts() || hasPendingReceipts() || hasPendingImport();
 
@@ -43,7 +45,8 @@ function showGate() {
 }
 
 function showExpired() {
-  while (openSheetCount()) closeTopSheet();
+  expired = true; // закрывающиеся листы ещё вызовут перерисовку — она не должна стереть этот экран
+  closeAllSheets();
   standalone(h('span', { class: 'gate-mark', 'aria-hidden': 'true' }, icon('clock')), h('h1', {}, t("Сеанс закончился")),
     h('p', { class: 'gate-text' }, t("Закройте приложение и откройте его снова из чата с ботом — так вход обновится.")),
     button({ label: t("Закрыть приложение"), onClick: () => telegram.close() }));
@@ -116,9 +119,7 @@ function buildShell() {
       h('div', { class: 'topbar-actions' }, languagePill(),
         h('button', { type: 'button', class: 'pill', 'aria-haspopup': 'dialog', 'aria-label': t("Сменить дом"), onClick: openHouses }, icon('home'), icon('chevron-down')))),
     banner, h('main', { class: 'page', id: 'main' }, views.home, views.history, views.house), bars[0]);
-  window.addEventListener('online', () => { banner.hidden = true; });
-  window.addEventListener('offline', () => { banner.hidden = false; });
-  shell = { views, bars, history: null };
+  shell = { views, bars, banner, history: null };
 }
 
 function renderLoading() {
@@ -165,6 +166,7 @@ function back() {
 }
 
 function onData() {
+  if (expired) return;
   loadedAt = Date.now();
   if (app.houseId === null && app.houses.length === 0) {
     shownHouse = null;
@@ -198,6 +200,26 @@ function keepViewportInView() {
   sync();
 }
 
+// Слушатели окна и документа ставятся один раз: «Попробовать ещё раз» вызывает запуск повторно.
+function wireOnce() {
+  if (wired) return;
+  wired = true;
+  keepViewportInView();
+  const showOffline = offline => { if (shell) shell.banner.hidden = !offline; };
+  window.addEventListener('online', () => showOffline(false));
+  window.addEventListener('offline', () => showOffline(true));
+  window.addEventListener('domovoy:languagechanging', () => {
+    try { sessionStorage.setItem(CONTEXT_KEY, JSON.stringify({ house: app.houseId, view: app.view, sub: app.sub })); }
+    catch { /* Язык меняется и без хранилища; раздел просто не восстановится. */ }
+  });
+  document.addEventListener('visibilitychange', () => {
+    // Вернулись в приложение спустя время — тихо обновляем данные; сбой сети здесь не повод мешать.
+    if (document.visibilityState === 'visible' && app.data && !expired && Date.now() - loadedAt > STALE_AFTER_MS) {
+      refresh().catch(error => { if (error.kind === 'session') showExpired(); });
+    }
+  });
+}
+
 async function boot() {
   await initI18n(telegram.user?.language_code);
   document.title = telegram.available ? 'Домовой' : t("Закрытое приложение");
@@ -209,17 +231,7 @@ async function boot() {
   nav.redraw = redraw;
   telegram.setBackHandler(back);
   configureUi({ sheetsChanged: syncBack, sessionExpired: showExpired });
-  keepViewportInView();
-  window.addEventListener('domovoy:languagechanging', () => {
-    try { sessionStorage.setItem(CONTEXT_KEY, JSON.stringify({ house: app.houseId, view: app.view, sub: app.sub })); }
-    catch { /* Язык меняется и без хранилища; раздел просто не восстановится. */ }
-  });
-  document.addEventListener('visibilitychange', () => {
-    // Вернулись в приложение спустя время — тихо обновляем данные; сбой сети здесь не повод мешать.
-    if (document.visibilityState === 'visible' && app.data && Date.now() - loadedAt > STALE_AFTER_MS) {
-      refresh().catch(error => { if (error.kind === 'session') showExpired(); });
-    }
-  });
+  wireOnce();
   subscribe(onData);
   const context = readContext();
   buildShell();

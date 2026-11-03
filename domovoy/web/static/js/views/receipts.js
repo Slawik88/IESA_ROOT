@@ -62,6 +62,7 @@ export async function openReceipts(expense) {
     discard.onclick = () => {
       pending.delete(key);
       picker.value = '';
+      info.textContent = '';
       error.textContent = '';
       paint();
     };
@@ -76,6 +77,7 @@ export async function openReceipts(expense) {
       const bytes = new Uint8Array(await file.arrayBuffer());
       if (!isOpen() || picker.files[0] !== file) return;
       pending.set(key, { request_id: crypto.randomUUID(), content: toBase64(bytes) });
+      info.textContent = file.name;
       send.querySelector('span').textContent = t("Прикрепить чек");
       paint();
     };

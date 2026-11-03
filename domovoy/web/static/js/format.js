@@ -9,7 +9,7 @@ const MONDAY = Date.UTC(2024, 0, 1);
 
 const dayDate = iso => new Date(`${iso}T12:00:00Z`);
 
-export function capitalize(text) {
+function capitalize(text) {
   return text ? text[0].toLocaleUpperCase() + text.slice(1) : text;
 }
 

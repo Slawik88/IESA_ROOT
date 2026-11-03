@@ -10,6 +10,7 @@
 |---|---|
 | До первой правки кода | [`../predvestnik_v2/CLEAN_CODE.md`](../predvestnik_v2/CLEAN_CODE.md) — единый стандарт кода репозитория |
 | До правки поведения | [`DESIGN.md`](DESIGN.md) — замысел, решения, открытые вопросы; при изменении поведения обнови его же |
+| До правки интерфейса сайта | [`docs/UI_REQUIREMENTS.md`](docs/UI_REQUIREMENTS.md) — стандарт и чек-лист приёмки; после правки — `python tools/ui_check.py` |
 
 ## Запуск и проверки
 
@@ -36,6 +37,19 @@ python -m bot                                      # локальный запу
 Вход формируется из `DOMOVOY_BOT_TOKEN`, базовый URL — `DOMOVOY_WEB_BASE_URL` /
 `MINIAPP_URL` (по умолчанию `https://iesasport.ch/predvestnik`). Подписи и права
 проверяются отдельно. Интеграция и ограничения описаны в `DESIGN.md`.
+
+## Сайт: как смотреть и проверять
+
+```bash
+cd domovoy
+python tools/demo_server.py            # демо-данные и эмуляция Telegram: http://127.0.0.1:8011/?u=1001 (&theme=light, &platform=android)
+python tools/ui_check.py               # сценарии в браузере + аудит на разных размерах и языках (нужны playwright и chromium)
+node --check web/static/js/main.js     # синтаксис каждого .js (то же для остальных файлов)
+```
+
+Интерфейс — ES-модули без сборки (`web/static/js/`), один `app.css`. Любой видимый текст — `t("русская строка")` и перевод в
+`js/i18n/{uk,fr,de}.js` (тесты не пропустят строку без перевода). Никаких `window.confirm`, `innerHTML` с данными, `style=` в разметке,
+текста мельче 13 px и целей касания меньше 44 px. Правка файлов в `web/static` сама меняет адрес статики (отпечаток содержимого).
 
 ## Слои и направление зависимостей
 
