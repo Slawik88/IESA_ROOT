@@ -57,7 +57,7 @@ Faker==33.3.0
 pyotp==2.9.0
 
 # Predvestnik bot
-aiogram==3.31.0
+aiogram==3.22.0
 aiosqlite==0.21.0
 loguru==0.7.3
 asyncpg==0.30.0
