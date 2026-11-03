@@ -16,9 +16,9 @@ from typing import Any, AsyncGenerator, Callable
 from aiogram.client.session.base import BaseSession
 from aiogram.exceptions import TelegramNetworkError
 
-BOT_ID = 123456
-BOT_USERNAME = "predvestnik_test_bot"
-NETWORK_FAULT = 599  # TgError code that surfaces as aiogram's TelegramNetworkError
+from tools.mafia_sim.errors import BOT_ID, BOT_USERNAME, NETWORK_FAULT, TgError  # noqa: F401  (re-exported)
+from tools.mafia_sim.world_api import BotApiMixin
+
 _ENTITY_TYPES = {"b": "bold", "strong": "bold", "i": "italic", "em": "italic", "u": "underline", "ins": "underline",
                  "s": "strikethrough", "strike": "strikethrough", "del": "strikethrough", "code": "code", "pre": "pre",
                  "a": "text_link", "tg-spoiler": "spoiler", "blockquote": "blockquote"}
@@ -69,12 +69,6 @@ def html_problem(source: str) -> str | None:
     return parse_html(source)[2]
 
 
-class TgError(Exception):
-    def __init__(self, code: int, description: str, retry_after: int | None = None) -> None:
-        super().__init__(description)
-        self.code, self.description, self.retry_after = code, description, retry_after
-
-
 @dataclass
 class StoredMessage:
     chat_id: int
@@ -94,7 +88,7 @@ class StoredMessage:
 
 
 @dataclass
-class World:
+class World(BotApiMixin):
     """All state of the fake Telegram universe plus an audit log of API calls."""
 
     messages: dict[tuple[int, int], StoredMessage] = field(default_factory=dict)
@@ -105,6 +99,14 @@ class World:
     next_id: int = 1000
     answers: list[dict] = field(default_factory=list)
     chaos: Callable[[str, dict], "TgError | None"] | None = None  # random fault injection (stress scenarios)
+    invoices: list[dict] = field(default_factory=list)                  # Stars invoices sent (world_api)
+    precheckout_answers: list[dict] = field(default_factory=list)
+    star_transactions: list[dict] = field(default_factory=list)
+    business_connections: dict[str, dict] = field(default_factory=dict)
+    topics_enabled: set[int] = field(default_factory=set)               # private chats that have topics switched on
+    forum_topics: dict[tuple[int, int], dict] = field(default_factory=dict)
+    next_topic_id: int = 5000
+    deleted_topics: set[tuple[int, int]] = field(default_factory=set)
 
     # ── configuration helpers ───────────────────────────────────────────────
     def set_member(self, chat_id: int, user_id: int, status: str = "member", **flags: Any) -> None:
@@ -127,6 +129,7 @@ class World:
     # ── request dispatch ────────────────────────────────────────────────────
     def handle(self, name: str, params: dict) -> Any:
         self.calls.append((name, params))
+        self._pre(name, params)
         for when, error, left in list(self.failures):
             if left[0] > 0 and when(name, params):
                 left[0] -= 1
@@ -210,13 +213,21 @@ class World:
         return self._message_json(stored)
 
     def _m_SendPhoto(self, params: dict) -> dict:
-        """A photo with a caption (role cards): stored like a text message whose text is the caption."""
+        """A photo, with or without a caption (role cards, welcome picture): stored like a text message whose text is the caption."""
         caption = params.get("caption") or ""
-        if len(self._visible(caption, params.get("parse_mode"))[0]) > 1024:
+        if caption and len(self._visible(caption, params.get("parse_mode"))[0]) > 1024:
             raise TgError(400, "Bad Request: message caption is too long")
-        data = self._m_SendMessage({**params, "text": caption})
+        data = self._m_SendMessage({**params, "text": caption}) if caption else self._store_captionless(params)
         data["photo"] = [{"file_id": f"sim-photo-{data['message_id']}", "file_unique_id": f"u{data['message_id']}", "width": 640, "height": 640}]
         return data
+
+    def _store_captionless(self, params: dict) -> dict:
+        chat_id = int(params["chat_id"])
+        self._require_dm(chat_id)
+        self.next_id += 1
+        stored = StoredMessage(chat_id, self.next_id, "", self._dump_markup(params.get("reply_markup")), topic_id=params.get("message_thread_id"))
+        self.messages[(chat_id, stored.message_id)] = stored
+        return self._message_json(stored)
 
     def _m_EditMessageText(self, params: dict) -> dict:
         key = (int(params["chat_id"]), int(params["message_id"]))
@@ -260,28 +271,6 @@ class World:
             raise TgError(400, "Bad Request: MESSAGE_TOO_LONG (callback answer is limited to 200 characters)")
         self.answers.append({"text": text, "alert": bool(params.get("show_alert")), "url": params.get("url")})
         return True
-
-    def _m_GetChatMember(self, params: dict) -> dict:
-        status = self.statuses.get((int(params["chat_id"]), int(params["user_id"])))
-        if status is None:
-            return {"status": "left", "user": self._user(int(params["user_id"]))}
-        user, kind = self._user(int(params["user_id"])), status["status"]
-        if kind in {"administrator", "creator"}:
-            full = {key: False for key in (
-                "can_be_edited", "is_anonymous", "can_manage_chat", "can_delete_messages", "can_manage_video_chats",
-                "can_restrict_members", "can_promote_members", "can_change_info", "can_invite_users", "can_post_stories",
-                "can_edit_stories", "can_delete_stories", "can_send_welcome_messages")}
-            full.update({k: v for k, v in status.items() if k != "status"})
-            return {"status": kind, "user": user, **({"is_anonymous": False} if kind == "creator" else full)}
-        if kind == "restricted":
-            perms = {k: False for k in (
-                "can_send_messages", "can_send_audios", "can_send_documents", "can_send_photos", "can_send_videos",
-                "can_send_video_notes", "can_send_voice_notes", "can_send_polls", "can_send_other_messages",
-                "can_add_web_page_previews", "can_change_info", "can_invite_users", "can_pin_messages", "can_manage_topics",
-                "can_react_to_messages", "can_edit_tag")}
-            perms.update({k: v for k, v in status.items() if k != "status"})
-            return {"status": "restricted", "user": user, "is_member": True, "until_date": 0, **perms}
-        return {"status": kind, "user": user}
 
 
 class FakeSession(BaseSession):

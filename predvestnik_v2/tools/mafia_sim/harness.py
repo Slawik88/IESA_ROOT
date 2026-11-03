@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from tools.mafia_sim.updates import UpdateFeeds
 from tools.mafia_sim.world import BOT_ID, FakeSession, StoredMessage, World
 
 DEV_DB = "predvestnik_preprod"
@@ -45,7 +46,7 @@ class Click:
     answered: bool
 
 
-class Harness:
+class Harness(UpdateFeeds):
     def __init__(self) -> None:
         self.world = World()
         self.bot = None
@@ -54,6 +55,8 @@ class Harness:
         self._users = itertools.count(990_100_001)
         self._chats = itertools.count(1)
         self.chats: list[int] = []
+        self.users_made: list[SimUser] = []
+        self.run_tag = "000000"   # per-run unique text for things the database keeps forever (payment charge ids)
 
     # ── lifecycle ───────────────────────────────────────────────────────────
     async def open(self) -> "Harness":
@@ -125,6 +128,7 @@ class Harness:
     # ── world building ──────────────────────────────────────────────────────
     def user(self, name: str, *, dm: bool = True) -> SimUser:
         user = SimUser(next(self._users), name)
+        self.users_made.append(user)
         if dm:
             self.world.dm_open.add(user.id)
         return user
@@ -151,7 +155,7 @@ class Harness:
         await self.dp.feed_update(self.bot, update)
 
     async def say(self, user: SimUser, chat_id: int, text: str, *, topic: int | None = None,
-                  forum: bool = True, anonymous: bool = False) -> int:
+                  forum: bool = True, anonymous: bool = False, reply_to: StoredMessage | None = None) -> int:
         """A player writes ``text``.  ``topic`` set + ``forum`` False models a plain reply thread;
         ``anonymous`` is an admin posting «as the group» (Telegram shows GroupAnonymousBot)."""
         message_id = self.world.next_id = self.world.next_id + 1
@@ -164,6 +168,8 @@ class Harness:
             message["message_thread_id"] = topic
             if forum:
                 message["is_topic_message"] = True
+        if reply_to is not None:
+            message["reply_to_message"] = self.world._message_json(reply_to)
         self.world.messages[(chat_id, message_id)] = StoredMessage(chat_id, message_id, text, None, html=text)
         self.world.set_member(chat_id, user.id, self.world.statuses.get((chat_id, user.id), {}).get("status", "member"))
         await self._feed({"message": message})
