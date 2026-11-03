@@ -4,11 +4,13 @@ import json
 from typing import Any
 from urllib.parse import parse_qsl
 
+from aiogram.exceptions import TelegramAPIError
 from fastapi import APIRouter, Request
+from loguru import logger
 from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
 
 from core.constants import MAX_CATEGORY_NAME_LEN, MAX_HOUSE_NAME_LEN, MAX_MEMBER_NAME_LEN
-from services import web_households
+from services import households, web_households
 from services.households import DomainError
 
 router = APIRouter(prefix="/api")
@@ -110,14 +112,27 @@ async def notification(request: Request, house_id: int, key: str, payload: Notif
     return {"ok": True}
 
 
+async def with_link(request: Request, result: dict) -> dict:
+    """Код приглашения + готовая ссылка на бота, если Telegram доступен (иначе остаётся код)."""
+    bot = request.app.state.bot
+    if bot is None:
+        return {**result, "link": None}
+    try:
+        username = (await bot.me()).username
+    except (TelegramAPIError, OSError) as exc:
+        logger.warning("Приглашение без ссылки: {}", exc)
+        return {**result, "link": None}
+    return {**result, "link": households.invite_link({"invite_token": result["invite_token"]}, username)}
+
+
 @router.get("/houses/{house_id}/invite")
 async def invite(request: Request, house_id: int):
-    return await web_households.invite(house_id, request.state.actor)
+    return await with_link(request, await web_households.invite(house_id, request.state.actor))
 
 
 @router.post("/houses/{house_id}/invite/rotate")
 async def rotate_invite(request: Request, house_id: int):
-    return await web_households.invite(house_id, request.state.actor, rotate=True)
+    return await with_link(request, await web_households.invite(house_id, request.state.actor, rotate=True))
 
 
 @router.post("/houses/{house_id}/members/{target}/permissions/{code}")
