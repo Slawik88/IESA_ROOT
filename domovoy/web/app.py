@@ -118,17 +118,6 @@ def create_app(*, bot=None) -> FastAPI:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         return FileResponse(path, media_type=ASSET_TYPES[path.suffix], headers=ASSET_HEADERS)
 
-    def legacy_asset(name: str, media_type: str, folder: str = "") -> None:
-        """Действующий интерфейс подключает файлы по коротким адресам, пока не заменён новым."""
-        async def serve():
-            return FileResponse(STATIC / folder / name, media_type=media_type)
-        app.get(f"/{name}")(serve)
-
-    for script in ("app.js", "house.js", "i18n.js", "receipts.js"):
-        legacy_asset(script, "text/javascript")
-    legacy_asset("app.css", "text/css")
-    legacy_asset("onest.ttf", "font/ttf", "fonts")
-
     @app.get("/api/houses")
     async def houses(request: Request):
         return {"houses": [dict(row) for row in await households.houses_of_user(request.state.actor)]}

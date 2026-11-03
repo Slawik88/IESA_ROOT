@@ -43,6 +43,17 @@ export function sanitizeAmount(text) {
   return cleaned.slice(0, first + 1) + cleaned.slice(first + 1).replace(/[.,]/g, '').slice(0, 2);
 }
 
+const BASE64_CHUNK = 16384;
+
+// Байты файла → base64 для JSON-запроса (кусками, чтобы не переполнить стек на больших файлах).
+export function toBase64(bytes) {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += BASE64_CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + BASE64_CHUNK));
+  }
+  return btoa(binary);
+}
+
 export function formatDay(iso, locale, options = { day: 'numeric', month: 'short' }) {
   return dayDate(iso).toLocaleDateString(locale, { ...options, timeZone: 'UTC' });
 }
@@ -60,9 +71,10 @@ export function addDays(iso, delta) {
 // '2026-10' → '2026-11'; вне годов 0001–9999 — null.
 export function shiftMonth(month, delta) {
   const [year, number] = month.split('-').map(Number);
-  const next = new Date(Date.UTC(year, number - 1 + delta, 1));
-  const nextYear = next.getUTCFullYear();
-  return nextYear < FIRST_YEAR || nextYear > LAST_YEAR ? null : next.toISOString().slice(0, 7);
+  const total = year * MONTHS + (number - 1) + delta; // Date.UTC считает годы 0–99 как 1900+, поэтому — арифметика
+  const nextYear = Math.floor(total / MONTHS);
+  if (nextYear < FIRST_YEAR || nextYear > LAST_YEAR) return null;
+  return `${String(nextYear).padStart(4, '0')}-${String((total % MONTHS) + 1).padStart(2, '0')}`;
 }
 
 export function monthNames(locale) {
