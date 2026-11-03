@@ -36,7 +36,12 @@ class DB:
     # ── Жизненный цикл ───────────────────────────────────────────────────────
     async def connect(self) -> None:
         if self._is_pg:
-            self._pool = await asyncpg.create_pool(self._url, min_size=1, max_size=5, timeout=30)
+            # Кластер PostgreSQL общий с сайтом и Предвестником (22 слота на всех): пул мал,
+            # а имя приложения позволяет увидеть соединения Домового в pg_stat_activity.
+            self._pool = await asyncpg.create_pool(
+                self._url, min_size=1, max_size=3, timeout=30,
+                server_settings={"application_name": "domovoy"},
+            )
             logger.info("🐘 Домовой: PostgreSQL-пул готов")
         else:
             # sqlite://F:\path\domovoy.db — urlparse съедает букву диска, режем вручную.
