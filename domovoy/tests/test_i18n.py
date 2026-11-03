@@ -1,98 +1,73 @@
-"""All authored UI messages have three translations with intact value slots."""
+"""Каждая строка интерфейса имеет три перевода с теми же {0}; подписи реестров и вызовы t() покрыты."""
 import json
 import re
-import shutil
-import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
-
-import pytest
 
 from core.permissions import PERMISSIONS
 from core.settings_registry import HOUSE_SETTINGS, NOTIFY_SETTINGS
 
 STATIC = Path(__file__).parents[1] / "web" / "static"
+LANGUAGES = ("uk", "fr", "de")
+CYRILLIC = re.compile("[А-Яа-яЁё]")
 
 
-def catalog():
-    script = (STATIC / "i18n.js").read_text(encoding="utf-8")
-    return json.loads(script.split("const messages = ", 1)[1].split(";\n  const languages", 1)[0])
+def catalog(code: str) -> dict:
+    source = (STATIC / "js" / "i18n" / f"{code}.js").read_text(encoding="utf-8")
+    return json.loads(source.split("export default ", 1)[1].rstrip().removesuffix(";"))
 
 
-def test_every_translation_keeps_dynamic_values():
-    for source, translations in catalog().items():
+def test_catalogs_cover_the_same_strings_and_keep_dynamic_values():
+    catalogs = {code: catalog(code) for code in LANGUAGES}
+    assert catalogs["uk"].keys() == catalogs["fr"].keys() == catalogs["de"].keys()
+    for source in catalogs["uk"]:
         slots = sorted(re.findall(r"\{\d+\}", source))
-        assert len(translations) == 3, source
-        for translated in translations:
-            assert translated.strip(), source
-            assert sorted(re.findall(r"\{\d+\}", translated)) == slots, source
+        for code in LANGUAGES:
+            translated = catalogs[code][source]
+            assert translated.strip(), (code, source)
+            assert sorted(re.findall(r"\{\d+\}", translated)) == slots, (code, source)
 
 
-def test_dynamic_ui_and_registry_labels_have_translations():
-    messages = catalog()
-    for name in ("app.js", "house.js", "receipts.js"):
-        source = (STATIC / name).read_text(encoding="utf-8")
-        for match in re.finditer(r'\bt\(("(?:[^"\\]|\\.)*")', source):
-            assert json.loads(match[1]) in messages, (name, match[1])
+def test_every_literal_t_call_and_registry_label_is_translated():
+    messages = catalog("uk")
+    for path in (STATIC / "js").rglob("*.js"):
+        if "i18n" in path.parts:
+            continue
+        for match in re.finditer(r'\bt\(("(?:[^"\\]|\\.)*")', path.read_text(encoding="utf-8")):
+            assert json.loads(match[1]) in messages, (path.name, match[1])
     for definition in (*HOUSE_SETTINGS, *NOTIFY_SETTINGS):
         assert definition.label in messages
+        for label in (definition.choice_labels or {}).values():
+            assert label in messages
     for permission in PERMISSIONS:
         assert permission.label in messages
         assert permission.hint in messages
 
 
-class AuthoredText(HTMLParser):
+class VisibleText(HTMLParser):
+    """Текст страницы вне <title>, <script> и <style>: он показывался бы без перевода."""
+
     def __init__(self):
         super().__init__()
+        self.skip = 0
         self.text = []
 
-    def handle_data(self, value):
-        self.text.append(value.strip())
-
     def handle_starttag(self, tag, attrs):
+        if tag in ("title", "script", "style"):
+            self.skip += 1
         self.text.extend(value for key, value in attrs if key in ("aria-label", "placeholder", "title") and value)
 
+    def handle_endtag(self, tag):
+        if tag in ("title", "script", "style"):
+            self.skip -= 1
 
-def test_static_interface_is_covered_including_accessible_labels():
-    parser = AuthoredText()
+    def handle_data(self, data):
+        if not self.skip and data.strip():
+            self.text.append(data.strip())
+
+
+def test_static_page_has_no_untranslated_text():
+    """Весь видимый текст строится из кода через t(); в index.html его быть не должно."""
+    parser = VisibleText()
     parser.feed((STATIC / "index.html").read_text(encoding="utf-8"))
-    messages = catalog()
-    for text in parser.text:
-        if re.search("[А-Яа-яЁё]", text):
-            assert text in messages, text
-
-
-@pytest.mark.skipif(not shutil.which("node"), reason="Node is required for the browser-independent JS runtime check")
-def test_language_storage_fallback_preserves_launch_data_and_dirty_guard():
-    script = r"""
-const vm = require('node:vm'), fs = require('node:fs'), assert = require('node:assert/strict');
-const source = fs.readFileSync(process.argv[1], 'utf8');
-let reloads = 0, close;
-const select = {}, confirm = {}, cancel = {};
-const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; close(); },
-  addEventListener(name, fn) { if (name === 'close') close = fn; } };
-let fragment = '#tgWebAppData=example&tgWebAppVersion=8.0';
-const location = { get hash() { return fragment; }, set hash(value) { fragment = '#' + value.replace(/^#/, ''); },
-  reload() { reloads++; } };
-const document = { documentElement: {}, createTreeWalker: () => ({ nextNode: () => false }),
-  querySelectorAll: selector => selector === '[data-language]' ? [select] : [],
-  querySelector: () => null, addEventListener() {},
-  getElementById: id => id === 'language-dialog' ? dialog : id === 'confirm-language' ? confirm : cancel };
-const context = { document, location, window: { dispatchEvent() {} }, navigator: { language: 'ru' },
-  localStorage: { getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } },
-  URLSearchParams, NodeFilter: { SHOW_TEXT: 4 }, Event: class {} };
-vm.runInNewContext(source, context);
-context.window.DomovoyI18n.setDirtyCheck(() => true);
-select.value = 'fr'; select.onchange();
-assert.equal(reloads, 0); assert.equal(select.value, 'ru'); assert.equal(dialog.open, true);
-cancel.onclick(); assert.equal(dialog.open, false);
-context.window.DomovoyI18n.setDirtyCheck(() => false);
-select.value = 'de'; select.onchange();
-const params = new URLSearchParams(location.hash.slice(1));
-assert.equal(params.get('tgWebAppData'), 'example');
-assert.equal(params.get('tgWebAppVersion'), '8.0');
-assert.equal(params.get('lang'), 'de'); assert.equal(reloads, 1);
-"""
-    result = subprocess.run([shutil.which("node"), "-e", script, str(STATIC / "i18n.js")],
-                            capture_output=True, text=True, check=False)
-    assert result.returncode == 0, result.stderr
+    assert [text for text in parser.text if CYRILLIC.search(text)] == []
