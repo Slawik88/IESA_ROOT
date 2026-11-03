@@ -42,13 +42,14 @@ python -m bot                                      # локальный запу
 
 ```bash
 cd domovoy
-python tools/demo_server.py            # демо-данные и эмуляция Telegram: http://127.0.0.1:8011/?u=1001 (&theme=light, &platform=android)
+python tools/demo_server.py            # демо-данные и эмуляция Telegram: http://127.0.0.1:8011/?u=1001 (&theme=light, &platform=android|tdesktop)
 python tools/ui_check.py               # сценарии в браузере + аудит на разных размерах и языках (нужны playwright и chromium)
 node --check web/static/js/main.js     # синтаксис каждого .js (то же для остальных файлов)
 ```
 
 Интерфейс — ES-модули без сборки (`web/static/js/`), один `app.css`. Любой видимый текст — `t("русская строка")` и перевод в
-`js/i18n/{uk,fr,de}.js` (тесты не пропустят строку без перевода). Никаких `window.confirm`, `innerHTML` с данными, `style=` в разметке,
+`js/i18n/{uk,fr,de}.js` (тесты не пропустят строку без перевода). Текст ошибки сервера (`DomainError`, `AmountError`) переводится так же:
+нет строки в трёх каталогах — падает `test_every_server_message_is_translated`. Никаких `window.confirm`, `innerHTML` с данными, `style=` в разметке,
 текста мельче 13 px и целей касания меньше 44 px. Правка файлов в `web/static` сама меняет адрес статики (отпечаток содержимого).
 
 ## Слои и направление зависимостей

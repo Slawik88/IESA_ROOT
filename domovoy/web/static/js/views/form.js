@@ -30,8 +30,8 @@ function blankDraft(kind) {
 }
 
 function startingDraft({ kind, seed, edit, resume, carry }) {
-  const found = resume ?? [...app.drafts.values()].find(item => item.house === app.houseId
-    && (edit ? item.editId === seed.id : !seed && !item.editId && item.kind === kind));
+  const found = resume ?? [...app.drafts.values()].find(item => item.house === app.houseId && item.kind === kind
+    && (edit ? item.editId === seed.id : !seed && !item.editId));
   const blank = blankDraft(kind);
   if (found) return { draft: { ...found }, baseline: { ...blank, request_id: found.request_id } };
   const draft = { ...blank, ...(seed ? { amount: decimalString(seed.amount_kop), mode: seed.mode || 'house',
@@ -76,6 +76,7 @@ export function openForm({ kind, seed = null, edit = false, resume = null, carry
 
   // ── Расход: источник, категория, описание ──
   const hint = h('p', { class: 'field-hint', hidden: draft.mode !== 'personal' }, t("Дом будет должен вам эту сумму."));
+  const settled = edit && !expense && seed.status === 'confirmed';
   const source = segmented({
     label: t("Откуда деньги"), value: draft.mode,
     options: [{ value: 'house', label: t("Из котла"), icon: 'wallet' }, { value: 'personal', label: t("За свои"), icon: 'people' }],
@@ -142,7 +143,8 @@ export function openForm({ kind, seed = null, edit = false, resume = null, carry
       label: expense ? `${item.category || t("Расход")} · ${money(item.amount_kop)}` : money(item.amount_kop), onClick: () => applyTemplate(item) })))) : null,
     h('div', { class: 'amount-box' },
       h('label', { for: amountId, class: 'form-label' }, t("Сумма")),
-      h('div', { class: 'amount-row' }, amountInput, h('span', { class: 'amount-currency' }, app.data.currency)), amountError),
+      h('div', { class: 'amount-row' }, amountInput, h('span', { class: 'amount-currency' }, app.data.currency)), amountError,
+      settled ? h('p', { class: 'field-hint' }, t("Взнос уже в котле: после изменения остаток пересчитается.")) : null),
     expense ? group(t("Откуда деньги"), source.el, hint) : null,
     expense ? group(t("Категория"), h('div', { class: 'chips-wrap' }, categoryChips.map(item => item.node))) : null,
     expense ? h('div', { class: 'form-group' }, h('label', { for: descriptionId, class: 'form-label' }, t("На что"), h('span', { class: 'form-optional' }, t("необязательно"))), description) : null,
@@ -166,7 +168,8 @@ export function openForm({ kind, seed = null, edit = false, resume = null, carry
   };
 
   const sheet = openSheet({
-    title: edit ? t("Изменить расход") : expense ? t("Записать расход") : t("Внести деньги"), body: form, footer, focus: amountInput,
+    title: edit ? (expense ? t("Изменить расход") : t("Изменить взнос")) : expense ? t("Записать расход") : t("Внести деньги"),
+    body: form, footer, focus: amountInput,
     onClose: () => {
       if (!saved && isDirty()) app.drafts.set(draft.request_id, { ...draft });
       else app.drafts.delete(draft.request_id);
@@ -187,12 +190,15 @@ export function openForm({ kind, seed = null, edit = false, resume = null, carry
     }
     saving = true;
     lock(true);
-    const payload = { request_id: draft.request_id, kind, amount: draft.amount, date: draft.date,
-      month: expense ? draft.date.slice(0, 7) : draft.month, category_id: expense ? draft.category_id : null,
-      mode: expense ? draft.mode : 'house', description: expense ? draft.description : '',
-      ...(draft.editId ? { version: draft.version } : {}) };
+    const payload = draft.editId && !expense
+      ? { version: draft.version, amount: draft.amount, date: draft.date, month: draft.month }
+      : { request_id: draft.request_id, kind, amount: draft.amount, date: draft.date,
+        month: expense ? draft.date.slice(0, 7) : draft.month, category_id: expense ? draft.category_id : null,
+        mode: expense ? draft.mode : 'house', description: expense ? draft.description : '',
+        ...(draft.editId ? { version: draft.version } : {}) };
     try {
-      const path = draft.editId ? `houses/${draft.house}/expenses/${draft.editId}/edit` : `houses/${draft.house}/transactions`;
+      const target = expense ? 'expenses' : 'contributions';
+      const path = draft.editId ? `houses/${draft.house}/${target}/${draft.editId}/edit` : `houses/${draft.house}/transactions`;
       const result = await app.api.post(path, payload);
       saved = true;
       app.drafts.delete(draft.request_id);
@@ -201,7 +207,8 @@ export function openForm({ kind, seed = null, edit = false, resume = null, carry
       sheet.close();
       let refreshed = true;
       try { await refresh(); } catch { refreshed = false; }
-      toast(refreshed ? (draft.editId ? t("Изменения сохранены") : result.status === 'declared' ? t("Взнос ждёт подтверждения") : t("Запись сохранена"))
+      toast(refreshed ? (draft.editId ? (result.unchanged ? t("Ничего не изменилось") : t("Изменения сохранены"))
+        : result.status === 'declared' ? t("Взнос ждёт подтверждения") : t("Запись сохранена"))
         : t("Запись сохранена. Список пока не обновился — нажмите «Обновить»."));
       if (after === 'another' && app.houseId === draft.house) {
         openForm({ kind, carry: { mode: draft.mode, category_id: draft.category_id, description: draft.description } });

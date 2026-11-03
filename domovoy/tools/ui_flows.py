@@ -1,8 +1,9 @@
 """Сквозные сценарии сайта в настоящем браузере на демо-данных (tools/demo_server.py). Запускает tools/ui_check.py.
 
-Сценарии идут по порядку на одной базе: расходы → уборка и возврат → история → «Дом» → файлы; затем независимые проверки
-языка, жильца без прав, интеграции с Telegram и устойчивости (нет сети, истёкший вход).
+Сценарии идут по порядку на одной базе: расходы → уборка и возврат → правки → история → «Дом» → файлы; затем независимые
+проверки запуска, файлов на компьютере, языка, жильца без прав, интеграции с Telegram и устойчивости (нет сети, истёкший вход).
 """
+import base64
 import os
 import traceback
 from pathlib import Path
@@ -11,6 +12,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 MASS_ENTRIES = 25
 PAGE_SIZE = 20
+RECEIPT_PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==")
 
 
 class Report:
@@ -33,7 +35,7 @@ class Report:
         return [result for result in self.results if not result[1]]
 
 
-def open_app(playwright, base, user=1001, size=(390, 844), language=None):
+def open_app(playwright, base, user=1001, size=(390, 844), language=None, platform=None):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": size[0], "height": size[1]}, device_scale_factor=1, is_mobile=size[0] < 700,
                                   has_touch=size[0] < 700, locale="ru-RU", accept_downloads=True)
@@ -41,9 +43,12 @@ def open_app(playwright, base, user=1001, size=(390, 844), language=None):
         context.add_init_script(f"try{{localStorage.setItem('domovoy.locale','{language}')}}catch(e){{}}")
     page = context.new_page()
     page.errors = []
+    page.traffic = []  # порядок запросов и ответов API — по нему проверяется параллельный запуск
     page.on("console", lambda message: page.errors.append(message.text) if message.type == "error" and "status of 422" not in message.text else None)
     page.on("pageerror", lambda error: page.errors.append(str(error)))
-    page.goto(f"{base}?u={user}")
+    page.on("request", lambda request: page.traffic.append(("request", request.url.split("/api/", 1)[1])) if "/api/" in request.url else None)
+    page.on("response", lambda response: page.traffic.append(("response", response.url.split("/api/", 1)[1])) if "/api/" in response.url else None)
+    page.goto(f"{base}?u={user}" + (f"&platform={platform}" if platform else ""))
     page.wait_for_selector(".hero, .welcome, .gate", timeout=10000)
     page.wait_for_timeout(400)
     return browser, context, page
@@ -59,7 +64,7 @@ def toast(page):
 
 
 def hero(page):
-    return page.locator(".hero-amount").inner_text().replace(" ", " ")
+    return page.locator(".hero-amount").inner_text().replace(" ", " ")
 
 
 def go(page, view):
@@ -75,6 +80,15 @@ def sheets_closed(page):
 def back_to_hub(page):
     page.click("#view-house .icon-btn")
     page.wait_for_timeout(300)
+
+
+def hub(page, title):
+    """Строка раздела на экране «Дом» по её названию."""
+    return page.locator("#view-house .group-row").filter(has_text=title).first
+
+
+def history_chip(page, index):
+    return page.locator("#view-history .chips[role=group] .chip").nth(index)
 
 
 def api(page, method, path, body=None):
@@ -118,7 +132,7 @@ def money(page, report):
     check("повтор: закрытие без правок не оставляет черновик", page.locator(".card-draft").count() == 0)
 
     page.locator(".home-feed .row.entry").first.click()
-    sheet(page).get_by_role("button", name="Удалить", exact=True).click()
+    sheet(page).get_by_role("button", name="Удалить расход", exact=True).click()
     confirm = sheet(page)
     check("удаление: собственный лист подтверждения", confirm.locator(".btn-danger").count() == 1)
     confirm.locator(".btn-danger").click()
@@ -195,6 +209,74 @@ def cleaning_and_reimbursement(page, report):
     check("возврат: остаток изменился", after != before, f"{before} -> {after}")
 
 
+def corrections(page, report):
+    """Правки уже записанного: возврат, взносы, плашка «Дом должен жильцам»."""
+    check = report.check
+    for _ in range(3):  # остальные ожидающие взносы принимаются: дальше нужен подтверждённый взнос жильца
+        if not page.locator(".pending-row").count():
+            break
+        page.locator(".pending-row").first.get_by_role("button", name="Принять").click()
+        page.wait_for_timeout(800)
+    check("взносы: владелец подтвердил все ожидающие", page.locator(".pending-row").count() == 0)
+    card = page.locator(".home-top .group-row").filter(has_text="Дом должен жильцам")
+    check("долги: на главной плашка «Дом должен жильцам»", card.count() == 1)
+    card.click()
+    page.wait_for_timeout(700)
+    check("долги: нажатие открывает историю с фильтром «Ждут возврата»",
+          page.locator("#view-history .chip[aria-pressed=true]").filter(has_text="Ждут возврата").count() == 1
+          and page.locator("#view-history .row.entry").count() >= 1)
+    page.locator("#view-history .chip").filter(has_text="Ждут возврата").first.click()
+    page.wait_for_timeout(500)
+    page.click(".month-btn")
+    sheet(page).get_by_role("button", name="За всё время").click()
+    sheets_closed(page)
+    page.fill(".search-input", "стёкол")
+    page.wait_for_timeout(900)
+
+    page.locator("#view-history .row.entry").first.click()
+    entry = sheet(page)
+    check("правки: у возвращённого расхода объяснено, почему он закрыт", "закрыт для правок" in entry.inner_text())
+    check("правки: у возвращённого расхода нет «Изменить», есть «Отменить возврат»",
+          entry.get_by_role("button", name="Изменить", exact=True).count() == 0
+          and entry.get_by_role("button", name="Отменить возврат").count() == 1)
+    entry.get_by_role("button", name="Отменить возврат").click()
+    sheet(page).locator(".btn-primary").click()
+    page.wait_for_timeout(900)
+    check("возврат: отмена показывает уведомление", "Возврат отменён" in toast(page))
+    page.locator("#view-history .row.entry").first.click()
+    entry = sheet(page)
+    check("правки: после отмены возврата запись снова можно изменить и удалить",
+          entry.get_by_role("button", name="Изменить", exact=True).count() == 1
+          and entry.get_by_role("button", name="Удалить расход").count() == 1)
+    entry.get_by_role("button", name="Изменить", exact=True).click()
+    page.fill(".amount-input", "50")
+    sheet(page).locator(".btn-primary").click()
+    sheets_closed(page)
+    check("правки: сумма бывшей возвращённой траты изменилась", "−50,00" in page.locator("#view-history .row.entry").first.inner_text())
+
+    page.fill(".search-input", "")
+    page.wait_for_timeout(900)
+    history_chip(page, 2).click()
+    page.wait_for_timeout(700)
+    page.locator("#view-history .row.entry").last.click()
+    entry = sheet(page)
+    check("взнос: владелец видит «Изменить» и «Удалить взнос»",
+          entry.get_by_role("button", name="Изменить", exact=True).count() == 1 and entry.get_by_role("button", name="Удалить взнос").count() == 1)
+    entry.get_by_role("button", name="Изменить", exact=True).click()
+    form = sheet(page).inner_text()
+    check("взнос: форма правки с пояснением про остаток", "Изменить взнос" in form and "остаток пересчитается" in form, form[:80])
+    page.fill(".amount-input", "123")
+    sheet(page).locator(".btn-primary").click()
+    sheets_closed(page)
+    check("взнос: сумма изменилась в истории", "+123,00" in page.locator("#view-history .row.entry").last.inner_text())
+    page.locator("#view-history .row.entry").last.click()
+    sheet(page).get_by_role("button", name="Удалить взнос").click()
+    sheet(page).locator(".btn-danger").click()
+    page.wait_for_timeout(900)
+    check("взнос: удаление после подтверждения", "Взнос удалён" in toast(page))
+    go(page, "home")
+
+
 def history(page, report):
     check = report.check
     page.reload()
@@ -253,7 +335,14 @@ def history(page, report):
     check("постраничность: 20 записей и кнопка «Показать ещё»", rows == PAGE_SIZE and page.get_by_role("button", name="Показать ещё").count() == 1, str(rows))
     page.get_by_role("button", name="Показать ещё").click()
     page.wait_for_timeout(700)
-    check("постраничность: «Показать ещё» добавляет записи", page.locator("#view-history .row.entry").count() > PAGE_SIZE)
+    loaded = page.locator("#view-history .row.entry").count()
+    check("постраничность: «Показать ещё» добавляет записи", loaded > PAGE_SIZE)
+    go(page, "house")
+    page.get_by_role("button", name="Обновить данные").click()
+    page.wait_for_timeout(900)
+    go(page, "history")
+    check("обновление одним запросом сохраняет длину раскрытого списка", page.locator("#view-history .row.entry").count() == loaded,
+          f"{loaded} -> {page.locator('#view-history .row.entry').count()}")
 
 
 # ── Дом ───────────────────────────────────────────────────────────────────────────────────────────
@@ -261,13 +350,14 @@ def history(page, report):
 def house(page, report):
     check = report.check
     go(page, "house")
-    rows = page.locator("#view-house .group-row")
-    rows.nth(0).click()
+    check("дом: у владельца есть раздел «Передача и удаление дома»", hub(page, "Передача и удаление дома").count() == 1)
+    hub(page, "Жильцы").click()
     page.wait_for_selector(".invite-code", timeout=4000)
     check("жильцы: владельцу виден код приглашения", page.locator(".invite-code").inner_text().strip() != "")
     page.locator("#view-house button.row").first.click()
     switches = sheet(page).locator(".switch")
     check("жильцы: права — восемь настоящих переключателей", switches.count() == 8, str(switches.count()))
+    check("жильцы: в листе прав есть «Убрать из дома»", sheet(page).get_by_role("button", name="Убрать из дома").count() == 1)
     switches.nth(2).click()
     page.wait_for_timeout(500)
     check("жильцы: переключатель сохраняется сразу", switches.nth(2).get_attribute("aria-checked") == "true" and "Права обновлены" in toast(page))
@@ -275,7 +365,7 @@ def house(page, report):
     sheets_closed(page)
     back_to_hub(page)
 
-    rows.nth(1).click()
+    hub(page, "График уборки").click()
     page.wait_for_selector(".days", timeout=4000)
     save = page.get_by_role("button", name="Сохранить график")
     check("график: «Сохранить» недоступна без изменений", save.is_disabled())
@@ -284,30 +374,40 @@ def house(page, report):
     save.click()
     page.wait_for_timeout(900)
     check("график: сохранение с уведомлением", "График обновлён" in toast(page))
+    reopen = page.get_by_role("button", name="Вернуть в ожидание")
+    check("график: у отмеченного дня есть «Вернуть в ожидание»", reopen.count() >= 1, str(reopen.count()))
+    reopen.first.click()
+    page.wait_for_timeout(900)
+    check("график: день вернулся в ожидание", "День снова ждёт отметки" in toast(page))
     back_to_hub(page)
 
-    rows.nth(2).click()
+    hub(page, "Деньги и категории").click()
     page.wait_for_selector("#categories-title", timeout=4000)
     page.fill("#view-house input[maxlength='24']", "Тестовая")
     page.get_by_role("button", name="Добавить категорию").click()
     page.wait_for_timeout(900)
     check("категории: добавление", "Тестовая" in page.locator("#view-house").inner_text())
-    page.get_by_role("button", name="Убрать категорию «Тестовая»").click()
+    page.get_by_role("button", name="Переименовать категорию «Тестовая»").click()
+    sheet(page).locator("input").fill("Тестовая Б")
+    sheet(page).get_by_role("button", name="Сохранить", exact=True).click()
+    page.wait_for_timeout(900)
+    check("категории: переименование", "Тестовая Б" in page.locator("#view-house").inner_text())
+    page.get_by_role("button", name="Убрать категорию «Тестовая Б»").click()
     sheet(page).locator(".btn-danger").click()
     page.wait_for_timeout(900)
     check("категории: удаление после подтверждения", "Тестовая" not in page.locator("#view-house").inner_text())
     back_to_hub(page)
 
-    rows.nth(3).click()
+    hub(page, "Мои уведомления").click()
     page.wait_for_selector(".seg", timeout=4000)
     page.locator(".setting-block").first.get_by_role("radio", name="Не присылать").click()
     page.wait_for_timeout(500)
     check("уведомления: выбор сохраняется сразу", "Сохранено" in toast(page))
     back_to_hub(page)
 
-    rows.nth(4).click()
+    hub(page, "Настройки дома").click()
     page.wait_for_selector("#rules-title", timeout=4000)
-    switch = page.locator("#view-house .switch").first
+    switch = page.locator("#view-house .switch").nth(1)  # «Напоминать каждый вечер»; первый переключатель — подтверждение взносов
     was = switch.get_attribute("aria-checked")
     switch.click()
     page.wait_for_timeout(600)
@@ -319,7 +419,7 @@ def house(page, report):
     page.get_by_role("button", name="Сохранить имя").click()
     page.wait_for_timeout(700)
     check("настройки: имя обновлено", "Имя обновлено" in toast(page))
-    check("настройки: у владельца нет «Выйти из дома»", page.get_by_role("button", name="Выйти из дома").count() == 0)
+    check("настройки: «Выйти из дома» и удаление живут в «Управлении домом»", page.get_by_role("button", name="Выйти из дома").count() == 0)
     back_to_hub(page)
 
     page.get_by_role("button", name="Другой дом").click()
@@ -335,36 +435,150 @@ def house(page, report):
     page.wait_for_timeout(900)
     check("список домов: возврат в прежний дом", page.locator("#home-title").inner_text() == "Квартира на Садовой")
 
+    delete_house(page, report)
 
-def files(page, report, shots):
+
+def delete_house(page, report):
+    """Удаление дома: название набирается вручную, после удаления открывается другой дом."""
     check = report.check
-    go(page, "history")
-    page.locator("#view-history .head-actions .icon-btn").first.click()
-    with page.expect_download(timeout=8000) as download:
-        sheet(page).get_by_role("button", name="Excel").first.click()
-    check("файлы: Excel скачивается и не пустой", os.path.getsize(download.value.path()) > 2000, download.value.suggested_filename)
-    with page.expect_download(timeout=8000) as download:
-        sheet(page).get_by_role("button", name="CSV").click()
-    csv_path = Path(shots) / "export.csv"
-    download.value.save_as(str(csv_path))
-    check("файлы: CSV скачивается", csv_path.stat().st_size > 100, download.value.suggested_filename)
-    sheet(page).locator("input[type=file]").set_input_files(str(csv_path))
-    page.wait_for_selector(".import-preview:not([hidden])", timeout=5000)
-    summary = sheet(page).locator(".import-preview .sheet-text").inner_text()
-    check("файлы: собственный экспорт — только дубли", "Новых: 0" in summary, summary)
-    check("файлы: без новых записей подтвердить нельзя", sheet(page).get_by_role("button", name="Добавить записи").is_disabled())
+    page.locator(".topbar-actions .pill").nth(1).click()
+    sheet(page).locator(".group-row").filter(has_text="Гараж").click()
+    page.wait_for_timeout(900)
+    go(page, "house")
+    hub(page, "Передача и удаление дома").click()
+    page.wait_for_selector("#view-house .card-danger", timeout=4000)
+    check("управление: одинокому владельцу предлагают пригласить соседа", "Пока вы живёте в доме один" in page.locator("#view-house").inner_text())
+    page.get_by_role("button", name="Удалить дом…").click()
+    dialog = sheet(page)
+    remove = dialog.get_by_role("button", name="Удалить дом навсегда")
+    check("удаление дома: без названия кнопка недоступна", remove.is_disabled())
+    dialog.locator("input").fill("Не то название")
+    check("удаление дома: с чужим названием кнопка недоступна", remove.is_disabled())
+    dialog.locator("input").fill("Гараж")
+    check("удаление дома: с точным названием кнопка доступна", remove.is_enabled())
+    remove.click()
+    page.wait_for_selector("#home-title", timeout=6000)
+    page.wait_for_timeout(900)
+    check("удаление дома: открылся другой дом", page.locator("#home-title").inner_text() == "Квартира на Садовой", page.locator("#home-title").inner_text())
+    page.locator(".topbar-actions .pill").nth(1).click()
+    check("удаление дома: в списке домов осталось три", sheet(page).locator(".group-row").count() == 3, str(sheet(page).locator(".group-row").count()))
+    check("удаление дома: «Гаража» в списке нет", "Гараж" not in sheet(page).inner_text())
     page.keyboard.press("Escape")
     sheets_closed(page)
+
+
+def files(page, report, shots):
+    """Телефон Telegram (ios): файлы уходят в чат с ботом, скачивания на устройство нет."""
+    check = report.check
+    go(page, "history")
+    opener = page.locator("#view-history .head-actions").get_by_role("button", name="Файлы")
+    check("файлы: в истории есть кнопка «Файлы» с подписью", opener.count() == 1)
+    opener.click()
+    panel = sheet(page)
+    check("файлы: на телефоне нет скачивания, отправка в чат — главный путь",
+          panel.get_by_role("button", name="Скачать на устройство").count() == 0
+          and panel.get_by_role("button", name="Отправить в чат с ботом").count() == 1)
+    check("файлы: формат по умолчанию — Excel", panel.get_by_role("button", name="Excel").first.get_attribute("aria-pressed") == "true")
+    check("файлы: загрузка разбита на три шага", panel.locator(".steps .step").count() == 3)
+    panel.get_by_role("button", name="Отправить в чат с ботом").click()
+    panel.locator(".sent-card").first.wait_for(timeout=5000)
+    check("файлы: после отправки видно, что файл ушёл, и есть «Открыть чат»", panel.get_by_role("button", name="Открыть чат").count() == 1)
+    panel.get_by_role("button", name="Открыть чат").click()
+    opened = [call for call in page.evaluate("window.__tgcalls") if call[0] == "openTelegramLink"]
+    check("файлы: «Открыть чат» ведёт к боту", bool(opened) and "t.me/domovoy_demo_bot" in opened[-1][1][0], str(opened[-1:]))
+    panel.get_by_role("button", name="Отправить шаблон в чат").click()
+    page.wait_for_timeout(900)
+    check("файлы: шаблон тоже уходит в чат", panel.locator(".sent-card").count() == 2, str(panel.locator(".sent-card").count()))
+    page.keyboard.press("Escape")
+    sheets_closed(page)
+    go(page, "house")
+    hub(page, "Скачать и загрузить записи").click()
+    check("файлы: из раздела «Дом» тоже открываются", "Записи и файлы" in sheet(page).inner_text())
+    page.keyboard.press("Escape")
+    sheets_closed(page)
+    receipts(page, report, shots)
+
+
+def receipts(page, report, shots):
+    """Фото чека: добавить, увидеть в сетке, удалить после подтверждения."""
+    check = report.check
     go(page, "history")
     page.locator("#view-history .row.entry").first.click()
     sheet(page).get_by_role("button", name="Чеки", exact=True).click()
     page.wait_for_timeout(700)
-    check("чеки: без хранилища — понятное сообщение", "Хранилище чеков временно недоступно" in sheet(page).inner_text())
+    panel = sheet(page)
+    check("чеки: пока нет — сказано об этом, фото добавить можно",
+          "Чеков пока нет" in panel.inner_text() and panel.locator("input[type=file]").count() == 1)
+    photo = Path(shots) / "receipt.png"
+    photo.write_bytes(RECEIPT_PNG)
+    panel.locator("input[type=file]").set_input_files(str(photo))
+    page.wait_for_timeout(400)
+    panel.get_by_role("button", name="Прикрепить чек").click()
+    page.wait_for_selector(".receipt-grid img", timeout=6000)
+    panel = sheet(page)
+    check("чеки: загруженное фото видно в сетке", panel.locator(".receipt-grid img").count() == 1)
+    remove = panel.get_by_role("button", name="Удалить чек 1")
+    check("чеки: у фото есть кнопка «Удалить чек»", remove.count() == 1)
+    remove.click()
+    sheet(page).locator(".btn-danger").click()
+    page.wait_for_timeout(1200)
+    check("чеки: после удаления фото пропало", "Чеков пока нет" in sheet(page).inner_text() and sheet(page).locator(".receipt-grid img").count() == 0)
     page.keyboard.press("Escape")
     sheets_closed(page)
 
 
 # ── Независимые проверки ──────────────────────────────────────────────────────────────────────────
+
+def files_desktop(playwright, base, report, shots):
+    """Компьютер (tdesktop): и отправка в чат, и скачивание файла; собственный экспорт загружается как одни дубли."""
+    check = report.check
+    browser, _, page = open_app(playwright, base, size=(1280, 800), platform="tdesktop")
+    go(page, "history")
+    page.locator("#view-history .head-actions").get_by_role("button", name="Файлы").click()
+    panel = sheet(page)
+    check("файлы (компьютер): есть и отправка в чат, и скачивание",
+          panel.get_by_role("button", name="Отправить в чат с ботом").count() == 1
+          and panel.get_by_role("button", name="Скачать на устройство").count() == 1)
+    with page.expect_download(timeout=8000) as download:
+        panel.get_by_role("button", name="Скачать на устройство").click()
+    check("файлы: Excel скачивается и не пустой", os.path.getsize(download.value.path()) > 2000, download.value.suggested_filename)
+    panel.get_by_role("button", name="CSV", exact=True).click()
+    with page.expect_download(timeout=8000) as download:
+        panel.get_by_role("button", name="Скачать на устройство").click()
+    csv_path = Path(shots) / "export.csv"
+    download.value.save_as(str(csv_path))
+    check("файлы: CSV скачивается", csv_path.stat().st_size > 100, download.value.suggested_filename)
+    with page.expect_download(timeout=8000) as download:
+        panel.get_by_role("button", name="Скачать шаблон").click()
+    check("файлы: шаблон скачивается в выбранном формате", download.value.suggested_filename.endswith(".csv"), download.value.suggested_filename)
+    panel.locator("input[type=file]").set_input_files(str(csv_path))
+    page.wait_for_selector(".import-preview:not([hidden])", timeout=5000)
+    summary = panel.locator(".import-preview .sheet-text").inner_text()
+    check("файлы: собственный экспорт — только дубли", "Новых: 0" in summary, summary)
+    check("файлы: в проверке указано имя файла", "export.csv" in panel.locator(".import-preview").inner_text())
+    check("файлы: без новых записей подтвердить нельзя", panel.get_by_role("button", name="Добавить записи").is_disabled())
+    check("файлы: без ошибок в консоли", not page.errors, "; ".join(page.errors[:3]))
+    browser.close()
+
+
+def boot(playwright, base, report):
+    """Запуск: список домов и обзор запомненного дома запрашиваются одновременно, обзор — ровно один."""
+    browser, _, page = open_app(playwright, base)
+    first = [kind for kind, path in page.traffic if path.startswith("houses/")]
+    report.check("запуск: при первом входе обзор дома запрашивается один раз", first.count("request") == 1, str(page.traffic[:4]))
+    page.traffic.clear()
+    page.reload()
+    page.wait_for_selector(".hero", timeout=10000)
+    page.wait_for_timeout(400)
+    events = page.traffic
+    houses_list = next(index for index, (kind, path) in enumerate(events) if kind == "request" and path == "houses")
+    overview = next(index for index, (kind, path) in enumerate(events) if kind == "request" and path.startswith("houses/"))
+    first_response = next(index for index, (kind, _) in enumerate(events) if kind == "response")
+    report.check("запуск: обзор дома идёт параллельно со списком домов", houses_list < overview < first_response, str(events[:5]))
+    report.check("запуск: обзор дома запрошен один раз", sum(1 for kind, path in events if kind == "request" and path.startswith("houses/")) == 1,
+                 str(events))
+    browser.close()
+
 
 def language(playwright, base, report):
     browser, _, page = open_app(playwright, base)
@@ -394,17 +608,34 @@ def language(playwright, base, report):
 def resident(playwright, base, report):
     browser, _, page = open_app(playwright, base, user=1003)
     report.check("жилец: нет карточки подтверждения взносов", page.locator(".card-attention").count() == 0)
+    go(page, "history")
+    page.click(".month-btn")
+    sheet(page).get_by_role("button", name="За всё время").click()
+    sheets_closed(page)
+    history_chip(page, 2).click()
+    page.wait_for_timeout(700)
+    page.locator("#view-history .row.entry").filter(has_text="Борис").first.click()
+    own = sheet(page)
+    report.check("жилец: подтверждённый взнос закрыт для правок, и сказано почему",
+                 own.get_by_role("button", name="Изменить", exact=True).count() == 0 and "пока он не подтверждён" in own.inner_text())
+    page.keyboard.press("Escape")
+    sheets_closed(page)
     go(page, "house")
-    page.locator("#view-house .group-row").nth(0).click()
+    hub(page, "Жильцы").click()
     page.wait_for_timeout(700)
     report.check("жилец: нет приглашения без права", page.locator(".invite-code").count() == 0)
     report.check("жилец: права других недоступны для правки", page.locator("#view-house button.row").count() == 0)
     back_to_hub(page)
-    page.locator("#view-house .group-row").nth(4).click()
+    report.check("жилец: нет раздела «Передача и удаление дома»", hub(page, "Передача и удаление дома").count() == 0)
+    hub(page, "Настройки дома").click()
     page.wait_for_timeout(700)
     report.check("жилец: настройки только для чтения", page.locator("#view-house .switch").count() == 0)
-    report.check("жилец: может выйти из дома", page.get_by_role("button", name="Выйти из дома").count() == 1)
-    page.get_by_role("button", name="Выйти из дома").click()
+    report.check("жилец: «Выйти из дома» не в настройках", page.get_by_role("button", name="Выйти из дома").count() == 0)
+    back_to_hub(page)
+    hub(page, "Выйти из дома").click()
+    page.wait_for_selector(".card-danger", timeout=4000)
+    report.check("жилец: выйти из дома можно в «Управлении домом»", page.locator(".card-danger .btn").count() == 1)
+    page.locator(".card-danger .btn").click()
     sheet(page).locator(".btn-danger").click()
     page.wait_for_timeout(1200)
     report.check("жилец: после выхода — экран первого входа", page.locator(".welcome").count() == 1)
@@ -455,10 +686,12 @@ def run_all(playwright, base, report, shots):
     browser, _, page = open_app(playwright, base)
     report.guard("деньги", money, page, report)
     report.guard("уборка и возврат", cleaning_and_reimbursement, page, report)
+    report.guard("правки записанного", corrections, page, report)
     report.guard("история", history, page, report)
     report.guard("дом", house, page, report)
     report.guard("файлы", files, page, report, shots)
     report.check("основной прогон: без ошибок в консоли", not page.errors, "; ".join(page.errors[:3]))
     browser.close()
-    for name, scenario in (("язык", language), ("жилец", resident), ("telegram", telegram), ("устойчивость", resilience)):
+    report.guard("файлы на компьютере", files_desktop, playwright, base, report, shots)
+    for name, scenario in (("запуск", boot), ("язык", language), ("жилец", resident), ("telegram", telegram), ("устойчивость", resilience)):
         report.guard(name, scenario, playwright, base, report)

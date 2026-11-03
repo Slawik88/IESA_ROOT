@@ -6,7 +6,8 @@ from collections import Counter
 
 MIN_FONT_PX = 13
 MIN_TAP_PX = 44
-DEFAULT_SIZES = ("320x568", "360x740", "390x844", "430x932", "768x1024", "1280x800", "1920x1080")
+GOOD_SHIFT = 0.1  # порог «хорошо» для сдвигов после действий пользователя (результат поиска меняет высоту списка)
+DEFAULT_SIZES = ("320x568", "360x740", "390x844", "430x932", "768x1024", "844x390", "1280x800", "1920x1080")
 
 # Скрипт читает видимое состояние страницы (или верхнего открытого листа) и возвращает найденные проблемы.
 PROBE = r"""
@@ -76,6 +77,11 @@ PROBE = r"""
     if (box.right > width + 1 || box.left < -1) out.overflow.push({el: selector(element), left: Math.round(box.left), right: Math.round(box.right)});
     if (getComputedStyle(element).textOverflow === 'ellipsis' && element.scrollWidth > element.clientWidth + 1) out.clipped.push({el: selector(element), text: label(element)});
   }
+  // Контейнер с overflow, чьё содержимое не помещается, молча обрезает его (так группа переключателей в листе теряла последнюю строку).
+  for (const element of document.querySelectorAll('.group, .facts, .sheet-section, .card')) {
+    if (!visible(element) || !inScope(element) || getComputedStyle(element).overflowY === 'visible') continue;
+    if (element.scrollHeight > element.clientHeight + 1) out.clipped.push({el: selector(element), text: 'контейнер обрезает содержимое'});
+  }
   const ids = [...document.querySelectorAll('[id]')].map(element => element.id);
   out.ids = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
   return out;
@@ -124,20 +130,54 @@ def visit_states(page, probe):
     close_sheets()
     page.click(".month-btn")
     probe("history-months")
-    close_sheets()
+    page.locator("dialog.sheet[open] .sheet-foot .btn").click()  # «За всё время»: видны и прошлые записи
+    page.wait_for_timeout(700)
     page.click(".summary-line .link-btn")
     probe("history-totals")
     close_sheets()
-    page.locator("#view-history .head-actions .icon-btn").first.click()
+    page.locator(".search-input").press_sequentially("стёкол", delay=20)  # настоящий ввод: сдвиг сразу после него не считается
+    page.wait_for_timeout(700)
+    if page.locator("#view-history .row.entry").count():  # возвращённая трата закрыта для правок: показана причина
+        page.locator("#view-history .row.entry").first.click()
+        probe("entry-locked")
+        close_sheets()
+    page.fill(".search-input", "")
+    page.wait_for_timeout(600)
+    page.locator("#view-history .chips[role=group] .chip").nth(2).click()  # «Взносы»
+    page.wait_for_timeout(600)
+    if page.locator("#view-history .row.entry").count():
+        page.locator("#view-history .row.entry").first.click()
+        probe("entry-contribution")
+        page.locator(".entry-actions > .btn-secondary").first.click()  # «Изменить» (кнопки решения лежат в .button-row)
+        probe("form-contribution-edit")
+        close_sheets()
+    page.locator("#view-history .chips[role=group] .chip").nth(0).click()
+    page.locator("#view-history .head-actions .btn-secondary").first.click()
     probe("files-sheet")
+    page.locator("dialog.sheet[open] .delivery .btn-primary").first.click()  # отправка в чат: карточка результата
+    page.wait_for_selector("dialog.sheet[open] .sent-card", timeout=5000)
+    probe("files-sent")
     close_sheets()
     tab("house")
     probe("house-hub")
-    for name, index in (("people", 0), ("schedule", 1), ("money", 2), ("notifications", 3), ("settings", 4)):
+    # Порядок строк на экране «Дом»: жильцы, график, деньги, файлы (лист), уведомления, настройки, управление домом.
+    for name, index in (("people", 0), ("schedule", 1), ("money", 2), ("notifications", 4), ("settings", 5), ("manage", 6)):
         tab("house")
         page.locator("#view-house .group-row").nth(index).click()
         page.wait_for_timeout(700)
         probe(f"house-{name}")
+        if name == "people" and page.locator("#view-house button.row").count():
+            page.locator("#view-house button.row").first.click()
+            probe("rights-sheet")
+            close_sheets()
+        if name == "money" and page.locator("#view-house .row .icon-btn").count():
+            page.locator("#view-house .row .icon-btn").first.click()  # переименование категории
+            probe("rename-category-sheet")
+            close_sheets()
+        if name == "manage":
+            page.locator("#view-house .card-danger .btn-danger-soft").last.click()  # «Удалить дом…»
+            probe("delete-house-sheet")
+            close_sheets()
 
 
 def audit(playwright, base, sizes=DEFAULT_SIZES, house=1, language=None, user=1001):
@@ -157,6 +197,7 @@ def audit(playwright, base, sizes=DEFAULT_SIZES, house=1, language=None, user=10
         page.goto(f"{base}?u={user}")
         page.wait_for_selector(".hero", timeout=10000)
         page.wait_for_timeout(400)
+        loading = page.evaluate(PERFORMANCE)  # сдвиги самой загрузки: после неё экран не должен прыгать
         states = {}
 
         def probe(label, shots=states):
@@ -179,9 +220,12 @@ def audit(playwright, base, sizes=DEFAULT_SIZES, house=1, language=None, user=10
         sizes_seen = Counter(round(f["size"], 1) for data in states.values() for f in data["font"])
         transferred = sum(r["size"] for r in performance["resources"] if r["size"])
         report.append(f"{size} {language or 'ru'} дом {house}: состояний {len(states)}, нарушений {found + len(console)}, запросов "
-                      f"{len(performance['resources'])}, {transferred / 1024:.0f} КБ, LCP {performance['lcp']} мс, CLS {performance['shift']}, "
+                      f"{len(performance['resources'])}, {transferred / 1024:.0f} КБ, LCP {performance['lcp']} мс, CLS загрузки {loading['shift']} "
+                      f"(после действий {performance['shift']}), "
                       f"шрифты {dict(sorted(sizes_seen.items()))}")
-        if performance["shift"] > 0:
+        if loading["shift"] > 0:
+            violations.append((size, "page", "layout-shift-on-load", loading["shift"]))
+        if performance["shift"] > GOOD_SHIFT:
             violations.append((size, "page", "layout-shift", performance["shift"]))
         browser.close()
     return violations, report

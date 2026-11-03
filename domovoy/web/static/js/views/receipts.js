@@ -3,7 +3,7 @@ import { t } from '../i18n.js';
 import { toBase64 } from '../format.js';
 import { app } from '../state.js';
 import { refresh } from '../data.js';
-import { busy, button, errorText, fail, h, icon, openSheet, toast } from '../ui.js';
+import { busy, button, confirmSheet, errorText, fail, h, icon, iconButton, openSheet, toast } from '../ui.js';
 
 const BYTES_IN_MB = 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png'];
@@ -20,7 +20,22 @@ export async function openReceipts(expense) {
   const sheet = openSheet({ title: t("Чеки к расходу"), body, onClose: () => urls.forEach(url => URL.revokeObjectURL(url)) });
   const isOpen = () => sheet.el.isConnected;
 
-  function preview(receipt, index, cell) {
+  async function removeReceipt(receipt, index) {
+    const agreed = await confirmSheet({ title: t("Удалить чек?"), confirmLabel: t("Удалить"), danger: true,
+      text: t("Фото чека {0} будет удалено без возможности вернуть. Сам расход останется.", [index + 1]) });
+    if (!agreed || !isOpen()) return;
+    try {
+      await app.api.post(`${path}/${receipt.id}/delete`);
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    toast(t("Чек удалён"));
+    try { await refresh(); } catch { /* Фото уже удалено; список обновится при следующей загрузке. */ }
+    if (isOpen()) { sheet.close(); openReceipts(expense); }
+  }
+
+  function preview(receipt, index, cell, canRemove) {
     const load = async () => {
       cell.replaceChildren(h('p', { class: 'row-meta' }, t("Открываем чек {0}…", [index + 1])));
       try {
@@ -37,7 +52,9 @@ export async function openReceipts(expense) {
           zoom.setAttribute('aria-expanded', String(expanded));
           zoom.setAttribute('aria-label', t("{0} чек {1}", [expanded ? t("Уменьшить") : t("Увеличить"), index + 1]));
         };
-        cell.replaceChildren(zoom);
+        const remove = canRemove ? iconButton({ icon: 'trash', className: 'receipt-remove', label: t("Удалить чек {0}", [index + 1]),
+          onClick: () => removeReceipt(receipt, index) }) : null;
+        cell.replaceChildren(...[zoom, remove].filter(Boolean));
       } catch (error) {
         if (!isOpen()) return;
         cell.replaceChildren(h('p', { class: 'field-error' }, errorText(error)),
@@ -118,7 +135,7 @@ export async function openReceipts(expense) {
     data.receipts.forEach((receipt, index) => {
       const cell = h('div', { class: 'receipt-cell' });
       grid.append(cell);
-      preview(receipt, index, cell);
+      preview(receipt, index, cell, data.can_edit);
     });
     if (data.can_upload) body.append(uploader(data));
   } catch (error) {

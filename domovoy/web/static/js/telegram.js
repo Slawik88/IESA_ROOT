@@ -7,11 +7,20 @@ function call(action) {
   try { return action(); } catch { return undefined; }
 }
 
+// Ссылки t.me Telegram открывает у себя (окно «Поделиться», чат с ботом); без Telegram — обычная новая вкладка.
+function openLink(link) {
+  const opened = call(() => { webApp.openTelegramLink(link); return true; });
+  if (!opened) window.open(link, '_blank', 'noopener');
+}
+
 let backHandler = null;
 let backWired = false;
 
 export const telegram = {
   initData: webApp?.initData || '',
+  platform: webApp?.platform || '',
+  // Телефоны Telegram не сохраняют файлы из страницы: файл надёжнее отправить в чат.
+  get isPhone() { return ['ios', 'android', 'android_x'].includes(webApp?.platform); },
   user: webApp?.initDataUnsafe?.user || null,
   get available() { return Boolean(webApp?.initData); },
 
@@ -54,12 +63,10 @@ export const telegram = {
     error: () => call(() => webApp.HapticFeedback.notificationOccurred('error')),
   },
 
-  // Окно «Поделиться» Telegram со ссылкой; без Telegram — обычное открытие ссылки.
   share(url, text) {
-    const link = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-    const opened = call(() => { webApp.openTelegramLink(link); return true; });
-    if (!opened) window.open(link, '_blank', 'noopener');
+    openLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
   },
+  openChat: openLink,
 
   close() { call(() => webApp.close()); },
 };

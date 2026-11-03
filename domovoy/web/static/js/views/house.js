@@ -6,6 +6,7 @@ import { loadHouses, refresh } from '../data.js';
 import { telegram } from '../telegram.js';
 import { avatar, busy, button, confirmSheet, emptyState, errorText, fail, h, icon, iconButton, openSheet, segmented, selectField,
   skeleton, switchRow, textField, toast } from '../ui.js';
+import { openFiles } from './files.js';
 import { renderMembership } from './onboarding.js';
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6];
@@ -16,7 +17,7 @@ let generation = 0;
 
 const titles = () => ({
   people: t("Жильцы"), schedule: t("График уборки"), money: t("Деньги и категории"),
-  notifications: t("Мои уведомления"), settings: t("Настройки дома"), add: t("Ещё один дом"),
+  notifications: t("Мои уведомления"), settings: t("Настройки дома"), manage: t("Управление домом"), add: t("Ещё один дом"),
 });
 
 const base = () => `houses/${app.houseId}`;
@@ -32,6 +33,7 @@ function renderHub(root) {
   const { data } = app;
   const me = data.members.find(member => member.tg_id === data.actor);
   const open = name => () => nav.go('house', name);
+  const owner = me?.role === 'owner';
   const reload = button({ label: t("Обновить данные"), variant: 'ghost', size: 'sm' });
   reload.onclick = () => busy(reload, async () => { await refresh(); toast(t("Данные обновлены")); });
   root.replaceChildren(
@@ -43,8 +45,12 @@ function renderHub(root) {
       linkRow({ iconName: 'people', title: t("Жильцы"), meta: t("Жильцов: {0}", [data.members.length]), onClick: open('people') }),
       linkRow({ iconName: 'calendar', title: t("График уборки"), meta: t("Дни, отметки и история"), onClick: open('schedule') }),
       linkRow({ iconName: 'wallet', title: t("Деньги и категории"), meta: t("Валюта дома · {0}", [data.currency]), onClick: open('money') }),
+      linkRow({ iconName: 'file', title: t("Скачать и загрузить записи"), meta: t("Excel, CSV и другие форматы"), onClick: openFiles }),
       linkRow({ iconName: 'bell', title: t("Мои уведомления"), meta: t("Что и куда присылать"), onClick: open('notifications') }),
       linkRow({ iconName: 'sliders', title: t("Настройки дома"), meta: t("Название, правила и напоминания"), onClick: open('settings') })),
+    h('div', { class: 'group group-spaced' },
+      linkRow({ iconName: owner ? 'home' : 'logout', title: owner ? t("Передача и удаление дома") : t("Выйти из дома"),
+        meta: owner ? t("Передать другому жильцу или удалить") : t("Доступ к данным закроется"), onClick: open('manage') })),
     h('div', { class: 'hub-footer' },
       button({ label: t("Другой дом"), icon: 'plus', variant: 'secondary', onClick: open('add') }), reload));
 }
@@ -91,8 +97,9 @@ function inviteCard(initial, mgmt) {
     code, h('div', { class: 'stack' }, share, copy, rotate));
 }
 
-function openRights(mgmt, member) {
-  openSheet({
+function openRights(mgmt, member, reload) {
+  const remove = button({ label: t("Убрать из дома"), icon: 'logout', variant: 'danger-soft', block: true });
+  const sheet = openSheet({
     title: member.display_name,
     body: [
       h('p', { class: 'row-meta' }, t("Что этот жилец может делать в доме. Изменения действуют сразу.")),
@@ -104,11 +111,23 @@ function openRights(mgmt, member) {
           toast(t("Права обновлены"));
         },
       }))),
+      h('section', { class: 'card card-danger' },
+        h('p', { class: 'row-meta' }, t("Жилец потеряет доступ к дому сразу. Его прошлые записи останутся в истории.")), remove),
     ],
+  });
+  remove.onclick = () => busy(remove, async () => {
+    const agreed = await confirmSheet({ title: t("Убрать жильца?"), confirmLabel: t("Убрать"), danger: true,
+      text: t("Убрать {0} из дома «{1}»? Доступ закроется сразу, прошлые записи останутся в истории.", [member.display_name, mgmt.house.name]) });
+    if (!agreed) return;
+    await app.api.post(`${base()}/members/${member.tg_id}/remove`);
+    sheet.close();
+    toast(t("Жилец убран из дома"));
+    await refresh();
+    reload();
   });
 }
 
-function peoplePanel(mgmt, invite) {
+function peoplePanel(mgmt, invite, reload) {
   return [
     mgmt.permissions.manage_members && invite ? inviteCard(invite, mgmt) : null,
     h('section', { class: 'card', 'aria-labelledby': 'people-title' },
@@ -119,7 +138,7 @@ function peoplePanel(mgmt, invite) {
           h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, member.display_name), h('span', { class: 'row-meta' }, role)),
           member.can_manage ? h('span', { class: 'row-end' }, h('span', { class: 'row-meta' }, t("Права")), icon('chevron-right', 'row-chevron')) : null];
         return member.can_manage
-          ? h('button', { type: 'button', class: 'row', onClick: () => openRights(mgmt, member) }, content)
+          ? h('button', { type: 'button', class: 'row', onClick: () => openRights(mgmt, member, reload) }, content)
           : h('div', { class: 'row' }, content);
       })),
   ];
@@ -191,11 +210,20 @@ function schedulePanel(mgmt) {
         await refresh();
         await loadDays();
       });
+      const canReopen = entry.status !== 'open' && (mgmt.permissions.close_others_days || (entry.status === 'done' && entry.tg_id === mgmt.actor));
+      const reopen = button({ label: t("Вернуть в ожидание"), icon: 'undo', size: 'sm', variant: 'ghost' });
+      reopen.onclick = () => busy(reopen, async () => {
+        await app.api.post(`${base()}/cleaning/${entry.id}/reopen`);
+        await refresh();
+        await loadDays();
+        toast(t("День снова ждёт отметки"));
+      });
       return h('div', { class: 'schedule-day' },
         h('div', { class: 'row' }, h('span', { class: 'row-main' },
           h('span', { class: 'row-title' }, `${entry.display_name} · ${day(entry.planned_date, { weekday: 'short', day: 'numeric', month: 'short' })}`),
           h('span', { class: 'row-meta' }, upcoming ? t("Впереди") : status[entry.status]))),
-        canClose ? h('div', { class: 'button-row' }, done, mgmt.permissions.close_others_days ? skip : null) : null);
+        canClose ? h('div', { class: 'button-row' }, done, mgmt.permissions.close_others_days ? skip : null) : null,
+        canReopen ? h('div', { class: 'button-row' }, reopen) : null);
     }) : [h('p', { class: 'row-meta' }, t("Дней за этот месяц пока нет."))]));
   }
   paintDays();
@@ -262,6 +290,32 @@ function settingControl(mgmt, definition) {
   return field.el;
 }
 
+function openRename(category, reload) {
+  const field = textField({ label: t("Название категории"), value: category.name, maxLength: CATEGORY_LIMIT, enterKeyHint: 'done' });
+  const form = h('form', { class: 'stack', novalidate: true }, field.el);
+  const save = button({ label: t("Сохранить"), block: true });
+  const sheet = openSheet({ title: t("Переименовать категорию"), size: 'sm', body: form, footer: save, focus: field.input });
+  const submit = () => busy(save, async () => {
+    field.clearError();
+    const name = field.input.value.trim();
+    if (!name) { field.setError(t("Введите название")); field.input.focus(); return; }
+    if (name === category.name) { sheet.close(); return; }
+    try {
+      await app.api.post(`${base()}/categories/${category.id}/rename`, { name });
+    } catch (error) {
+      if (error.kind === 'session') throw error;
+      field.setError(errorText(error));
+      return;
+    }
+    sheet.close();
+    toast(t("Категория переименована"));
+    await refresh();
+    reload();
+  });
+  form.onsubmit = event => { event.preventDefault(); submit(); };
+  save.onclick = submit;
+}
+
 function moneyPanel(mgmt, reload) {
   const currency = mgmt.house_setting_definitions.find(definition => definition.key === 'currency');
   const canEdit = mgmt.permissions.manage_categories;
@@ -299,7 +353,8 @@ function moneyPanel(mgmt, reload) {
           await refresh();
           reload();
         });
-        return h('div', { class: 'row' }, h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, category.name)), canEdit ? remove : null);
+        const rename = iconButton({ icon: 'edit', label: t("Переименовать категорию «{0}»", [category.name]), onClick: () => openRename(category, reload) });
+        return h('div', { class: 'row' }, h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, category.name)), canEdit ? [rename, remove] : null);
       }),
       canEdit ? form : null),
   ];
@@ -361,14 +416,6 @@ function settingsPanel(mgmt) {
   const houseName = textField({ label: t("Как называется ваш дом"), value: mgmt.house.name, maxLength: HOUSE_NAME_LIMIT });
   const myName = textField({ label: t("Ваше имя в этом доме"), value: mgmt.profile.display_name, maxLength: MEMBER_NAME_LIMIT });
   const rules = mgmt.house_setting_definitions.filter(definition => definition.key !== 'currency');
-  const leave = button({ label: t("Выйти из дома"), icon: 'logout', variant: 'danger-soft', block: true });
-  leave.onclick = () => busy(leave, async () => {
-    const agreed = await confirmSheet({ title: t("Выйти из дома?"), confirmLabel: t("Выйти"), danger: true,
-      text: t("Выйти из «{0}»? Вы потеряете доступ к этому дому.", [mgmt.house.name]) });
-    if (!agreed) return;
-    await app.api.post(`${base()}/leave`);
-    await loadHouses();
-  });
   return [
     manage ? saveCard({ title: t("Название дома"), field: houseName, label: t("Сохранить название"), done: t("Название обновлено"),
       request: value => app.api.post(`${base()}/name`, { name: value }) }) : null,
@@ -378,9 +425,112 @@ function settingsPanel(mgmt) {
     h('section', { class: 'card', 'aria-labelledby': 'rules-title' },
       h('div', { class: 'card-head' }, h('h2', { id: 'rules-title' }, t("Правила и напоминания"))),
       rules.map(definition => settingControl(mgmt, definition))),
-    mgmt.profile.can_leave ? h('section', { class: 'card card-danger' },
-      h('p', { class: 'row-meta' }, t("Доступ к данным этого дома закроется. Старые записи сохранятся у жильцов.")), leave) : null,
   ];
+}
+
+// ── Управление домом ────────────────────────────────────────────────────────────────────────────
+
+function leaveCard(mgmt) {
+  const leave = button({ label: t("Выйти из дома"), icon: 'logout', variant: 'danger-soft', block: true });
+  leave.onclick = () => busy(leave, async () => {
+    const agreed = await confirmSheet({ title: t("Выйти из дома?"), confirmLabel: t("Выйти"), danger: true,
+      text: t("Выйти из «{0}»? Вы потеряете доступ к этому дому.", [mgmt.house.name]) });
+    if (!agreed) return;
+    await app.api.post(`${base()}/leave`);
+    await loadHouses();
+  });
+  return h('section', { class: 'card card-danger' },
+    h('div', { class: 'card-head' }, h('h2', {}, t("Выйти из дома"))),
+    h('p', { class: 'row-meta' }, t("Доступ к данным этого дома закроется. Старые записи сохранятся у жильцов.")), leave);
+}
+
+function transferCard(mgmt, reload) {
+  const heirs = mgmt.members.filter(member => member.tg_id !== mgmt.actor);
+  const head = h('div', { class: 'card-head' }, h('h2', {}, t("Передать дом")));
+  if (!heirs.length) {
+    return h('section', { class: 'card' }, head,
+      h('p', { class: 'row-meta' }, t("Пока вы живёте в доме один. Пригласите соседа — тогда дом можно будет передать ему.")),
+      button({ label: t("Пригласить соседей"), icon: 'people', variant: 'secondary', block: true, onClick: () => nav.go('house', 'people') }));
+  }
+  let chosen = null;
+  const send = button({ label: t("Передать дом"), variant: 'secondary', block: true });
+  send.disabled = true;
+  const nodes = new Map(heirs.map(member => [member, h('button', { type: 'button', class: 'group-row', role: 'radio', 'aria-checked': 'false',
+    onClick: () => {
+      chosen = member;
+      nodes.forEach((node, key) => node.setAttribute('aria-checked', String(key === member)));
+      send.disabled = false;
+    } },
+  avatar(member.display_name, member.tg_id), h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, member.display_name)),
+  icon('check', 'row-check'))]));
+  send.onclick = () => busy(send, async () => {
+    const agreed = await confirmSheet({ title: t("Передать дом?"), confirmLabel: t("Передать"),
+      text: t("Передать дом «{0}» жильцу {1}? Он станет владельцем, а вы — обычным жильцом. Вернуть дом сможет только новый владелец.",
+        [mgmt.house.name, chosen.display_name]) });
+    if (!agreed) return;
+    await app.api.post(`${base()}/owner`, { target: chosen.tg_id });
+    toast(t("Дом передан: {0}", [chosen.display_name]));
+    await refresh().catch(() => {});
+    reload();
+  });
+  return h('section', { class: 'card', 'aria-labelledby': 'transfer-title' },
+    h('div', { class: 'card-head' }, h('h2', { id: 'transfer-title' }, t("Передать дом"))),
+    h('p', { class: 'row-meta' }, t("Выберите жильца. Он получит все права владельца, а вы станете обычным жильцом.")),
+    h('div', { class: 'group', role: 'radiogroup', 'aria-label': t("Кому передать дом") }, [...nodes.values()]), send);
+}
+
+function openDeleteHouse(mgmt) {
+  const others = mgmt.members.length - 1;
+  const field = textField({ label: t("Введите название дома, чтобы подтвердить"), placeholder: mgmt.house.name, maxLength: HOUSE_NAME_LIMIT,
+    enterKeyHint: 'done' });
+  const confirm = button({ label: t("Удалить дом навсегда"), variant: 'danger', block: true });
+  confirm.disabled = true;
+  const sheet = openSheet({
+    title: t("Удалить дом?"), size: 'sm', // без автофокуса: сначала нужно прочитать, что исчезнет, клавиатура закрыла бы текст
+    body: [
+      h('p', { class: 'sheet-text' }, t("Дом «{0}» исчезнет вместе со всеми записями, чеками и графиком уборки. Отменить это нельзя.", [mgmt.house.name])),
+      others > 0 ? h('p', { class: 'sheet-text' }, t("Остальные жильцы ({0}) получат сообщение от бота.", [others])) : null,
+      field.el,
+    ],
+    footer: [confirm, button({ label: t("Отмена"), variant: 'ghost', block: true, onClick: () => sheet.close() })],
+  });
+  const matches = () => field.input.value.trim() === mgmt.house.name;
+  const submit = async () => {
+    await busy(confirm, async () => {
+      field.clearError();
+      try {
+        await app.api.post(`${base()}/delete`, { confirm_name: field.input.value });
+      } catch (error) {
+        if (error.kind === 'session') throw error;
+        field.setError(errorText(error));
+        return;
+      }
+      sheet.close();
+      toast(t("Дом удалён"));
+      await loadHouses();
+    });
+    if (sheet.el.isConnected) confirm.disabled = !matches();
+  };
+  field.input.addEventListener('input', () => {
+    field.clearError();
+    confirm.disabled = !matches();
+  });
+  field.input.addEventListener('keydown', event => { if (event.key === 'Enter' && matches()) submit(); });
+  confirm.onclick = submit;
+}
+
+function deleteCard(mgmt) {
+  return h('section', { class: 'card card-danger', 'aria-labelledby': 'delete-title' },
+    h('div', { class: 'card-head' }, h('h2', { id: 'delete-title' }, t("Удалить дом"))),
+    h('p', { class: 'row-meta' }, t("Дом, все записи, чеки, график и список жильцов исчезнут навсегда. Вернуть их будет нельзя.")),
+    button({ label: t("Сначала выгрузить записи"), icon: 'file', variant: 'ghost', block: true, onClick: openFiles }),
+    button({ label: t("Удалить дом…"), icon: 'trash', variant: 'danger-soft', block: true, onClick: () => openDeleteHouse(mgmt) }));
+}
+
+function managePanel(mgmt, reload) {
+  if (mgmt.profile.can_leave) return [leaveCard(mgmt)];
+  return [h('p', { class: 'panel-note' }, t("Владелец не может просто выйти из дома: передайте его другому жильцу или удалите.")),
+    transferCard(mgmt, reload), deleteCard(mgmt)];
 }
 
 // ── Подэкраны ───────────────────────────────────────────────────────────────────────────────────
@@ -402,8 +552,8 @@ async function renderPanel(root, name) {
     const mgmt = await app.api.get(`${base()}/management`);
     const invite = name === 'people' && mgmt.permissions.manage_members ? await app.api.get(`${base()}/invite`) : null;
     if (mine !== generation || app.sub !== name) return;
-    const builders = { people: () => peoplePanel(mgmt, invite), schedule: () => schedulePanel(mgmt), money: () => moneyPanel(mgmt, reload),
-      notifications: () => notificationsPanel(mgmt), settings: () => settingsPanel(mgmt) };
+    const builders = { people: () => peoplePanel(mgmt, invite, reload), schedule: () => schedulePanel(mgmt), money: () => moneyPanel(mgmt, reload),
+      notifications: () => notificationsPanel(mgmt), settings: () => settingsPanel(mgmt), manage: () => managePanel(mgmt, reload) };
     body.replaceChildren(...builders[name]().filter(Boolean));
   } catch (error) {
     if (mine !== generation) return;

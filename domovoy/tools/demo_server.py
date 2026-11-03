@@ -4,6 +4,7 @@
 
 Адрес: http://127.0.0.1:8011/?u=1001 — 1001 владелец, 1002 и 1003 жильцы без прав, 1004 дом без данных, 1005 нет домов.
 Параметры &theme=light|dark и &platform=ios|android|tdesktop меняют среду Telegram.
+Бот-заглушка принимает «отправку в чат», поэтому на ios и android файлы уходят только в чат, на tdesktop — и в чат, и на устройство.
 Данные лежат в data/demo.db (в git не попадают). Токен тестовый: настоящий .env сюда не попадает.
 """
 import asyncio
@@ -15,6 +16,7 @@ import sys
 import time
 from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlencode
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +34,33 @@ THEMES = {
 }
 TELEGRAM_SCRIPT = "https://telegram.org/js/telegram-web-app.js"
 LONG_AMOUNT_KOP = 999_999_999
+
+
+class DemoBot:
+    """Вместо настоящего бота: документы и сообщения не уходят никуда, а фото чеков хранятся в памяти (как файлы Telegram)."""
+
+    def __init__(self):
+        self.photos = {}
+
+    async def send_document(self, chat_id, document, caption=None, **_):
+        return None
+
+    async def send_message(self, chat_id, text, **_):
+        return None
+
+    async def send_photo(self, chat_id, photo, caption=None, **_):
+        file_id = f"demo-photo-{len(self.photos) + 1}"
+        self.photos[file_id] = photo.data
+        return SimpleNamespace(photo=[SimpleNamespace(file_id=file_id)])
+
+    async def get_file(self, file_id):
+        return SimpleNamespace(file_path=file_id, file_size=len(self.photos[file_id]))
+
+    async def download_file(self, file_path, destination, **_):
+        destination.write(self.photos[file_path])
+
+    async def me(self):
+        return SimpleNamespace(username="domovoy_demo_bot")
 
 
 def signed_init_data(tg_id: int) -> str:
@@ -144,7 +173,7 @@ async def serve(port: int, fresh: bool) -> None:
     await ensure_schema()
     if not existed:
         await seed()
-    app = create_app()
+    app = create_app(bot=DemoBot())
 
     async def index(u: int = 1001, theme: str = "dark", platform: str = "ios"):
         page = (STATIC / "index.html").read_text(encoding="utf-8").replace("__V__", asset_version())

@@ -20,13 +20,14 @@ function rememberedHouse() {
   catch { return null; }
 }
 
-function params(page) {
+function params(page, span = 1) {
   const query = new URLSearchParams();
   if (app.allMonths) query.set('all_months', 'true');
   else if (app.month) query.set('month', app.month);
   if (app.query.trim()) query.set('q', app.query.trim());
   for (const [key, value] of Object.entries(app.filters)) if (value && value !== 'all') query.set(key, value);
   query.set('page', page);
+  if (span > 1) query.set('span', span);
   return query;
 }
 
@@ -36,21 +37,21 @@ export const selectionParams = () => {
   return query;
 };
 
-// Загружает первые app.pages страниц журнала (после правки список остаётся той же длины) и обзор дома.
+function accept(data) {
+  app.data = data;
+  app.month = data.month;
+  app.pages = Math.max(1, Math.min(app.pages, Math.ceil(data.total / data.page_size), data.max_span));
+  app.rows = data.rows;
+  emit();
+}
+
+// Одним запросом загружает обзор дома и первые app.pages страниц журнала (после правки список остаётся той же длины).
 export async function refresh() {
   const house = app.houseId;
   const version = ++loadVersion;
-  const stale = () => house !== app.houseId || version !== loadVersion;
-  const first = await app.api.get(`houses/${house}?${params(0)}`);
-  if (stale()) return;
-  const count = Math.max(1, Math.min(app.pages, Math.ceil(first.total / first.page_size)));
-  const rest = await Promise.all(Array.from({ length: count - 1 }, (_, index) => app.api.get(`houses/${house}?${params(index + 1)}`)));
-  if (stale()) return;
-  app.data = first;
-  app.month = first.month;
-  app.pages = count;
-  app.rows = [first.rows, ...rest.map(page => page.rows)].flat();
-  emit();
+  const data = await app.api.get(`houses/${house}?${params(0, Math.min(app.pages, app.data?.max_span ?? 1))}`);
+  if (house !== app.houseId || version !== loadVersion) return;
+  accept(data);
 }
 
 export async function loadMore() {
@@ -77,8 +78,14 @@ export function resetSelection() {
   app.pages = 1;
 }
 
+// Список домов и обзор запомненного дома запрашиваются одновременно: на телефоне это экономит целый круг до сервера.
 export async function loadHouses(preferred) {
-  const { houses } = await app.api.get('houses');
+  resetSelection(); // запрос запомненного дома не должен унаследовать месяц и фильтры прежнего
+  const guess = [preferred, rememberedHouse()].find(Boolean);
+  const [{ houses }, early] = await Promise.all([
+    app.api.get('houses'),
+    guess ? app.api.get(`houses/${guess}?${params(0)}`).catch(error => (error.kind === 'session' ? Promise.reject(error) : null)) : null,
+  ]);
   app.houses = houses;
   if (!houses.length) {
     app.houseId = null;
@@ -86,8 +93,14 @@ export async function loadHouses(preferred) {
     emit();
     return;
   }
-  const wanted = [preferred, rememberedHouse()].find(id => houses.some(house => house.id === id));
-  await selectHouse(wanted ?? houses[0].id);
+  const wanted = [preferred, rememberedHouse()].find(id => houses.some(house => house.id === id)) ?? houses[0].id;
+  if (early && wanted === guess) {
+    app.houseId = wanted;
+    rememberHouse(wanted);
+    accept(early);
+    return;
+  }
+  await selectHouse(wanted);
 }
 
 export async function selectHouse(id) {

@@ -13,7 +13,7 @@
   --line: #2b3460; --field-line: #5f6a9c;
   --ink: #f3f1ff; --ink-2: #c3c1de; --ink-3: #9d9bc0;
   --accent: #c7b6ff; --accent-soft: #2c2157;
-  --primary: #7b4be0; --primary-hover: #8a5bf0; --on-primary: #fff;
+  --primary: #7b4be0; --primary-hover: #6a3bd1; --on-primary: #fff;
   --ok: #7be3c0; --ok-soft: #16332f; --warn: #ffcb6b; --warn-soft: #3a2f12; --bad: #ff8da1; --bad-soft: #3d1a26;
   --r-s: 10px; --r-m: 14px; --r-l: 20px; --r-xl: 28px;
   --fs-13: .8125rem; --fs-14: .875rem; --fs-16: 1rem; --fs-17: 1.0625rem; --fs-20: 1.25rem; --fs-26: 1.625rem;
@@ -44,6 +44,7 @@ h1:focus, h2:focus { outline: none; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .button-row > .btn { flex: 1 1 auto; }
+.stack-tight { display: flex; flex-direction: column; gap: 8px; }
 .plain-list { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-14); color: var(--ink-2); }
 
 /* ── Кнопки ── */
@@ -125,6 +126,9 @@ textarea.input { min-height: 84px; resize: vertical; }
 .group-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 12px 16px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; }
 .group-row:hover { background: var(--surface-2); }
 .group > :first-child { border-top: 0; }
+.group-spaced { margin-top: 16px; }
+.group-row[role=radio] .row-check { visibility: hidden; }
+.group-row[role=radio][aria-checked=true] .row-check { visibility: visible; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 0; border: 0; background: none; text-align: left; }
 .row + .row, .schedule-member + .schedule-member, .schedule-day + .schedule-day, .pending-row + .pending-row { border-top: 1px solid var(--line); }
 .row-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-m); background: var(--surface-2); color: var(--ink-2); }
@@ -188,7 +192,7 @@ textarea.input { min-height: 84px; resize: vertical; }
 .tab:hover { color: var(--ink); }
 .banner { display: flex; align-items: center; gap: 10px; max-width: calc(var(--max) - 2 * var(--page-x)); margin: 8px auto; padding: 12px 14px; border: 1px solid rgba(255, 141, 161, .4); border-radius: var(--r-m); background: var(--bad-soft); color: var(--bad); font-size: var(--fs-14); }
 .page-head { margin: 12px 0 16px; }
-.page-head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.page-head-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .head-actions { display: flex; align-items: center; gap: 8px; }
 .panel-head { display: flex; align-items: center; gap: 8px; }
 .view { display: flex; flex-direction: column; }
@@ -274,6 +278,8 @@ meter::-moz-meter-bar { border-radius: 6px; background: var(--primary); }
 .entry-hero { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0 8px; }
 .entry-amount { font-size: 2rem; line-height: 1.2; }
 .entry-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.locked-note { display: flex; align-items: flex-start; gap: 10px; }
+.locked-note .icon { margin-top: 2px; color: var(--ink-3); }
 .tx-form { display: contents; }
 .tx-fields { display: flex; flex-direction: column; gap: 20px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .form-group { display: flex; flex-direction: column; gap: 8px; }
@@ -308,12 +314,15 @@ dialog.sheet::backdrop { background: rgba(5, 7, 16, .68); backdrop-filter: blur(
 .sheet-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px var(--page-x); touch-action: none; }
 .sheet-head h2 { font-size: var(--fs-20); overflow-wrap: anywhere; }
 .sheet-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 4px var(--page-x) 20px; overflow-y: auto; overscroll-behavior: contain; }
+.sheet-body > * { flex-shrink: 0; } /* длинное содержимое прокручивается, а не сжимает и не обрезает блоки */
 .sheet-foot { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 12px var(--page-x) calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
 .sheet-foot .button-row { flex-wrap: nowrap; }
 .sheet-foot .button-row > .btn { flex: 1 1 0; min-width: 0; }
 .sheet-text { color: var(--ink-2); }
 .sheet-subtitle { margin-top: 8px; font-size: var(--fs-17); }
 .sheet .toasts { bottom: calc(24px + env(safe-area-inset-bottom)); }
+.receipt-cell { position: relative; }
+.receipt-remove { position: absolute; top: 6px; right: 6px; background: rgba(11, 14, 28, .82); }
 .receipt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .receipt-cell.expanded { grid-column: 1 / -1; }
 .receipt-preview { display: block; width: 100%; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r-m); background: var(--surface-2); }
@@ -323,6 +332,15 @@ dialog.sheet::backdrop { background: rgba(5, 7, 16, .68); backdrop-filter: blur(
 .import-preview { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding: 14px; border-radius: var(--r-m); background: var(--surface-2); }
 .import-errors { margin: 0; color: var(--bad); font-size: var(--fs-14); white-space: pre-wrap; overflow-wrap: anywhere; }
 .import-errors:empty { display: none; }
+.delivery { display: flex; flex-direction: column; gap: 8px; }
+.sent-card { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; padding: 12px 14px; border: 1px solid rgba(123, 227, 192, .35); border-radius: var(--r-m); background: var(--ok-soft); animation: toast-in .2s ease-out; }
+.sent-card > .btn { grid-column: 1 / -1; }
+.sent-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--ok); color: #0b2a22; }
+.sent-mark .icon { width: 18px; height: 18px; }
+.steps { display: flex; flex-direction: column; gap: 20px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.step { display: flex; flex-direction: column; gap: 10px; counter-increment: step; }
+.step-title { display: flex; align-items: center; gap: 10px; min-height: 28px; font-weight: 600; }
+.step-title::before { content: counter(step); flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: var(--fs-14); font-weight: 600; }
 .sheet-section { display: flex; flex-direction: column; gap: 12px; }
 .sheet-section + .sheet-section { padding-top: 16px; border-top: 1px solid var(--line); }
 
@@ -367,6 +385,14 @@ dialog.sheet::backdrop { background: rgba(5, 7, 16, .68); backdrop-filter: blur(
   .entry .amt { grid-area: amt; justify-self: end; }
   .entry .badge { grid-area: badge; }
   .entry .row-chevron { display: none; }
+}
+/* Телефон набок: вырез экрана не закрывает края, нижняя панель ниже и компактнее. */
+.page, .topbar { padding-left: max(var(--page-x), env(safe-area-inset-left)); padding-right: max(var(--page-x), env(safe-area-inset-right)); }
+@media (max-height: 480px) and (orientation: landscape) and (max-width: 899px) {
+  :root { --tabbar-h: 52px; }
+  .tabbar { padding: 4px; }
+  .tab { flex-direction: row; gap: 8px; min-height: 44px; }
+  .tabbar { bottom: calc(6px + env(safe-area-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

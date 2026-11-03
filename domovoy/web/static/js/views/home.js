@@ -1,9 +1,9 @@
 // Главная: баланс, быстрые действия, что нужно сделать сейчас (взносы, черновик, уборка), последние записи.
 import { locale, t } from '../i18n.js';
 import { moneyParts } from '../format.js';
-import { app, day, houseDrafts, money, nav } from '../state.js';
-import { refresh } from '../data.js';
-import { avatar, badge, busy, button, emptyState, h, icon, iconButton, openSheet, toast } from '../ui.js';
+import { app, day, DEFAULT_FILTERS, houseDrafts, money, nav } from '../state.js';
+import { applySelection, refresh } from '../data.js';
+import { avatar, badge, busy, button, emptyState, fail, h, icon, iconButton, openSheet, toast } from '../ui.js';
 import { entryRow } from './entries.js';
 import { openEntry } from './entry.js';
 import { discardDraft, openForm, resumeDraft } from './form.js';
@@ -39,6 +39,24 @@ function hero() {
     h('dl', { class: 'hero-split' },
       h('div', {}, h('dt', {}, t("Внесено")), h('dd', {}, money(balance.confirmed_total))),
       h('div', {}, h('dt', {}, t("Потрачено")), h('dd', {}, money(balance.house_spent + balance.reimbursed)))));
+}
+
+// Личные траты, по которым дом ещё не рассчитался: сколько должен дом и сколько из этого — вам.
+function waitingCard() {
+  const waiting = app.data.waiting;
+  if (!waiting?.total) return null;
+  const open = async () => {
+    try {
+      await applySelection({ filters: { ...DEFAULT_FILTERS, mode: 'waiting_return', kind: 'expense' }, allMonths: true });
+      nav.go('history');
+    } catch (error) { fail(error); }
+  };
+  return h('div', { class: 'group' }, h('button', { type: 'button', class: 'group-row', onClick: open },
+    h('span', { class: 'row-icon' }, icon('wallet')),
+    h('span', { class: 'row-main' },
+      h('span', { class: 'row-title' }, t("Дом должен жильцам")),
+      h('span', { class: 'row-meta' }, waiting.mine ? t("Из них вам: {0}", [money(waiting.mine)]) : t("Личные траты без возврата"))),
+    h('span', { class: 'row-end' }, h('span', { class: 'amt' }, money(waiting.total)), icon('chevron-right', 'row-chevron'))));
 }
 
 function quickAction(iconName, label, onClick, primary = false) {
@@ -92,7 +110,8 @@ function pendingCard() {
 }
 
 function draftTitle(draft) {
-  const kind = draft.editId ? t("Правка расхода") : draft.kind === 'expense' ? t("Расход") : t("Взнос");
+  const edited = draft.kind === 'expense' ? t("Правка расхода") : t("Правка взноса");
+  const kind = draft.editId ? edited : draft.kind === 'expense' ? t("Расход") : t("Взнос");
   return draft.amount ? `${kind} · ${draft.amount} ${app.data.currency}` : kind;
 }
 
@@ -183,7 +202,7 @@ export function renderHome(root) {
         h('p', { class: 'eyebrow' }, day(today, { weekday: 'long', day: 'numeric', month: 'long' })),
         h('h1', { id: 'home-title', tabindex: '-1' }, house.name))),
     h('div', { class: 'home-grid' },
-      h('div', { class: 'home-top' }, hero(), quickActions()),
+      h('div', { class: 'home-top' }, hero(), quickActions(), waitingCard()),
       h('div', { class: 'home-tasks' }, setupCard(), pendingCard(), draftsCard(), choresCard()),
       h('div', { class: 'home-feed' }, feedCard())));
 }

@@ -143,7 +143,7 @@ export function createHistory(root) {
     h('header', { class: 'page-head page-head-row' },
       h('div', {}, eyebrow, h('h1', { id: 'history-title', tabindex: '-1' }, t("История"))),
       h('div', { class: 'head-actions' },
-        iconButton({ icon: 'file', label: t("Файлы"), onClick: openFiles }),
+        button({ label: t("Файлы"), icon: 'file', size: 'sm', variant: 'secondary', onClick: openFiles }),
         button({ label: t("Расход"), icon: 'plus', size: 'sm', onClick: () => openForm({ kind: 'expense' }) }))),
     h('div', { class: 'month-bar' }, previous, monthButton, next),
     h('div', { class: 'search' }, icon('search', 'search-icon'), search, clear),
