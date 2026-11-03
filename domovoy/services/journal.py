@@ -2,9 +2,9 @@
 from dataclasses import dataclass
 
 from core.constants import JOURNAL_SEARCH_LIMIT, QUICK_TRANSACTION_LIMIT, WEB_HOME_RECENT_LIMIT, WEB_JOURNAL_PAGE_SIZE
-from core.transaction_versions import expense_version
+from core.transaction_versions import contribution_version, expense_version
 from infrastructure.repositories import transactions
-from services import households
+from services import households, money, settings
 from services.households import DomainError
 from services.transaction_dates import parse_month
 
@@ -58,15 +58,24 @@ def filter_rows(rows: list, query: JournalQuery) -> list:
     return result
 
 
-async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0) -> dict:
+async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0, span: int = 1) -> dict:
     await households.require_member(house_id, actor)
     all_rows = [dict(row) for row in await transactions.all_rows(house_id)]
     manage_all = await households.can(house_id, actor, "manage_all_expenses")
+    approver = await households.can(house_id, actor, "confirm_contributions")
+    confirmation_required = await settings.house_setting(house_id, "confirm_contributions")
+    waiting = {"total": 0, "mine": 0}
     for row in all_rows:
         row["house_id"] = house_id
-        row["can_edit"] = (row["kind"] == "expense" and not row["reimbursed"]
-                           and (row["tg_id"] == actor or manage_all))
-        row["version"] = expense_version(row) if row["kind"] == "expense" else None
+        if row["kind"] == "expense":
+            row["can_edit"] = not row["reimbursed"] and (row["tg_id"] == actor or manage_all)
+            row["version"] = expense_version(row)
+            if row["mode"] == "personal" and not row["reimbursed"]:
+                waiting["total"] += row["amount_kop"]
+                waiting["mine"] += row["amount_kop"] if row["tg_id"] == actor else 0
+        else:
+            row["can_edit"] = money.can_modify_contribution(row, actor, approver, confirmation_required)
+            row["version"] = contribution_version(row)
     selected = filter_rows(all_rows, query)
     page = max(0, min(page, max(0, (len(selected) - 1) // WEB_JOURNAL_PAGE_SIZE)))
     summary = {"expenses": 0, "contributions": 0, "pending": 0, "waiting_return": 0}
@@ -91,9 +100,9 @@ async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0) ->
         if len(templates) == QUICK_TRANSACTION_LIMIT:
             break
     return {"recent": recent_rows[:WEB_HOME_RECENT_LIMIT],
-            "rows": selected[page * WEB_JOURNAL_PAGE_SIZE:(page + 1) * WEB_JOURNAL_PAGE_SIZE],
+            "rows": selected[page * WEB_JOURNAL_PAGE_SIZE:(page + span) * WEB_JOURNAL_PAGE_SIZE],
             "page": page, "total": len(selected), "summary": summary, "analytics": expense_breakdown(selected),
-            "templates": templates,
+            "templates": templates, "waiting": waiting,
             "page_size": WEB_JOURNAL_PAGE_SIZE,
             "filter_members": [{"id": actor_id, "name": name} for actor_id, name in
                                {row["tg_id"]: row["display_name"] or "Жилец" for row in all_rows}.items()]}

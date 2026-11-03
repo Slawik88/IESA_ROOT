@@ -102,3 +102,13 @@ async def delete_expense_if_unchanged(house_id: int, expense_id: int, before: di
             before["spent_on"], before["mode"], before["description"],
         )
         return changed > 0
+
+
+async def delete_photo(house_id: int, expense_id: int, photo_id: int) -> bool:
+    """Убрать фото чека; у возвращённой траты чеки заморожены."""
+    async with db.transaction() as conn:
+        expense = await _lock_expense(conn, expense_id)
+        if expense is None or expense["house_id"] != house_id or expense["reimbursed"]:
+            return False
+        deleted = await conn.execute("DELETE FROM expense_photos WHERE id = ? AND expense_id = ?", photo_id, expense_id)
+        return deleted > 0

@@ -2,9 +2,10 @@
 from infrastructure import repositories as repo
 from infrastructure.repositories import transactions
 from services import households, money, settings, transfers, notify
-from core.money import AmountError, format_amount
+from core.money import AmountError, format_amount, parse_amount
 from core.transaction_versions import expense_version
 from services.households import DomainError
+from services.transaction_dates import parse_date, parse_month
 
 
 async def create_transaction(house_id: int, actor: int, data: dict, *, bot=None) -> dict:
@@ -77,3 +78,16 @@ async def edit_expense(house_id: int, actor: int, expense_id: int, data: dict, v
     if not await repo.money.edit_expense(house_id, actor, dict(original), after):
         raise DomainError("Запись изменилась во время сохранения. Обновите историю и проверьте её.")
     return {"ok": True, "unchanged": False}
+
+
+async def edit_contribution(house_id: int, actor: int, contribution_id: int, data: dict) -> dict:
+    today = settings.house_today(await settings.house_settings(house_id))
+    try:
+        amount_kop = parse_amount(data["amount"])
+    except AmountError as exc:
+        raise DomainError(str(exc)) from exc
+    changed = await money.edit_contribution(
+        house_id, contribution_id, actor, amount_kop=amount_kop, paid_on=parse_date(data["date"], today),
+        month=parse_month(data["month"]), version=data["version"],
+    )
+    return {"ok": True, "unchanged": not changed}

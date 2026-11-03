@@ -99,8 +99,8 @@ async def leave_house(house_id: int, tg_id: int) -> None:
 
     m = await repo.houses.get_membership(house_id, tg_id)
     if m and m["role"] == perms.ROLE_OWNER:
-        raise DomainError("Владелец не может выйти из дома. Сначала передайте дом другому — "
-                          "или напишите разработчику.")
+        raise DomainError("Владелец не может выйти из дома. Передайте дом другому жильцу "
+                          "(Дом → Управление домом) или удалите его.")
     today = settings.house_today(await settings.house_settings(house_id))
     if not await repo.houses.leave_member(house_id, tg_id, today):
         raise DomainError("Участие в доме уже изменилось. Обновите страницу.")
@@ -162,3 +162,54 @@ async def rename_member(house_id: int, tg_id: int, new_name: str) -> None:
     if not name or len(name) > MAX_MEMBER_NAME_LEN:
         raise DomainError("Имя не может быть пустым или слишком длинным")
     await repo.houses.set_display_name(house_id, tg_id, name)
+
+
+# ── Управление домом: удаление, передача, исключение ─────────────────────────
+
+async def _active_owner(house_id: int, tg_id: int, refusal: str):
+    member = await membership(house_id, tg_id)
+    if member is None or member["status"] != "active" or member["role"] != perms.ROLE_OWNER:
+        raise DomainError(refusal)
+    return member
+
+
+async def delete_house(house_id: int, actor: int, confirm_name: str) -> dict:
+    """Дом со всеми записями исчезает навсегда: только владелец и только с точным названием."""
+    await _active_owner(house_id, actor, "Дом может удалить только его владелец")
+    house = await get_house(house_id)
+    if confirm_name.strip() != house["name"]:
+        raise DomainError("Название не совпало, дом не удалён")
+    others = [row["tg_id"] for row in await repo.houses.list_active_members(house_id) if row["tg_id"] != actor]
+    await repo.houses.delete_house(house_id)
+    logger.info(f"🗑 Дом id={house_id} «{house['name']}» удалён владельцем {actor}")
+    return {"name": house["name"], "others": others}
+
+
+async def transfer_ownership(house_id: int, actor: int, target: int) -> str:
+    await _active_owner(house_id, actor, "Передать дом может только его владелец")
+    if target == actor:
+        raise DomainError("Выберите другого жильца")
+    heir = await membership(house_id, target)
+    if heir is None or heir["status"] != "active":
+        raise DomainError("Жилец уже вышел из дома. Обновите список жильцов")
+    if not await repo.houses.transfer_owner(house_id, actor, target):
+        raise DomainError("Состав дома изменился. Обновите страницу и повторите")
+    logger.info(f"👑 Дом id={house_id}: владение передано {target}")
+    return heir["display_name"]
+
+
+async def remove_member(house_id: int, actor: int, target: int) -> str:
+    await require(house_id, actor, "manage_members")
+    if target == actor:
+        raise DomainError("Себя убрать нельзя — используйте «Выйти из дома»")
+    member = await membership(house_id, target)
+    if member is None or member["status"] != "active":
+        raise DomainError("Жилец уже вышел из дома. Обновите список жильцов")
+    if member["role"] == perms.ROLE_OWNER:
+        raise DomainError("Владельца убрать нельзя")
+    from services import settings
+
+    today = settings.house_today(await settings.house_settings(house_id))
+    if not await repo.houses.leave_member(house_id, target, today):
+        raise DomainError("Участие уже изменилось. Обновите список жильцов")
+    return member["display_name"]

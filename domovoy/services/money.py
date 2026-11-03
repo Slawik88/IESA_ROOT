@@ -10,9 +10,9 @@ from core.constants import (
     MAX_DESCRIPTION_LEN, MAX_PHOTOS_PER_EXPENSE,
 )
 from infrastructure import repositories as repo
-from services.households import DomainError, require, require_member
+from services.households import DomainError, can, require, require_member
 from services.transaction_dates import parse_date, parse_month
-from core.transaction_versions import expense_version
+from core.transaction_versions import contribution_version, expense_version
 
 MODE_HOUSE = "house"        # трата из котла
 MODE_PERSONAL = "personal"  # заплатил за всех своими — ждёт возврата из котла
@@ -75,6 +75,51 @@ async def resolve_contribution(
 
 async def pending_contributions(house_id: int) -> list:
     return await repo.money.pending_contributions(house_id)
+
+
+def can_modify_contribution(contribution, actor: int, approver: bool, confirmation_required: bool) -> bool:
+    """Автор правит своё, пока взнос не подтверждён (или подтверждение в доме не нужно); подтверждающий — любой."""
+    if approver:
+        return True
+    return contribution["tg_id"] == actor and (contribution["status"] != STATUS_CONFIRMED or not confirmation_required)
+
+
+async def _modifiable_contribution(house_id: int, contribution_id: int, actor: int, version: str):
+    from services.settings import house_setting
+
+    await require_member(house_id, actor)
+    contribution = await repo.money.get_contribution(contribution_id)
+    if contribution is None or contribution["house_id"] != house_id:
+        raise DomainError("Взнос не найден")
+    approver = await can(house_id, actor, "confirm_contributions")
+    confirmation_required = await house_setting(house_id, "confirm_contributions")
+    if not can_modify_contribution(contribution, actor, approver, confirmation_required):
+        raise DomainError("Этот взнос может изменить автор, пока он не подтверждён, или жилец с правом «Взносы»")
+    if contribution_version(contribution) != version:
+        raise DomainError("Взнос уже изменили. Обновите историю и откройте его заново.")
+    return contribution
+
+
+async def edit_contribution(
+    house_id: int, contribution_id: int, actor: int, *, amount_kop: int, paid_on: str, month: str, version: str,
+) -> bool:
+    """True — изменён, False — значения те же. Сумма и месяц подтверждённого взноса меняют остаток котла."""
+    before = await _modifiable_contribution(house_id, contribution_id, actor, version)
+    _validate_amount(amount_kop)
+    after = {"amount_kop": amount_kop, "month": month, "paid_on": paid_on}
+    if all(before[key] == value for key, value in after.items()):
+        return False
+    snapshot = {key: before[key] for key in ("id", "amount_kop", "month", "paid_on", "status")}
+    if not await repo.money.edit_contribution(house_id, actor, snapshot, after):
+        raise DomainError("Запись изменилась во время сохранения. Обновите историю и проверьте её.")
+    return True
+
+
+async def delete_contribution(house_id: int, contribution_id: int, actor: int, version: str) -> None:
+    before = await _modifiable_contribution(house_id, contribution_id, actor, version)
+    snapshot = {key: before[key] for key in ("id", "amount_kop", "month", "paid_on", "status")}
+    if not await repo.money.delete_contribution_if_unchanged(house_id, snapshot):
+        raise DomainError("Взнос изменился. Обновите историю перед удалением.")
 
 
 # ── Траты и чеки ─────────────────────────────────────────────────────────────
@@ -154,6 +199,20 @@ async def reimburse_expense(
         raise DomainError("Эта трата уже возвращена")
 
 
+async def unreimburse_expense(house_id: int, expense_id: int, actor: int, expected_version: str) -> None:
+    """Отменить ошибочный возврат: сумма снова ждёт возврата, трату можно править."""
+    await require(house_id, actor, "confirm_contributions")
+    expense = await repo.money.get_expense(expense_id)
+    if expense is None or expense["house_id"] != house_id:
+        raise DomainError("Трата не найдена")
+    if not expense["reimbursed"]:
+        raise DomainError("Возврат по этой трате не отмечен")
+    if expense_version(expense) != expected_version:
+        raise DomainError("Трату уже изменили. Обновите историю и проверьте её.")
+    if not await repo.money.unreimburse_expense(house_id, actor, dict(expense)):
+        raise DomainError("Трата изменилась. Обновите историю и повторите.")
+
+
 # ── Категории ────────────────────────────────────────────────────────────────
 
 async def categories(house_id: int) -> list:
@@ -181,6 +240,21 @@ async def remove_category(house_id: int, category_id: int) -> None:
     if await repo.money.category_expense_count(category_id):
         raise DomainError("В этой категории уже есть траты — категорию не удалить")
     await repo.money.delete_category(category_id)
+
+
+async def rename_category(house_id: int, category_id: int, name: str) -> None:
+    name = name.strip()
+    if not name:
+        raise DomainError("Название категории не может быть пустым")
+    if len(name) > MAX_CATEGORY_NAME_LEN:
+        raise DomainError(f"Название категории — до {MAX_CATEGORY_NAME_LEN} символов")
+    category = await repo.money.get_category(category_id)
+    if category is None or category["house_id"] != house_id:
+        raise DomainError("Категория не найдена")
+    known = {row["name"].casefold(): row["id"] for row in await repo.money.list_categories(house_id)}
+    if known.get(name.casefold(), category_id) != category_id:
+        raise DomainError("Такая категория уже есть")
+    await repo.money.rename_category(house_id, category_id, name)
 
 
 # ── Баланс и отчёты ──────────────────────────────────────────────────────────

@@ -114,7 +114,7 @@ def _read_file(content: bytes, extension: str) -> list[dict]:
             document = json.loads(text)
             if (not isinstance(document, dict) or document.get("format") != "domovoy-money"
                     or document.get("version") != 1):
-                raise DomainError("Нужен JSON Домового версии 1. Скачайте пример через «Экспорт».")
+                raise DomainError("Нужен JSON Домового версии 1. Скачайте шаблон в формате JSON.")
             rows = document.get("transactions")
             if not isinstance(rows, list):
                 raise DomainError("В JSON отсутствует список transactions")

@@ -47,6 +47,9 @@ WEB_JOURNAL_PAGE_SIZE = 20
 WEB_HOME_RECENT_LIMIT = 5
 QUICK_TRANSACTION_LIMIT = 4
 JOURNAL_SEARCH_LIMIT = 80
+# Сколько страниц журнала сайт может запросить одним ответом (после правки список остаётся той же длины).
+JOURNAL_MAX_SPAN = 10
+FILE_SEND_TIMEOUT_S = 20
 
 # ── Категории трат по умолчанию (сидятся при создании дома) ──────────────────
 DEFAULT_CATEGORIES = ("Продукты", "Бытовая химия", "Коммуналка", "Ремонт", "Прочее")

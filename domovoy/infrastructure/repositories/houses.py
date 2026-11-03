@@ -252,3 +252,56 @@ async def clear_member_grants(house_id: int, tg_id: int) -> None:
         await conn.execute(
             "DELETE FROM member_permissions WHERE house_id = ? AND tg_id = ?", house_id, tg_id
         )
+
+
+class _Rollback(Exception):
+    """Состав дома изменился между проверкой и передачей: транзакция откатывается."""
+
+
+async def transfer_owner(house_id: int, old_owner: int, new_owner: int) -> bool:
+    """Передача владения: ровно один владелец до и после, права нового владельца не нужны."""
+    try:
+        async with db.transaction() as conn:
+            suffix = " FOR UPDATE" if db.is_postgres else ""
+            await conn.fetchrow("SELECT id FROM houses WHERE id = ?" + suffix, house_id)
+            demoted = await conn.execute(
+                "UPDATE memberships SET role = 'member' WHERE house_id = ? AND tg_id = ? AND role = 'owner' "
+                "AND status = 'active'", house_id, old_owner,
+            )
+            promoted = await conn.execute(
+                "UPDATE memberships SET role = 'owner' WHERE house_id = ? AND tg_id = ? AND role = 'member' "
+                "AND status = 'active'", house_id, new_owner,
+            )
+            if not (demoted and promoted):
+                raise _Rollback
+            await conn.execute("DELETE FROM member_permissions WHERE house_id = ? AND tg_id = ?", house_id, new_owner)
+    except _Rollback:
+        return False
+    return True
+
+
+async def delete_house(house_id: int) -> None:
+    """Дом со всеми записями — одна транзакция; порядок удаления — от зависимых таблиц к houses."""
+    async with db.transaction() as conn:
+        suffix = " FOR UPDATE" if db.is_postgres else ""
+        await conn.fetchrow("SELECT id FROM houses WHERE id = ?" + suffix, house_id)
+        for statement in (
+            "DELETE FROM web_receipt_uploads WHERE house_id = ?",
+            "DELETE FROM expense_photos WHERE expense_id IN (SELECT id FROM expenses WHERE house_id = ?)",
+            "DELETE FROM expense_edits WHERE house_id = ?",
+            "DELETE FROM contribution_edits WHERE house_id = ?",
+            "DELETE FROM money_import_items WHERE house_id = ?",
+            "DELETE FROM expenses WHERE house_id = ?",
+            "DELETE FROM contributions WHERE house_id = ?",
+            "DELETE FROM categories WHERE house_id = ?",
+            "DELETE FROM cleaning_days WHERE house_id = ?",
+            "DELETE FROM schedule_versions WHERE house_id = ?",
+            "DELETE FROM member_permissions WHERE house_id = ?",
+            "DELETE FROM memberships WHERE house_id = ?",
+            "DELETE FROM house_settings WHERE house_id = ?",
+            "DELETE FROM user_notify_settings WHERE house_id = ?",
+            "DELETE FROM scheduler_log WHERE house_id = ?",
+        ):
+            await conn.execute(statement, house_id)
+        await conn.execute("UPDATE users SET active_house_id = NULL WHERE active_house_id = ?", house_id)
+        await conn.execute("DELETE FROM houses WHERE id = ?", house_id)

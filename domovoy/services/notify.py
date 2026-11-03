@@ -86,3 +86,14 @@ async def contribution_declared(bot, house, contribution, currency: str, markup=
             )
     if texts:
         await deliver(bot, house, "contribution_declared", texts, markup=markup)
+
+
+async def direct(bot, tg_ids, text: str) -> None:
+    """Важное сообщение в личку независимо от настроек: удаление дома, исключение, передача владения."""
+    if bot is None:
+        return
+    for tg_id in tg_ids:
+        try:
+            await bot.send_message(tg_id, text)
+        except Exception as exc:  # личка недоступна: пользователь не стартовал бот или заблокировал
+            logger.warning(f"✉️ Личка {tg_id} недоступна (важное сообщение): {exc}")

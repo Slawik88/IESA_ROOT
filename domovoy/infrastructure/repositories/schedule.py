@@ -213,3 +213,17 @@ async def month_history(house_id: int, month: str) -> list:
             """,
             house_id, month + "%",
         )
+
+
+async def reopen_day(day_id: int, house_id: int) -> bool:
+    """Вернуть закрытый или отменённый день в «ждёт отметки» (ошибочное нажатие «Готово»)."""
+    async with db.acquire() as conn:
+        count = await conn.execute(
+            """
+            UPDATE cleaning_days
+            SET status = 'open', actual_date = NULL, closed_by = NULL, closed_at = NULL
+            WHERE id = ? AND house_id = ? AND status IN ('done', 'canceled')
+            """,
+            day_id, house_id,
+        )
+        return count > 0

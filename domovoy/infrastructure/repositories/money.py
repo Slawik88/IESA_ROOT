@@ -51,6 +51,13 @@ async def add_category(house_id: int, name: str) -> int:
         )
 
 
+async def rename_category(house_id: int, category_id: int, name: str) -> bool:
+    async with db.acquire() as conn:
+        return await conn.execute(
+            "UPDATE categories SET name = ? WHERE id = ? AND house_id = ?", name, category_id, house_id,
+        ) > 0
+
+
 async def delete_category(category_id: int) -> bool:
     async with db.acquire() as conn:
         rowcount = await conn.execute("DELETE FROM categories WHERE id = ?", category_id)
@@ -304,3 +311,52 @@ async def photos_count(expense_id: int) -> int:
             "SELECT COUNT(*) AS n FROM expense_photos WHERE expense_id = ?", expense_id
         )
         return int(row["n"]) if row else 0
+
+
+async def edit_contribution(house_id: int, actor: int, before: dict, after: dict) -> bool:
+    """Правка взноса и запись «было/стало» — одна транзакция; параллельное изменение не проходит."""
+    async with db.transaction() as conn:
+        changed = await conn.execute(
+            """UPDATE contributions SET amount_kop = ?, month = ?, paid_on = ?
+               WHERE id = ? AND house_id = ? AND amount_kop = ? AND month = ? AND paid_on = ? AND status = ?""",
+            after["amount_kop"], after["month"], after["paid_on"], before["id"], house_id,
+            before["amount_kop"], before["month"], before["paid_on"], before["status"],
+        )
+        if not changed:
+            return False
+        await conn.insert(
+            """INSERT INTO contribution_edits
+               (house_id, contribution_id, actor, changed_at, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?)""",
+            house_id, before["id"], actor, now_utc(), json.dumps(before, ensure_ascii=False),
+            json.dumps(after, ensure_ascii=False),
+        )
+    return True
+
+
+async def delete_contribution_if_unchanged(house_id: int, before: dict) -> bool:
+    async with db.acquire() as conn:
+        return await conn.execute(
+            """DELETE FROM contributions WHERE id = ? AND house_id = ? AND amount_kop = ? AND month = ?
+               AND paid_on = ? AND status = ?""",
+            before["id"], house_id, before["amount_kop"], before["month"], before["paid_on"], before["status"],
+        ) > 0
+
+
+async def unreimburse_expense(house_id: int, actor: int, before: dict) -> bool:
+    """Отменить отметку «возвращено»: сумма снова ждёт возврата; действие остаётся в истории правок."""
+    async with db.transaction() as conn:
+        changed = await conn.execute(
+            """UPDATE expenses SET reimbursed = 0
+               WHERE id = ? AND house_id = ? AND mode = 'personal' AND reimbursed = 1 AND amount_kop = ?
+                 AND COALESCE(category_id, 0) = ? AND spent_on = ? AND description = ?""",
+            before["id"], house_id, before["amount_kop"], before["category_id"] or 0,
+            before["spent_on"], before["description"],
+        )
+        if not changed:
+            return False
+        await conn.insert(
+            """INSERT INTO expense_edits
+               (house_id, expense_id, actor, changed_at, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?)""",
+            house_id, before["id"], actor, now_utc(), json.dumps({"reimbursed": 1}), json.dumps({"reimbursed": 0}),
+        )
+    return True

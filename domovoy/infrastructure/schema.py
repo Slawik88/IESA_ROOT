@@ -175,6 +175,18 @@ _STATEMENTS = (
         after_json TEXT NOT NULL
     )
     """,
+    # Правка взноса сохраняет прежние значения и автора правки.
+    """
+    CREATE TABLE IF NOT EXISTS contribution_edits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        house_id INTEGER NOT NULL REFERENCES houses(id),
+        contribution_id BIGINT NOT NULL REFERENCES contributions(id) ON DELETE CASCADE,
+        actor BIGINT NOT NULL,
+        changed_at TEXT NOT NULL,
+        before_json TEXT NOT NULL,
+        after_json TEXT NOT NULL
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS money_import_items (
         house_id INTEGER NOT NULL REFERENCES houses(id),

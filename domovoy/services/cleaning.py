@@ -165,3 +165,17 @@ def member_stats(history_rows: list) -> dict[int, dict]:
         )
         entry[row["status"]] += 1
     return stats
+
+
+async def reopen_day(house_id: int, day_id: int, actor: int) -> None:
+    """Вернуть день в «ждёт отметки»: свою отметку — автор, чужую или пропуск — с правом close_others_days."""
+    await require_member(house_id, actor)
+    day = await repo.schedule.get_day(day_id)
+    if day is None or day["house_id"] != house_id:
+        raise DomainError("День не найден")
+    if day["status"] == "open":
+        raise DomainError("Этот день уже ждёт отметки")
+    if not (day["tg_id"] == actor and day["status"] == "done"):
+        await require(house_id, actor, "close_others_days")
+    if not await repo.schedule.reopen_day(day_id, house_id):
+        raise DomainError("День уже изменился. Обновите страницу")

@@ -46,6 +46,14 @@ class PermissionValue(BaseModel):
     granted: StrictBool
 
 
+class DeleteHouse(BaseModel):
+    confirm_name: StrictStr = Field(min_length=1, max_length=MAX_HOUSE_NAME_LEN)
+
+
+class Heir(BaseModel):
+    target: StrictInt
+
+
 class Category(BaseModel):
     name: StrictStr = Field(min_length=1, max_length=MAX_CATEGORY_NAME_LEN)
 
@@ -150,6 +158,33 @@ async def add_category(request: Request, house_id: int, payload: Category):
 @router.post("/houses/{house_id}/categories/{category_id}/delete")
 async def remove_category(request: Request, house_id: int, category_id: int):
     await web_households.remove_category(house_id, request.state.actor, category_id)
+    return {"ok": True}
+
+
+@router.post("/houses/{house_id}/categories/{category_id}/rename")
+async def rename_category(request: Request, house_id: int, category_id: int, payload: Category):
+    await web_households.rename_category(house_id, request.state.actor, category_id, payload.name)
+    return {"ok": True}
+
+
+@router.post("/houses/{house_id}/delete")
+async def delete_house(request: Request, house_id: int, payload: DeleteHouse):
+    return await web_households.delete_house(house_id, request.state.actor, payload.confirm_name, request.app.state.bot)
+
+
+@router.post("/houses/{house_id}/owner")
+async def transfer_ownership(request: Request, house_id: int, payload: Heir):
+    return await web_households.transfer_ownership(house_id, request.state.actor, payload.target, request.app.state.bot)
+
+
+@router.post("/houses/{house_id}/members/{target}/remove")
+async def remove_member(request: Request, house_id: int, target: int):
+    return await web_households.remove_member(house_id, request.state.actor, target, request.app.state.bot)
+
+
+@router.post("/houses/{house_id}/cleaning/{day_id}/reopen")
+async def reopen_cleaning(request: Request, house_id: int, day_id: int):
+    await web_households.reopen_cleaning(house_id, request.state.actor, day_id)
     return {"ok": True}
 
 

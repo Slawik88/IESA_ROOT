@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlparse
 from core import permissions as perms, settings_registry as registry
 from core.constants import MAX_HOUSE_NAME_LEN, MAX_MEMBER_NAME_LEN
 from infrastructure import repositories as repo
-from services import cleaning, households, money, settings
+from services import cleaning, households, money, notify, settings
 from services.households import DomainError
 from services.transaction_dates import parse_month
 
@@ -199,3 +199,32 @@ async def cancel_cleaning(house_id: int, actor: int, day_id: int) -> None:
 async def leave(house_id: int, actor: int) -> None:
     await households.require_member(house_id, actor)
     await households.leave_house(house_id, actor)
+
+
+async def delete_house(house_id: int, actor: int, confirm_name: str, bot) -> dict:
+    result = await households.delete_house(house_id, actor, confirm_name)
+    await notify.direct(bot, result["others"], f"🗑 Дом «{result['name']}» удалён владельцем вместе со всеми записями.")
+    return {"ok": True}
+
+
+async def transfer_ownership(house_id: int, actor: int, target: int, bot) -> dict:
+    await households.transfer_ownership(house_id, actor, target)
+    house = await households.get_house(house_id)
+    await notify.direct(bot, [target], f"👑 Вы теперь владелец дома «{house['name']}».")
+    return {"ok": True}
+
+
+async def remove_member(house_id: int, actor: int, target: int, bot) -> dict:
+    house = await households.get_house(house_id)
+    await households.remove_member(house_id, actor, target)
+    await notify.direct(bot, [target], f"Вас убрали из дома «{house['name']}».")
+    return {"ok": True}
+
+
+async def rename_category(house_id: int, actor: int, category_id: int, name: str) -> None:
+    await households.require(house_id, actor, "manage_categories")
+    await money.rename_category(house_id, category_id, name)
+
+
+async def reopen_cleaning(house_id: int, actor: int, day_id: int) -> None:
+    await cleaning.reopen_day(house_id, day_id, actor)

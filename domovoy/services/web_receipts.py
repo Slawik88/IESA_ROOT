@@ -56,7 +56,8 @@ async def list_receipts(house_id: int, expense_id: int, actor: int, *, available
     return {"receipts": [{"id": row["id"]} for row in photos],
             "can_upload": available and can_edit and not expense["reimbursed"]
             and len(photos) + pending < MAX_PHOTOS_PER_EXPENSE,
-            "available": available, "max_count": MAX_PHOTOS_PER_EXPENSE,
+            "can_edit": can_edit and not expense["reimbursed"], "available": available,
+            "max_count": MAX_PHOTOS_PER_EXPENSE,
             "max_bytes": MAX_RECEIPT_UPLOAD_BYTES,
             "upload_notice": "Фото также появится в вашем личном чате с ботом"}
 
@@ -144,3 +145,9 @@ async def delete_expense(house_id: int, expense_id: int, actor: int, version: st
         raise DomainError("Расход изменился. Обновите историю перед удалением.")
     if not await receipts.delete_expense_if_unchanged(house_id, expense_id, dict(expense)):
         raise DomainError("Расход изменился. Обновите историю перед удалением.")
+
+
+async def delete_receipt(house_id: int, expense_id: int, photo_id: int, actor: int) -> None:
+    await _expense(house_id, expense_id, actor, edit=True)
+    if not await receipts.delete_photo(house_id, expense_id, photo_id):
+        raise DomainError("Чек не найден или расход уже изменился. Обновите список.")

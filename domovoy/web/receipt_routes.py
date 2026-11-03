@@ -35,6 +35,11 @@ def register_receipt_routes(app: FastAPI, bot=None) -> None:
         return await web_receipts.upload_receipt(house_id, expense_id, request.state.actor,
                                                 str(payload.request_id), payload.content, bot=bot)
 
+    @app.post("/api/houses/{house_id}/expenses/{expense_id}/receipts/{photo_id}/delete")
+    async def remove_receipt(request: Request, house_id: int, expense_id: int, photo_id: int):
+        await web_receipts.delete_receipt(house_id, expense_id, photo_id, request.state.actor)
+        return {"ok": True}
+
     @app.post("/api/houses/{house_id}/expenses/{expense_id}/delete")
     async def remove(request: Request, house_id: int, expense_id: int, payload: ExpenseRemoval):
         await web_receipts.delete_expense(house_id, expense_id, request.state.actor, payload.version)
