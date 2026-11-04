@@ -263,10 +263,18 @@ def main() -> int:
 
     results = []
     t0 = time.time()
-    log(f"no-DB tests: {len(nodb)} (parallel x{args.jobs}); DB tests selected: {len(withdb)}; quarantined: {len(skipped)}")
+    js = [t for t in js_tests if t.name not in quarantine] if (args.all or any(c.endswith(".js") for c in changed)) else []
+    skipped += [t.name for t in js_tests if t.name in quarantine]
+    # Slow tests carry time budgets (a card in < 1 s, a chart in 0.75 s): under 8 parallel neighbours they
+    # fail on load, not on code. They run alone after the parallel batch.
+    slow = [t for t in nodb if meta.get(t.name, {}).get("s", 0) > FAST_LIMIT_S]
+    quick = [t for t in nodb if t not in slow]
+    log(f"no-DB tests: {len(quick)} parallel x{args.jobs} + {len(slow)} slow one by one; JS: {len(js)}; "
+        f"DB tests selected: {len(withdb)}; quarantined: {len(skipped)}")
     with ThreadPoolExecutor(args.jobs) as ex:
-        results += list(ex.map(lambda t: _run_test(t, False), nodb))
-        results += list(ex.map(_run_node, js_tests if (args.all or any(c.endswith(".js") for c in changed)) else []))
+        results += list(ex.map(lambda t: _run_test(t, False), quick))
+        results += list(ex.map(_run_node, js))
+    results += [_run_test(t, False) for t in slow]
 
     if withdb and not args.no_db:
         if ensure_db(log) and prepare_db(log, args.bootstrap or not snapshot_present()):
