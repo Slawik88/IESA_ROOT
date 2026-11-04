@@ -355,12 +355,15 @@ async def purge_flow(db, bot):
     assert "Забанены" in done and "[Свежий из Telegram]" in done and "Кикнуты" in done and f"@{ZW}talker" in done, done
     assert "Ждут решения" not in done and "Без решения</b>" in done and "[Новый у gamma]" in done, done   # кто остался без решения — тоже по именам
 
-    # Ушедший из чата: Telegram ответил «left» — тег в базе не затирается, досье всё равно уходит
+    # Ушедший из чата: Telegram ответил «left» — тег в базе не затирается, а досье нет: наказывать в чате некого
     bot.tags[2001] = "__left__"
     s_before = len(bot.sent)
     await run(db, bot, f"бот чистка, 10 {span}")
     await asyncio.sleep(1.5)
-    assert any("silent" in t and "Свежий из Telegram" in t for _, t, _ in bot.sent[s_before:]), [t[:60] for _, t, _ in bot.sent[s_before:]]
+    assert not any("silent" in t for _, t, _ in bot.sent[s_before:]), [t[:60] for _, t, _ in bot.sent[s_before:]]
+    assert await stored(db, 2001) == "Свежий из Telegram"
+    async with db.execute("SELECT is_left FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = 2001", (CHAT,)) as cur:
+        assert (await cur.fetchone())[0] is True, "ушедший помечен"
     await run(db, bot, "бот чистка стоп")
 
 

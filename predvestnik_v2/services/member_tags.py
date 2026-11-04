@@ -25,6 +25,7 @@ HISTORY_KEEP = 30       # смен тега на игрока в карточк�
 CACHE_LIMIT = 100_000
 BACKFILL_BATCH = 40     # людей за один проход фонового обхода
 BACKFILL_PAUSE = 0.35   # секунд между запросами: около трёх в секунду, это далеко от лимита Telegram
+TAG_RECHECK_DAYS = 14   # тег молчащего обход перепроверяет раз в две недели (членство — каждые сутки)
 DENIED_PAUSE = 6 * 3600 # чат, где Telegram отказал (бот не админ, список скрыт), пропускаем на шесть часов
 FRESH_LIMIT = 25        # сколько незнакомых строк списка дозапрашиваем при показе
 FRESH_TIMEOUT = 6.0
@@ -214,10 +215,12 @@ async def probe(bot, chat_id: int, user_id: int) -> tuple[str, str | None]:
     return "ok", of_member(member)
 
 
-async def settle(db, chat_id: int, user_id: int, state: str, tag: str | None) -> bool:
-    """Применить исход probe. True — вопрос по этому человеку закрыт (больше не спрашивать до срока перепроверки)."""
+async def settle(db, chat_id: int, user_id: int, state: str, tag: str | None, *, update_tag: bool = True) -> bool:
+    """Применить исход probe. True — вопрос по этому человеку закрыт (больше не спрашивать до срока перепроверки).
+    update_tag=False — спрашивали только «в чате ли он»: тег, известный из его сообщений, не трогаем."""
     if state == "ok":
-        await observe(db, chat_id, user_id, tag)
+        if update_tag:
+            await observe(db, chat_id, user_id, tag)
         try:
             await db.execute("UPDATE user_chat_stats SET membership_checked_at = NOW() "
                              "WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
@@ -262,11 +265,12 @@ async def ensure_fresh(bot, db, chat_id: int, user_ids, limit: int = FRESH_LIMIT
     marks = ", ".join("?" for _ in ids)
     stale = f"NOW() - INTERVAL '{membership.RECHECK_HOURS} hours'"
     async with db.execute(
-        f"SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND COALESCE(is_bot, FALSE) = FALSE "
+        f"SELECT user_tg_id, member_tag_checked_at IS NULL FROM user_chat_stats WHERE chat_tg_id = ? AND COALESCE(is_bot, FALSE) = FALSE "
         f"AND COALESCE(is_left, FALSE) = FALSE AND (member_tag_checked_at IS NULL OR membership_checked_at IS NULL "
         f"OR (membership_checked_at < {stale} AND COALESCE(last_message_at, TIMESTAMP '2000-01-01') < {stale})) "
         f"AND user_tg_id IN ({marks})", (chat_id, *ids)) as cur:
-        todo = [int(r[0]) for r in await cur.fetchall()][:limit]
+        rows = (await cur.fetchall())[:limit]
+    todo, tag_unknown = [int(r[0]) for r in rows], {int(r[0]) for r in rows if r[1]}
     if not todo:
         return set()
     gate = asyncio.Semaphore(6)
@@ -284,7 +288,7 @@ async def ensure_fresh(bot, db, chat_id: int, user_ids, limit: int = FRESH_LIMIT
         logger.debug(f"tags ensure_fresh {chat_id}: {exc}")
         return set()
     for uid, (state, tag) in answers:
-        await settle(db, chat_id, uid, state, tag)
+        await settle(db, chat_id, uid, state, tag, update_tag=uid in tag_unknown)
     return {uid for uid, (state, _) in answers if state == "gone"}
 
 
@@ -301,7 +305,9 @@ async def backfill_batch(bot, db, limit: int = BACKFILL_BATCH) -> int:
     Кто пишет, тот в чате, его не спрашиваем. Берутся только чаты, где бот админ.
     Возвращает, сколько человек разобрано; 0 — делать пока нечего."""
     async with db.execute(
-        "SELECT s.chat_tg_id, s.user_tg_id FROM user_chat_stats s "
+        "SELECT s.chat_tg_id, s.user_tg_id, "
+        f"(s.member_tag_checked_at IS NULL OR s.member_tag_checked_at < NOW() - INTERVAL '{TAG_RECHECK_DAYS} days') "
+        "FROM user_chat_stats s "
         "JOIN chat_settings c ON c.chat_id = s.chat_tg_id "
         "WHERE s.chat_tg_id < 0 AND c.bot_left_at IS NULL AND COALESCE(c.bot_is_admin, TRUE) = TRUE "
         "AND COALESCE(s.is_left, FALSE) = FALSE AND COALESCE(s.is_bot, FALSE) = FALSE "
@@ -309,9 +315,9 @@ async def backfill_batch(bot, db, limit: int = BACKFILL_BATCH) -> int:
         f"AND (s.membership_checked_at IS NULL OR COALESCE(s.last_message_at, TIMESTAMP '2000-01-01') < NOW() - INTERVAL '{membership.RECHECK_HOURS} hours') "
         "ORDER BY (s.membership_checked_at IS NULL) DESC, s.last_message_at ASC NULLS FIRST LIMIT ?",
         (limit * 4,)) as cur:
-        rows = [(int(r[0]), int(r[1])) for r in await cur.fetchall()]
+        rows = [(int(r[0]), int(r[1]), bool(r[2])) for r in await cur.fetchall()]
     done = 0
-    for chat_id, user_id in rows:
+    for chat_id, user_id, tag_due in rows:
         if done >= limit:
             break
         if not _chat_open(chat_id):
@@ -319,7 +325,7 @@ async def backfill_batch(bot, db, limit: int = BACKFILL_BATCH) -> int:
         state, tag = await probe(bot, chat_id, user_id)
         if state == "retry":   # лимит Telegram или сеть: заканчиваем проход, обход продолжится позже
             break
-        if await settle(db, chat_id, user_id, state, tag):
+        if await settle(db, chat_id, user_id, state, tag, update_tag=tag_due):
             done += 1
         await asyncio.sleep(BACKFILL_PAUSE)
     return done
