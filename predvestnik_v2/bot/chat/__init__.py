@@ -110,6 +110,11 @@ async def on_message(message: Message, bot, db) -> None:
             await official_repo.topic_seen(db, official_policy.CHAT_ID, official_policy.THREAD_ID)
         except Exception as error:
             logger.warning("official topic observation failed: {}", type(error).__name__)
+    try:   # до ворот закрытого чата и чистки: они удаляют и служебные «вошёл» / «покинул группу»
+        from services import membership
+        await membership.observe_service(db, message)
+    except Exception as exc:
+        logger.warning(f"membership service message failed: {exc}")
     chat_id = message.chat.id if message.chat.type in ("group", "supergroup") else None
     try:
         bot_off = await feature_switches.disabled(db, ["all"], chat_id) is not None

@@ -18,10 +18,11 @@ import time
 
 from loguru import logger
 
+from services import membership
+
 MAX_LEN = 64            # Telegram разрешает до 16 символов тега, но звания и будущие правила шире: режем с запасом
 HISTORY_KEEP = 30       # смен тега на игрока в карточке админки
 CACHE_LIMIT = 100_000
-RECHECK_DAYS = 14       # тех, кто молчит, спрашиваем у Telegram заново не чаще раза в две недели
 BACKFILL_BATCH = 40     # людей за один проход фонового обхода
 BACKFILL_PAUSE = 0.35   # секунд между запросами: около трёх в секунду, это далеко от лимита Telegram
 DENIED_PAUSE = 6 * 3600 # чат, где Telegram отказал (бот не админ, список скрыт), пропускаем на шесть часов
@@ -32,6 +33,7 @@ STATEMENTS = (
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag TEXT",
     "ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS member_tag TEXT",
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag_checked_at TIMESTAMPTZ",   # когда тег последний раз подтвердил Telegram
+    "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS membership_checked_at TIMESTAMPTZ",   # когда Telegram подтвердил «в чате» или «ушёл»
     """CREATE TABLE IF NOT EXISTS member_tag_history (
         id      BIGSERIAL PRIMARY KEY,
         chat_id BIGINT NOT NULL,
@@ -206,24 +208,35 @@ async def probe(bot, chat_id: int, user_id: int) -> tuple[str, str | None]:
         return "retry", None
     if getattr(getattr(member, "user", None), "is_bot", False):
         return "bot", None
-    if getattr(member, "status", None) in ("left", "kicked"):
-        return "gone", None
+    status = getattr(member, "status", None)
+    if status in ("left", "kicked") or (status == "restricted" and getattr(member, "is_member", True) is False):
+        return "gone", None   # замученный, который вышел, для Telegram всё ещё «restricted», но is_member = False
     return "ok", of_member(member)
 
 
-async def _settle(db, chat_id: int, user_id: int, state: str, tag: str | None) -> bool:
+async def settle(db, chat_id: int, user_id: int, state: str, tag: str | None) -> bool:
     """Применить исход probe. True — вопрос по этому человеку закрыт (больше не спрашивать до срока перепроверки)."""
     if state == "ok":
         await observe(db, chat_id, user_id, tag)
+        try:
+            await db.execute("UPDATE user_chat_stats SET membership_checked_at = NOW() "
+                             "WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
+            await db.commit()
+        except Exception as exc:
+            logger.warning(f"membership mark skipped for {chat_id}/{user_id}: {exc}")
         return True
     if state == "bot":   # признак «бот» сохраняем: больше этого человека не спрашиваем и в чистку/топы он не попадает
         from services import chat_bots
         await chat_bots.mark(db, user_id)
         return True
-    if state == "gone":   # вышел из чата: тег не меняем, но и спрашивать каждый раз незачем
+    if state == "gone":   # Telegram: в чате нет. Тег не меняем; из топов, неактивов и чистки человек уходит
         try:
-            await db.execute("UPDATE user_chat_stats SET member_tag_checked_at = NOW() "
-                             "WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
+            # Где бот не админ, Telegram не обязан честно отвечать про участников: там пометку ставят только
+            # события и служебные сообщения, а здесь лишь запоминаем, что спрашивали.
+            await db.execute(
+                "UPDATE user_chat_stats s SET member_tag_checked_at = NOW(), membership_checked_at = NOW(), "
+                "is_left = COALESCE(s.is_left, FALSE) OR COALESCE((SELECT c.bot_is_admin FROM chat_settings c WHERE c.chat_id = s.chat_tg_id), TRUE) "
+                "WHERE s.chat_tg_id = ? AND s.user_tg_id = ?", (chat_id, user_id))
             await db.commit()
         except Exception as exc:
             logger.warning(f"member tag mark skipped for {chat_id}/{user_id}: {exc}")
@@ -237,21 +250,25 @@ def _chat_open(chat_id: int) -> bool:
     return _denied.get(int(chat_id), 0.0) <= time.monotonic()
 
 
-async def ensure_fresh(bot, db, chat_id: int, user_ids, limit: int = FRESH_LIMIT) -> None:
-    """Перед показом списка узнать теги у тех, кого бот ещё ни разу не проверял: чтобы теги были видны сразу,
-    а не после того, как каждый напишет в чат. Спрашивает Telegram параллельно, ждёт не дольше FRESH_TIMEOUT; ошибки молчит."""
+async def ensure_fresh(bot, db, chat_id: int, user_ids, limit: int = FRESH_LIMIT) -> set[int]:
+    """Перед показом списка спросить Telegram о тех, кого бот ещё не проверял или давно не сверял, пока они молчат:
+    чтобы теги были видны сразу, а ушедшие не висели в списке. Спрашивает параллельно, ждёт не дольше FRESH_TIMEOUT;
+    ошибки молчит. Возвращает, кого Telegram в чате не нашёл: список стоит перечитать без них."""
     if bot is None or not chat_id or int(chat_id) >= 0 or not _chat_open(chat_id):
-        return
+        return set()
     ids = list(dict.fromkeys(int(i) for i in user_ids))
     if not ids:
-        return
+        return set()
     marks = ", ".join("?" for _ in ids)
+    stale = f"NOW() - INTERVAL '{membership.RECHECK_HOURS} hours'"
     async with db.execute(
-        f"SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND member_tag_checked_at IS NULL "
-        f"AND COALESCE(is_bot, FALSE) = FALSE AND user_tg_id IN ({marks})", (chat_id, *ids)) as cur:
+        f"SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND COALESCE(is_bot, FALSE) = FALSE "
+        f"AND COALESCE(is_left, FALSE) = FALSE AND (member_tag_checked_at IS NULL OR membership_checked_at IS NULL "
+        f"OR (membership_checked_at < {stale} AND COALESCE(last_message_at, TIMESTAMP '2000-01-01') < {stale})) "
+        f"AND user_tg_id IN ({marks})", (chat_id, *ids)) as cur:
         todo = [int(r[0]) for r in await cur.fetchall()][:limit]
     if not todo:
-        return
+        return set()
     gate = asyncio.Semaphore(6)
 
     async def ask(uid: int):
@@ -265,9 +282,10 @@ async def ensure_fresh(bot, db, chat_id: int, user_ids, limit: int = FRESH_LIMIT
         answers = await asyncio.wait_for(asyncio.gather(*(ask(u) for u in todo)), FRESH_TIMEOUT)
     except Exception as exc:
         logger.debug(f"tags ensure_fresh {chat_id}: {exc}")
-        return
+        return set()
     for uid, (state, tag) in answers:
-        await _settle(db, chat_id, uid, state, tag)
+        await settle(db, chat_id, uid, state, tag)
+    return {uid for uid, (state, _) in answers if state == "gone"}
 
 
 async def many_fresh(bot, db, chat_id: int, user_ids) -> dict[int, str]:
@@ -278,16 +296,18 @@ async def many_fresh(bot, db, chat_id: int, user_ids) -> dict[int, str]:
 
 
 async def backfill_batch(bot, db, limit: int = BACKFILL_BATCH) -> int:
-    """Один проход фонового обхода: узнать теги у тех, кого ещё не проверяли (сначала недавно писавшие), и перепроверить
-    давно молчащих. Берутся только чаты, где бот админ. Возвращает, сколько человек разобрано; 0 — делать пока нечего."""
+    """Один проход фонового обхода: спросить Telegram, в чате ли человек (и какой у него тег). Сначала те, кого ещё
+    не сверяли, затем молчащие дольше суток — раз в сутки; первыми идут дольше всех молчащие: среди них ушедшие.
+    Кто пишет, тот в чате, его не спрашиваем. Берутся только чаты, где бот админ.
+    Возвращает, сколько человек разобрано; 0 — делать пока нечего."""
     async with db.execute(
         "SELECT s.chat_tg_id, s.user_tg_id FROM user_chat_stats s "
         "JOIN chat_settings c ON c.chat_id = s.chat_tg_id "
         "WHERE s.chat_tg_id < 0 AND c.bot_left_at IS NULL AND COALESCE(c.bot_is_admin, TRUE) = TRUE "
         "AND COALESCE(s.is_left, FALSE) = FALSE AND COALESCE(s.is_bot, FALSE) = FALSE "
-        f"AND (s.member_tag_checked_at IS NULL OR (s.member_tag_checked_at < NOW() - INTERVAL '{RECHECK_DAYS} days' "
-        f"AND COALESCE(s.last_message_at, TIMESTAMP '2000-01-01') < NOW() - INTERVAL '{RECHECK_DAYS} days')) "
-        "ORDER BY (s.member_tag_checked_at IS NULL) DESC, s.last_message_at DESC NULLS LAST LIMIT ?",
+        f"AND (s.membership_checked_at IS NULL OR s.membership_checked_at < NOW() - INTERVAL '{membership.RECHECK_HOURS} hours') "
+        f"AND (s.membership_checked_at IS NULL OR COALESCE(s.last_message_at, TIMESTAMP '2000-01-01') < NOW() - INTERVAL '{membership.RECHECK_HOURS} hours') "
+        "ORDER BY (s.membership_checked_at IS NULL) DESC, s.last_message_at ASC NULLS FIRST LIMIT ?",
         (limit * 4,)) as cur:
         rows = [(int(r[0]), int(r[1])) for r in await cur.fetchall()]
     done = 0
@@ -299,7 +319,7 @@ async def backfill_batch(bot, db, limit: int = BACKFILL_BATCH) -> int:
         state, tag = await probe(bot, chat_id, user_id)
         if state == "retry":   # лимит Telegram или сеть: заканчиваем проход, обход продолжится позже
             break
-        if await _settle(db, chat_id, user_id, state, tag):
+        if await settle(db, chat_id, user_id, state, tag):
             done += 1
         await asyncio.sleep(BACKFILL_PAUSE)
     return done

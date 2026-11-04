@@ -13,6 +13,8 @@ STATEMENTS = (
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag TEXT",
     "ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS member_tag TEXT",
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag_checked_at TIMESTAMPTZ",
+    # Когда Telegram последний раз подтвердил, что человек в чате (или что ушёл): по ней обход сверяет участников; services/membership.py.
+    "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS membership_checked_at TIMESTAMPTZ",
     # Единственный владелец чата, синхронизируется с Telegram.
     "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS owner_id BIGINT",
     # Владелец, назначенный разработчиком бота командой «бот ранг, @ник владелец»; важнее телеграмного.

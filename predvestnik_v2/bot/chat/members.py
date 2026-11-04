@@ -6,7 +6,7 @@ from aiogram.types import ChatMemberUpdated
 
 from bot.chat import ranks
 from bot.chat.moderation import commit, is_blacklisted
-from services import chat_bots, member_tags
+from services import chat_bots, member_tags, membership
 
 router = Router(name="chat_members")
 INSIDE = ("member", "administrator", "creator", "restricted")
@@ -87,18 +87,12 @@ async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
             except Exception:
                 pass
             return
-        await db.execute(
-            "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, is_left) VALUES (?, ?, FALSE) "
-            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET is_left = FALSE, "
-            "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
-            "ELSE user_chat_stats.rejoined_at END",
-            (user.id, chat_id))
+        await membership.mark_present(db, chat_id, user.id)
         await member_tags.observe(db, chat_id, user.id, member_tags.of_member(new))   # вошёл или ему сменили тег/права
         await commit(db)
     elif _inside(new) and not user.is_bot:
         await member_tags.observe(db, chat_id, user.id, member_tags.of_member(new))   # остался в чате, но сменился тег или звание
         await commit(db)
     elif left and not user.is_bot:
-        await db.execute(
-            "UPDATE user_chat_stats SET is_left = TRUE WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user.id))
+        await membership.mark_left(db, chat_id, user.id)
         await commit(db)

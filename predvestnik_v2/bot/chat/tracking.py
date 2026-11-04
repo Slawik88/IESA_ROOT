@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 from aiogram.types import Message
 
 from bot.config import config
-from services import chat_bots, member_tags, name_history
+from services import chat_bots, member_tags, membership, name_history
 
 
 def tz_delta() -> timedelta:
@@ -97,6 +97,10 @@ async def record_message(db, message: Message) -> None:
     user = message.from_user
     chat = message.chat
     if not user or chat.type not in ("group", "supergroup"):
+        return
+    # «X вошёл» / «X покинул группу»: отправитель — сам ушедший или удаливший его админ. Это не сообщение игрока,
+    # и раньше оно снова записывало ушедшего в участники чата. Вход и уход отмечает on_message (membership.observe_service).
+    if membership.is_service(message):
         return
     if chat_bots.is_bot(user):   # боты и служебные аккаунты Telegram не участники: в топы и чистку не попадают, но признак запоминаем
         await chat_bots.observe(db, user)

@@ -15,7 +15,7 @@ from datetime import timedelta
 from core.economy_contract import CURRENCY_SPECS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from loguru import logger
-from services import chat_bots, member_tags, vip as vip_service
+from services import chat_bots, member_tags, membership, vip as vip_service
 from bot.chat import family, global_ranks, profile_view, ranks, skin_card, streak
 from bot.chat.profile_view import CardData, esc
 from bot.chat.achievements_data import ACHIEVEMENTS
@@ -125,7 +125,7 @@ async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
 
 
 async def chat_place(db, chat_id: int, user_id: int, since: str, until: str) -> int | None:
-    """Место в чате по сообщениям за период: 1 — больше всех. None, если игрок не писал."""
+    """Место в чате по сообщениям за период среди тех, кто ещё в чате (как в «бот топ»): 1 — больше всех. None, если игрок не писал."""
     async with db.execute(
         "SELECT COALESCE(SUM(message_count), 0) FROM daily_user_stats "
         "WHERE chat_id = ? AND user_id = ? AND date BETWEEN ? AND ?",
@@ -135,7 +135,7 @@ async def chat_place(db, chat_id: int, user_id: int, since: str, until: str) -> 
         return None
     async with db.execute(
         "SELECT COUNT(*) FROM (SELECT d.user_id FROM daily_user_stats d "
-        "WHERE d.chat_id = ? AND d.date BETWEEN ? AND ? AND " + chat_bots.NOT_BOT_DAILY +
+        "WHERE d.chat_id = ? AND d.date BETWEEN ? AND ? AND " + chat_bots.NOT_BOT_DAILY + " AND " + membership.PRESENT_DAILY +
         " GROUP BY d.user_id HAVING SUM(d.message_count) > ?) t",
         (chat_id, since, until, mine)) as cur:
         ahead = int((await cur.fetchone())[0])

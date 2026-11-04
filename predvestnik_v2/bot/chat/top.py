@@ -10,7 +10,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from bot.chat.framework import Ctx, registry
 from bot.chat.style import profile_link, quote
 from bot.chat.tracking import local_now
-from services import chat_bots, member_tags, skins_chat
+from services import chat_bots, member_tags, membership, skins_chat
 from infrastructure.repositories import stats as stats_repo
 
 PAGE_SIZE = 25
@@ -91,27 +91,34 @@ async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> 
         rows = [(page * PAGE_SIZE + i + 1,_esc(r["chat_title"]),int(r["msg_count"])) for i,r in enumerate(result["items"])]
         return render("Топ чатов", rows, page, pages, period, scope), pages
 
-    where, params = f"d.date BETWEEN ? AND ? AND {chat_bots.NOT_BOT_DAILY}", [a, b]   # боты в рейтинге игроков не нужны
+    # Боты и ушедшие в рейтинге игроков не нужны: в топе чата — кто ещё в этом чате, в общем — кто ещё хоть в одной группе.
+    where, params = f"d.date BETWEEN ? AND ? AND {chat_bots.NOT_BOT_DAILY}", [a, b]
     title = "Топ всех игроков"
     if scope == "c":
-        where += " AND d.chat_id = ?"
+        where += f" AND d.chat_id = ? AND {membership.PRESENT_DAILY}"
         params.append(chat)
         title = "Топ чата"
-    async with db.execute(
-        f"SELECT COUNT(DISTINCT d.user_id) FROM daily_user_stats d WHERE {where}", params
-    ) as cur:
-        total = (await cur.fetchone())[0] or 0
-    pages = max(1, -(-total // PAGE_SIZE))
-    page = min(page, pages - 1)
-    async with db.execute(
-        f"SELECT d.user_id, u.user_tg_username, SUM(d.message_count) AS c "
-        f"FROM daily_user_stats d LEFT JOIN users u ON u.user_tg_id = d.user_id "
-        f"WHERE {where} "
-        f"GROUP BY d.user_id, u.user_tg_username ORDER BY c DESC, d.user_id LIMIT ? OFFSET ?",
-        params + [PAGE_SIZE, page * PAGE_SIZE],
-    ) as cur:
-        data = await cur.fetchall()
-    tags = await member_tags.many_fresh(bot, db, chat, [r[0] for r in data]) if scope == "c" else {}   # тег живёт в одном чате: в общем топе его нет
+    else:
+        where += f" AND {membership.PRESENT_ANYWHERE_DAILY}"
+    for attempt in range(2):
+        async with db.execute(
+            f"SELECT COUNT(DISTINCT d.user_id) FROM daily_user_stats d WHERE {where}", params
+        ) as cur:
+            total = (await cur.fetchone())[0] or 0
+        pages = max(1, -(-total // PAGE_SIZE))
+        page = min(page, pages - 1)
+        async with db.execute(
+            f"SELECT d.user_id, u.user_tg_username, SUM(d.message_count) AS c "
+            f"FROM daily_user_stats d LEFT JOIN users u ON u.user_tg_id = d.user_id "
+            f"WHERE {where} "
+            f"GROUP BY d.user_id, u.user_tg_username ORDER BY c DESC, d.user_id LIMIT ? OFFSET ?",
+            params + [PAGE_SIZE, page * PAGE_SIZE],
+        ) as cur:
+            data = await cur.fetchall()
+        # Тех, кого давно не сверяли, спрашиваем у Telegram; нашлись ушедшие — перечитываем страницу уже без них.
+        if attempt or scope != "c" or not await member_tags.ensure_fresh(bot, db, chat, [r[0] for r in data]):
+            break
+    tags = await member_tags.many(db, chat, [r[0] for r in data]) if scope == "c" else {}   # тег живёт в одном чате: в общем топе его нет
     marks = await skins_chat.glyphs(db, [int(r[0]) for r in data], chat)   # знак скина: пусто, если косметика в чате выключена
     rows = [
         (page * PAGE_SIZE + i + 1, profile_link(int(r[0]), r[1], tags.get(int(r[0])), soft=True, mark=marks.get(int(r[0]))), int(r[2]))

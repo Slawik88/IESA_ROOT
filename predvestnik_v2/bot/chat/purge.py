@@ -210,12 +210,18 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
 
 async def screen_violators(bot: Bot, db, chat_id: int, violators: list[Violator], *, live: bool = True) -> tuple[list[Violator], int]:
     """Убрать из списка ботов, в том числе самого Предвестника: чистка людям, а не ботам. Бот не всегда помечен в базе,
-    поэтому список сверяется с Telegram. Возвращает (список без ботов, сколько ботов убрано)."""
+    поэтому список сверяется с Telegram; заодно уходят те, кого Telegram в чате уже не нашёл.
+    Возвращает (список без ботов и ушедших, сколько ботов убрано)."""
     if not violators:
         return violators, 0
     ids = [v.user_id for v in violators]
     if live:
         bots = await chat_bots.screen(bot, db, chat_id, ids)
+        async with db.execute("SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND COALESCE(is_left, FALSE) "
+                              "AND user_tg_id = ANY(?::bigint[])", (chat_id, ids)) as cursor:
+            gone = {int(r[0]) for r in await cursor.fetchall()}
+        kept = [v for v in violators if v.user_id not in bots and v.user_id not in gone]
+        return kept, len([v for v in violators if v.user_id in bots])
     else:
         # Web start must fit its request deadline. Unknown accounts are checked
         # before each background dossier and again before any sanction.
@@ -370,6 +376,13 @@ async def _send_dossier(bot: Bot, session_id: int, chat_id: int, chat_title: str
     if state == "bot":   # проверка перед чисткой не дошла до этого человека, а он бот: досье не нужно
         async with _background_db() as db:
             await chat_bots.mark(db, uid)
+            await db.execute("UPDATE purge_targets SET verdict = 'skip', verdict_at = NOW() WHERE session_id = ? AND user_id = ? "
+                             "AND verdict IS NULL AND decision_state IN ('idle','failed')", (session_id, uid))
+        live_changed(chat_id)
+        return True
+    if state == "gone":   # ушёл сам, пока шла чистка: наказывать в чате некого, досье только запутает админов
+        async with _background_db() as db:
+            await member_tags.settle(db, chat_id, uid, state, None)
             await db.execute("UPDATE purge_targets SET verdict = 'skip', verdict_at = NOW() WHERE session_id = ? AND user_id = ? "
                              "AND verdict IS NULL AND decision_state IN ('idle','failed')", (session_id, uid))
         live_changed(chat_id)
