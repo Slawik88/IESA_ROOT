@@ -2,6 +2,7 @@
 import { applyLanguage, initI18n, language, LANGUAGE_NAMES, t } from './i18n.js';
 import { createApi } from './api.js';
 import { telegram } from './telegram.js';
+import { initTheme, setTheme, themeChoice } from './theme.js';
 import { app, nav } from './state.js';
 import { loadHouses, redraw, refresh, selectHouse, subscribe } from './data.js';
 import { button, closeAllSheets, closeTopSheet, configureUi, confirmSheet, errorText, fail, h, icon, openSheet, openSheetCount, skeleton } from './ui.js';
@@ -13,7 +14,6 @@ import { hasDrafts } from './views/form.js';
 import { hasPendingReceipts } from './views/receipts.js';
 import { hasPendingImport } from './views/files.js';
 
-const BACKGROUND = '#0b0e1c';
 const CONTEXT_KEY = 'domovoy.language-context';
 const STALE_AFTER_MS = 60000;
 const TABS = [['home', 'home'], ['history', 'clock'], ['house', 'people']];
@@ -29,7 +29,7 @@ const hasUnsaved = () => hasDrafts() || hasPendingReceipts() || hasPendingImport
 // ── Экраны вне оболочки ───────────────────────────────────────────────────────────────────────────
 
 function languagePill() {
-  return h('button', { type: 'button', class: 'pill', 'aria-haspopup': 'dialog', 'aria-label': t("Язык"), onClick: openLanguages },
+  return h('button', { type: 'button', class: 'pill', 'aria-haspopup': 'dialog', 'aria-label': t("Язык и тема"), onClick: openAppearance },
     icon('globe'), language.toUpperCase());
 }
 
@@ -65,7 +65,7 @@ function showOnboarding() {
   renderOnboarding(page, { initialName: telegram.user?.first_name || '', onDone: houseId => loadHouses(houseId) });
 }
 
-// ── Листы шапки: язык и дом ───────────────────────────────────────────────────────────────────────
+// ── Листы шапки: язык и тема, дом ─────────────────────────────────────────────────────────────────
 
 async function requestLanguage(next) {
   if (next === language) return;
@@ -74,11 +74,29 @@ async function requestLanguage(next) {
   if (agreed) applyLanguage(next);
 }
 
-function openLanguages() {
-  const sheet = openSheet({ title: t("Язык"), size: 'sm', body: h('div', { class: 'group', role: 'radiogroup', 'aria-label': t("Язык") },
-    Object.entries(LANGUAGE_NAMES).map(([code, name]) => h('button', { type: 'button', class: 'group-row', role: 'radio', 'aria-checked': String(code === language),
-      onClick: () => { sheet.close(); requestLanguage(code); } },
-    h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, name)), code === language ? icon('check', 'row-check') : null))) });
+function radioRow({ title, mark, checked, onClick }) {
+  return h('button', { type: 'button', class: 'group-row', role: 'radio', 'aria-checked': String(checked), onClick },
+    h('span', { class: 'row-icon', 'aria-hidden': 'true' }, mark),
+    h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, title)), icon('check', 'row-check'));
+}
+
+// Тема меняется сразу, без перезагрузки; язык — с перезагрузкой, поэтому лист закрывается.
+function openAppearance() {
+  const themes = [['auto', telegram.available ? t("Как в Telegram") : t("Как в системе"), 'contrast'], ['light', t("Светлая"), 'sun'], ['dark', t("Тёмная"), 'moon']];
+  const themeRows = themes.map(([choice, title, iconName]) => radioRow({ title, mark: icon(iconName), checked: choice === themeChoice, onClick: () => {
+    if (choice === themeChoice) return;
+    setTheme(choice);
+    telegram.haptic.select();
+    themeRows.forEach((row, index) => row.setAttribute('aria-checked', String(themes[index][0] === choice)));
+  } }));
+  const sheet = openSheet({ title: t("Язык и тема"), size: 'sm', body: [
+    h('section', { class: 'sheet-section' }, h('h3', { id: 'theme-title' }, t("Тема")),
+      h('div', { class: 'group', role: 'radiogroup', 'aria-labelledby': 'theme-title' }, themeRows)),
+    h('section', { class: 'sheet-section' }, h('h3', { id: 'language-title' }, t("Язык")),
+      h('div', { class: 'group', role: 'radiogroup', 'aria-labelledby': 'language-title' },
+        Object.entries(LANGUAGE_NAMES).map(([code, name]) => radioRow({ title: name, mark: h('span', { class: 'row-code' }, code.toUpperCase()), checked: code === language,
+          onClick: () => { sheet.close(); requestLanguage(code); } })))),
+  ] });
 }
 
 function openHouses() {
@@ -223,7 +241,6 @@ function wireOnce() {
 async function boot() {
   await initI18n(telegram.user?.language_code);
   document.title = telegram.available ? 'Домовой' : t("Закрытое приложение");
-  telegram.paint(BACKGROUND);
   if (!telegram.available) { showGate(); return; }
   telegram.start();
   app.api = createApi(telegram.initData);
@@ -246,4 +263,5 @@ async function boot() {
   if (app.data && ['home', 'history', 'house'].includes(context?.view)) go(context.view, context.sub ?? null);
 }
 
+initTheme();
 boot();

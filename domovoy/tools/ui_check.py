@@ -23,6 +23,8 @@ SHOTS = ROOT / "data" / "ui-check"
 START_TIMEOUT_S = 30
 # Длинные языки проверяются на самом узком экране, где переполнение вероятнее всего.
 LANGUAGE_RUNS = (("de", ("320x568",)), ("fr", ("320x568",)), ("uk", ("320x568",)))
+# Светлая тема (Telegram в светлом режиме): контраст и вид на телефоне, планшете и широком экране.
+LIGHT_SIZES = ("320x568", "390x844", "768x1024", "1280x800")
 
 
 def free_port() -> int:
@@ -57,6 +59,10 @@ def main() -> int:
                 # Аудит идёт до сценариев: база ещё в исходном виде. Дом 3 — крайние значения.
                 for house in (1, 3):
                     violations, report = ui_audit.audit(playwright, base, house=house)
+                    print(*report, sep="\n")
+                    failures += violations
+                for house in (1, 3):
+                    violations, report = ui_audit.audit(playwright, base, sizes=LIGHT_SIZES, house=house, theme="light")
                     print(*report, sep="\n")
                     failures += violations
                 for language, sizes in LANGUAGE_RUNS:

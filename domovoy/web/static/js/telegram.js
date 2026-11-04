@@ -23,6 +23,8 @@ export const telegram = {
   get isPhone() { return ['ios', 'android', 'android_x'].includes(webApp?.platform); },
   user: webApp?.initDataUnsafe?.user || null,
   get available() { return Boolean(webApp?.initData); },
+  // Светлая или тёмная тема клиента Telegram; пусто — открыто без Telegram (скрипт Telegram тогда по умолчанию говорит «light»).
+  get colorScheme() { return webApp?.initData ? webApp.colorScheme || '' : ''; },
 
   start() {
     call(() => webApp.ready());
@@ -34,6 +36,10 @@ export const telegram = {
     call(() => webApp.setHeaderColor(color));
     call(() => webApp.setBackgroundColor(color));
     call(() => webApp.setBottomBarColor(color));
+  },
+
+  onThemeChanged(handler) {
+    call(() => webApp.onEvent('themeChanged', handler));
   },
 
   // Подписка на Telegram одна на всё время жизни страницы; обработчик можно заменить.

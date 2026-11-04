@@ -14,10 +14,11 @@ PROBE = r"""
 () => {
   const out = {tap: [], font: [], contrast: [], overflow: [], names: [], clipped: [], ids: [], lang: document.documentElement.lang};
   const toRgb = value => { const m = value.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(Number); return {r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1}; };
-  const over = (top, bottom) => ({r: top.r * top.a + bottom.r * (1 - top.a), g: top.g * top.a + bottom.g * (1 - top.a), b: top.b * top.a + bottom.b * (1 - top.a), a: 1});
+  // Наложение полупрозрачных слоёв (стекло поверх стекла): итог полупрозрачен, пока снизу не окажется сплошной фон.
+  const over = (top, bottom) => { const a = top.a + bottom.a * (1 - top.a); if (!a) return {r: 0, g: 0, b: 0, a: 0}; const mix = key => (top[key] * top.a + bottom[key] * bottom.a * (1 - top.a)) / a; return {r: mix('r'), g: mix('g'), b: mix('b'), a}; };
   const luminance = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
   const ratio = (a, b) => { const l1 = luminance(a), l2 = luminance(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
-  const gradientMean = image => { const colors = [...image.matchAll(/rgba?\([^)]+\)/g)].map(m => toRgb(m[0])).filter(Boolean); if (!colors.length) return null; const mean = key => colors.reduce((sum, c) => sum + c[key], 0) / colors.length; return {r: mean('r'), g: mean('g'), b: mean('b'), a: Math.max(...colors.map(c => c.a))}; };
+  const gradientMean = image => { const colors = [...image.matchAll(/rgba?\([^)]+\)/g)].map(m => toRgb(m[0])).filter(Boolean); const weight = colors.reduce((sum, c) => sum + c.a, 0); if (!weight) return null; const mean = key => colors.reduce((sum, c) => sum + c[key] * c.a, 0) / weight; return {r: mean('r'), g: mean('g'), b: mean('b'), a: Math.max(...colors.map(c => c.a))}; };
   const backgroundOf = element => {
     const layers = [];
     for (let node = element; node; node = node.parentElement) {
@@ -27,7 +28,7 @@ PROBE = r"""
       if (color && color.a > 0) layers.push(color);
       if (color && color.a >= 1) break;
     }
-    return layers.reduceRight((base, layer) => over(layer, base), {r: 11, g: 14, b: 28, a: 1});
+    return layers.reduceRight((base, layer) => over(layer, base), toRgb(getComputedStyle(document.body).backgroundColor));
   };
   const visible = element => {
     const box = element.getBoundingClientRect();
@@ -137,6 +138,7 @@ def visit_states(page, probe):
     close_sheets()
     page.locator(".search-input").press_sequentially("стёкол", delay=20)  # настоящий ввод: сдвиг сразу после него не считается
     page.wait_for_timeout(700)
+    page.wait_for_load_state("networkidle")  # под нагрузкой ответ поиска приходит позже: иначе строки исчезают между подсчётом и кликом
     if page.locator("#view-history .row.entry").count():  # возвращённая трата закрыта для правок: показана причина
         page.locator("#view-history .row.entry").first.click()
         probe("entry-locked")
@@ -180,11 +182,12 @@ def visit_states(page, probe):
             close_sheets()
 
 
-def audit(playwright, base, sizes=DEFAULT_SIZES, house=1, language=None, user=1001):
+def audit(playwright, base, sizes=DEFAULT_SIZES, house=1, language=None, user=1001, theme="dark"):
     """Возвращает (нарушения, строки отчёта). Нарушение — кортеж (размер, состояние, вид, подробности)."""
     violations, report = [], []
     for size in sizes:
         width, height = map(int, size.split("x"))
+        where = f"{size} {theme}"
         browser = playwright.chromium.launch()
         context = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1,
                                       is_mobile=width < 700, has_touch=width < 700, locale="ru-RU")
@@ -194,7 +197,7 @@ def audit(playwright, base, sizes=DEFAULT_SIZES, house=1, language=None, user=10
         console = []
         page.on("console", lambda message, log=console: log.append(message.text) if message.type in ("error", "warning") else None)
         page.on("pageerror", lambda error, log=console: log.append(str(error)))
-        page.goto(f"{base}?u={user}")
+        page.goto(f"{base}?u={user}&theme={theme}")
         page.wait_for_selector(".hero", timeout=10000)
         page.wait_for_timeout(400)
         loading = page.evaluate(PERFORMANCE)  # сдвиги самой загрузки: после неё экран не должен прыгать
@@ -213,19 +216,19 @@ def audit(playwright, base, sizes=DEFAULT_SIZES, house=1, language=None, user=10
             if data["scrollW"] > data["clientW"] + 1:
                 problems["horizontal-scroll"] = [{"scrollWidth": data["scrollW"], "clientWidth": data["clientW"]}]
             for kind, items in problems.items():
-                violations.extend((size, label, kind, item) for item in items)
+                violations.extend((where, label, kind, item) for item in items)
                 found += len(items)
         for message in console:
-            violations.append((size, "page", "console", message))
+            violations.append((where, "page", "console", message))
         sizes_seen = Counter(round(f["size"], 1) for data in states.values() for f in data["font"])
         transferred = sum(r["size"] for r in performance["resources"] if r["size"])
-        report.append(f"{size} {language or 'ru'} дом {house}: состояний {len(states)}, нарушений {found + len(console)}, запросов "
+        report.append(f"{size} {language or 'ru'} {theme} дом {house}: состояний {len(states)}, нарушений {found + len(console)}, запросов "
                       f"{len(performance['resources'])}, {transferred / 1024:.0f} КБ, LCP {performance['lcp']} мс, CLS загрузки {loading['shift']} "
                       f"(после действий {performance['shift']}), "
                       f"шрифты {dict(sorted(sizes_seen.items()))}")
         if loading["shift"] > 0:
-            violations.append((size, "page", "layout-shift-on-load", loading["shift"]))
+            violations.append((where, "page", "layout-shift-on-load", loading["shift"]))
         if performance["shift"] > GOOD_SHIFT:
-            violations.append((size, "page", "layout-shift", performance["shift"]))
+            violations.append((where, "page", "layout-shift", performance["shift"]))
         browser.close()
     return violations, report

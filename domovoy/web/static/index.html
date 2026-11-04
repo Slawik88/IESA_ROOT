@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="referrer" content="no-referrer">
-  <meta name="theme-color" content="#0b0e1c">
-  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0c0a1d">
+  <meta name="color-scheme" content="dark light">
   <title>Закрытое приложение</title>
   <link rel="preload" href="./v/__V__/fonts/onest.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./v/__V__/app.css">
+  <script src="./v/__V__/js/theme-boot.js"></script>
   <link rel="modulepreload" href="./v/__V__/js/main.js">
   <link rel="modulepreload" href="./v/__V__/js/api.js">
   <link rel="modulepreload" href="./v/__V__/js/data.js">
@@ -17,6 +18,7 @@
   <link rel="modulepreload" href="./v/__V__/js/i18n.js">
   <link rel="modulepreload" href="./v/__V__/js/state.js">
   <link rel="modulepreload" href="./v/__V__/js/telegram.js">
+  <link rel="modulepreload" href="./v/__V__/js/theme.js">
   <link rel="modulepreload" href="./v/__V__/js/ui.js">
   <link rel="modulepreload" href="./v/__V__/js/views/entries.js">
   <link rel="modulepreload" href="./v/__V__/js/views/entry.js">
@@ -33,8 +35,7 @@
 <body>
 <svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <symbol id="i-brand" viewBox="72 88 368 340"><g stroke="none" transform="translate(256 256) scale(1.12) translate(-256 -256)">
-    <path fill="currentColor" d="M256 114c4 0 8 2 11 5l133 115c7 6 8 14 2 20s-16 6-22 0l-12-10v138c0 13-10 23-23 23H167c-13 0-23-10-23-23V244l-12 10c-6 6-16 6-22 0s-5-14 2-20l133-115c3-3 7-5 11-5Z"/>
-    <rect x="176" y="238" width="160" height="128" rx="12" fill="#0b0e1c"/>
+    <path fill="currentColor" fill-rule="evenodd" d="M256 114c4 0 8 2 11 5l133 115c7 6 8 14 2 20s-16 6-22 0l-12-10v138c0 13-10 23-23 23H167c-13 0-23-10-23-23V244l-12 10c-6 6-16 6-22 0s-5-14 2-20l133-115c3-3 7-5 11-5ZM188 238a12 12 0 0 0-12 12v104a12 12 0 0 0 12 12h136a12 12 0 0 0 12-12V250a12 12 0 0 0-12-12Z"/>
     <path d="M197 274h49m-49 54h49" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
     <path d="M279 274h36m-18-18v36m-18 36h36" fill="none" stroke="#94B3D9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
   </g></symbol>
@@ -73,6 +74,9 @@
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.5 3.5H14l3.5 3.5v13.5h-11z"/><path d="M14 3.5V7h3.5M9 12h6M9 15.5h6"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 11l4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5L10 14"/><path d="M20.5 3.5l-6.5 17-4-7-7-4z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10z"/></symbol>
+  <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
 </svg>
 <div id="app"></div>

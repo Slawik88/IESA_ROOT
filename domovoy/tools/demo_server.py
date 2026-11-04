@@ -84,7 +84,7 @@ def telegram_shim(tg_id: int, theme: str, platform: str) -> str:
     initDataUnsafe: {{ user: {{ id: {tg_id}, first_name: {json.dumps(NAMES.get(tg_id, "Гость"), ensure_ascii=False)} }} }},
     themeParams: {json.dumps(THEMES[theme])}, safeAreaInset: {{ top: 0, bottom: {bottom_inset}, left: 0, right: 0 }},
     ...Object.fromEntries(['ready', 'expand', 'close', 'setHeaderColor', 'setBackgroundColor', 'setBottomBarColor', 'enableClosingConfirmation',
-      'disableClosingConfirmation', 'enableVerticalSwipes', 'disableVerticalSwipes', 'openTelegramLink', 'openLink'].map(name => [name, rec(name)])),
+      'disableClosingConfirmation', 'enableVerticalSwipes', 'disableVerticalSwipes', 'openTelegramLink', 'openLink', 'onEvent'].map(name => [name, rec(name)])),
     HapticFeedback: {{ impactOccurred: rec('impactOccurred'), notificationOccurred: rec('notificationOccurred'), selectionChanged: rec('selectionChanged') }},
     BackButton: bar('BackButton'),
   }} }};

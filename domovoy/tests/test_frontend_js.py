@@ -106,3 +106,43 @@ assert.equal(parameters.get('lang'), 'de');
 assert.equal(reloads, 1);
 assert.deepEqual(events, ['domovoy:languagechanging']);
 """, "i18n.js")
+
+
+@needs_node
+def test_theme_follows_telegram_and_choice_survives_without_storage():
+    run(r"""
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+const painted = [], handlers = [];
+const root = { dataset: {} };
+globalThis.window = { Telegram: { WebApp: { initData: 'signed', colorScheme: 'light',
+  setHeaderColor: color => painted.push(color), setBackgroundColor() {}, setBottomBarColor() {},
+  onEvent: (name, handler) => handlers.push([name, handler]) } } };
+globalThis.document = { documentElement: root, querySelector: () => null };
+const background = () => (root.dataset.theme === 'light' ? ' #f3f1fa' : ' #0c0a1d');
+globalThis.getComputedStyle = () => ({ getPropertyValue: background });
+const blocked = () => { throw Error('blocked'); };
+globalThis.localStorage = { getItem: blocked, setItem: blocked };
+const theme = await import(pathToFileURL(process.argv[1]).href);
+assert.equal(theme.resolveTheme('auto', 'dark', false), 'dark');
+assert.equal(theme.resolveTheme('auto', '', true), 'dark');
+assert.equal(theme.resolveTheme('auto', '', false), 'light');
+assert.equal(theme.resolveTheme('light', 'dark', true), 'light');
+theme.initTheme();
+assert.equal(root.dataset.theme, 'light');
+assert.equal(theme.themeChoice, 'auto');
+assert.deepEqual(handlers.map(([name]) => name), ['themeChanged']);
+theme.setTheme('dark');
+assert.equal(root.dataset.theme, 'dark');
+assert.deepEqual(painted, ['#f3f1fa', '#0c0a1d']);
+window.Telegram.WebApp.colorScheme = 'dark';
+theme.setTheme('auto');
+window.Telegram.WebApp.colorScheme = 'light';
+handlers[0][1]();
+assert.equal(root.dataset.theme, 'light');
+// Вне Telegram скрипт Telegram всё равно говорит «light» — «авто» тогда следует системе.
+window.Telegram.WebApp.initData = '';
+window.matchMedia = () => ({ matches: true });
+handlers[0][1]();
+assert.equal(root.dataset.theme, 'dark');
+""", "theme.js")
