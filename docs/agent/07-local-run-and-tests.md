@@ -29,7 +29,7 @@ Service worker локально обычно не включён.
 
 ```powershell
 $env:PYTHONUTF8='1'; $env:PYTHONIOENCODING='utf-8'; $env:DJANGO_SETTINGS_MODULE='IESA_ROOT.settings_dev'
-python manage.py test --noinput            # весь набор, ~3–4 минуты, ~150 тестов
+python manage.py test --noinput            # весь набор, ~4 минуты, ~200 тестов
 python manage.py test users --noinput      # только пакет users (~2 мин)
 python manage.py test users.tests_auth_flows.RegistrationFlowTests --noinput   # точечно
 python manage.py makemigrations --check --dry-run                               # миграции не забыты?

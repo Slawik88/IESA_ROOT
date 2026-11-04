@@ -23,7 +23,8 @@
 5. **В `master` (на прод) пушь сам, если выполнены ВСЕ условия:**
    - проверки пройдены: для сайта — полный `python manage.py test` + `makemigrations --check`; если менялись
      шаблоны/статика — ещё прогон «как на проде» (`07-local-run-and-tests.md`, раздел про DEBUG=False);
-     для Предвестника — его чек-лист (`predvestnik_v2/PRODUCTION_RELEASE_CHECKLIST.md`) и тесты;
+     для Предвестника — `predvestnik_v2/AUTONOMOUS_AGENT_POLICY.md` и `python predvestnik_v2/tools/run_fast_tests.py --changed <файлы>`
+     (полный набор: `--all`); для Домового — `python -m pytest tests -q` и `python -m ruff check .` из `domovoy/`;
    - в диффе файлы **одного** проекта (общие `requirements.txt`/`Procfile` — только осознанно и с пометкой);
    - нет секретов, `.env`, баз `*.sqlite3`, `node_modules`, логов;
    - ветка основана на актуальном `origin/master` (фаст-форвард). Если `origin/master` ушёл вперёд —
