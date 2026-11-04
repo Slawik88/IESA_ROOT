@@ -85,7 +85,8 @@
    B = с обновлением. `pip check` в обоих.
 2. В A и B: полный `manage.py test`; `pytest tests -q` + `ruff check .` в `domovoy/`; импорт всех модулей
    Предвестника и Домового; пробный `python -m bot` обоих ботов с ненастоящим токеном (оба должны дойти до
-   отказа Telegram «Unauthorized» одинаково); в B — `predvestnik_v2/tools/run_fast_tests.py --all`
+   отказа Telegram «Unauthorized» одинаково); **для библиотек ботов — ещё `predvestnik_v2/tools/check_full_start.py` на A и B
+   (оба бота целиком на фальшивом Telegram, память и `/api/health`; контейнер ботов всего 512 МБ)**; в B — `predvestnik_v2/tools/run_fast_tests.py --all`
    (сравнивать с карантином в `test_gate.json`).
 3. Чистая установка из нового `requirements.txt` должна дать ровно набор B (`pip freeze` побайтно);
    для обновлённых пакетов — Linux-колёса cp311 (`pip download --platform manylinux_2_28_x86_64`).
@@ -94,8 +95,10 @@
 **План (аудит `pip-audit`, 2026-11-04):**
 - Фаза 1 (выполнена): Django 5.2.19, daphne 4.2.3, Pillow 13, pillow-heif 1.3, requests, urllib3, certifi,
   idna, sqlparse, python-dotenv; gunicorn удалён (не запускался); введён `constraints.txt`.
-- Фаза 2 (Предвестник/Домовой): aiogram 3.22 → 3.31 (он держит `aiohttp<3.13`, а в aiohttp 3.12 ~40
-  уязвимостей, исправлены в 3.14.4); FastAPI 0.115 → актуальный (держит `starlette<0.47`, уязвимости до 1.3.1),
+- Фаза 2 (Предвестник/Домовой): aiogram 3.22 → 3.24 выполнена (нужна для тем в личке). До 3.31 **подъём пока нельзя**:
+  начиная с 3.29 библиотека занимает на ~55 МиБ больше на каждый из двух процессов, а контейнер ботов — 512 МБ при 79–85 %
+  занятых (попытка 3 ноября 2026 закончилась циклом перезапусков). aiohttp ≥ 3.14.4 (там исправлены ~70 уязвимостей) тоже
+  требует aiogram ≥ 3.29. Сначала освободить память (см. `predvestnik_v2/docs/roadmap/ENV.md`, «Полный запуск…»), потом подъём; FastAPI 0.115 → актуальный (держит `starlette<0.47`, уязвимости до 1.3.1),
   вместе uvicorn и pydantic. Мажорный скачок Starlette (1.x) — читать миграцию, отдельный выпуск.
 - Фаза 3 (сайт, Django 6): убрать предупреждения `RemovedInDjango60Warning` — `format_html()` без аргументов
   (`core/admin.py:45,72`), `CheckConstraint(check=…)` → `condition=` (`users/models.py:602`),
