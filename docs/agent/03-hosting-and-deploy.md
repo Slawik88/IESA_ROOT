@@ -47,7 +47,9 @@
 авторизации и случайный закрытый префикс — 404; `/predvestnik/api/health` — 200.
 Проверки не создавали операций и не подделывали пользовательский вход в production.
 
-1. Пуш в `master` → DO собирает **оба** компонента (корневой `requirements.txt`, `collectstatic` выполняет buildpack).
+1. Пуш в `master` → DO собирает **оба** компонента (корневой `requirements.txt` + `constraints.txt` с точными версиями транзитивных пакетов — без него
+   сборка сама подтягивала новые aiohttp/starlette и могла уронить ботов; `collectstatic` выполняет buildpack).
+   Обновление библиотек — только по процедуре `06-git-and-release.md` → «Обновление зависимостей».
 2. Сайт стартует `IESA_ROOT/start.sh`: `migrate` → `update_translation_fields` → `scripts/sync_translations.py` →
    `compilemessages` → `daphne -b 0.0.0.0 -p 8080 --proxy-headers IESA_ROOT.asgi:application`.
    Если миграция упала, скрипт всё равно продолжит старт (смотри логи!).

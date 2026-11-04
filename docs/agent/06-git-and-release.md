@@ -75,6 +75,32 @@
   уже падают на `master` (карантин с причиной) — в `predvestnik_v2/tools/test_gate.json`; пересобрать:
   `python tools/run_fast_tests.py --refresh-manifest` (~20 мин). Полный прогон: `--all`.
 
+## Обновление зависимостей
+
+`requirements.txt` (прямые зависимости) + `constraints.txt` (точные версии **транзитивных**, как на проде;
+подключён строкой `-c constraints.txt`). Оба компонента — сайт и контейнер ботов — ставятся из одного файла,
+поэтому любая библиотека может уронить сразу Предвестника и Домового. Порядок:
+
+1. Отдельное venv на Python 3.11 (рабочее `.venv` не трогать): A = текущие файлы (эталон прода),
+   B = с обновлением. `pip check` в обоих.
+2. В A и B: полный `manage.py test`; `pytest tests -q` + `ruff check .` в `domovoy/`; импорт всех модулей
+   Предвестника и Домового; пробный `python -m bot` обоих ботов с ненастоящим токеном (оба должны дойти до
+   отказа Telegram «Unauthorized» одинаково); в B — `predvestnik_v2/tools/run_fast_tests.py --all`
+   (сравнивать с карантином в `test_gate.json`).
+3. Чистая установка из нового `requirements.txt` должна дать ровно набор B (`pip freeze` побайтно);
+   для обновлённых пакетов — Linux-колёса cp311 (`pip download --platform manylinux_2_28_x86_64`).
+4. Новые версии транзитивных пакетов вписать в `constraints.txt` тем же коммитом. Один коммит — одна фаза.
+
+**План (аудит `pip-audit`, 2026-11-04):**
+- Фаза 1 (выполнена): Django 5.2.19, daphne 4.2.3, Pillow 13, pillow-heif 1.3, requests, urllib3, certifi,
+  idna, sqlparse, python-dotenv; gunicorn удалён (не запускался); введён `constraints.txt`.
+- Фаза 2 (Предвестник/Домовой): aiogram 3.22 → 3.31 (он держит `aiohttp<3.13`, а в aiohttp 3.12 ~40
+  уязвимостей, исправлены в 3.14.4); FastAPI 0.115 → актуальный (держит `starlette<0.47`, уязвимости до 1.3.1),
+  вместе uvicorn и pydantic. Мажорный скачок Starlette (1.x) — читать миграцию, отдельный выпуск.
+- Фаза 3 (сайт, Django 6): убрать предупреждения `RemovedInDjango60Warning` — `format_html()` без аргументов
+  (`core/admin.py:45,72`), `CheckConstraint(check=…)` → `condition=` (`users/models.py:602`),
+  `FORMS_URLFIELD_ASSUME_HTTPS = True`; затем Django 6.x, django-allauth, boto3/django-storages, stripe.
+
 ## Полезное
 
 - Состояние деплоя без панели: `git log origin/master -1`; панель показывает хеш в Source (`Hash: …`).
