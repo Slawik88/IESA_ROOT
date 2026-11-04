@@ -47,7 +47,7 @@ def notify_visit_edited(visit, audit) -> bool:
     ctx = _visit_context(visit)
     if ctx is None:
         return False
-    chat_id, member, partner, ts, _ = ctx
+    chat_id, member, partner, ts, _cost = ctx
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     new_cost = f"{visit.cost} CHF" if visit.cost else "—"
     text = (
@@ -66,7 +66,7 @@ def notify_visit_cancelled(visit, audit) -> bool:
     ctx = _visit_context(visit)
     if ctx is None:
         return False
-    chat_id, member, partner, ts, _ = ctx
+    chat_id, member, partner, ts, _cost = ctx
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     text = (
         _("❌ <b>Visit cancelled</b>") + "\n\n"

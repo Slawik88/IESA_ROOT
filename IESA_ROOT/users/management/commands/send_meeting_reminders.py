@@ -107,7 +107,7 @@ class Command(BaseCommand):
         if not getattr(user, 'telegram_chat_id', None):
             return
         try:
-            from users.telegram_bot import send_message
-            send_message(user.telegram_chat_id, text)
+            from users.telegram import send_message
+            send_message(text, chat_id=user.telegram_chat_id)
         except Exception as e:
             logger.warning("TG reminder failed for user %s: %s", user.pk, e)
