@@ -1,3 +1,4 @@
+import ipaddress
 import re
 from datetime import timedelta
 
@@ -22,10 +23,25 @@ class RealClientIPMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        ip = request.META.get('HTTP_DO_CONNECTING_IP', '').strip()
+        ip = self._do_connecting_ip(request)
         if ip:
             request.META['REMOTE_ADDR'] = ip
         return self.get_response(request)
+
+    @staticmethod
+    def _do_connecting_ip(request):
+        # Read the exact header from the ASGI scope: META merges 'do-connecting-ip' with a client-sent
+        # 'do_connecting_ip' into one key. If a value was appended to a client's own, the proxy's is last.
+        scope = getattr(request, 'scope', None)
+        if scope is not None:
+            values = [v.decode('latin-1') for k, v in scope.get('headers', []) if k.lower() == b'do-connecting-ip']
+        else:
+            values = [request.META.get('HTTP_DO_CONNECTING_IP', '')]
+        raw = ','.join(values).split(',')[-1].strip()
+        try:
+            return str(ipaddress.ip_address(raw)) if raw else ''
+        except ValueError:
+            return ''
 
 
 class BlockScannerMiddleware:
