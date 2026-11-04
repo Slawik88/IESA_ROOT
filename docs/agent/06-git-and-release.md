@@ -52,6 +52,24 @@
 правки `settings.py` (`SECURE_*`, `CSRF_*`, `ALLOWED_HOSTS`), CSP, `Procfile`, `requirements.txt` (затрагивает
 и бота); изменения DNS/почты.
 
+## Хук перед пушем в `master` (`~/.claude/hooks/pre_push_master.py`)
+
+По порядку, дешёвое первым: секреты в пушимом диффе → напоминание о патч-ноуте Предвестника → **новые миграции
+сайта** → **линт изменённых `.py`** → тесты проекта. Блокирует только реальная находка.
+
+- **Миграции.** `IESA_ROOT/scripts/check_migration_safety.py` отклоняет новую миграцию с `RunSQL`, `RemoveField`,
+  `DeleteModel`, `RenameField`, `RenameModel`. Если так и задумано — сделай в два шага (сначала код перестаёт
+  пользоваться полем, удаление — следующим релизом) или запиши в файл миграции строку
+  `# migration-safe: <почему это безопасно>` (без причины не считается).
+- **Линт.** ruff `E9,F63,F7,F82` (синтаксис, неопределённые имена) и pyright только по правилам-багам:
+  `reportUndefinedVariable`, `reportUnusedExcept` (недостижимый `except`), `reportMissingImports` для своих модулей.
+  Остальные ~3000 находок pyright — шум типизации, они не блокируют.
+- **Предвестник.** `predvestnik_v2/tools/run_fast_tests.py --changed …`: быстрые тесты без базы (параллельно, ~1–2 мин)
+  + тесты с PostgreSQL, связанные с изменёнными файлами, на локальном одноразовом кластере
+  (`<main>/.local/preprod-postgres`, `127.0.0.1:55432`; хук сам его запускает). Какие тесты требуют базу и какие
+  уже падают на `master` (карантин с причиной) — в `predvestnik_v2/tools/test_gate.json`; пересобрать:
+  `python tools/run_fast_tests.py --refresh-manifest` (~20 мин). Полный прогон: `--all`.
+
 ## Полезное
 
 - Состояние деплоя без панели: `git log origin/master -1`; панель показывает хеш в Source (`Hash: …`).
