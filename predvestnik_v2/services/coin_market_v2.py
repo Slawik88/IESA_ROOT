@@ -769,8 +769,7 @@ async def edit_metadata(db,user_id,coin_id,icon,description):
         await repo.user_lock(db,user_id)
         await repo.require_active(db,user_id)
         await repo.edit_metadata(db,coin_id,icon,description)
-    final=await orders_repo.get(db,order_id,user_id)
-    return {'ok':True,'status':final['status'],'result':repo.decode(final['result'])}
+    return {'ok':True}
 
 
 SYSTEM_COINS = (
