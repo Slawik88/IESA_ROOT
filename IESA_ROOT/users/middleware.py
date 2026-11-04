@@ -8,6 +8,26 @@ from django.utils import timezone
 from django.utils import translation
 
 
+class RealClientIPMiddleware:
+    """Put the real client IP into REMOTE_ADDR before any rate limit reads it.
+
+    daphne --proxy-headers takes the FIRST X-Forwarded-For value, and DigitalOcean passes the
+    client's own header through, so `X-Forwarded-For: 1.2.3.4` used to reset every per-IP limit
+    (registration, login, password reset, search). App Platform sets `do-connecting-ip` itself
+    (docs.digitalocean.com: "client IP address of a request connecting to my app"); a client
+    cannot override it. Locally the header is absent and REMOTE_ADDR stays as is.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        ip = request.META.get('HTTP_DO_CONNECTING_IP', '').strip()
+        if ip:
+            request.META['REMOTE_ADDR'] = ip
+        return self.get_response(request)
+
+
 class BlockScannerMiddleware:
     """Silently reject vulnerability-scanner requests with empty 404.
 
@@ -109,10 +129,7 @@ class BlockScannerMiddleware:
         # сами проверки не тянули новые DB connections.
         try:
             from django.core.cache import caches
-            ip = (
-                request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-                or request.META.get('REMOTE_ADDR', '')
-            )
+            ip = request.META.get('REMOTE_ADDR', '')   # real IP, see RealClientIPMiddleware
             if ip:
                 k = f'scan_hits:{ip}'
                 rl_cache = caches['ratelimit']

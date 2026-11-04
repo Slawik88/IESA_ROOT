@@ -99,6 +99,7 @@ if DEBUG:
 
 # Наше кастомное Middleware для обновления статуса пользователя
 MIDDLEWARE = [
+    'users.middleware.RealClientIPMiddleware',  # REMOTE_ADDR = do-connecting-ip (XFF is client-spoofable)
     'users.middleware.BlockScannerMiddleware',  # Silence .php/.wp scanner spam
     'IESA_ROOT.security_middleware.SecurityHeadersMiddleware',  # audit v5: CSP + Permissions-Policy
     'django.middleware.security.SecurityMiddleware',

@@ -71,6 +71,11 @@
 (регистрация 30 POST/ч, вход 40/ч, сброс 10/ч). Формы, которые принимают публичный POST, обязаны включать
 `{% include "users/partials/_antibot.html" %}` и проверять `antispam.bot_problem(request)` во view.
 
+**IP клиента.** Все лимиты «на IP» читают `REMOTE_ADDR`, который ставит `users.middleware.RealClientIPMiddleware`
+(первым в `MIDDLEWARE`) из заголовка DigitalOcean `do-connecting-ip`. `X-Forwarded-For` для этого **не годится**:
+daphne берёт из него первое значение, а DO пропускает присланное клиентом (проверено 2026-11-04 — запрос с
+`X-Forwarded-For: 203.0.113.77` попал в лог под этим IP). Новый код не должен читать `HTTP_X_FORWARDED_FOR`.
+
 ## Тесты
 
 `users/tests_auth_flows.py`, `tests_antibot_social.py`, `tests_account_switch.py`, `tests_email_verification.py`
