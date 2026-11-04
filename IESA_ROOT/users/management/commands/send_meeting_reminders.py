@@ -107,7 +107,10 @@ class Command(BaseCommand):
         if not getattr(user, 'telegram_chat_id', None):
             return
         try:
+            from html import escape
+
             from users.telegram import send_message
-            send_message(text, chat_id=user.telegram_chat_id)
+            # Plain text (meeting title, names) through parse_mode=HTML: escape, or a '<' breaks the send.
+            send_message(escape(text, quote=False), chat_id=user.telegram_chat_id)
         except Exception as e:
             logger.warning("TG reminder failed for user %s: %s", user.pk, e)

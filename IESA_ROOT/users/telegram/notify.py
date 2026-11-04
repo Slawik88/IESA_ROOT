@@ -4,12 +4,18 @@ Sync variants — вызываются из Django views/signals в фоново
 Async варианты — для вызова из async-контекстов (B3-06).
 """
 import logging
+from html import escape
 
 from django.utils.translation import gettext as _
 
 from .client import send_message, send_message_async
 
 logger = logging.getLogger(__name__)
+
+
+def _h(value) -> str:
+    """Escape user-entered text for parse_mode=HTML (names, company, reason): a '<' would break the send."""
+    return escape(str(value), quote=False)
 
 
 def _visit_context(visit):
@@ -28,17 +34,17 @@ def notify_visit_confirmed(visit) -> bool:
     if ctx is None:
         return False
     chat_id, member, partner, ts, cost = ctx
-    service = visit.get_service_type_display()
-    name    = member.get_full_name() or member.username
+    service = _h(visit.get_service_type_display())
+    name    = _h(member.get_full_name() or member.username)
     text = (
         _("✅ <b>Visit confirmed</b>") + "\n\n"
         f"👤 {name}\n"
-        f"🏢 {partner.company_name}\n"
+        f"🏢 {_h(partner.company_name)}\n"
         f"🏃 {service}  💰 {cost}\n"
         f"🕐 {ts}"
     )
     if visit.service_description:
-        text += f"\n📝 {visit.service_description}"
+        text += f"\n📝 {_h(visit.service_description)}"
     return send_message(text, chat_id=chat_id)
 
 
@@ -52,11 +58,11 @@ def notify_visit_edited(visit, audit) -> bool:
     new_cost = f"{visit.cost} CHF" if visit.cost else "—"
     text = (
         _("📝 <b>Visit edited</b>") + "\n\n"
-        f"👤 {member.get_full_name() or member.username}\n"
-        f"🏢 {partner.company_name}  🕐 {ts}\n"
-        f"<s>{audit.previous_service_type} / {old_cost}</s>\n"
-        f"✏️ {visit.get_service_type_display()} / {new_cost}\n"
-        f"📋 {audit.reason}"
+        f"👤 {_h(member.get_full_name() or member.username)}\n"
+        f"🏢 {_h(partner.company_name)}  🕐 {ts}\n"
+        f"<s>{_h(audit.previous_service_type)} / {old_cost}</s>\n"
+        f"✏️ {_h(visit.get_service_type_display())} / {new_cost}\n"
+        f"📋 {_h(audit.reason)}"
     )
     return send_message(text, chat_id=chat_id)
 
@@ -70,10 +76,10 @@ def notify_visit_cancelled(visit, audit) -> bool:
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     text = (
         _("❌ <b>Visit cancelled</b>") + "\n\n"
-        f"👤 {member.get_full_name() or member.username}\n"
-        f"🏢 {partner.company_name}  🕐 {ts}\n"
-        f"🏃 {audit.previous_service_type} / {old_cost}\n"
-        f"📋 {audit.reason}"
+        f"👤 {_h(member.get_full_name() or member.username)}\n"
+        f"🏢 {_h(partner.company_name)}  🕐 {ts}\n"
+        f"🏃 {_h(audit.previous_service_type)} / {old_cost}\n"
+        f"📋 {_h(audit.reason)}"
     )
     return send_message(text, chat_id=chat_id)
 
@@ -102,7 +108,7 @@ async def notify_visit_confirmed_async(visit) -> bool:
         service = visit.get_service_type_display()
         name    = member.get_full_name() or member.username
         desc    = visit.service_description or ""
-        return chat_id, name, partner.company_name, service, cost, ts, desc
+        return chat_id, _h(name), _h(partner.company_name), _h(service), cost, ts, _h(desc)
 
     data = await sync_to_async(_get_data)()
     if data is None:
@@ -125,7 +131,7 @@ def notify_membership_activated(user) -> bool:
     name = user.get_full_name() or user.username
     text = (
         _("🎉 <b>Membership activated!</b>") + "\n\n"
-        + _('Hello, %(name)s!') % {'name': name} + "\n"
+        + _('Hello, %(name)s!') % {'name': _h(name)} + "\n"
         + _('Your IESA Sport membership is now active.') + "\n\n"
         + _('🏃 Use <b>Personal Cabinet</b> to get your PIN:') + "\n"
         "<a href='https://iesasport.ch/auth/profile/#pin-section'>" + _('Open profile →') + "</a>"
