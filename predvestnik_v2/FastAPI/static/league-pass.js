@@ -48,10 +48,13 @@
       <span class="lgp-num">${r.level}</span>${cell(r.level, 'free', r.free)}${cell(r.level, 'vip', r.vip)}</li>`).join('');
     const why = !me.account.eligible ? `Забрать награды можно, когда аккаунту исполнится ${me.account.min_days} дней. Опыт копится уже сейчас.`
       : '';
-    // «Гонка за Пропуском» (S28): одна строка, только пока гонка идёт; правила — тема Путеводителя «pass-race»
+    // «Гонка за Пропуском» (S28): тот же абзац правил карточки, только пока гонка идёт; правила — тема Путеводителя «pass-race».
+    // Свободное место — одна ⭐: сразу видно, что места 1–4 — это звёзды и сколько их осталось.
     const race = s.current && me.race && me.race.running ? me.race : null;
-    const raceLine = race ? `<p class="lg-rules lgp-race">🏁 Первые ${race.places}, закрывшие Пропуск, получат по ${race.prize_stars} ⭐ Telegram Stars. ${
-      race.left ? `Осталось мест: <b>${race.left}</b>` : 'Все места заняты'}.</p>` : '';
+    const free = race && race.left ? `Свободно: <span role="img" aria-label="${race.left} из ${race.places}">${'⭐'.repeat(race.left)}</span> из ${race.places}`
+      : `Все ${race ? race.places : ''} места заняты`;
+    const raceLine = race ? `<p class="lg-rules lgp-race">🏁 <b>Места 1–${race.places} — по ${race.prize_stars} ⭐ Telegram Stars.</b> `
+      + `Их получат первые, кто закроет Пропуск.<br>${free}.</p>` : '';
     return `<section class="lgp" data-season="${s.season}" aria-label="Пропуск сезона ${s.season}">
       <div class="lgp-head"><div>${s.current ? '' : `<small class="lg-eyebrow">Пропуск сезона ${s.season} · закончился</small>`}
         <p class="lgp-lvl">Уровень <b data-count="pass-${s.season}">${s.level}</b><small> из ${s.levels}</small></p></div>
