@@ -44,7 +44,7 @@ from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод пр
 from FastAPI.routers import guide_v3 as guide_v3_router  # Путеводитель игрока: /guide-v3.json
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
 from FastAPI.routers import purge_v1 as purge_v1_router
-from FastAPI.routers import league_v1 as league_v1_router  # демо Лиги, только ранний доступ
+from FastAPI.routers import league_v1 as league_v1_router  # Лига и Пропуск сезона: открыты всем с сезона 2 (25.10.2026); до него — демо для раннего доступа
 from FastAPI.routers import telemetry as telemetry_router  # анонимные ошибки Mini App для «Здоровья»
 from FastAPI.ops_middleware import RequestMetrics
 from services import ops_health

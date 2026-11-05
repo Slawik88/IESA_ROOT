@@ -1,7 +1,8 @@
 """Early access to content that is not public yet (admin «Права» → «Ранний доступ к контенту»).
 
 One threshold, set by the creator: every global role at or above it sees the early content.  By default
-only the creator does.  Today it opens the demo of the new season (the League); rewards there are fake.
+only the creator does.  It was the way to see the League demo before season 2; the League has been public since 25.10.2026 (core.league_v1.is_public),
+so today the right opens nothing on its own and is kept for the next piece of unreleased content.
 """
 from __future__ import annotations
 
