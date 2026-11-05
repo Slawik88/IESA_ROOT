@@ -279,7 +279,7 @@ def _up_block(u: Up) -> str:
             f" (сейчас {fmt(u.value)})" if u.value and u.value < nxt else "")
     lines = [f"{a.icon} <b>{a.name}</b> · ур. {level} из {a.max_level}",
              f"{medal(level, a.max_level)} {ladder_bar(level, a.max_level)} {stage(level, a.max_level)}",
-             quote([f"<i>{a.blurb}</i>", ahead])]
+             quote([f"<b>За что:</b> {a.blurb}", ahead])]
     if u.essence:
         lines.append(f"✨ +{u.essence} 🔮 эссенции — награда за веху")
     return "\n".join(lines)
@@ -435,7 +435,7 @@ async def detail(db, user_id: int, a: Achievement) -> str:
     nxt = a.thresholds[level:level + 5]
     ahead = " → ".join(fmt(x) for x in nxt) if nxt else "все уровни пройдены 👑"
     return (f"{a.icon} <b>{a.name}</b> · {medal(level, a.max_level)} ур. {level}/{a.max_level}\n"
-            f"<i>{a.blurb}</i>\n"
+            f"<b>За что:</b> {a.blurb}\n"
             f"{a.measure}: <b>{fmt(value)}</b> {plural(value, a.unit)}\n"
             + quote([f"Следующие пороги: {ahead}",
                      f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}"])
