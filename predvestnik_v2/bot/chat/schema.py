@@ -82,6 +82,12 @@ async def ensure_chat_schema() -> None:
         except Exception as exc:   # уведомления не должны мешать запуску остального бота
             from loguru import logger
             logger.exception(f"dm push schema failed: {exc}")
+        from infrastructure.repositories import dm_tickets as dm_tickets_repo
+        try:
+            await dm_tickets_repo.ensure_schema(db)   # обращения игроков к администрации из лички (S23b)
+        except Exception as exc:
+            from loguru import logger
+            logger.exception(f"dm tickets schema failed: {exc}")
         from services.promo_v2 import ensure_schema as ensure_promo
         await ensure_promo(db)
         from bot.chat.achievements import ensure_schema as ensure_achievements

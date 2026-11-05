@@ -16,7 +16,7 @@ from loguru import logger
 from bot.chat.framework import Ctx, registry
 from core import dm_push as rules
 from infrastructure.repositories import dm_push as repo
-from services import dm_push, dm_push_events
+from services import dm_plan, dm_push, dm_push_events
 
 router = Router(name="chat_notify")
 # Слэш-команды из меню «/» живут в отдельном роутере: он подключается раньше общего обработчика чата (bot/handlers/__init__.py),
@@ -108,42 +108,10 @@ async def cmd_notify(ctx: Ctx) -> None:
 
 # ── план дня ────────────────────────────────────────────────────────────────
 
-async def _quests_state(db, user_id: int) -> dict | None:
-    from infrastructure.repositories.economy_ledger import ensure_tables as ensure_ledger
-    from infrastructure.repositories.quests_v1 import ensure_tables
-    from services import quests_v1 as quests
-    from services.vip import is_vip_active
-    try:
-        await ensure_tables(db)
-        await ensure_ledger(db)
-        sources = await quests.available_sources(db, user_id=user_id)
-        return await quests.overview(db, user_id=user_id, vip_active=await is_vip_active(db, user_id), sources=sources)
-    except Exception as exc:
-        logger.warning(f"plan: quests unavailable: {type(exc).__name__}: {exc}")
-        return None
-
-
-async def _pets_state(db, user_id: int) -> tuple[int, int] | None:
-    """(вернулись и ждут, ещё в пути)."""
-    from infrastructure.repositories import system_flags
-    try:
-        if not await system_flags.is_enabled(db, "pets_v2"):
-            return None
-        async with db.execute(
-            "SELECT COUNT(*) FILTER (WHERE ends_at <= NOW()), COUNT(*) FILTER (WHERE ends_at > NOW()) "
-            "FROM pet_v2_runs WHERE user_id = ? AND status = 'active'", (int(user_id),),
-        ) as c:
-            row = await c.fetchone()
-        return int(row[0] or 0), int(row[1] or 0)
-    except Exception as exc:
-        logger.warning(f"plan: pets unavailable: {type(exc).__name__}: {exc}")
-        return None
-
-
 async def plan_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     now = datetime.now(timezone.utc)
     lines, rows = ["📋 <b>План дня</b>", ""], []
-    quests = await _quests_state(db, user_id)
+    quests = await dm_plan.quests_state(db, user_id)
     if quests is not None and (quests["daily"]["quests"] or quests["weekly"]["quests"]):
         done = sum(1 for q in quests["daily"]["quests"] if q["completed"])
         lines.append(f"<b>Задания дня</b>: сделано {done} из {len(quests['daily']['quests'])}.")
@@ -155,7 +123,7 @@ async def plan_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
         if not ready and done < len(quests["daily"]["quests"]):
             lines.append("Выполни все задания дня — получишь награду.")
         lines.append("")
-    pets = await _pets_state(db, user_id)
+    pets = await dm_plan.pets_state(db, user_id)
     if pets is not None and (pets[0] or pets[1]):
         if pets[0]:
             lines.append(f"<b>Питомцы</b>: вернулись {pets[0]} — добыча ждёт.")

@@ -190,6 +190,48 @@ async def _pass(db, now: datetime) -> int:
     return sent
 
 
+_MORNING_LIMIT = 2000          # согласившихся за проход; «уже смотрели» отсеиваются в памяти
+_morning_seen: set[tuple[int, str]] = set()   # (игрок, его местная дата): письмо уже собрано или собирать было нечего
+_morning_day = [""]
+
+
+async def _morning(db, now: datetime) -> int:
+    """Утренний план: раз в день, с 09:00 до 12:00 по времени игрока, только если ему есть что забрать или сделать.
+    Час берётся из «наивного» UTC-времени (так адаптер отдаёт моменты в базу): `timestamptz` сместил бы его на пояс машины."""
+    from services import dm_plan
+    today = now.astimezone(timezone.utc).date().isoformat()
+    if _morning_day[0] != today:   # память не растёт: сутки прошли — прошлые отметки больше не нужны
+        _morning_seen.clear()
+        _morning_day[0] = today
+    async with db.execute(
+        "SELECT np.user_id, ds.tz_offset FROM user_notification_prefs np " + _READY.format(alias="np") +
+        " WHERE np.category = 'digest' AND np.enabled = TRUE "
+        "AND ((EXTRACT(HOUR FROM ?::timestamp)::int + ds.tz_offset + 24) % 24) >= ? "
+        "AND ((EXTRACT(HOUR FROM ?::timestamp)::int + ds.tz_offset + 24) % 24) < ? "
+        "AND np.user_id <> ALL(?::bigint[]) "
+        "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = "
+        "'digest:' || to_char(?::timestamp + make_interval(hours => ds.tz_offset::int), 'YYYY-MM-DD')) "
+        "ORDER BY np.user_id LIMIT ?",
+        (now, rules.DIGEST_FROM_HOUR, now, rules.DIGEST_TO_HOUR, [uid for uid, _ in _morning_seen], now, _MORNING_LIMIT),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for user_id, tz_offset in rows:
+        local_day = (now.astimezone(timezone.utc) + timedelta(hours=int(tz_offset))).date().isoformat()
+        mark = (int(user_id), local_day)
+        if mark in _morning_seen:
+            continue
+        _morning_seen.add(mark)
+        text = await dm_plan.morning_text(db, int(user_id), now)
+        if text is None:
+            continue
+        sent += await dm_push.enqueue(
+            db, user_id=int(user_id), category="digest", dedup_key=f"digest:{local_day}", text=text,
+            button={"kind": "cb", "data": "dn:plan", "label": "📋 Открыть план"},
+        )
+    return sent
+
+
 async def vip_daily_reminders(db, now: datetime | None = None) -> int:
     """Вечернее напоминание про VIP-поручение: идёт общей очередью (тихие часы, лимит, пауза, дайджест), и только согласившимся."""
     from services.vip import daily_reminder_candidates, record_daily_reminder_sent
@@ -208,7 +250,7 @@ async def vip_daily_reminders(db, now: datetime | None = None) -> int:
     return queued
 
 
-COLLECTORS = (("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))
+COLLECTORS = (("digest", _morning), ("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))
 
 
 async def collect(db, now: datetime | None = None) -> dict[str, int]:

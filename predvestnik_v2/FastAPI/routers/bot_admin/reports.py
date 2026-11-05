@@ -134,6 +134,8 @@ async def report_action(rid: int, data: dict = Body(...), user=Depends(_user), d
     if not report:
         raise HTTPException(404, "Жалоба не найдена.")
     admin_access.require_chat(user, report["chat_id"])
+    if rid in _busy:   # по жалобе сейчас выдаётся наказание: закрыть её «отклонена» значило бы наказать и сказать автору «нарушения нет»
+        raise HTTPException(409, "Эту жалобу уже обрабатывают.")
     if status == "in_work" and report["status"] == "in_work":   # повторное «взять» затирало того, кто взял первым
         raise HTTPException(409, "Жалоба уже в работе.")
     await _finish(db, user, report, status, str(data.get("note") or "").strip()[:300])

@@ -12,8 +12,9 @@ class WordChainError(ValueError):
 
 
 def _scope(chat_id: int, topic_id: int) -> None:
-    if chat_id >= 0 or topic_id < 0:
-        raise WordChainError("Игра работает в группе. В каждой теме своя партия.")
+    """Партия живёт в группе (в каждой теме своя) или в личке с ботом: там chat_id — номер самого игрока, и он играет один."""
+    if chat_id == 0 or topic_id < 0:
+        raise WordChainError("Игра работает в группе и в личке с ботом. В каждой теме своя партия.")
 
 
 def _choose(letter: str, used: set[str]) -> str | None:
@@ -137,6 +138,13 @@ async def spelling_help(db, *, chat_id: int, topic_id: int, value: str) -> dict:
         used = await repo.used(db, int(row["id"]))
     state["candidates"] = [] if await asyncio.to_thread(lexicon.is_known, rules.normalize(value)) else await asyncio.to_thread(suggest,value,state["letter"],used)
     return state
+
+
+async def solo_turn_open(db, *, chat_id: int, topic_id: int) -> bool:
+    """Личка: идёт партия, в которой недавно ходили, — слово без команды и без «ответа» принимается как ход."""
+    _scope(chat_id, topic_id)
+    await repo.ensure_tables(db)
+    return await repo.recently_active(db, chat_id, topic_id, rules.SOLO_PLAIN_MINUTES)
 
 
 async def stop(db, *, chat_id: int, topic_id: int, actor: int, can_moderate: bool) -> dict:

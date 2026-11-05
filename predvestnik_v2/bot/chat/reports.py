@@ -6,6 +6,7 @@ import html
 
 from loguru import logger
 
+from bot.chat import report_cards
 from bot.chat.access import is_developer
 from bot.chat.admin_chat import admin_chat_of
 from bot.chat.framework import Ctx, UsageError, registry
@@ -63,16 +64,18 @@ async def _notify(ctx: Ctx, rid: int, target_label: str, reason: str, text: str,
         lines.append("⚠️ Команду автора не удалось убрать из чата: дайте боту право удалять сообщения.")
     body = f"📨 <b>Жалоба №{rid}</b> на {html.escape(target_label)}\n" + quote(lines)
     dest = await admin_chat_of(ctx.db, chat.id) if conf["to_admin_chat"] else None
+    staff = set(await reports_service.staff_watchers(ctx.db))   # кнопки разбора — только персоналу бота; права проверяются при нажатии
+    buttons = report_cards.keyboard(rid)
     if dest:
         try:
-            await ctx.bot.send_message(dest, body, parse_mode="HTML", disable_web_page_preview=True)
+            await ctx.bot.send_message(dest, body, parse_mode="HTML", disable_web_page_preview=True, reply_markup=buttons)
         except Exception as exc:   # админ-чат могли удалить — жалоба всё равно в очереди
             logger.debug(f"report {rid} admin chat notify failed: {exc}")
     where = f" · {html.escape(chat.title)}" if chat.title else ""
     for uid in await reports_service.recipients(ctx.db, chat.id, ctx.user_id, conf):
         try:
             await ctx.bot.send_message(uid, body + f"\n<i>Чат{where}</i>", parse_mode="HTML",
-                                       disable_web_page_preview=True)
+                                       disable_web_page_preview=True, reply_markup=buttons if uid in staff else None)
         except Exception as exc:   # не открывал личку с ботом
             logger.debug(f"report {rid} dm {uid} failed: {exc}")
 

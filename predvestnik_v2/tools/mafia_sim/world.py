@@ -185,7 +185,7 @@ class World(BotApiMixin):
     def _message_json(self, stored: StoredMessage) -> dict:
         data = {"message_id": stored.message_id, "date": int(time.time()), "chat": self._chat(stored.chat_id),
                 "from": self._user(BOT_ID), "text": stored.text}
-        if stored.markup:
+        if stored.markup and "inline_keyboard" in stored.markup:   # Telegram never echoes force_reply or a reply keyboard back in a message
             data["reply_markup"] = stored.markup
         if stored.entities:
             data["entities"] = stored.entities

@@ -23,6 +23,7 @@ class Category:
 
 
 CATEGORIES: tuple[Category, ...] = (
+    Category("digest", "☀️ Утренний план", "Каждое утро напишу, что ждёт тебя сегодня: задания, питомцы, Пропуск.", "quests"),
     Category("pets", "🐾 Питомцы", "Напишу, когда питомец вернётся и добыча ждёт тебя.", "pets"),
     Category("quests", "📋 Задания", "Напишу, когда начнутся новые задания дня.", "quests"),
     Category("chests", "🎁 Сундуки", "Напишу, когда сундук будет готов.", "quests", live=False),
@@ -55,6 +56,8 @@ DEFAULT_TZ_OFFSET = 3            # по умолчанию МСК; игрок м
 MIN_TZ, MAX_TZ = -12, 14
 TOPIC_RETRY = timedelta(days=7)  # после неудачи с темой лички следующая попытка не раньше
 SEND_BATCH = 200                 # игроков за один проход доставки
+DIGEST_FROM_HOUR = 9             # утренний план приходит с 09:00 до 12:00 по времени игрока
+DIGEST_TO_HOUR = 12
 
 
 def local_hour(now: datetime, tz_offset: int) -> int:
@@ -81,10 +84,14 @@ def next_quiet_end(now: datetime, tz_offset: int) -> datetime:
 def merge_digest(rows: list[dict]) -> str:
     """Несколько событий — одно сообщение. Порядок как в очереди; хвост сворачивается в «и ещё N»."""
     lines = []
-    for row in rows[:DIGEST_MAX_LINES]:
-        text = str(row["text"]).strip().split("\n")[0]
-        lines.append(f"• {text}")
-    rest = len(rows) - DIGEST_MAX_LINES
+    for row in rows:
+        parts = str(row["text"]).strip().split("\n")
+        if row.get("category") == "digest":   # утренний план — это сам список дел: заголовок не нужен, строки важны
+            lines.extend(f"• {p}" for p in parts[1:] if p.strip())
+        else:
+            lines.append(f"• {parts[0]}")
+    rest = len(lines) - DIGEST_MAX_LINES
+    lines = lines[:DIGEST_MAX_LINES]
     if rest > 0:
         lines.append(f"…и ещё {rest}")
     return "📬 <b>Пока тебя не было</b>\n\n" + "\n".join(lines)

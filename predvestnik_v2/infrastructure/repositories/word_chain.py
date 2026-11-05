@@ -26,6 +26,11 @@ async def active(db, chat_id: int, topic_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+async def recently_active(db, chat_id: int, topic_id: int, minutes: int) -> bool:
+    async with db.execute("SELECT EXISTS (SELECT 1 FROM word_chain_rounds WHERE chat_id=? AND topic_id=? AND status='active' AND updated_at>CLOCK_TIMESTAMP()-make_interval(mins=>?))",(chat_id,topic_id,minutes)) as cur:
+        return bool((await cur.fetchone())[0])
+
+
 async def latest(db, chat_id: int, topic_id: int) -> dict | None:
     async with db.execute("SELECT * FROM word_chain_rounds WHERE chat_id=? AND topic_id=? ORDER BY id DESC LIMIT 1",(chat_id,topic_id)) as cur:
         row = await cur.fetchone()

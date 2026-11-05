@@ -2,7 +2,7 @@ from aiogram import F, Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import account, achievements, admin_chat, admin_help, article, cosmetics, family, games, help, mafia, members, migration, moderation, notify, onboarding, pets, profile, promo, purge, rank_commands, reports, sanctions, ship, site, streak, star_dust, tags, top, transfer, vip, warps, word_chain  # noqa: F401
+from bot.chat import account, achievements, admin_chat, admin_help, article, cosmetics, family, games, help, mafia, members, migration, moderation, notify, onboarding, pets, profile, promo, purge, rank_commands, report_cards, reports, sanctions, ship, site, streak, star_dust, tags, tickets, top, transfer, vip, warps, word_chain  # noqa: F401
 from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat import mafia_online  # noqa: F401,E402  (отдельный режим, локальная команда без изменений)
 from bot.chat import inactive  # noqa: F401,E402
@@ -78,7 +78,7 @@ async def _callback_gate(handler, event, data):
     return await handler(event, data)
 
 
-for sub in (top.router, help.router, inactive.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, notify.router, star_dust.router, word_chain.router):
+for sub in (top.router, help.router, inactive.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, notify.router, tickets.router, report_cards.router, star_dust.router, word_chain.router):
     sub.callback_query.middleware(_callback_gate)
     router.include_router(sub)
 
@@ -158,9 +158,13 @@ async def on_message(message: Message, bot, db) -> None:
         logger.warning(f"mafia lobby repost failed: {exc}")
     # Addressed word-game turns must win over bare actions such as «чай» and «торт».
     handled = False
-    if message.chat.type in ("group", "supergroup") and word_chain.is_reply(bot, message):
+    if message.chat.type in ("group", "supergroup", "private") and word_chain.is_reply(bot, message):
         if not await _silent(message, db):
             handled = await word_chain.on_reply(db, bot, message)
+    if not handled and message.chat.type == "private" and tickets.is_answer_prompt(bot, message):   # сотрудник отвечает на обращение игрока
+        handled = await tickets.on_staff_reply(db, bot, message)
+    if not handled and message.chat.type == "private" and not await _silent(message, db):   # «слова» в личке: просто слово — ход
+        handled = await word_chain.on_plain_word(db, bot, message)
     if not handled:
         handled = await dispatch(registry, message, bot, db)
     if not handled and message.chat.type == "private":   # «привет» в личке: не молчим, показываем, с чего начать

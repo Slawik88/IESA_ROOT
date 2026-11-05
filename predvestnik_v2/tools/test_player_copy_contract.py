@@ -124,7 +124,8 @@ for item in guide["faq"]:
     assert_plain("вопросы", item["a"] + ("" if item["q"] == "Куда делась Лига?" else " " + item["q"]))
 assert "Рейтинг" in {x["w"] for x in guide["glossary"]} and "Мора" in {x["w"] for x in guide["glossary"]}, "ключевые слова в словаре"
 
-for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/inactive.py",
+for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/inactive.py", "bot/chat/tickets.py", "services/dm_tickets.py",
+                 "services/dm_plan.py", "bot/chat/report_cards.py",
                  "bot/chat/ship.py", "bot/chat/ship_texts/announce.py", "bot/chat/ship_texts/compat.py",
                  "bot/chat/ship_texts/self_pair.py", "bot/chat/ship_texts/author_included.py",
                  "bot/chat/ship_texts/nobody.py", "bot/chat/ship_texts/cooldown.py",
@@ -137,8 +138,15 @@ for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/i
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"[А-Яа-яЁё]", node.value):
             assert_plain(relative, node.value)
 word_copy = json.dumps(topics["words"], ensure_ascii=False)
-for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS):
+for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS, word_chain.SOLO_PLAIN_MINUTES):
     assert str(value) in word_copy, f"words: число {value} расходится с правилами"
+from core import dm_push as dm_push_rules, dm_tickets
+support_copy = json.dumps(topics["support"], ensure_ascii=False)
+for value in (dm_tickets.MIN_TEXT, dm_tickets.MAX_TEXT):
+    assert str(value) in support_copy, f"support: число {value} расходится с правилами"
+assert dm_tickets.DAILY_LIMIT == 3 and "Три в сутки" in support_copy and dm_tickets.OPEN_LIMIT == 2 and "два твоих обращения" in support_copy, "support: лимиты обращений расходятся с правилами"
+dm_copy = json.dumps(topics["dm"], ensure_ascii=False)
+assert dm_push_rules.DIGEST_FROM_HOUR == 9 and dm_push_rules.DIGEST_TO_HOUR == 12 and "с 9 до 12" in dm_copy, "dm: часы утреннего плана расходятся с правилами"
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # ── Дары: Путеводитель показывает ровно то, что видит игрок в игре ──────────────────────────────────────────────────────
