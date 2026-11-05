@@ -230,6 +230,23 @@ async def alert(db, text: str, *, skip: int | None = None, title: str = "Адм�
         _spawn(_send(recipients, f"🔔 <b>{title}</b>\n" + text))
 
 
+async def alert_now(db, text: str, *, title: str) -> int:
+    """Как alert, но дожидается отправки: сколько владельцев получили сообщение (0 — никто, вызывающий повторит позже).
+    Для тревог, которые нельзя потерять (место в «Гонке за Пропуском»: владелец должен знать, кому платить)."""
+    bot = _bot_getter() if _bot_getter else None
+    if bot is None:
+        return 0
+    delivered = 0
+    for uid in await owners(db):
+        try:
+            await asyncio.wait_for(bot.send_message(uid, f"🔔 <b>{title}</b>\n" + text, parse_mode="HTML",
+                                                    disable_web_page_preview=True), 8)
+            delivered += 1
+        except Exception as exc:   # личка не открыта, лимит Telegram или сеть: остальным владельцам всё равно пишем
+            logger.warning(f"owner alert to {uid} failed: {type(exc).__name__}: {exc}")
+    return delivered
+
+
 async def _name(db, uid: int | None) -> str:
     if not uid:
         return "?"

@@ -290,6 +290,12 @@ async def drop(db, ids: list[int], reason: str) -> None:
                          (reason, list(ids)))
 
 
+async def drop_pending_key(db, user_id: int, dedup_key: str, reason: str) -> None:
+    """Withdraw one not yet sent message (the event it announced was cancelled)."""
+    await db.execute("UPDATE dm_push_outbox SET dropped_at = NOW(), drop_reason = ? WHERE user_id = ? AND dedup_key = ? "
+                     "AND sent_at IS NULL AND dropped_at IS NULL", (reason, int(user_id), dedup_key))
+
+
 async def drop_pending(db, user_id: int, reason: str, *, category: str | None = None) -> None:
     sql = "UPDATE dm_push_outbox SET dropped_at = NOW(), drop_reason = ? WHERE user_id = ? AND sent_at IS NULL AND dropped_at IS NULL"
     args: list = [reason, int(user_id)]

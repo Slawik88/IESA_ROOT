@@ -93,6 +93,43 @@ async def cmd_rhythm(ctx: Ctx) -> None:
         reply_markup=kb, parse_mode="HTML")
 
 
+# ── Пропуск сезона ────────────────────────────────────────────────────────────
+
+def render_pass(view: dict) -> str:
+    """Только показывает снимок Пропуска (services.league_pass.status) и гонку за звёздами, если она идёт."""
+    from core import league_pass as pass_rules, league_v1
+    if not view.get("active"):
+        return "🎫 <b>Пропуск сезона</b>\n\nПропуск ещё не открыт."
+    season = next((s for s in view["seasons"] if s["current"]), view["seasons"][0])
+    stars = league_v1.XP_BY_STARS
+    lines = ["🎫 <b>Пропуск сезона</b>", "",
+             f"Уровень: <b>{season['level']} из {season['levels']}</b> · опыт: <b>{season['xp']}</b>"]
+    if season["level"] < season["levels"]:
+        lines.append(f"До следующего уровня: {season['xp_to_next']} опыта.")
+    if any(row[track]["state"] == "ready" for row in season["track"] for track in ("free", "vip")):
+        lines.append("🎁 Есть награды, которые можно забрать.")
+    lines += ["", "<b>Откуда опыт</b>",
+              f"• Рейтинг: {stars[1]}, {stars[2]} или {stars[3]} за уровень — по числу звёзд, один раз за сезон.",
+              f"• Обычные Ритм и Сапёр — до {pass_rules.CASUAL_DAILY_CAP} в день, питомцы — до {pass_rules.PET_DAILY_CAP} в день.",
+              f"• Задания: {pass_rules.QUEST_XP['daily']} за набор дня, {pass_rules.QUEST_XP['weekly']} за набор недели."]
+    race = view.get("race") or {}
+    if race.get("running"):
+        lines += ["", f"🏁 Первые {race['places']}, кто закроет Пропуск, получат по {race['prize_stars']} ⭐ Telegram Stars. "
+                      + (f"Осталось мест: <b>{race['left']}</b>." if race["left"] else "Все места заняты.")]
+    lines += ["", "Подробно — в Путеводителе: темы «Пропуск сезона» и «Как копить опыт»."]
+    return "\n".join(lines)
+
+
+@registry.command("пропуск", aliases=("бп", "мой пропуск"), usage="бот пропуск", section="games",
+                  summary="Твой Пропуск сезона: уровень, опыт до следующего и откуда его взять.")
+async def cmd_pass(ctx: Ctx) -> None:
+    from services import league_pass
+    view = await league_pass.status(ctx.db, user_id=ctx.user_id)
+    url = miniapp_url("pass")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🎫 Открыть Пропуск", url=url)]]) if url else None
+    await ctx.message.answer(render_pass(view), reply_markup=kb, parse_mode="HTML")
+
+
 # ── Квесты ────────────────────────────────────────────────────────────────────
 
 def _period_lines(label: str, quests: list[dict]) -> list[str]:

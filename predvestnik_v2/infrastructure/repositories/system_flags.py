@@ -34,6 +34,8 @@ _DEFAULTS = [
     ("coin_market_v2_shorts", "📉 Позиции на падение v2", False),
     # Видимость игры и финансовая выдача не могут быть одним переключателем.
     ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", False),
+    # Деньги владельца: выключено, пока владелец не включит в админке «Функции» (services/pass_race.py).
+    ("pass_race_v1", "🏁 Гонка за Пропуском: 50 ⭐ первым четверым", False),
 ]
 
 _DEFAULT_ENABLED = {key: enabled for key, _label, enabled in _DEFAULTS}

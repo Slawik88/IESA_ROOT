@@ -78,11 +78,11 @@ async def minesweeper(db) -> None:
     else:
         raise AssertionError("a locked level must not start")
     won = await clear(db, await league.start(db, user_id=TESTER, game="minesweeper", level=1))
-    assert won["status"] == "won" and won["result"]["stars"] == 3 and won["result"]["xp"] == 100, won["result"]
+    assert won["status"] == "won" and won["result"]["stars"] == 3 and won["result"]["xp"] == rules.XP_BY_STARS[3], won["result"]
     flagged = await clear(db, await league.start(db, user_id=TESTER, game="minesweeper", level=2), wrong_flag=True)
-    assert flagged["result"]["stars"] == 1 and flagged["wrong_flags"] == 1 and flagged["result"]["xp"] == 60
+    assert flagged["result"]["stars"] == 1 and flagged["wrong_flags"] == 1 and flagged["result"]["xp"] == rules.XP_BY_STARS[1]
     again = await clear(db, await league.start(db, user_id=TESTER, game="minesweeper", level=2))
-    assert again["result"]["stars"] == 3 and again["result"]["xp"] == 40, "only the improvement adds experience"
+    assert again["result"]["stars"] == 3 and again["result"]["xp"] == rules.XP_BY_STARS[3] - rules.XP_BY_STARS[1], "only the improvement adds experience"
     view = await league.start(db, user_id=TESTER, game="minesweeper", level=3)
     stale = await league.mines_act(db, user_id=TESTER, run_id=view["run_id"], revision=view["revision"] + 5, kind="open", cell=0)
     assert stale.get("stale") and stale["revision"] == view["revision"]
@@ -113,10 +113,10 @@ async def rhythm(db) -> None:
         raise AssertionError("a level returned faster than it can be played must be refused")
     await db.execute("UPDATE league_demo_runs SET started_at=started_at-INTERVAL '2 minutes' WHERE run_id=?", (packet["run_id"],))
     result = await league.rhythm_finish(db, user_id=TESTER, run_id=packet["run_id"], actions=journal)
-    assert result["stars"] == 3 and result["detail"]["score"] == packet["reference"] and result["xp"] == 100, result
+    assert result["stars"] == 3 and result["detail"]["score"] == packet["reference"] and result["xp"] == rules.XP_BY_STARS[3], result
     assert result["detail"]["review"] == [], "an ordinary human-paced run is never marked"
     replay = await league.rhythm_finish(db, user_id=TESTER, run_id=packet["run_id"], actions=journal)
-    assert replay["replay"] and replay["xp"] == 100, "a repeated upload returns the stored result, nothing is added"
+    assert replay["replay"] and replay["xp"] == rules.XP_BY_STARS[3], "a repeated upload returns the stored result, nothing is added"
     assert league_rhythm.played_ms({"_taps": [(300, True, True)] * 30}) == 9000
 
 
@@ -124,7 +124,7 @@ async def overview_and_reset(db) -> None:
     me = await league.overview(db, user_id=TESTER)
     mines, rh = me["games"]["minesweeper"], me["games"]["rhythm"]
     assert mines["unlocked"] == 3 and mines["stars"] == 6 and rh["unlocked"] == 2, (mines, rh)
-    assert me["pass"]["xp"] == 300 and me["pass"]["level"] == 1 and me["pass"]["fake"]
+    assert me["pass"]["xp"] == 3 * rules.XP_BY_STARS[3] and me["pass"]["level"] == 1 and me["pass"]["fake"]
     assert mines["top"][0]["me"] and mines["top"][0]["level"] == 2
     assert me["games"]["minesweeper"]["levels"]["3"]["attempts"] == 2, "a loss and an attempt closed by a new start; the open one is not counted yet"
     await league.reset(db, user_id=TESTER)
@@ -139,8 +139,8 @@ async def real_season(db) -> None:
     league._season = lambda now=None: "s2"
     try:
         won = await clear(db, await league.start(db, user_id=TESTER, game="minesweeper", level=1))
-        assert won["result"]["stars"] == 3 and won["result"]["xp"] == 100
-        assert await pass_repo.xp(db, user_id=TESTER, season=2) == 100, "a real season level feeds the pass"
+        assert won["result"]["stars"] == 3 and won["result"]["xp"] == rules.XP_BY_STARS[3]
+        assert await pass_repo.xp(db, user_id=TESTER, season=2) == rules.XP_BY_STARS[3], "a real season level feeds the pass"
         me = await league.overview(db, user_id=TESTER)
         assert me["demo"] is False and me["pass"] is None and me["games"]["minesweeper"]["unlocked"] == 2
         try:

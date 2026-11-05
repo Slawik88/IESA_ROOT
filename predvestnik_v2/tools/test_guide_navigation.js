@@ -197,6 +197,21 @@ async function main() {
   broken.ctx.fetch = async () => ({ ok: true, json: async () => ({ version: 1, topics: [{}], groups: [], glossary: [], faq: [] }) });
   await assert.rejects(broken.run('gvLoad()'), /guide/);
   assert.equal(broken.storage.has('pv_guide_v1'), false, 'Incomplete topics must not poison the saved copy');
-  console.log(`OK: ${queries.length} player queries; typos, layout and chat words; back to the source screen, breadcrumbs, contents, search from a topic; navigation, explicit game modes, request deduplication, offline recovery, timeout and corrupt data`);
+
+  // S28b: a topic with «flag» (the race) is hidden while its module is off, shown before the profile is known
+  // (a DM link opens it at once) and appears without a reload when the module turns on.
+  const flagged = data.topics.find(t => t.flag);
+  assert(flagged, 'the race topic carries its module flag');
+  const gated = fixture();
+  await gated.run('gvLoad()');
+  assert(gated.run(`_GV.data.topics.some(t => t.id === '${flagged.id}')`), 'flags unknown yet: the topic is not hidden');
+  gated.run(`var _profileData = {}, _sysFlags = {${flagged.flag}: false}`);
+  await gated.run('gvLoad()');
+  assert(!gated.run(`_GV.data.topics.some(t => t.id === '${flagged.id}') || _GV.data.groups.some(g => g.topics.includes('${flagged.id}'))`), 'module off: hidden');
+  assert(!gated.run(`_GV.data.topics.some(t => (t.next || []).includes('${flagged.id}'))`), 'no «next» link leads to a hidden topic');
+  gated.run(`_sysFlags = {${flagged.flag}: true}`);
+  await gated.run('gvLoad()');
+  assert(gated.run(`_GV.data.topics.some(t => t.id === '${flagged.id}')`), 'module on: shown again');
+  console.log(`OK: ${queries.length} player queries; typos, layout and chat words; back to the source screen, breadcrumbs, contents, search from a topic; navigation, explicit game modes, request deduplication, offline recovery, timeout and corrupt data; flagged topics`);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
