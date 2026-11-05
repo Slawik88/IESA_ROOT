@@ -93,8 +93,10 @@ def composition() -> None:
     assert any("короче" in e for e in fmt.validate(wordy)), "длинный пункт прошёл"
     talky = {**note, "items": [{"id": "x-talky", "kind": "better", "title": "Пункт", "text": "Раз. Два. Три."}]}
     assert any("предложений" in e for e in fmt.validate(talky)), "три предложения в пункте прошли"
-    many = {**note, "items": [{"id": f"x-{i}-many", "kind": "better", "title": "Пункт", "text": "строка."} for i in range(rules.MAX_ITEMS + 1)]}
-    assert any("не больше" in e for e in fmt.validate(many)), "слишком много новинок прошло"
+    many = {**note, "items": [{"id": f"x-{i}-many", "kind": "better", "title": "Пункт", "text": "строка."} for i in range(12)]}
+    assert not fmt.validate(many), "сводный пост: пунктов сколько нужно"
+    huge = {**note, "items": [{"id": f"x-{i}-huge", "kind": "better", "title": "Пункт", "text": "я" * rules.MAX_TEXT} for i in range(40)]}
+    assert any("длиннее" in e for e in fmt.validate(huge)), "пост длиннее сообщения Telegram прошёл"
 
 
 def plain_language() -> None:

@@ -148,8 +148,8 @@ def check_text(text: str) -> str:
     if errors:
         raise PatchNoteError("Разметка: " + "; ".join(errors[:3]) + ".")
     size = fmt.tg_len(fmt.plain_text(text))
-    if not 20 <= size <= rules.MAX_CAPTION:
-        raise PatchNoteError(f"Текст поста: от 20 до {rules.MAX_CAPTION} знаков (сейчас {size}). Короче — лучше.")
+    if not 20 <= size <= rules.MAX_POST:
+        raise PatchNoteError(f"Текст поста: от 20 до {rules.MAX_POST} знаков (сейчас {size}). Короче — лучше.")
     return text
 
 
