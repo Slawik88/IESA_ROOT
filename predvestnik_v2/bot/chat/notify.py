@@ -19,6 +19,9 @@ from infrastructure.repositories import dm_push as repo
 from services import dm_push, dm_push_events
 
 router = Router(name="chat_notify")
+# Слэш-команды из меню «/» живут в отдельном роутере: он подключается раньше общего обработчика чата (bot/handlers/__init__.py),
+# который ловит все сообщения и иначе проглотил бы /plan и /notify.
+slash_router = Router(name="chat_notify_slash")
 
 _TZ = re.compile(r"^(?:пояс|utc|мск)?\s*([+-]?\d{1,2})$", re.I)
 
@@ -41,7 +44,7 @@ async def markup_for(button: dict | None, bot) -> InlineKeyboardMarkup | None:
 # ── настройки ───────────────────────────────────────────────────────────────
 
 def _offset_label(offset: int) -> str:
-    return "МСК" if offset == 3 else f"UTC{offset:+d}"
+    return "по Москве" if offset == 3 else f"пояс {offset:+d}"
 
 
 async def settings_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
@@ -52,7 +55,7 @@ async def settings_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
              + (", ".join(c.label.split(" ", 1)[1] for c in rules.CATEGORIES if c.live and c.key in on) or "ничего") + ".",
              "",
              f"• Не больше {rules.DAILY_CAP} сообщений в сутки: если событий много, соберу их в одно.",
-             f"• Ночью не пишу: с {rules.QUIET_START_HOUR}:00 до {rules.QUIET_END_HOUR:02d}:00 по твоему времени ({_offset_label(state['tz_offset'])})."
+             f"• Ночью не пишу: с {rules.QUIET_START_HOUR}:00 до {rules.QUIET_END_HOUR:02d}:00 ({_offset_label(state['tz_offset'])}; поменять: «бот уведомления пояс +5»)."
              if state["quiet_enabled"] else "• Тихие часы выключены: пишу в любое время.",
              "• Нажми на название, чтобы включить или выключить."]
     if state["paused_at"] is not None:
@@ -69,10 +72,11 @@ async def _show(ctx: Ctx) -> None:
     await ctx.reply(text, reply_markup=kb)
 
 
-async def _need_private(ctx: Ctx) -> bool:
+async def _need_private(ctx: Ctx, what: str) -> bool:
+    """Личное состояние игрока (настройки, план) не показываем в общем чате."""
     if ctx.message.chat.type == "private":
         return False
-    await ctx.reply("🔔 Уведомления настраиваются в личке с ботом: открой чат со мной и напиши «уведомления».")
+    await ctx.reply(f"🔔 {what} — в личке с ботом: открой чат со мной и напиши «{ctx.command.name}».")
     return True
 
 
@@ -80,12 +84,18 @@ async def _need_private(ctx: Ctx) -> bool:
                   summary="Что бот присылает тебе в личку, и ночные часы.", usage="бот уведомления [пояс +5 | тихие вкл/выкл]",
                   example="бот уведомления")
 async def cmd_notify(ctx: Ctx) -> None:
-    if await _need_private(ctx):
+    if await _need_private(ctx, "Уведомления настраиваются"):
         return
     arg = ctx.args.strip().lower()
     if arg:
         if arg.startswith("тих"):
-            await repo.set_quiet(ctx.db, ctx.user_id, "вкл" in arg or "on" in arg)
+            if "выкл" in arg or "off" in arg:
+                await repo.set_quiet(ctx.db, ctx.user_id, False)
+            elif "вкл" in arg or "on" in arg:
+                await repo.set_quiet(ctx.db, ctx.user_id, True)
+            else:
+                await ctx.reply("Тихие часы: напиши <code>бот уведомления тихие вкл</code> или <code>бот уведомления тихие выкл</code>.")
+                return
         else:
             found = _TZ.match(arg.removeprefix("пояс").strip() if arg.startswith("пояс") else arg)
             offset = int(found.group(1)) if found else None
@@ -160,7 +170,7 @@ async def plan_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     except Exception as exc:
         logger.warning(f"plan: pass unavailable: {type(exc).__name__}: {exc}")
     if len(lines) == 2:
-        lines.append("Сейчас забирать нечего. Загляни в Mini App: там игры и новые задания.")
+        lines.append("Сейчас забирать нечего. Загляни в приложение: там игры и новые задания.")
     rows.append([_btn("🔔 Уведомления", "dn:menu")])
     return "\n".join(lines).rstrip(), InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -168,8 +178,9 @@ async def plan_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
 @registry.command("план", aliases=("план дня", "plan"), section="basic",
                   summary="Что забрать и что сделать сегодня: задания, питомцы, Пропуск.", usage="бот план", example="бот план")
 async def cmd_plan(ctx: Ctx) -> None:
-    if ctx.message.chat.type == "private":
-        await dm_push.confirm_contact(ctx.db, ctx.user_id)
+    if await _need_private(ctx, "План дня показываю"):
+        return
+    await dm_push.confirm_contact(ctx.db, ctx.user_id)
     text, kb = await plan_view(ctx.db, ctx.user_id)
     await ctx.reply(text, reply_markup=kb)
 
@@ -221,7 +232,10 @@ async def on_notify_button(call: CallbackQuery, db) -> None:
     if msg is None or msg.chat.type != "private" or msg.chat.id != call.from_user.id:
         await call.answer("Это работает только в личке с ботом.", show_alert=True)
         return
-    uid, parts = call.from_user.id, call.data.split(":")
+    uid, parts = call.from_user.id, (call.data or "").split(":")
+    if not await dm_push.player_reachable(db, uid):   # аккаунт на удалении или заблокирован: награды здесь не выдаём
+        await call.answer("Сейчас это недоступно.", show_alert=True)
+        return
     try:
         await dm_push.confirm_contact(db, uid)
         notice = ""
@@ -287,7 +301,7 @@ async def _quiet(message: Message, db) -> bool:
         return False
 
 
-@router.message(SlashCommand("notify"), F.chat.type == "private")
+@slash_router.message(SlashCommand("notify"), F.chat.type == "private")
 async def slash_notify(message: Message, db) -> None:
     if message.from_user is None or await _quiet(message, db):
         return
@@ -296,7 +310,7 @@ async def slash_notify(message: Message, db) -> None:
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
-@router.message(SlashCommand("plan"), F.chat.type == "private")
+@slash_router.message(SlashCommand("plan"), F.chat.type == "private")
 async def slash_plan(message: Message, db) -> None:
     if message.from_user is None or await _quiet(message, db):
         return

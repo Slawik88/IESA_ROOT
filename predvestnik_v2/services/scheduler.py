@@ -4,7 +4,6 @@ import asyncio
 from datetime import datetime, timezone
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from loguru import logger
 
 from infrastructure import lazy_db
@@ -160,22 +159,11 @@ async def maintenance_task(bot: Bot) -> None:
                     await onboarding.send_reminders(bot, db)
                 except Exception as onboarding_error:
                     logger.warning(f"onboarding reminders failed: {onboarding_error}")
-                from services.vip import daily_reminder_candidates, record_daily_reminder_sent
-                for user_id in await daily_reminder_candidates(db):
-                    try:
-                        await bot.send_message(
-                            user_id,
-                            "✦ VIP-поручение ещё ждёт: заверши одну игру сегодня. "
-                            "Прогресс серии не сгорит, если пропустишь день.",
-                        )
-                        await record_daily_reminder_sent(db, user_id=user_id)
-                        await db.commit()
-                    except Exception as reminder_error:
-                        if isinstance(reminder_error, (TelegramBadRequest, TelegramForbiddenError)):
-                            from infrastructure.repositories import vip_v2 as vip_v2_repo
-                            await vip_v2_repo.mark_private_contact_unreachable(db, user_id=user_id)
-                            await db.commit()
-                        logger.warning(f"VIP reminder {user_id} failed: {reminder_error}")
+                try:   # напоминание про VIP-поручение: в общую очередь уведомлений (согласие, тихие часы, лимит, пауза)
+                    from services import dm_push_events
+                    await dm_push_events.vip_daily_reminders(db)
+                except Exception as reminder_error:
+                    logger.warning(f"VIP reminders failed: {reminder_error}")
         except Exception as exc:
             logger.error(f"Ошибка в задаче обслуживания: {exc}")
             await asyncio.sleep(30)

@@ -16,7 +16,12 @@ from services import dm_push
 
 BATCH = 500   # событий одного вида за проход; остальное подберёт следующий проход
 
-_CONSENT = ("JOIN user_notification_prefs np ON np.user_id = {alias}.user_id AND np.category = ? AND np.enabled = TRUE")
+# Только согласившиеся и те, кому сейчас вообще можно писать: иначе первые BATCH недоступных игроков занимали бы весь проход.
+_READY = ("JOIN dm_push_settings ds ON ds.user_id = {alias}.user_id AND ds.dm_confirmed_at IS NOT NULL "
+          "AND ds.dm_disabled_at IS NULL AND ds.paused_at IS NULL")
+_CONSENT = ("JOIN user_notification_prefs np ON np.user_id = {alias}.user_id AND np.category = ? AND np.enabled = TRUE " + _READY)
+# Событие уже стоит в очереди или отправлено: выборка его не повторяет.
+_NEW = "NOT EXISTS (SELECT 1 FROM dm_push_outbox ob WHERE ob.user_id = {alias}.user_id AND ob.dedup_key = {key})"
 
 
 async def _has_table(db, name: str) -> bool:
@@ -31,7 +36,8 @@ async def _pets(db, now: datetime) -> int:
         return 0
     async with db.execute(
         f"SELECT r.id, r.user_id FROM pet_v2_runs r {_CONSENT.format(alias='r')} "
-        "WHERE r.status = 'active' AND r.ends_at <= ? AND r.ends_at > ? ORDER BY r.ends_at LIMIT ?",
+        "WHERE r.status = 'active' AND r.ends_at <= ? AND r.ends_at > ? AND " + _NEW.format(alias="r", key="'pet_run:' || r.id")
+        + " ORDER BY r.ends_at LIMIT ?",
         ("pets", now, now - rules.EVENT_TTL, BATCH),
     ) as c:
         rows = await c.fetchall()
@@ -51,8 +57,8 @@ async def _quests(db, now: datetime) -> int:
         return 0
     key = f"quests:daily:{now.astimezone(timezone.utc).date().isoformat()}"
     async with db.execute(
-        "SELECT np.user_id FROM user_notification_prefs np "
-        "WHERE np.category = 'quests' AND np.enabled = TRUE "
+        "SELECT np.user_id FROM user_notification_prefs np " + _READY.format(alias="np") +
+        " WHERE np.category = 'quests' AND np.enabled = TRUE "
         "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
         "ORDER BY np.user_id LIMIT ?", (key, BATCH),
     ) as c:
@@ -73,8 +79,8 @@ async def _market(db, now: datetime) -> int:
         return 0
     async with db.execute(
         f"SELECT o.id, o.user_id, o.side FROM player_coin_orders_v1 o {_CONSENT.format(alias='o')} "
-        "WHERE o.status = 'filled' AND o.actor_kind = 'player' AND o.closed_at IS NOT NULL "
-        "AND o.closed_at > ? ORDER BY o.closed_at LIMIT ?", ("market", now - rules.EVENT_TTL, BATCH),
+        "WHERE o.status = 'filled' AND o.actor_kind = 'player' AND o.time_in_force = 'gtc' AND o.closed_at IS NOT NULL "
+        "AND o.closed_at > ? AND " + _NEW.format(alias="o", key="'order:' || o.id") + " ORDER BY o.closed_at LIMIT ?", ("market", now - rules.EVENT_TTL, BATCH),
     ) as c:
         rows = await c.fetchall()
     sent = 0
@@ -99,7 +105,8 @@ async def _season(db, now: datetime) -> int:
     word = "день" if days == 1 else "дня"
     key = f"season_end:{number}"
     async with db.execute(
-        "SELECT np.user_id FROM user_notification_prefs np WHERE np.category = 'season' AND np.enabled = TRUE "
+        "SELECT np.user_id FROM user_notification_prefs np " + _READY.format(alias="np") +
+        " WHERE np.category = 'season' AND np.enabled = TRUE "
         "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
         "ORDER BY np.user_id LIMIT ?", (key, BATCH),
     ) as c:
@@ -121,7 +128,8 @@ async def _vip(db, now: datetime) -> int:
         return 0
     async with db.execute(
         f"SELECT v.user_id, v.expires_at FROM vip_subscriptions v {_CONSENT.format(alias='v')} "
-        "WHERE v.expires_at > ? AND v.expires_at <= ? ORDER BY v.expires_at LIMIT ?",
+        "WHERE v.expires_at > ? AND v.expires_at <= ? AND "
+        + _NEW.format(alias="v", key="'vip_end:' || to_char(v.expires_at, 'YYYY-MM-DD')") + " ORDER BY v.expires_at LIMIT ?",
         ("vip_expiry", now.replace(tzinfo=None), (now + timedelta(days=VIP_EXPIRY_REMINDER_DAYS)).replace(tzinfo=None), BATCH),
     ) as c:
         rows = await c.fetchall()
@@ -137,6 +145,7 @@ async def _vip(db, now: datetime) -> int:
 
 _PASS_EVERY = timedelta(minutes=30)   # статус Пропуска считается по каждому согласившемуся: не чаще раза в полчаса
 _pass_checked: list[datetime] = []
+_pass_cursor = [0]
 
 
 async def ready_pass_seasons(db, user_id: int, now: datetime) -> list[int]:
@@ -161,11 +170,14 @@ async def _pass(db, now: datetime) -> int:
     _pass_checked[:] = [now]
     key = f"pass:{now.astimezone(timezone.utc).date().isoformat()}"
     async with db.execute(
-        "SELECT np.user_id FROM user_notification_prefs np WHERE np.category = 'pass' AND np.enabled = TRUE "
+        "SELECT np.user_id FROM user_notification_prefs np " + _READY.format(alias="np") +
+        " WHERE np.category = 'pass' AND np.enabled = TRUE AND np.user_id > ? "
         "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
-        "ORDER BY np.user_id LIMIT ?", (key, BATCH),
+        "ORDER BY np.user_id LIMIT ?", (_pass_cursor[0], key, BATCH),
     ) as c:
         rows = await c.fetchall()
+    # Курсор идёт по игрокам кругом: те, у кого награды нет, не должны занимать первые места навсегда.
+    _pass_cursor[0] = int(rows[-1][0]) if len(rows) == BATCH else 0
     sent = 0
     for (user_id,) in rows:
         if not await ready_pass_seasons(db, int(user_id), now):
@@ -176,6 +188,24 @@ async def _pass(db, now: datetime) -> int:
             button={"kind": "cb", "data": "dn:claim:pass", "label": "🎁 Забрать награды"},
         )
     return sent
+
+
+async def vip_daily_reminders(db, now: datetime | None = None) -> int:
+    """Вечернее напоминание про VIP-поручение: идёт общей очередью (тихие часы, лимит, пауза, дайджест), и только согласившимся."""
+    from services.vip import daily_reminder_candidates, record_daily_reminder_sent
+    now = now or datetime.now(timezone.utc)
+    today = now.astimezone(timezone.utc).date().isoformat()
+    queued = 0
+    for user_id in await daily_reminder_candidates(db, now=now):
+        if await dm_push.enqueue(
+            db, user_id=user_id, category="vip_expiry", dedup_key=f"vip_daily:{today}",
+            text="✦ <b>VIP-поручение ещё ждёт</b>\nЗаверши одну игру сегодня. Прогресс серии не сгорит, если пропустишь день.",
+            button={"kind": "app", "section": "vip", "label": "⭐ К VIP"},
+        ):
+            await record_daily_reminder_sent(db, user_id=user_id, now=now)
+            queued += 1
+        await db.commit()
+    return queued
 
 
 COLLECTORS = (("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))

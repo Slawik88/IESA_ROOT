@@ -5,18 +5,35 @@
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 from core import dm_push as rules
 
 
-async def ensure_schema(db) -> None:
-    """Таблицы очереди и настроек; повторный вызов ничего не меняет (проверка до DDL: обычный запуск без блокировок)."""
-    async with db.execute("SELECT to_regclass('dm_push_outbox') IS NOT NULL AND to_regclass('dm_push_settings') IS NOT NULL "
-                          "AND to_regclass('dm_push_topics') IS NOT NULL") as c:
+async def _schema_ready(db) -> bool:
+    async with db.execute(
+        "SELECT to_regclass('dm_push_outbox') IS NOT NULL AND to_regclass('dm_push_settings') IS NOT NULL "
+        "AND to_regclass('dm_push_topics') IS NOT NULL AND EXISTS (SELECT 1 FROM information_schema.columns "
+        "WHERE table_schema = current_schema() AND table_name = 'dm_push_settings' AND column_name = 'next_check_at')"
+    ) as c:
         row = await c.fetchone()
-    if row and row[0]:
+    return bool(row and row[0])
+
+
+async def ensure_schema(db) -> None:
+    """Таблицы очереди и настроек; повторный вызов ничего не меняет. Готовую схему проверяет один запрос без блокировок.
+    Установка идёт под общим замком: бот при старте и первый запрос Mini App могут прийти одновременно, а параллельный DDL
+    в PostgreSQL не сериализуется (на проде так падало «tuple concurrently updated», см. quests_v1)."""
+    if await _schema_ready(db):
         return
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_schema:dm_push', 0))")
+        if not await _schema_ready(db):
+            await _install(db)
+
+
+async def _install(db) -> None:
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS dm_push_settings (
             user_id BIGINT PRIMARY KEY,
@@ -26,9 +43,11 @@ async def ensure_schema(db) -> None:
             tz_offset SMALLINT NOT NULL DEFAULT {rules.DEFAULT_TZ_OFFSET} CHECK (tz_offset BETWEEN {rules.MIN_TZ} AND {rules.MAX_TZ}),
             unanswered SMALLINT NOT NULL DEFAULT 0,
             paused_at TIMESTAMPTZ,
+            next_check_at TIMESTAMPTZ,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
+    await db.execute("ALTER TABLE dm_push_settings ADD COLUMN IF NOT EXISTS next_check_at TIMESTAMPTZ")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS dm_push_outbox (
             id BIGSERIAL PRIMARY KEY,
@@ -55,10 +74,10 @@ async def ensure_schema(db) -> None:
             PRIMARY KEY (user_id, topic_key)
         )
     """)
+    # Таблицы только что созданы и пусты, поэтому обычный CREATE INDEX (без CONCURRENTLY) никого не блокирует.
     await db.execute("CREATE INDEX IF NOT EXISTS idx_dm_push_outbox_pending ON dm_push_outbox (user_id, created_at) "
                      "WHERE sent_at IS NULL AND dropped_at IS NULL")
     await db.execute("CREATE INDEX IF NOT EXISTS idx_dm_push_outbox_sent ON dm_push_outbox (user_id, sent_at) WHERE sent_at IS NOT NULL")
-    await db.commit()
 
 
 # ── согласия ────────────────────────────────────────────────────────────────
@@ -82,8 +101,9 @@ async def set_consent(db, user_id: int, category: str, enabled: bool) -> None:
         "ON CONFLICT (user_id, category) DO UPDATE SET enabled = EXCLUDED.enabled",
         (int(user_id), category, bool(enabled)),
     )
-    if enabled:   # включил сам — значит, читает: счётчик «без отклика» и пауза сбрасываются
-        await db.execute("UPDATE dm_push_settings SET unanswered = 0, paused_at = NULL, updated_at = NOW() WHERE user_id = ?", (int(user_id),))
+    if enabled:   # включил сам — значит, читает: счётчик «без отклика», пауза и отсрочка сбрасываются
+        await db.execute("UPDATE dm_push_settings SET unanswered = 0, paused_at = NULL, next_check_at = NULL, updated_at = NOW() "
+                         "WHERE user_id = ?", (int(user_id),))
     else:
         await drop_pending(db, int(user_id), "revoked", category=category)
     await db.commit()
@@ -111,9 +131,10 @@ async def touch_contact(db, user_id: int) -> bool:
         """
         INSERT INTO dm_push_settings (user_id, dm_confirmed_at) VALUES (?, NOW())
         ON CONFLICT (user_id) DO UPDATE SET dm_confirmed_at = COALESCE(dm_push_settings.dm_confirmed_at, NOW()),
-            dm_disabled_at = NULL, unanswered = 0, paused_at = NULL, updated_at = NOW()
+            dm_disabled_at = NULL, unanswered = 0, paused_at = NULL, next_check_at = NULL, updated_at = NOW()
         WHERE dm_push_settings.dm_confirmed_at IS NULL OR dm_push_settings.dm_disabled_at IS NOT NULL
            OR dm_push_settings.unanswered > 0 OR dm_push_settings.paused_at IS NOT NULL
+           OR dm_push_settings.next_check_at IS NOT NULL
         RETURNING 1
         """, (int(user_id),),
     ) as c:
@@ -132,7 +153,7 @@ async def mark_unreachable(db, user_id: int) -> None:
 async def set_quiet(db, user_id: int, enabled: bool) -> None:
     await db.execute(
         "INSERT INTO dm_push_settings (user_id, quiet_enabled) VALUES (?, ?) "
-        "ON CONFLICT (user_id) DO UPDATE SET quiet_enabled = EXCLUDED.quiet_enabled, updated_at = NOW()",
+        "ON CONFLICT (user_id) DO UPDATE SET quiet_enabled = EXCLUDED.quiet_enabled, next_check_at = NULL, updated_at = NOW()",
         (int(user_id), bool(enabled)),
     )
     await db.commit()
@@ -141,10 +162,24 @@ async def set_quiet(db, user_id: int, enabled: bool) -> None:
 async def set_tz(db, user_id: int, offset: int) -> None:
     await db.execute(
         "INSERT INTO dm_push_settings (user_id, tz_offset) VALUES (?, ?) "
-        "ON CONFLICT (user_id) DO UPDATE SET tz_offset = EXCLUDED.tz_offset, updated_at = NOW()",
+        "ON CONFLICT (user_id) DO UPDATE SET tz_offset = EXCLUDED.tz_offset, next_check_at = NULL, updated_at = NOW()",
         (int(user_id), int(offset)),
     )
     await db.commit()
+
+
+async def defer(db, user_id: int, until: datetime) -> None:
+    """Этому игроку сейчас писать нельзя (ночь, лимит, пауза, сбой): в проходах доставки его нет до момента ``until``."""
+    await db.execute(
+        "INSERT INTO dm_push_settings (user_id, next_check_at) VALUES (?, ?) "
+        "ON CONFLICT (user_id) DO UPDATE SET next_check_at = EXCLUDED.next_check_at", (int(user_id), until),
+    )
+
+
+async def account_alive(db, user_id: int) -> bool:
+    """Аккаунт не стоит на удалении. Игрока без записи в users (писал только боту) не отсекаем: писать ему можно."""
+    async with db.execute("SELECT 1 FROM users WHERE user_tg_id = ? AND deleted_at IS NOT NULL", (int(user_id),)) as c:
+        return await c.fetchone() is None
 
 
 async def record_sent_to_player(db, user_id: int) -> int:
@@ -187,7 +222,6 @@ async def fail_topic(db, user_id: int, topic_key: str) -> None:
 
 async def add(db, user_id: int, category: str, dedup_key: str, text: str, button: dict | None) -> int | None:
     """Поставить сообщение в очередь. None — такое событие уже было (dedup_key)."""
-    import json
     async with db.execute(
         "INSERT INTO dm_push_outbox (user_id, category, dedup_key, text, button) VALUES (?, ?, ?, ?, ?::jsonb) "
         "ON CONFLICT (user_id, dedup_key) DO NOTHING RETURNING id",
@@ -197,10 +231,12 @@ async def add(db, user_id: int, category: str, dedup_key: str, text: str, button
     return int(row[0]) if row else None
 
 
-async def pending_user_ids(db, limit: int) -> list[int]:
+async def pending_user_ids(db, now: datetime, limit: int) -> list[int]:
+    """Игроки, которым есть что отправить и у которых отсрочка (ночь, лимит, пауза, сбой) уже закончилась."""
     async with db.execute(
-        "SELECT user_id FROM dm_push_outbox WHERE sent_at IS NULL AND dropped_at IS NULL "
-        "GROUP BY user_id ORDER BY MIN(created_at) LIMIT ?", (int(limit),),
+        "SELECT o.user_id FROM dm_push_outbox o LEFT JOIN dm_push_settings s ON s.user_id = o.user_id "
+        "WHERE o.sent_at IS NULL AND o.dropped_at IS NULL AND (s.next_check_at IS NULL OR s.next_check_at <= ?) "
+        "GROUP BY o.user_id ORDER BY MIN(o.created_at) LIMIT ?", (now, int(limit)),
     ) as c:
         return [int(r[0]) for r in await c.fetchall()]
 
@@ -211,8 +247,15 @@ async def pending_rows(db, user_id: int) -> list[dict]:
         "WHERE user_id = ? AND sent_at IS NULL AND dropped_at IS NULL ORDER BY created_at, id", (int(user_id),),
     ) as c:
         rows = await c.fetchall()
-    return [{"id": int(r[0]), "category": r[1], "dedup_key": r[2], "text": r[3], "button": r[4],
+    return [{"id": int(r[0]), "category": r[1], "dedup_key": r[2], "text": r[3], "button": _json(r[4]),
              "attempts": int(r[5]), "created_at": r[6]} for r in rows]
+
+
+def _json(value):
+    """jsonb приходит из asyncpg строкой (кодека в пуле нет): без разбора кнопка не получилась бы никогда."""
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
 
 
 async def sent_batches_since(db, user_id: int, since: datetime) -> int:

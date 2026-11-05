@@ -324,6 +324,8 @@ async def reminder_candidates(db, *, day_key: str) -> list[dict]:
           AND COALESCE(p.reminder_enabled,TRUE)=TRUE
           AND EXISTS (SELECT 1 FROM user_notification_prefs np
                       WHERE np.user_id=v.user_id AND np.category='vip_expiry' AND np.enabled=TRUE)
+          AND EXISTS (SELECT 1 FROM dm_push_settings ds WHERE ds.user_id=v.user_id AND ds.dm_confirmed_at IS NOT NULL
+                      AND ds.dm_disabled_at IS NULL AND ds.paused_at IS NULL)
           AND p.dm_confirmed_at IS NOT NULL AND p.dm_disabled_at IS NULL
           AND COALESCE(p.missed_reminders,0)<2
           AND (p.last_reminder_day IS NULL OR p.last_reminder_day<?::text::date)

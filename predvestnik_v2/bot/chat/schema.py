@@ -77,7 +77,11 @@ async def ensure_chat_schema() -> None:
         await global_moderation.ensure_schema(db)
         await admin_people.ensure_schema(db)
         from infrastructure.repositories import dm_push as dm_push_repo
-        await dm_push_repo.ensure_schema(db)   # очередь и настройки уведомлений в личку (S23)
+        try:
+            await dm_push_repo.ensure_schema(db)   # очередь и настройки уведомлений в личку (S23)
+        except Exception as exc:   # уведомления не должны мешать запуску остального бота
+            from loguru import logger
+            logger.exception(f"dm push schema failed: {exc}")
         from services.promo_v2 import ensure_schema as ensure_promo
         await ensure_promo(db)
         from bot.chat.achievements import ensure_schema as ensure_achievements

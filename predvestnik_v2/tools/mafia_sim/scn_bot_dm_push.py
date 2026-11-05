@@ -1,5 +1,9 @@
 """Whole-bot scenarios: notifications to the DM (S23) — consent, DM gate, quiet hours, daily cap, digest, blocked bot,
-flood limit, pause without reaction, event collectors, the plan of the day and a reward that cannot be taken twice."""
+flood limit, pause without reaction, topics, event collectors with the button, the plan of the day, a reward that cannot be
+taken twice, slash commands, deleted accounts and a queue that sleeping players cannot block.
+
+The test clock: ``deliver_due(now=...)`` takes the moment as a parameter, so night and days are checked without waiting.
+Time only moves forward inside a scenario (a player who must wait gets a ``next_check_at`` mark)."""
 from __future__ import annotations
 
 import copy
@@ -24,12 +28,13 @@ async def player(h: Harness, name: str, *, write: bool = True):
     """A fresh player with a clean notification state; ``write`` — he has already written to the bot in the DM."""
     user = h.user(name)
     async with database() as db:
-        for table in ("dm_push_outbox", "dm_push_settings"):
+        for table in ("dm_push_outbox", "dm_push_settings", "dm_push_topics"):
             await db.execute(f"DELETE FROM {table} WHERE user_id = ?", (user.id,))
         await db.execute("DELETE FROM user_notification_prefs WHERE user_id = ?", (user.id,))
+        await db.execute("DELETE FROM vip_v2_preferences WHERE user_id = ?", (user.id,))
         await db.execute("INSERT INTO users (user_tg_id, user_tg_username, user_tg_name) VALUES (?, ?, ?) ON CONFLICT (user_tg_id) DO NOTHING",
                          (user.id, f"sim{user.id}", name))
-        await db.execute("DELETE FROM vip_v2_preferences WHERE user_id = ?", (user.id,))
+        await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user.id,))
         await db.commit()
     if write:
         await say(h, user, user.id, "баланс")
@@ -56,21 +61,28 @@ async def push(db, user, cat: str, key: str, text: str = "🐾 Событие") 
     return await dm_push.enqueue(db, user_id=user.id, category=cat, dedup_key=key, text=text)
 
 
-async def push_at(db, user, cat: str, key: str, when: datetime) -> bool:
+async def push_at(db, user, cat: str, key: str, when: datetime, text: str = "🐾 Событие") -> bool:
     """Queue an event that, for the test clock, was born at ``when``."""
-    queued = await push(db, user, cat, key)
+    queued = await push(db, user, cat, key, text)
     await db.execute("UPDATE dm_push_outbox SET created_at = ? WHERE user_id = ? AND dedup_key = ?", (when, user.id, key))
     return queued
 
 
-async def deliver(h: Harness, db, now: datetime) -> dict:
+async def deliver(h: Harness, db, now: datetime, **kw) -> dict:
+    """One delivery pass at the test moment ``now``; what it sends is stamped with ``now`` (the daily cap reads sent_at)."""
     from bot.chat.notify import markup_for
     from services import dm_push
-    return await dm_push.deliver_due(h.bot, db, now=now, markup=markup_for)
+    async with db.execute("SELECT id FROM dm_push_outbox WHERE sent_at IS NOT NULL") as c:
+        before = [int(r[0]) for r in await c.fetchall()]
+    stats = await dm_push.deliver_due(h.bot, db, now=now, markup=markup_for, **kw)
+    await db.execute("UPDATE dm_push_outbox SET sent_at = ? WHERE sent_at IS NOT NULL AND NOT (id = ANY(?::bigint[]))", (now, before))
+    await db.commit()
+    return stats
 
 
 @bot_scenario
 async def dm_push_settings_screen_and_consent(h: Harness) -> None:
+    from infrastructure.repositories import dm_push as repo
     user = await player(h, "Игрок", write=False)
     sent = await say(h, user, user.id, "уведомления")
     screen = last_message(h, user.id, "Уведомления в личку")
@@ -78,7 +90,6 @@ async def dm_push_settings_screen_and_consent(h: Harness) -> None:
     ok(all(not b["text"].startswith("✅") for b in screen.buttons() if b.get("callback_data", "").startswith("dn:t:")), "no category is switched on")
     await h.click(user, user.id, screen, "Питомцы")
     async with database() as db:
-        from infrastructure.repositories import dm_push as repo
         ok("pets" in await repo.consented(db, user.id), "tapping a category gives the consent")
         ok((await repo.get_settings(db, user.id))["dm_confirmed_at"] is not None, "the tap also confirms the DM")
     screen = last_message(h, user.id, "Уведомления в личку")
@@ -88,13 +99,31 @@ async def dm_push_settings_screen_and_consent(h: Harness) -> None:
         ok("pets" not in await repo.consented(db, user.id), "a second tap takes the consent back")
     group_user = await player(h, "Из группы")
     group = h.new_chat([group_user])
-    sent = await say(h, group_user, group, "бот уведомления")
-    ok("в личке" in said(sent), f"in a group the player is sent to the DM: {said(sent)[:120]!r}")
+    ok("в личке" in said(await say(h, group_user, group, "бот уведомления")), "in a group the player is sent to the DM")
+    ok("в личке" in said(await say(h, group_user, group, "бот план")), "and the plan is not shown in a group either")
     await say(h, user, user.id, "бот уведомления пояс +5")
     async with database() as db:
         ok((await repo.get_settings(db, user.id))["tz_offset"] == 5, "the time zone is set by the command")
-    bad = await say(h, user, user.id, "бот уведомления пояс +99")
-    ok("Не понял пояс" in said(bad), "an impossible zone is refused")
+    ok("Не понял пояс" in said(await say(h, user, user.id, "бот уведомления пояс +99")), "an impossible zone is refused")
+    hint = await say(h, user, user.id, "бот уведомления тихие")
+    async with database() as db:
+        ok((await repo.get_settings(db, user.id))["quiet_enabled"] is True, "an unclear «тихие» does not switch the quiet hours off")
+    ok("тихие вкл" in said(hint), "and the player is shown how to write it")
+    await say(h, user, user.id, "бот уведомления тихие выкл")
+    async with database() as db:
+        ok((await repo.get_settings(db, user.id))["quiet_enabled"] is False, "«тихие выкл» switches them off")
+
+
+@bot_scenario
+async def dm_push_slash_commands_from_the_menu(h: Harness) -> None:
+    user = await player(h, "Из меню", write=False)
+    plan = await say(h, user, user.id, "/plan")
+    ok("План дня" in said(plan), f"/plan from the «/» menu works: {said(plan)[:100]!r}")
+    notify = await say(h, user, user.id, "/notify")
+    ok("Уведомления в личку" in said(notify), f"/notify from the «/» menu works: {said(notify)[:100]!r}")
+    async with database() as db:
+        from infrastructure.repositories import dm_push as repo
+        ok((await repo.get_settings(db, user.id))["dm_confirmed_at"] is not None, "and it confirms the DM")
 
 
 @bot_scenario
@@ -115,10 +144,16 @@ async def dm_push_needs_consent_and_a_confirmed_dm(h: Harness) -> None:
         await repo.set_consent(db, quiet.id, "pets", False)
         rows = [r["category"] for r in await repo.pending_rows(db, quiet.id)]
         ok(rows == ["quests"], f"taking the consent back removes the queued message of that category: {rows}")
-        row = await db.execute("SELECT dm_confirmed_at FROM vip_v2_preferences WHERE user_id = ?", (quiet.id,))
-        async with row as c:
+        async with db.execute("SELECT dm_confirmed_at FROM vip_v2_preferences WHERE user_id = ?", (quiet.id,)) as c:
             vip = await c.fetchone()
         ok(vip and vip[0] is not None, "the VIP reminder condition dm_confirmed_at is set by a private message (it was never set before)")
+        await db.execute("UPDATE users SET deleted_at = NOW() WHERE user_tg_id = ?", (quiet.id,))
+        await db.commit()
+        ok(not await push(db, quiet, "quests", "q2"), "an account that is being deleted gets nothing")
+        stats = await deliver(h, db, at(8, 1))
+        ok(stats["sent"] == 0 and not await repo.pending_rows(db, quiet.id), f"and its queue is cleared, nothing is sent: {stats}")
+        await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (quiet.id,))
+        await db.commit()
 
 
 @bot_scenario
@@ -127,54 +162,73 @@ async def dm_push_quiet_hours_digest_and_daily_cap(h: Harness) -> None:
     async with database() as db:
         await consent(db, user, "pets", "quests", "market", "season")
         for n, cat in enumerate(("pets", "quests", "market")):
-            await push(db, user, cat, f"e{n}", f"🔔 Событие {n}\nПодробности")
+            await push_at(db, user, cat, f"e{n}", at(18), f"🔔 Событие {n}\nПодробности")
         start = len(h.world.calls)
         night = await deliver(h, db, at(20))                       # 23:00 по Москве
         ok(night["sent"] == 0 and not to_player(h, user, start), f"nothing is sent in the quiet hours: {night}")
-        morning = await deliver(h, db, at(8))                      # 11:00 по Москве
+        again = await deliver(h, db, at(21))
+        ok(again["waiting"] == 0, f"and the sleeping player is not looked at again until morning: {again}")
+        morning = await deliver(h, db, at(8, 1))                   # 11:00 по Москве следующего дня
         sent = to_player(h, user, start)
         ok(len(sent) == 1 and morning["digests"] == 1, f"three events are one digest: {len(sent)} message(s)")
         ok(all(f"Событие {n}" in sent[0]["text"] for n in range(3)) and "Подробности" not in sent[0]["text"], "the digest lists each event on one line")
         ok(sent[0]["reply_markup"] and "dn:plan" in str(sent[0]["reply_markup"]), "the digest carries the «План дня» button")
         for n in range(3, 5):                                       # ещё два одиночных: всего 3 сообщения за сутки
-            await push(db, user, "pets", f"s{n}")
-            await deliver(h, db, at(9))
+            await push_at(db, user, "pets", f"s{n}", at(8, 1))
+            await deliver(h, db, at(9 + n, 1))
         ok(len(to_player(h, user, start)) == 3, "three messages in a day are the limit so far")
-        await push(db, user, "pets", "over")
-        await deliver(h, db, at(10))
+        await push_at(db, user, "pets", "over", at(8, 1))
+        await deliver(h, db, at(15, 1))
         ok(len(to_player(h, user, start)) == 3, "the fourth waits: the daily limit")
-        await deliver(h, db, datetime.now(timezone.utc) + timedelta(hours=25) - timedelta(hours=datetime.now(timezone.utc).hour - 8))
+        await deliver(h, db, at(12, 2))
         ok(len(to_player(h, user, start)) == 4, "and goes out when the day has passed")
         await push(db, user, "pets", "old")
-        await db.execute("UPDATE dm_push_outbox SET created_at = NOW() - INTERVAL '40 hours' WHERE user_id = ? AND dedup_key = 'old'", (user.id,))
+        await db.execute("UPDATE dm_push_outbox SET created_at = ? WHERE user_id = ? AND dedup_key = 'old'", (at(8, 2) - timedelta(hours=40), user.id))
         before = len(to_player(h, user, start))
-        stats = await deliver(h, db, datetime.now(timezone.utc) + timedelta(days=3))
+        stats = await deliver(h, db, at(12, 5))
         ok(len(to_player(h, user, start)) == before and stats["dropped"] >= 1, f"an event nobody could deliver in time is dropped: {stats}")
 
 
 @bot_scenario
+async def dm_push_sleeping_players_do_not_block_the_queue(h: Harness) -> None:
+    from infrastructure.repositories import dm_push as repo
+    night_a, night_b, awake = await player(h, "Ночь А"), await player(h, "Ночь Б"), await player(h, "Днём")
+    async with database() as db:
+        for user in (night_a, night_b, awake):
+            await consent(db, user, "pets")
+        await repo.set_tz(db, awake.id, -8)                          # 20:00 UTC — у него день
+        await push_at(db, night_a, "pets", "k", at(10))
+        await push_at(db, night_b, "pets", "k", at(11))
+        await push_at(db, awake, "pets", "k", at(12))                # самое новое событие
+        first = await deliver(h, db, at(20), limit=2)
+        ok(first["waiting"] == 2 and first["sent"] == 0, f"the two oldest are night sleepers: {first}")
+        second = await deliver(h, db, at(20), limit=2)
+        ok(second["sent"] == 1 and len(to_player(h, awake)) >= 1, f"so they do not take the place of the one who is awake: {second}")
+
+
+@bot_scenario
 async def dm_push_blocked_bot_and_flood_do_not_avalanche(h: Harness) -> None:
+    from infrastructure.repositories import dm_push as repo
     user = await player(h, "Занятой")
     async with database() as db:
         await consent(db, user, "pets")
-        await push(db, user, "pets", "x")
+        await push_at(db, user, "pets", "x", at(7))
         h.world.fail(lambda n, p: n == "SendMessage" and int(p["chat_id"]) == user.id, TgError(429, "Too Many Requests: retry after 7", 7), times=1)
         stats = await deliver(h, db, at(8))
         ok(stats["retry_after"] == 7 and stats["sent"] == 0, f"Telegram asked to wait: {stats}")
-        from infrastructure.repositories import dm_push as repo
         ok(len(await repo.pending_rows(db, user.id)) == 1, "the event stays queued, no immediate retry")
         stats = await deliver(h, db, at(8))
         ok(stats["sent"] == 1, "and goes out on the next pass")
-        await push(db, user, "pets", "y")
+        await push_at(db, user, "pets", "y", at(8))
         h.world.fail(lambda n, p: n == "SendMessage" and int(p["chat_id"]) == user.id,
                      TgError(403, "Forbidden: bot was blocked by the user"), times=5)
         stats = await deliver(h, db, at(9))
         ok(stats["unreachable"] == 1, f"a blocked bot is noticed from the failed send: {stats}")
         ok(not await repo.pending_rows(db, user.id), "the queue of that player is cleared")
         ok(not await push(db, user, "pets", "z"), "nothing new is queued for an unreachable DM")
-        calls = len([1 for n, p in h.world.calls if n == "SendMessage" and int(p["chat_id"]) == user.id])
+        calls = len(to_player(h, user))
         await deliver(h, db, at(10))
-        ok(len([1 for n, p in h.world.calls if n == "SendMessage" and int(p["chat_id"]) == user.id]) == calls, "no more attempts after the block")
+        ok(len(to_player(h, user)) == calls, "no more attempts after the block")
     h.world.failures.clear()
     second = await player(h, "Ушёл")
     async with database() as db:
@@ -182,7 +236,16 @@ async def dm_push_blocked_bot_and_flood_do_not_avalanche(h: Harness) -> None:
         await push(db, second, "pets", "w")
         await h.blocked_by(second)                                  # Telegram tells the bot at once
         ok(not await repo.pending_rows(db, second.id), "blocking the bot clears the queue without sending anything")
-    await say(h, user, user.id, "баланс")                           # the player came back
+    flaky = await player(h, "Сеть")
+    async with database() as db:
+        await consent(db, flaky, "pets")
+        await push_at(db, flaky, "pets", "n", at(7, 3))
+        h.world.fail(lambda n, p: n == "SendMessage" and int(p["chat_id"]) == flaky.id, TgError(502, "Bad Gateway"), times=9)
+        for minutes in (0, 6, 12, 18):                              # the network keeps failing: three attempts, then the event is dropped
+            await deliver(h, db, at(8, 3) + timedelta(minutes=minutes))
+        ok(not await repo.pending_rows(db, flaky.id), "an event that fails again and again is dropped after three attempts")
+    h.world.failures.clear()
+    await say(h, user, user.id, "баланс")                           # the first player came back
     async with database() as db:
         await consent(db, user, "pets")
         ok(await push(db, user, "pets", "back"), "writing to the bot again reopens the DM")
@@ -204,8 +267,9 @@ async def dm_push_pauses_without_reaction(h: Harness) -> None:
 
 
 @bot_scenario
-async def dm_push_collectors_find_events_once(h: Harness) -> None:
+async def dm_push_collectors_find_events_and_the_button_arrives(h: Harness) -> None:
     from services import dm_push_events
+    from infrastructure.repositories import dm_push as repo
     user = await player(h, "Хозяин питомца")
     async with database() as db:
         await consent(db, user, "pets", "quests", "season", "vip_expiry", "market", "pass")
@@ -223,9 +287,19 @@ async def dm_push_collectors_find_events_once(h: Harness) -> None:
         ok(first["pets"] >= 1 and first["quests"] >= 1 and first["vip_expiry"] >= 1, f"events found: {first}")
         second = await dm_push_events.collect(db, now)
         ok(second["pets"] == 0 and second["quests"] == 0 and second["vip_expiry"] == 0, f"and not found twice: {second}")
-        from infrastructure.repositories import dm_push as repo
-        keys = {r["dedup_key"].split(":")[0] for r in await repo.pending_rows(db, user.id)}
+        rows = await repo.pending_rows(db, user.id)
+        keys = {r["dedup_key"].split(":")[0] for r in rows}
         ok({"pet_run", "quests", "vip_end"} <= keys, f"queued keys: {keys}")
+        ok(all(isinstance(r["button"], dict) for r in rows if r["button"]), "the button comes back from the database as a dict, not a string")
+        await db.execute("DELETE FROM dm_push_outbox WHERE user_id = ? AND dedup_key NOT LIKE 'pet_run:%'", (user.id,))   # one message, one button
+        await db.execute("UPDATE dm_push_outbox SET created_at = ? WHERE user_id = ?", (at(7, 1), user.id))
+        await db.commit()
+        start = len(h.world.calls)
+        sent = await deliver(h, db, at(8, 1))
+        message = to_player(h, user, start)
+        ok(len(message) == 1, f"the pet message is delivered, once: {sent}")
+        ok(message[0]["reply_markup"] and "miniapp.example" in str(message[0]["reply_markup"]),
+           f"with its «К питомцам» button that opens the app: {message[0].get('reply_markup')}")
         from core import seasons
         end = seasons.season_bounds(seasons.season_number(now))[1]
         near = await dm_push_events.collect(db, end - timedelta(days=2))
@@ -254,6 +328,7 @@ async def dm_plan_and_reward_taken_once(h: Harness) -> None:
     plan = last_message(h, user.id, "План дня")
     ok("Награда за задания дня готова" in plan.text, f"the finished set is offered: {plan.text[:200]!r}")
     stale = copy.copy(plan)                                          # the message as the player saw it before the first tap
+
     async def balance() -> float:
         async with database() as db:
             async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id = ?", (user.id,)) as c:
@@ -267,6 +342,14 @@ async def dm_plan_and_reward_taken_once(h: Harness) -> None:
     ok(second.answered and "уже забрал" in second.text, f"the second tap is told it is done: {second.text!r}")
     ok(await balance() == paid, "and nothing is paid the second time")
     ok("Награда за задания дня готова" not in last_message(h, user.id, "План дня").text, "the plan no longer offers it")
+    async with database() as db:
+        await db.execute("UPDATE users SET deleted_at = NOW() WHERE user_tg_id = ?", (user.id,))
+        await db.commit()
+    refused = await h.click(user, user.id, stale, "Забрать: дня")
+    ok(refused.answered and "недоступно" in refused.text, f"an account that is being deleted takes nothing here: {refused.text!r}")
+    async with database() as db:
+        await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user.id,))
+        await db.commit()
 
 
 @bot_scenario
@@ -278,9 +361,8 @@ async def dm_push_goes_to_the_topic_or_the_main_chat(h: Harness) -> None:
     async with database() as db:
         for user in (with_topics, without):
             await consent(db, user, "pets", "quests")
-        await db.execute("DELETE FROM dm_push_topics WHERE user_id = ANY(?::bigint[])", ([with_topics.id, without.id],))
-        await push(db, with_topics, "pets", "p1")
-        await push(db, without, "pets", "p1")
+        await push_at(db, with_topics, "pets", "p1", at(7))
+        await push_at(db, without, "pets", "p1", at(7))
         await deliver(h, db, at(8))
         sent = to_player(h, with_topics)[-1]
         ok(sent.get("message_thread_id"), f"with topics the message lands in a topic: {sent}")
@@ -298,3 +380,31 @@ async def dm_push_goes_to_the_topic_or_the_main_chat(h: Harness) -> None:
         await push_at(db, with_topics, "quests", "q1", at(8, 3))
         await deliver(h, db, at(8, 3))
         ok(to_player(h, with_topics)[-1].get("message_thread_id"), "another kind of message gets its own topic")
+
+
+@bot_scenario
+async def dm_push_vip_reminder_uses_the_same_rules(h: Harness) -> None:
+    from services import dm_push_events
+    from infrastructure.repositories import dm_push as repo
+    vip, plain = await player(h, "ВИП"), await player(h, "ВИП без согласия")
+    async with database() as db:
+        for user in (vip, plain):
+            await db.execute("DELETE FROM vip_subscriptions WHERE user_id = ?", (user.id,))
+            await db.execute("INSERT INTO vip_subscriptions (user_id, tier, expires_at, total_days) VALUES (?, 'vip', NOW() + INTERVAL '20 days', 30)", (user.id,))
+        await consent(db, vip, "vip_expiry")
+        await db.commit()
+        evening = datetime.now(timezone.utc).replace(hour=19, minute=0, second=0, microsecond=0)
+        queued = await dm_push_events.vip_daily_reminders(db, evening)
+        ok(queued >= 1, f"a VIP with consent gets the reminder queued: {queued}")
+        ok(await repo.pending_rows(db, vip.id) and not await repo.pending_rows(db, plain.id), "and a VIP without consent gets nothing")
+        again = await dm_push_events.vip_daily_reminders(db, evening)
+        ok(not [r for r in await repo.pending_rows(db, vip.id) if r["dedup_key"].startswith("vip_daily")][1:], f"it is queued once a day: {again}")
+        start = len(h.world.calls)
+        await deliver(h, db, evening + timedelta(hours=1))           # 22:00 UTC is already night for the player: it waits for the morning
+        ok(not to_player(h, vip, start), "in the quiet hours the VIP reminder waits too (it did not before)")
+        await repo.touch_contact(db, vip.id)
+        await db.execute("UPDATE dm_push_outbox SET created_at = ? WHERE user_id = ?", (evening + timedelta(hours=12), vip.id))
+        await deliver(h, db, evening + timedelta(hours=16))
+        ok(len(to_player(h, vip, start)) == 1, "and arrives in the morning")
+        await db.execute("DELETE FROM vip_subscriptions WHERE user_id = ANY(?::bigint[])", ([vip.id, plain.id],))
+        await db.commit()
