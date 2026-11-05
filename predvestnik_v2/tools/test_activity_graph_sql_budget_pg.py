@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlparse
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+os.environ.setdefault('ACTIVITY_GRAPH_INPROCESS','1')
 os.environ.setdefault('BOT_TOKEN','123456:offline-preprod-tests')
 async def main():
     import asyncpg

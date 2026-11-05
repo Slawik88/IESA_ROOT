@@ -11,6 +11,11 @@
 
 set -u
 
+# Память контейнера — 512 МБ на двух ботов: glibc по умолчанию заводит арену на каждый поток
+# (to_thread, пул SQL) и держит освобождённое. Две арены и возврат хвоста системе — минус десятки МиБ.
+export MALLOC_ARENA_MAX=2
+export MALLOC_TRIM_THRESHOLD_=131072
+
 PREDVESTNIK_PID=0
 DOMOVOY_PID=0
 
