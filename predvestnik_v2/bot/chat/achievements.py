@@ -177,6 +177,7 @@ class Up(NamedTuple):
     achievement: Achievement
     level: int
     essence: int     # начислено эссенции за пройденные вехи
+    value: int = 0   # величина на момент подъёма (для строки «дальше»); 0 — неизвестна
 
 
 async def pay_milestones(db, user_id: int, a: Achievement, old: int, new: int) -> int:
@@ -198,7 +199,8 @@ async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[Up]
     for a in ACHIEVEMENTS:
         if groups is not None and a.group not in groups:
             continue
-        level = level_of(a, await value_of(db, user_id, a))
+        value = await value_of(db, user_id, a)
+        level = level_of(a, value)
         if a.id not in stored:
             # Первый подсчёт — тихий (вехи из прошлого оплачиваются молча).
             # ON CONFLICT: параллельный подсчёт уже вставил строку и заплатит сам.
@@ -220,7 +222,7 @@ async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[Up]
                 (level, user_id, a.id, level)) as cur:
                 claimed = await cur.fetchone()
             if claimed:
-                ups.append(Up(a, level, await pay_milestones(db, user_id, a, stored[a.id], level)))
+                ups.append(Up(a, level, await pay_milestones(db, user_id, a, stored[a.id], level), value))
     return ups
 
 
@@ -237,7 +239,7 @@ async def overview(db, user_id: int) -> dict:
         level = max(stored.get(a.id, 0), level_of(a, value))
         nxt = (level // MILESTONE_EVERY + 1) * MILESTONE_EVERY
         items.append({
-            "id": a.id, "icon": a.icon, "title": a.name, "group": a.group,
+            "id": a.id, "icon": a.icon, "title": a.name, "blurb": a.blurb, "group": a.group,
             "group_title": GROUP_TITLES[a.group], "measure": a.measure,
             "value": value,
             "level": level, "max_level": a.max_level,
@@ -250,12 +252,44 @@ async def overview(db, user_id: int) -> dict:
                         "max_levels": sum(i["max_level"] for i in items)}}
 
 
+BAR_CELLS = 10
+STAGES = ((0.25, "первые шаги"), (0.5, "набирает ход"), (0.75, "уверенный ход"), (0.9999, "почти легенда"))
+
+
+def ladder_bar(level: int, max_level: int) -> str:
+    """Шкала всей лестницы достижения: ▰▰▱▱▱▱▱▱▱▱ — где человек сейчас между первым уровнем и вершиной."""
+    filled = BAR_CELLS if level >= max_level else max(1, min(BAR_CELLS - 1, round(level / max_level * BAR_CELLS)))
+    return "▰" * filled + "▱" * (BAR_CELLS - filled)
+
+
+def stage(level: int, max_level: int) -> str:
+    if level >= max_level:
+        return "легенда"
+    share = level / max_level
+    return next(title for limit, title in STAGES if share <= limit)
+
+
+def _up_block(u: Up) -> str:
+    a, level = u.achievement, u.level
+    if level >= a.max_level:
+        ahead = "Вершина лестницы: выше уровней нет 👑"
+    else:
+        nxt = a.thresholds[level]
+        ahead = f"До ур. {level + 1}: {fmt(nxt)} {plural(nxt, a.unit)}" + (
+            f" (сейчас {fmt(u.value)})" if u.value and u.value < nxt else "")
+    lines = [f"{a.icon} <b>{a.name}</b> · ур. {level} из {a.max_level}",
+             f"{medal(level, a.max_level)} {ladder_bar(level, a.max_level)} {stage(level, a.max_level)}",
+             quote([f"<i>{a.blurb}</i>", ahead])]
+    if u.essence:
+        lines.append(f"✨ +{u.essence} 🔮 эссенции — награда за веху")
+    return "\n".join(lines)
+
+
 def announcement(name: str, ups: list[Up]) -> str:
-    parts = [f"{u.achievement.icon} {u.achievement.name} — ур. {u.level}/{u.achievement.max_level}"
-             + (" 👑" if u.level >= u.achievement.max_level else "")
-             + (f" · +{u.essence} 🔮 эссенции" if u.essence else "")
-             for u in ups]
-    return f"🏆 {name}: новый уровень достижений\n" + "\n".join(parts)
+    many = len(ups)
+    head = (f"🏆 {name} — новый уровень!" if many == 1 else
+            f"🏆 {name} — сразу {many} новых уровня!" if many <= 4 else f"🏆 {name} — сразу {many} новых уровней!")
+    return head + "\n\n" + "\n\n".join(_up_block(u) for u in ups)
 
 
 async def announce(db, message: Message, name: str, ups: list[Up]) -> None:
@@ -401,6 +435,7 @@ async def detail(db, user_id: int, a: Achievement) -> str:
     nxt = a.thresholds[level:level + 5]
     ahead = " → ".join(fmt(x) for x in nxt) if nxt else "все уровни пройдены 👑"
     return (f"{a.icon} <b>{a.name}</b> · {medal(level, a.max_level)} ур. {level}/{a.max_level}\n"
+            f"<i>{a.blurb}</i>\n"
             f"{a.measure}: <b>{fmt(value)}</b> {plural(value, a.unit)}\n"
             + quote([f"Следующие пороги: {ahead}",
                      f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}"])
