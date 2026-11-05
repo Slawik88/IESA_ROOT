@@ -241,6 +241,42 @@ async def _record(db, row: dict, stars: int, detail: dict) -> dict:
             "xp": xp, "next_unlocked": stars > 0, "detail": detail}
 
 
+async def topup_ranked_xp(db, *, apply: bool, now: datetime | None = None) -> dict:
+    """Owner (06.11.2026, S28a): levels passed under the old star table get the difference to the current one.
+
+    For every passed level of a pass season still open: current table for the best stars − experience the level already
+    gave.  Goes to the pass like any ranked result (its own receipt `topup:<season>:<game>:<level>:<stars>`, so a second
+    run adds nothing) and to the level row (so later improvements keep paying only the difference).  `apply=False` only counts.
+    """
+    now = now or datetime.now(timezone.utc)
+    players: dict[int, dict] = {}
+    for number in pass_rules.claimable_seasons(now):
+        season = f"s{number}"
+        for row in await repo.levels_below(db, season=season, targets=rules.XP_BY_STARS):
+            user_id, game, level = int(row["user_id"]), row["game"], int(row["level"])
+            gain = rules.XP_BY_STARS[int(row["stars"])] - int(row["xp"])
+            if apply:
+                async with db.connection.transaction():
+                    await repo.lock_user(db, user_id=user_id)   # the same lock as a finishing level: no race with it
+                    fresh = await repo.level_row(db, user_id=user_id, season=season, game=game, level=level)
+                    gain = rules.XP_BY_STARS[int(fresh["stars"])] - int(fresh["xp"]) if fresh and fresh["stars"] else 0
+                    if gain <= 0:
+                        continue
+                    added = await league_pass.add_xp(db, user_id=user_id, source="league_topup", strict=True, casual=False,
+                                                     event_id=f"topup:{season}:{game}:{level}:{fresh['stars']}", xp=gain,
+                                                     at=now, season=number)
+                    if not added:
+                        continue
+                    await repo.add_level_xp(db, user_id=user_id, season=season, game=game, level=level, xp=added)
+                    gain = added
+            entry = players.setdefault(user_id, {"user_id": user_id, "levels": 0, "xp": 0})
+            entry["levels"] += 1
+            entry["xp"] += gain
+    rows = sorted(players.values(), key=lambda p: -p["xp"])
+    return {"applied": apply, "players": len(rows), "levels": sum(p["levels"] for p in rows),
+            "xp": sum(p["xp"] for p in rows), "per_player": rows}
+
+
 async def reset(db, *, user_id: int) -> None:
     await repo.ensure_tables(db)
     async with db.connection.transaction():

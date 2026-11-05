@@ -24,8 +24,9 @@ DEMO_SEASON: Final = "demo-1"
 GAMES: Final = ("minesweeper", "rhythm")
 MAX_LEVEL: Final = 1000
 XP_STAR_BASE: Final = {1: 60, 2: 80, 3: 100}   # the original star reward; the multiplier below scales it
-# Owner (05.11.2026, S28a): ranked play gives more pass experience.  Results from the release on get the new
-# amounts; experience already earned is never recounted (an improvement adds the difference of the new table).
+# Owner (05.11.2026, S28a): ranked play gives more pass experience.  Levels passed before the release were topped up to
+# the new table once (owner, 06.11: services.league_v1.topup_ranked_xp, tools/topup_ranked_pass_xp.py); an improvement adds
+# the difference of the current table.
 # The casual daily cap (core.league_pass.CASUAL_DAILY_CAP) stays: casual runs are timed on the phone, ranked ones
 # are replayed and checked on the server.  Variants and the model: docs/roadmap/sessions/S28-propusk-reyting-gonka.md.
 RANKED_XP_PCT: Final = 150

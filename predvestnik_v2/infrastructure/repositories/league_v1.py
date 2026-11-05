@@ -137,6 +137,21 @@ async def save_level(db, *, user_id: int, season: str, game: str, level: int, st
     )
 
 
+async def levels_below(db, *, season: str, targets: dict[int, int]) -> list[dict]:
+    """Passed levels of a season that gave less experience than the current star table (S28a top-up)."""
+    async with db.execute(
+        "SELECT user_id, game, level, stars, xp FROM league_demo_progress WHERE season=? AND stars>0 "
+        "AND xp < CASE stars WHEN 1 THEN ?::int WHEN 2 THEN ?::int ELSE ?::int END ORDER BY user_id, game, level",
+        (season, int(targets[1]), int(targets[2]), int(targets[3])),
+    ) as cursor:
+        return [dict(r) for r in await cursor.fetchall()]
+
+
+async def add_level_xp(db, *, user_id: int, season: str, game: str, level: int, xp: int) -> None:
+    await db.execute("UPDATE league_demo_progress SET xp=xp+?, updated_at=NOW() WHERE user_id=? AND season=? AND game=? AND level=?",
+                     (int(xp), int(user_id), season, game, int(level)))
+
+
 async def insert_run(db, *, run_id: str, user_id: int, season: str, game: str, level: int, seed: bytes,
                      board: dict, state: dict) -> None:
     await db.execute(
