@@ -14,12 +14,14 @@ from loguru import logger
 
 from core import account_age, seasons
 from core import league_pass as rules
+from core import pass_race as pass_race_rules
 from core.chests_v1 import POLICY_VERSION as CHEST_POLICY, canonical_snapshot_fingerprint
 from infrastructure.repositories import account_age as account_age_repo
 from infrastructure.repositories import chests_v1 as chests_repo
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import league_pass as repo
 from infrastructure.repositories import vip_v2 as vip_repo
+from services import pass_race
 
 
 class PassError(Exception):
@@ -50,7 +52,8 @@ async def add_xp(db, *, user_id: int, source: str, event_id: str, xp: int, casua
             if gain:
                 if bucket:
                     await repo.add_day(db, user_id=user_id, day=at.date(), bucket=bucket, xp=gain)
-                await repo.add_xp(db, user_id=user_id, season=season, xp=gain)
+                total = await repo.add_xp(db, user_id=user_id, season=season, xp=gain)
+                await _race(db, user_id=user_id, season=season, xp_before=total - gain, xp_after=total)
             return gain
     except Exception:
         if strict:
@@ -58,6 +61,17 @@ async def add_xp(db, *, user_id: int, source: str, event_id: str, xp: int, casua
         logger.exception("League pass experience failed for user {} ({}:{}); the game result is unaffected",
                          user_id, source, event_id)
         return 0
+
+
+async def _race(db, **crossing) -> None:
+    """«Гонка за Пропуском» (services.pass_race): its own savepoint, so a failure there never takes the experience back."""
+    if not pass_race_rules.crossed(crossing["xp_before"], crossing["xp_after"]):
+        return
+    try:
+        async with db.connection.transaction():
+            await pass_race.on_reached(db, **crossing)
+    except Exception:
+        logger.exception("Pass race skipped for user {} (season {}); the experience stays", crossing["user_id"], crossing["season"])
 
 
 async def record_quest(db, *, user_id: int, kind: str, event_id: str, at: datetime | None = None) -> int:
@@ -124,7 +138,13 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
         })
     async with db.connection.transaction():
         today = await repo.day_xp(db, user_id=user_id, day=now.date())
-    return {"active": True, "vip": vip_open, "vip_min_days": rules.VIP_MIN_DAYS, "seasons": views,
+    try:
+        async with db.connection.transaction():   # own savepoint: a failure must not poison a caller's transaction
+            race = await pass_race.player_view(db, now)
+    except Exception as exc:   # the race is an extra line on the card: its failure never hides the pass
+        logger.warning(f"pass race view skipped: {type(exc).__name__}: {exc}")
+        race = {"running": False}
+    return {"active": True, "vip": vip_open, "vip_min_days": rules.VIP_MIN_DAYS, "seasons": views, "race": race,
             "quests": {**rules.QUEST_XP, 'vip': rules.VIP_MISSION_XP},
             "casual": {"today": today["casual"], "cap": rules.CASUAL_DAILY_CAP},
             "pets": {"today": today["pet"], "cap": rules.PET_DAILY_CAP, "xp": dict(rules.PET_XP)},

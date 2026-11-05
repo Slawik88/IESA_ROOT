@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import coin_market_v2 as coin_market_v2_repo
-from infrastructure.repositories import pet_chat, star_dust, mafia_online, league_pass, purge_sessions, word_chain
+from infrastructure.repositories import pet_chat, star_dust, mafia_online, league_pass, pass_race, purge_sessions, word_chain
 from infrastructure.repositories import support_reports
 from infrastructure.repositories import ops_telemetry
 from infrastructure.repositories import (
@@ -31,6 +31,7 @@ ENSURES = (
     ("game_seasons", game_seasons_repo.ensure_tables),
     ("season_pass", season_pass_repo.ensure_tables),
     ("league_pass", league_pass.ensure_tables),
+    ("pass_race", pass_race.ensure_tables),             # «Гонка за Пропуском»: старт сезона и места (S28b)
     ("pets_v1", pets_v1_repo.ensure_tables),
     ("pets_v2", pets_v2_repo.ensure_tables),
     ("pet_chat", pet_chat.ensure_tables),

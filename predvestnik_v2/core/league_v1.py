@@ -23,7 +23,13 @@ FLAG_KEY: Final = "feature:early_access"   # admin «Права»: from which ro
 DEMO_SEASON: Final = "demo-1"
 GAMES: Final = ("minesweeper", "rhythm")
 MAX_LEVEL: Final = 1000
-XP_BY_STARS: Final = {1: 60, 2: 80, 3: 100}   # pass experience for the best stars of a level, once per season
+XP_STAR_BASE: Final = {1: 60, 2: 80, 3: 100}   # the original star reward; the multiplier below scales it
+# Owner (05.11.2026, S28a): ranked play gives more pass experience.  Results from the release on get the new
+# amounts; experience already earned is never recounted (an improvement adds the difference of the new table).
+# The casual daily cap (core.league_pass.CASUAL_DAILY_CAP) stays: casual runs are timed on the phone, ranked ones
+# are replayed and checked on the server.  Variants and the model: docs/roadmap/sessions/S28-propusk-reyting-gonka.md.
+RANKED_XP_PCT: Final = 150
+XP_BY_STARS: Final = {stars: base * RANKED_XP_PCT // 100 for stars, base in XP_STAR_BASE.items()}   # once per level a season
 
 
 class LeagueRuleError(ValueError):

@@ -107,6 +107,7 @@ from infrastructure.repositories.pets_v2 import ensure_tables as ensure_pets_v2
 from infrastructure.repositories.star_dust import ensure_tables as ensure_star_dust
 from infrastructure.repositories.season_pass import ensure_tables as ensure_season_pass
 from infrastructure.repositories.league_pass import ensure_tables as ensure_league_pass
+from infrastructure.repositories.pass_race import ensure_tables as ensure_pass_race
 from infrastructure.repositories.league_v1 import ensure_tables as ensure_league_v1
 from FastAPI.routers import coin_market_v2 as coin_market_v2_router
 from loguru import logger as _log
@@ -225,6 +226,7 @@ async def lifespan(app: FastAPI):
             (ensure_star_dust, "star_dust"),
             (ensure_season_pass,                 "season_pass"),
             (ensure_league_pass,                 "league_pass"),
+            (ensure_pass_race,                   "pass_race"),
             (ensure_league_v1,                   "league_v1"),
             (ensure_quests_v1,                    "quests_v1"),
             (ensure_echo_shards_v1,                "echo_shards_v1"),

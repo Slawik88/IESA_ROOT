@@ -1,4 +1,4 @@
-"""Раздел «Функции»: выключатели бота и сайта, плюс проверка сайта на входе."""
+"""Раздел «Функции»: выключатели бота и сайта, события за звёзды владельца («Гонка за Пропуском»), проверка сайта на входе."""
 from __future__ import annotations
 
 import os
@@ -10,7 +10,8 @@ from FastAPI.auth import verify_session_token, verify_webapp_data
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.safe import AdminRoute
-from services import admin_access, admin_people
+from bot.chat.global_ranks import CREATOR
+from services import admin_access, admin_people, pass_race
 from services import feature_switches as fs
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
@@ -48,16 +49,58 @@ async def set_switch(data: dict = Body(...), user=Depends(_user), db=Depends(get
         admin_access.require_chat(user, chat_id)
     if chat_id and feature.startswith("site"):
         raise HTTPException(400, "Сайт выключается только везде, не по чату.")
+    if feature.startswith("event:"):
+        _creator(user)
+        if chat_id:
+            raise HTTPException(400, "События включаются только везде, не по чату.")
     if chat_id:
         async with db.execute("SELECT 1 FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cur:
             if not await cur.fetchone():
                 raise HTTPException(404, "Чат не найден.")
-    await fs.set_switch(db, chat_id, feature, bool(data.get("enabled")), actor_id=user["id"],
-                        reason=str(data.get("reason") or ""))
+    try:
+        await fs.set_switch(db, chat_id, feature, bool(data.get("enabled")), actor_id=user["id"],
+                            reason=str(data.get("reason") or ""))
+    except pass_race.RaceError as exc:
+        raise HTTPException(400, str(exc))
     await admin_people.audit(db, user["id"], "switch", chat_id=chat_id or None,
                              details={"feature": feature, "enabled": bool(data.get("enabled")), "chat": chat_id or None,
                                       "reason": str(data.get("reason") or "")[:200]})
     return await fs.state(db, chat_id)
+
+
+# ── «Гонка за Пропуском»: места, проверка, отметки (только создатель: деньги) ─────────────────────────────
+
+def _creator(user: dict) -> None:
+    if user["rank"] < CREATOR:
+        raise HTTPException(403, "Гонкой за Пропуском управляет только создатель.")
+
+
+@router.get("/pass-race")
+async def pass_race_state(user=Depends(_user), db=Depends(get_db)):
+    _creator(user)
+    await pass_race.announce_pending(db)   # запасной путь: место, о котором ещё не написали
+    return await pass_race.admin_view(db)
+
+
+@router.get("/pass-race/check/{uid}")
+async def pass_race_check(uid: int, season: int = 0, user=Depends(_user), db=Depends(get_db)):
+    _creator(user)
+    return await pass_race.check_card(db, user_id=uid, season=season or None)
+
+
+@router.post("/pass-race/mark")
+async def pass_race_mark(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    _creator(user)
+    try:
+        uid, season = int(data.get("user_id") or 0), int(data.get("season") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Нужны id игрока и сезон.")
+    try:
+        result = await pass_race.mark(db, user_id=uid, status=str(data.get("status") or ""), actor_id=user["id"],
+                                      season=season or None, note=str(data.get("note") or ""))
+    except pass_race.RaceError as exc:
+        raise HTTPException(400, str(exc))
+    return {**result, "race": await pass_race.admin_view(db)}
 
 
 def _is_developer(request: Request) -> bool:

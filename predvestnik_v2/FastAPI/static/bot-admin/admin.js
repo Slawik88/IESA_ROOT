@@ -2258,7 +2258,7 @@ async function switchesView(main, chat = null) {
     <div class="found" id="schatfound"></div>
     <div class="field"><label for="sreason">Причина для игроков, когда выключаете (необязательно)</label>
       <input id="sreason" maxlength="200" placeholder="Например: чиним, вернём вечером"/></div>
-    ${data.catalog.filter(g => !(chat && g.scope === 'site')).map(g => `
+    ${data.catalog.filter(g => !(chat && g.scope !== 'chat') && (g.scope !== 'events' || ME.creator)).map(g => `
       <div class="card"><h3>${esc(g.title)} · ${scopeName}</h3>${g.items.map(group).join('')}</div>`).join('')}
     ${chat ? '<div class="sub">Сайт выключается только целиком для всех — переключитесь на «Везде».</div>' : ''}`;
   main.querySelectorAll('details.sw-group').forEach(d => { if (opened.has(d.querySelector('summary b')?.textContent)) d.open = true; });
@@ -2281,6 +2281,10 @@ async function switchesView(main, chat = null) {
     input.addEventListener('click', e => e.stopPropagation());
     input.onchange = async () => {
       const enabled = input.checked;
+      if (enabled && input.dataset.sw === 'event:pass_race'
+        && !confirm('Начать гонку за Пропуском? С этой минуты первые 4 игрока, закрывшие Пропуск сезона, займут места. Выплата — 50 ⭐ каждому, вручную с вашего аккаунта. Выключение — пауза: Пропуск, закрытый во время паузы, не считается.')) {
+        input.checked = false; return;
+      }
       if (!enabled && input.dataset.sw === 'all' || !enabled && input.dataset.sw === 'site') {
         if (!confirm(input.dataset.sw === 'all' ? 'Выключить весь бот ' + (chat ? 'в этом чате' : 'во всех чатах') + '?' : 'Закрыть весь сайт для игроков?')) {
           input.checked = true; return;
@@ -2293,6 +2297,72 @@ async function switchesView(main, chat = null) {
         switchesView(main, chat);
       } catch (err) { toast(err.message, true); input.checked = !enabled; }
     };
+  });
+  if (!chat) await raceCard(main);
+}
+
+// «Гонка за Пропуском» (только создатель): кому платить, проверка перед выплатой, отметки. Выплата — вручную, бот не платит.
+// Сезоны: текущий и каждый прошлый, где места ещё не оплачены (победитель последних минут сезона платится после полуночи).
+async function raceCard(main) {
+  if (!ME.creator) return;
+  let r;
+  try { r = await api('/pass-race'); } catch (_) { return; }
+  if (currentSection() !== 'switches' || !main.querySelector('.page-head') || main.querySelector('#racecard')) return;
+  const box = document.createElement('div');
+  box.className = 'card'; box.id = 'racecard';
+  const MARK = {verified: 'Проверен', paid: 'Выплачено', rejected: 'Отклонить'};
+  const row = e => {
+    const place = e.place ? `<b>Место ${e.place}</b>` : '<span class="sub">в очереди</span>';
+    const chip = {pending: 'warn', verified: 'ok', paid: 'ok', rejected: 'bad'}[e.status] || '';
+    const marked = e.marked_at ? `<div class="sub">${esc(e.status_label)}: ${when(e.marked_at)}${e.marked_by ? ' · ' + who(e.marked_by, e.marked_by_name) : ''}${e.note ? ' · ' + esc(e.note) : ''}</div>` : '';
+    const told = e.status === 'verified' || e.status === 'paid'
+      ? `<div class="sub">${e.player_told ? 'Сообщение «ты среди первых четырёх» поставлено в очередь бота' : 'Бот не написал игроку: уведомления о Пропуске выключены — напишите сами'}</div>` : '';
+    const buttons = [`<button type="button" class="btn small" data-rcheck="${e.user_id}" data-rseason="${e.season}">Проверить</button>`,
+      ...e.next.map(st => `<button type="button" class="btn small ${st === 'rejected' ? 'danger' : st === 'paid' ? 'primary' : ''}" data-rmark="${e.user_id}" data-rseason="${e.season}" data-rst="${st}">${MARK[st]}</button>`)].join('');
+    return `<div class="sw-row"><div class="t">${place} · ${who(e.user_id, e.username)} <span class="chip ${chip}">${esc(e.status_label)}</span>
+      <div class="sub">id ${e.user_id} · Пропуск закрыт ${when(e.reached_at)}${e.recovered ? ' · найдено проверкой' : ''} · <a href="tg://user?id=${e.user_id}">написать</a></div>${marked}${told}</div>
+      <div class="actions">${buttons}</div></div>`;
+  };
+  const season = s => {
+    const state = s.running ? `Идёт с ${when(s.started_at)} · свободно мест: ${s.left} из ${r.places}`
+      : s.current && s.started_at ? `На паузе · старт был ${when(s.started_at)}: места сохранены, Пропуск, закрытый во время паузы, не считается`
+      : s.current ? 'В этом сезоне не начата' : 'Сезон закончился: остались неоплаченные места';
+    return `<div class="sub" style="margin:8px 0 4px"><b>Сезон ${s.season}</b> · ${esc(state)}</div>
+      ${s.entries.length ? s.entries.map(row).join('') : '<div class="sub">Пока никто не закрыл Пропуск после старта.</div>'}`;
+  };
+  box.innerHTML = `<h3>🏁 Гонка за Пропуском</h3>
+    ${hint(`Первые ${r.places} игрока, закрывшие ${r.level}-й уровень Пропуска после старта, получают по ${r.prize_stars} ⭐. Бот сам не платит: отправьте подарок со своего аккаунта и нажмите «Выплачено». О каждом новом месте бот пишет вам в личку.`)}
+    ${r.seasons.map(season).join('')}`;
+  main.append(box);
+  const redo = () => { box.remove(); raceCard(main); };
+  box.querySelectorAll('[data-rcheck]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const c = await api(`/pass-race/check/${b.dataset.rcheck}?season=${b.dataset.rseason}`);
+      const yes = (ok, text) => `<div class="sw-row"><div class="t"><b>${ok ? '✅' : '⚠️'} ${text}</b></div></div>`;
+      const count = n => n == null ? 'нет данных' : n;
+      const unchecked = (c.unchecked.rhythm || 0) + (c.unchecked.minesweeper || 0) + (c.unchecked.ranked_marked || 0);
+      sheet(`Проверка: ${c.username ? '@' + c.username : 'id' + c.user_id}`, `
+        ${yes(c.account.ok, `Аккаунт: ${c.account.days == null ? 'возраст неизвестен' : c.account.days + ' дн.'} (нужно от ${c.account.min_days})`)}
+        ${yes(!c.twins.length, c.twins.length ? `Похожие аккаунты: ${c.twins.length}` : 'Похожих аккаунтов не найдено')}
+        ${c.twins.map(t => `<div class="sub">${who(t.user_id, t.username)} · ${t.score} очк. · ${esc(t.signals.join(', '))}</div>`).join('')}
+        ${yes(!unchecked, `Непроверенные партии сезона ${c.season}: Ритм ${count(c.unchecked.rhythm)}, Сапёр ${count(c.unchecked.minesweeper)}, Рейтинг с отметкой ${count(c.unchecked.ranked_marked)}`)}
+        ${yes(!c.ban.global && !c.ban.blocked, c.ban.global ? 'Бан во всех чатах' : c.ban.blocked ? 'Бот не отвечает игроку (блок)' : 'Бана нет')}
+        ${hint('Это сигналы, а не приговор: общий Wi-Fi даёт общий адрес, партии без сети бывают у честных игроков. Решение за вами.')}`,
+        'Понятно', async () => {}, {info: true});
+    } catch (err) { toast(err.message, true); }
+    b.disabled = false;
+  });
+  box.querySelectorAll('[data-rmark]').forEach(b => b.onclick = () => {
+    const st = b.dataset.rst, label = MARK[st];
+    const text = {verified: 'Бот напишет игроку «ты среди первых четырёх, администрация свяжется» (если у игрока включены уведомления о Пропуске).',
+      paid: `Отметка, что вы уже отправили ${r.prize_stars} ⭐ подарком. Отменить нельзя.`,
+      rejected: 'Место перейдёт следующему игроку в очереди, бот напишет вам о нём. Отменить нельзя.'}[st];
+    sheet(label, `${hint(text)}<div class="field"><label>Заметка (необязательно)</label><input id="rnote" maxlength="300"/></div>`, label, async () => {
+      const res = await api('/pass-race/mark', {method: 'POST', body: JSON.stringify({user_id: +b.dataset.rmark, season: +b.dataset.rseason, status: st, note: $('#rnote').value.trim()})});
+      toast(res.changed ? 'Сохранено' : 'Уже отмечено');
+      redo();
+    });
   });
 }
 

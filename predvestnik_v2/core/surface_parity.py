@@ -33,7 +33,7 @@ SURFACES: Final[tuple[SurfaceSpec, ...]] = (
     SurfaceSpec("exchange", "💱 Обменник", "exchange", "web_only", ("обмен", "конвертация", "обменять")),
     SurfaceSpec("crypto", "📈 Крипто-Биржа", "crypto", "web_only", ("биржа", "крипто", "crypto", "криптобиржа")),
     SurfaceSpec("game", "🎮 Центр Предвестника", "games", "web_only", ("игра", "игры", "дуэль", "дуэли", "pvp", "врата", "бездна", "битва", "бой", "арена")),
-    SurfaceSpec("battle_pass", "🎫 Боевой пропуск", "bp", "web_only", ("бп", "боевой пропуск", "пропуск")),
+    SurfaceSpec("battle_pass", "🎫 Боевой пропуск", "bp", "web_only", ("боевой пропуск",)),   # «пропуск», «бп» — команда бота (S28)
     SurfaceSpec("quests", "📋 Квесты", "quests", "web_only", ("задания", "квесты", "дейлики")),
     SurfaceSpec("inventory", "🎒 Инвентарь", "inventory", "chat_summary", ("инвентарь", "рюкзак", "вещи", "использовать", "открыть")),
     SurfaceSpec("achievements", "🏆 Достижения", "ach", "chat_summary", ("достижения", "ачивки", "ачивменты")),
