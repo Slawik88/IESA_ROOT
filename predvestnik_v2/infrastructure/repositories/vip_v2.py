@@ -322,6 +322,8 @@ async def reminder_candidates(db, *, day_key: str) -> list[dict]:
         LEFT JOIN vip_v2_daily_receipts r ON r.user_id=v.user_id AND r.day_key=?::text::date
         WHERE v.expires_at>NOW() AND r.user_id IS NULL
           AND COALESCE(p.reminder_enabled,TRUE)=TRUE
+          AND EXISTS (SELECT 1 FROM user_notification_prefs np
+                      WHERE np.user_id=v.user_id AND np.category='vip_expiry' AND np.enabled=TRUE)
           AND p.dm_confirmed_at IS NOT NULL AND p.dm_disabled_at IS NULL
           AND COALESCE(p.missed_reminders,0)<2
           AND (p.last_reminder_day IS NULL OR p.last_reminder_day<?::text::date)

@@ -26,6 +26,12 @@ async def on_bot_membership(event: ChatMemberUpdated, bot: Bot, db) -> None:
         await db.execute(
             "UPDATE users SET dm_blocked_at = CASE WHEN ? THEN COALESCE(dm_blocked_at, NOW()) ELSE NULL END "
             "WHERE user_tg_id = ?", (new.status == "kicked", event.chat.id))
+        from services import dm_push
+        if new.status == "kicked":   # заблокировал бота: больше не пишем, очередь уведомлений снимаем
+            await dm_push.repo.mark_unreachable(db, event.chat.id)
+            await dm_push.vip_unreachable(db, event.chat.id)
+        else:
+            await dm_push.confirm_contact(db, event.chat.id)
         await commit(db)
         return
     if event.chat.type == "channel" and new.status in ("member", "administrator"):

@@ -2,7 +2,7 @@ from aiogram import F, Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import account, achievements, admin_chat, admin_help, article, cosmetics, family, games, help, mafia, members, migration, moderation, onboarding, pets, profile, promo, purge, rank_commands, reports, sanctions, ship, site, streak, star_dust, tags, top, transfer, vip, warps, word_chain  # noqa: F401
+from bot.chat import account, achievements, admin_chat, admin_help, article, cosmetics, family, games, help, mafia, members, migration, moderation, notify, onboarding, pets, profile, promo, purge, rank_commands, reports, sanctions, ship, site, streak, star_dust, tags, top, transfer, vip, warps, word_chain  # noqa: F401
 from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat import mafia_online  # noqa: F401,E402  (отдельный режим, локальная команда без изменений)
 from bot.chat import inactive  # noqa: F401,E402
@@ -78,7 +78,7 @@ async def _callback_gate(handler, event, data):
     return await handler(event, data)
 
 
-for sub in (top.router, help.router, inactive.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, star_dust.router, word_chain.router):
+for sub in (top.router, help.router, inactive.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, notify.router, star_dust.router, word_chain.router):
     sub.callback_query.middleware(_callback_gate)
     router.include_router(sub)
 
@@ -148,6 +148,8 @@ async def on_message(message: Message, bot, db) -> None:
         if message.chat.type == "private" and message.from_user:   # пишет боту — значит, не блокировал
             await db.execute("UPDATE users SET dm_blocked_at = NULL WHERE user_tg_id = ? AND dm_blocked_at IS NOT NULL",
                              (message.from_user.id,))
+            from services import dm_push
+            await dm_push.confirm_contact(db, message.from_user.id)   # личка подтверждена, пауза «без отклика» снята
     except Exception as exc:  # учёт не должен ломать команды
         logger.warning(f"message tracking failed: {exc}")
     try:

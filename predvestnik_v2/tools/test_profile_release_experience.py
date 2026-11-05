@@ -54,7 +54,8 @@ assert "_WN_ARCHIVE_BOUNDARY" in profile and "all.slice(0,archiveAt)" in profile
 for action in ("openSettingsModal()", "openWhatsNew()", "openChatTracker()"):
     assert action in index
 notification_block = constants[constants.index("NOTIFICATION_CATEGORIES:"):constants.index("# ── ИИ-помощник")]
-assert '"vip_expiry"' in notification_block
+dm_rules = (ROOT / "core/dm_push.py").read_text(encoding="utf-8")
+assert "NOTIFICATION_CATEGORIES" in notification_block and '"vip_expiry"' in dm_rules
 assert '"bp_reminder"' not in notification_block and '"bid_outbid_final"' not in notification_block
 
 print("OK: current profile, preserved compensation data and accessible pet bestiary are wired")

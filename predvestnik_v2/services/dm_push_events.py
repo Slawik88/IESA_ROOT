@@ -1,0 +1,198 @@
+"""Сборщики событий для уведомлений в личку: что случилось с игроком и пора ли ему написать.
+
+Каждый сборщик смотрит только игроков, которые согласились на свою категорию (JOIN по user_notification_prefs),
+и ставит событие через services.dm_push.enqueue: там же проверяются личка, пауза, лимиты. У события свой dedup_key,
+поэтому повторный проход ничего не дублирует. Тексты — по docs/PLAYER_COPY.md: коротко, на «ты», без внутренних слов.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from loguru import logger
+
+from core import dm_push as rules
+from infrastructure.repositories import system_flags
+from services import dm_push
+
+BATCH = 500   # событий одного вида за проход; остальное подберёт следующий проход
+
+_CONSENT = ("JOIN user_notification_prefs np ON np.user_id = {alias}.user_id AND np.category = ? AND np.enabled = TRUE")
+
+
+async def _has_table(db, name: str) -> bool:
+    async with db.execute("SELECT to_regclass(?) IS NOT NULL", (name,)) as c:
+        row = await c.fetchone()
+    return bool(row and row[0])
+
+
+async def _pets(db, now: datetime) -> int:
+    """Питомец вернулся с задания: добыча ждёт, пока её не заберут."""
+    if not await _has_table(db, "pet_v2_runs") or not await system_flags.is_enabled(db, "pets_v2"):
+        return 0
+    async with db.execute(
+        f"SELECT r.id, r.user_id FROM pet_v2_runs r {_CONSENT.format(alias='r')} "
+        "WHERE r.status = 'active' AND r.ends_at <= ? AND r.ends_at > ? ORDER BY r.ends_at LIMIT ?",
+        ("pets", now, now - rules.EVENT_TTL, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for run_id, user_id in rows:
+        sent += await dm_push.enqueue(
+            db, user_id=int(user_id), category="pets", dedup_key=f"pet_run:{run_id}",
+            text="🐾 <b>Питомец вернулся</b>\nДобыча ждёт тебя — забери её, пока не пропала.",
+            button={"kind": "app", "section": "pets", "label": "🐾 К питомцам"},
+        )
+    return sent
+
+
+async def _quests(db, now: datetime) -> int:
+    """Начался новый день: задания дня обновились."""
+    if not await _has_table(db, "user_notification_prefs"):
+        return 0
+    key = f"quests:daily:{now.astimezone(timezone.utc).date().isoformat()}"
+    async with db.execute(
+        "SELECT np.user_id FROM user_notification_prefs np "
+        "WHERE np.category = 'quests' AND np.enabled = TRUE "
+        "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
+        "ORDER BY np.user_id LIMIT ?", (key, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for (user_id,) in rows:
+        sent += await dm_push.enqueue(
+            db, user_id=int(user_id), category="quests", dedup_key=key,
+            text="📋 <b>Новые задания дня</b>\nВыполни их и забери награду.",
+            button={"kind": "app", "section": "quests", "label": "📋 К заданиям"},
+        )
+    return sent
+
+
+async def _market(db, now: datetime) -> int:
+    """Ордер на бирже исполнен (только если биржа включена)."""
+    if not await _has_table(db, "player_coin_orders_v1") or not await system_flags.is_enabled(db, "economy_player_exchange_v1"):
+        return 0
+    async with db.execute(
+        f"SELECT o.id, o.user_id, o.side FROM player_coin_orders_v1 o {_CONSENT.format(alias='o')} "
+        "WHERE o.status = 'filled' AND o.actor_kind = 'player' AND o.closed_at IS NOT NULL "
+        "AND o.closed_at > ? ORDER BY o.closed_at LIMIT ?", ("market", now - rules.EVENT_TTL, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for order_id, user_id, side in rows:
+        what = "на покупку" if side == "buy" else "на продажу"
+        sent += await dm_push.enqueue(
+            db, user_id=int(user_id), category="market", dedup_key=f"order:{order_id}",
+            text=f"📈 <b>Ордер исполнен</b>\nТвой ордер {what} на бирже выполнен целиком.",
+            button={"kind": "app", "section": "exchange", "label": "📈 На биржу"},
+        )
+    return sent
+
+
+async def _season(db, now: datetime) -> int:
+    """Игровой сезон заканчивается через трое суток или меньше: ещё можно улучшить место в рейтинге."""
+    from core import seasons
+    number = seasons.season_number(now)
+    end = seasons.season_bounds(number)[1]
+    if not (timedelta(0) < end - now <= timedelta(days=3)):
+        return 0
+    days = max(1, -(-int((end - now).total_seconds()) // 86400))
+    word = "день" if days == 1 else "дня"
+    key = f"season_end:{number}"
+    async with db.execute(
+        "SELECT np.user_id FROM user_notification_prefs np WHERE np.category = 'season' AND np.enabled = TRUE "
+        "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
+        "ORDER BY np.user_id LIMIT ?", (key, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for (user_id,) in rows:
+        sent += await dm_push.enqueue(
+            db, user_id=int(user_id), category="season", dedup_key=key,
+            text=f"🏁 <b>Сезон скоро закончится</b>\nОсталось {days} {word}. Загляни в «Игры»: место в рейтинге ещё можно улучшить.",
+            button={"kind": "app", "section": "games", "label": "🎮 В игры"},
+        )
+    return sent
+
+
+async def _vip(db, now: datetime) -> int:
+    """VIP закончится меньше чем через 3 дня."""
+    from core.constants import VIP_EXPIRY_REMINDER_DAYS
+    if not await _has_table(db, "vip_subscriptions"):
+        return 0
+    async with db.execute(
+        f"SELECT v.user_id, v.expires_at FROM vip_subscriptions v {_CONSENT.format(alias='v')} "
+        "WHERE v.expires_at > ? AND v.expires_at <= ? ORDER BY v.expires_at LIMIT ?",
+        ("vip_expiry", now.replace(tzinfo=None), (now + timedelta(days=VIP_EXPIRY_REMINDER_DAYS)).replace(tzinfo=None), BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for user_id, expires_at in rows:
+        sent += await dm_push.enqueue(
+            db, user_id=int(user_id), category="vip_expiry", dedup_key=f"vip_end:{expires_at.date().isoformat()}",
+            text=f"⏳ <b>VIP скоро закончится</b>\nСрок идёт до {expires_at.strftime('%d.%m')}. Продлить можно в магазине.",
+            button={"kind": "app", "section": "vip", "label": "⭐ Продлить VIP"},
+        )
+    return sent
+
+
+_PASS_EVERY = timedelta(minutes=30)   # статус Пропуска считается по каждому согласившемуся: не чаще раза в полчаса
+_pass_checked: list[datetime] = []
+
+
+async def ready_pass_seasons(db, user_id: int, now: datetime) -> list[int]:
+    """Сезоны Пропуска, в которых есть награда, которую игрок прямо сейчас может забрать (аккаунт подходит по возрасту)."""
+    from services import league_pass
+    view = await league_pass.status(db, user_id=int(user_id), now=now)
+    if not view.get("active") or not view.get("account", {}).get("eligible", True):
+        return []
+    ready = []
+    for season in view.get("seasons", []):
+        rows = season.get("track", [])
+        has_level = any(r[t]["state"] == "ready" for r in rows for t in ("free", "vip"))
+        if has_level or season.get("repeat", {}).get("ready"):
+            ready.append(int(season["season"]))
+    return ready
+
+
+async def _pass(db, now: datetime) -> int:
+    """В Пропуске есть награда, которую можно забрать: одно сообщение в сутки."""
+    if _pass_checked and now - _pass_checked[0] < _PASS_EVERY:
+        return 0
+    _pass_checked[:] = [now]
+    key = f"pass:{now.astimezone(timezone.utc).date().isoformat()}"
+    async with db.execute(
+        "SELECT np.user_id FROM user_notification_prefs np WHERE np.category = 'pass' AND np.enabled = TRUE "
+        "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
+        "ORDER BY np.user_id LIMIT ?", (key, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for (user_id,) in rows:
+        if not await ready_pass_seasons(db, int(user_id), now):
+            continue
+        sent += await dm_push.enqueue(
+            db, user_id=int(user_id), category="pass", dedup_key=key,
+            text="🏆 <b>В Пропуске есть награда</b>\nМожно забрать прямо здесь.",
+            button={"kind": "cb", "data": "dn:claim:pass", "label": "🎁 Забрать награды"},
+        )
+    return sent
+
+
+COLLECTORS = (("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))
+
+
+async def collect(db, now: datetime | None = None) -> dict[str, int]:
+    """Один проход всех сборщиков. Сбой одного не мешает остальным. Возвращает {категория: сколько событий поставлено}."""
+    now = now or datetime.now(timezone.utc)
+    result: dict[str, int] = {}
+    for name, fn in COLLECTORS:
+        try:
+            result[name] = await fn(db, now)
+            await db.commit()
+        except Exception as exc:
+            logger.warning(f"dm push collector {name} failed: {type(exc).__name__}: {exc}")
+            result[name] = 0
+            rollback = getattr(db, "rollback", None)
+            if rollback:
+                await rollback()
+    return result

@@ -552,9 +552,9 @@ VIP_EXPIRY_REMINDER_DAYS: int = 3         # send "VIP expiring soon" reminder th
 # ── Notification preferences (Implementation Block 15) ─────────────────────────
 # Персональные DM-уведомления, которые игрок может отключить. Групповые сообщения
 # в чат (сундуки, годовщины) — не пер-юзерные, здесь не управляются.
-NOTIFICATION_CATEGORIES: dict[str, str] = {
-    "vip_expiry":  "⏳ Напоминание об истечении VIP",
-}
+# Список живёт в core/dm_push.py (категория, подпись, тема лички, включена ли); здесь — только рабочие категории для настроек.
+from core.dm_push import CATEGORIES as _DM_CATEGORIES
+NOTIFICATION_CATEGORIES: dict[str, str] = {c.key: c.label for c in _DM_CATEGORIES if c.live}
 
 # ── ИИ-помощник (Q&A по функциям бота — services/ai_assistant.py) ──────────────
 # Срабатывает только когда "бот <текст>" не похож ни на одну известную команду

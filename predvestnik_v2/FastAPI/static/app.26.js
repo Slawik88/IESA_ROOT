@@ -63,7 +63,8 @@ function _stNotif() {
   if (_ST.failed.notif) return _stFail('notif', 'Уведомления');
   if (!_ST.notif) return _stLine(3);
   const list = _ST.notif.categories || [];
-  return list.length ? list.map(c => _stSwitch('bell', _profileEsc(String(c.label).replace(/^[^\p{L}\p{N}]+/u, '')), 'Личные сообщения от бота', !!c.enabled, `_stNotifSet('${_profileEsc(c.key)}',this.checked)`)).join('') : '<div class="v3-empty">Категорий уведомлений пока нет.</div>';
+  const note = _ST.notif.dm_ready === false ? '<p class="st-hint st-hint--in">Чтобы я мог написать, открой чат с ботом и нажми «Старт» (или отправь любое сообщение).</p>' : '';
+  return list.length ? note + list.map(c => _stSwitch('bell', _profileEsc(String(c.label).replace(/^[^\p{L}\p{N}]+/u, '')), _profileEsc(c.hint || 'Личные сообщения от бота'), !!c.enabled, `_stNotifSet('${_profileEsc(c.key)}',this.checked)`)).join('') : '<div class="v3-empty">Категорий уведомлений пока нет.</div>';
 }
 function _stWarps() {
   if (_ST.failed.warps) return _stFail('warps', 'Варпы');

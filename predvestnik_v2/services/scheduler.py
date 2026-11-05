@@ -200,3 +200,31 @@ async def mafia_phase_task(bot: Bot) -> None:
             await mafia_tick(bot)
         except Exception as exc:
             logger.exception(f"Mafia phase scheduler error: {exc}")
+
+
+async def dm_push_task(bot: Bot) -> None:
+    """Уведомления в личку: раз в 5 минут собрать события согласившихся игроков, раз в минуту доставить очередь."""
+    from bot.chat.notify import markup_for
+    from services import dm_push, dm_push_events
+    logger.info("Доставка уведомлений в личку запущена.")
+    tick = 0
+    while True:
+        wait = 60
+        try:
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
+                if tick % 5 == 0:
+                    collected = await dm_push_events.collect(db)
+                    if any(collected.values()):
+                        logger.info(f"dm push: события в очередь {collected}")
+                stats = await dm_push.deliver_due(bot, db, markup=markup_for)
+                if stats["sent"] or stats["unreachable"] or stats["failed"]:
+                    logger.info(f"dm push: {stats}")
+                wait = max(wait, stats["retry_after"])   # Telegram попросил притормозить — ждём, не повторяем сразу
+                if tick % 1440 == 0:
+                    from infrastructure.repositories import dm_push as dm_push_repo
+                    await dm_push_repo.gc(db)
+                    await db.commit()
+        except Exception as exc:
+            logger.warning(f"dm push loop error: {type(exc).__name__}: {exc}")
+        tick += 1
+        await asyncio.sleep(wait)

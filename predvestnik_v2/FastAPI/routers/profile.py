@@ -848,24 +848,30 @@ class NotifPrefRequest(BaseModel):
 
 @router.get("/notification-prefs")
 async def get_notification_prefs(db=Depends(get_db), user=Depends(require_tg_user)):
-    from core.constants import NOTIFICATION_CATEGORIES
-    from infrastructure.repositories import notifications as notif_repo
-    prefs = await notif_repo.get_prefs(db, user["id"])
+    from core import dm_push as dm_rules
+    from infrastructure.repositories import dm_push as dm_repo
+    await dm_repo.ensure_schema(db)
+    on = await dm_repo.consented(db, user["id"])
+    state = await dm_repo.get_settings(db, user["id"])
+    # Нет строки согласия = выключено (в отличие от старого «по умолчанию включено»): без согласия бот не пишет.
     return {
         "categories": [
-            {"key": k, "label": v, "enabled": prefs.get(k, True)}
-            for k, v in NOTIFICATION_CATEGORIES.items()
-        ]
+            {"key": c.key, "label": c.label, "hint": c.hint, "enabled": c.key in on}
+            for c in dm_rules.CATEGORIES if c.live
+        ],
+        # Бот может написать в личку, только если игрок уже запускал его (написал /start или любое сообщение).
+        "dm_ready": state["dm_confirmed_at"] is not None and state["dm_disabled_at"] is None,
     }
 
 
 @router.post("/notification-prefs")
 async def set_notification_pref(body: NotifPrefRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     from core.constants import NOTIFICATION_CATEGORIES
-    from infrastructure.repositories import notifications as notif_repo
+    from infrastructure.repositories import dm_push as dm_repo
     if body.category not in NOTIFICATION_CATEGORIES:
         raise HTTPException(400, "Неизвестная категория уведомлений.")
-    await notif_repo.set_pref(db, user["id"], body.category, body.enabled)
+    await dm_repo.ensure_schema(db)
+    await dm_repo.set_consent(db, user["id"], body.category, body.enabled)
     return {"ok": True, "category": body.category, "enabled": body.enabled}
 
 

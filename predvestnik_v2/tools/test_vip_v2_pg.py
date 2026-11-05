@@ -56,6 +56,10 @@ async def _prepare(dsn: str) -> None:
                 user_balance_dark_mora NUMERIC(24,6) NOT NULL DEFAULT 0,
                 user_balance_zarniki NUMERIC(24,6) NOT NULL DEFAULT 0
             );
+            CREATE TABLE user_notification_prefs (
+                user_id BIGINT NOT NULL, category TEXT NOT NULL, enabled BOOLEAN DEFAULT TRUE,
+                PRIMARY KEY (user_id, category)
+            );
             CREATE TABLE vip_subscriptions (
                 user_id BIGINT PRIMARY KEY REFERENCES users(user_tg_id),
                 tier TEXT NOT NULL,
@@ -254,6 +258,10 @@ async def run(dsn: str) -> None:
         first_evening = datetime(2026, 9, 26, 18, 0, tzinfo=timezone.utc)
         assert reminder_user not in await vip.daily_reminder_candidates(db, now=first_evening)
         await vip_repo.mark_private_contact(db, user_id=reminder_user)
+        assert reminder_user not in await vip.daily_reminder_candidates(db, now=first_evening), "no consent, no reminder"
+        from infrastructure.repositories import dm_push as dm_push_repo
+        await dm_push_repo.ensure_schema(db)
+        await dm_push_repo.set_consent(db, reminder_user, "vip_expiry", True)
         assert reminder_user in await vip.daily_reminder_candidates(db, now=first_evening)
         await vip_repo.mark_private_contact_unreachable(db, user_id=reminder_user)
         assert reminder_user not in await vip.daily_reminder_candidates(db, now=first_evening)

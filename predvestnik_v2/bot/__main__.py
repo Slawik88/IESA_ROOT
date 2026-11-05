@@ -18,6 +18,7 @@ from infrastructure.preprod import is_preprod
 from services.scheduler import (
     mafia_phase_task,
     maintenance_task,
+    dm_push_task,
     player_exchange_match_task,
     coin_market_v2_task,
 )
@@ -259,6 +260,8 @@ async def main():
                 BotCommand(command="help", description="Все команды бота"),
                 BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
                 BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
+                BotCommand(command="plan", description="План дня: что забрать и сделать сегодня"),
+                BotCommand(command="notify", description="Уведомления: что бот присылает тебе в личку"),
                 BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
             ], scope=BotCommandScopeAllPrivateChats())
         except Exception as _e:
@@ -314,6 +317,7 @@ async def main():
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
             _spawn_supervised("coin-market-v2", coin_market_v2_task(), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
+            _spawn_supervised("dm-push", dm_push_task(bot), failed=background_failed),
         ])
         try:
             from services import broadcasts as _bc, chat_bots as _chat_bots

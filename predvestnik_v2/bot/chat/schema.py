@@ -76,6 +76,8 @@ async def ensure_chat_schema() -> None:
                 logger.exception(f"{part.__name__} schema failed: {exc}")
         await global_moderation.ensure_schema(db)
         await admin_people.ensure_schema(db)
+        from infrastructure.repositories import dm_push as dm_push_repo
+        await dm_push_repo.ensure_schema(db)   # очередь и настройки уведомлений в личку (S23)
         from services.promo_v2 import ensure_schema as ensure_promo
         await ensure_promo(db)
         from bot.chat.achievements import ensure_schema as ensure_achievements
