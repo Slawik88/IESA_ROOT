@@ -91,4 +91,4 @@ body.lg-high .lgp-swing, body.lg-mid .lgp-swing { animation: lgp-swing 1.1s var(
 .lgp-race-seat.is-free { fill: url(#lga-g-gold); }
 .lgp-race-seat.is-taken { fill: var(--lg-dim); opacity: .4; }
 body.lg-high .lgp-race-seat.is-free, body.lg-mid .lgp-race-seat.is-free { animation: lgp-race-tw 2.6s var(--lg-ease) .8s 2 both; }
-@keyframes lgp-race-tw { 0%, 100% { filter: none; } 50% { filter: drop-shadow(0 0 4px rgba(245,207,115,.8)); } }
+@keyframes lgp-race-tw { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
