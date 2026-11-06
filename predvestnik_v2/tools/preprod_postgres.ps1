@@ -60,6 +60,9 @@ function Initialize-PreprodCluster {
     if ($LASTEXITCODE -ne 0) {
         throw "initdb failed with exit code $LASTEXITCODE."
     }
+    # UTC, как прод: initdb берёт пояс Windows (Europe/Berlin), и тесты с наивными метками времени («час ещё не прошёл»)
+    # тогда падают только здесь. Последняя строка postgresql.conf перекрывает записанную initdb.
+    Add-Content -LiteralPath (Join-Path $dataDir "postgresql.conf") -Value "timezone = 'UTC'" -Encoding ascii
 }
 
 switch ($Action) {

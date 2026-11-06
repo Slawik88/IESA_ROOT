@@ -18,6 +18,7 @@ init() {
     # builtin C.UTF-8, а не --no-locale: в C-локали LOWER/ILIKE не сворачивают кириллицу, и регистронезависимый
     # поиск (теги, ники) в гейте ведёт себя не как в проде. Требуется PostgreSQL 17+.
     initdb --locale-provider=builtin --builtin-locale=C.UTF-8 --encoding=UTF8 --auth=trust --username="$role" --pgdata="$data_dir" >/dev/null
+    echo "timezone = 'UTC'" >> "$data_dir/postgresql.conf"   # UTC, как прод: тесты с наивными метками времени
   fi
 }
 
