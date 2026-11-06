@@ -5,6 +5,10 @@
 bot_broadcast_targets, поэтому у каждой рассылки есть отчёт «кому не дошло и почему», а прерванную (перезапуск,
 остановка) можно продолжить, а недоставленным — отправить повторно. Рассылку можно отложить на время.
 
+К сообщению можно приложить картинку (JPEG, PNG или WebP до 5 МБ): тогда текст становится подписью к ней (Telegram
+ограничивает подпись 1024 знаками). Картинка хранится в базе (bot_broadcast_media) и загружается в Telegram один раз:
+дальше всем уходит её file_id.
+
 Рассылка идёт в фоне того же процесса, с паузой между сообщениями (лимиты Telegram). Игроки, которым бот не отвечает
 (блокировка) или с глобальным баном, а также те, кто заблокировал бота в Telegram, и чаты, из которых бота удалили, рассылку не получают. Одновременно идёт одна рассылка.
 """
@@ -46,6 +50,16 @@ STATEMENTS = (
         PRIMARY KEY (broadcast_id, target_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_bot_broadcast_targets_status ON bot_broadcast_targets (broadcast_id, status)",
+    """CREATE TABLE IF NOT EXISTS bot_broadcast_media (
+        id          BIGSERIAL PRIMARY KEY,
+        sha256      TEXT   NOT NULL UNIQUE,
+        mime        TEXT   NOT NULL,
+        data        BYTEA  NOT NULL,
+        file_id     TEXT,                          -- после первой отправки: Telegram хранит картинку у себя
+        created_by  BIGINT NOT NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "ALTER TABLE bot_broadcasts ADD COLUMN IF NOT EXISTS media_id BIGINT",
     """CREATE TABLE IF NOT EXISTS bot_broadcast_templates (
         id          BIGSERIAL PRIMARY KEY,
         title       TEXT NOT NULL,
@@ -57,6 +71,7 @@ STATEMENTS = (
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         deleted_at  TIMESTAMPTZ
     )""",
+    "ALTER TABLE bot_broadcast_templates ADD COLUMN IF NOT EXISTS media_id BIGINT",
 )
 KINDS = {"chats": "Чаты", "players": "Игроки в личку"}
 AUDIENCES = {"chats": "Все чаты бота", "players": "Все игроки в личку"}
@@ -67,6 +82,9 @@ ERROR_TITLES = {"blocked": "Заблокировали бота", "no_dialog": "
                 "other": "Другая ошибка Telegram"}
 PAUSE = {"chats": 0.35, "players": 0.05}
 MAX_TEXT = 3500
+MAX_CAPTION = 1024              # подпись к картинке в Telegram
+MAX_MEDIA_BYTES = 5 * 1024 * 1024
+MEDIA_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 MAX_IDS = 5000
 TEMPLATES_MAX = 100
 
@@ -100,6 +118,102 @@ async def ensure_schema(db) -> None:
 
 
 # ── Сегменты ─────────────────────────────────────────────────────────────────
+
+def visible_len(text: str, html: bool) -> int:
+    """Сколько знаков насчитает Telegram: теги разметки не считаются, сущности (&amp;) — за один знак, длина — в единицах
+    UTF-16, как у Telegram (эмодзи — обычно два знака)."""
+    if html:
+        import html as html_lib
+        import re
+        text = html_lib.unescape(re.sub(r"<[^>]*>", "", text))
+    return len(text.encode("utf-16-le")) // 2
+
+
+def check_text(text: str, html: bool, media_id: int | None) -> None:
+    if not 1 <= len(text) <= MAX_TEXT:
+        raise BroadcastError(f"Текст — от 1 до {MAX_TEXT} символов.")
+    if media_id and visible_len(text, html) > MAX_CAPTION:
+        raise BroadcastError(f"С картинкой текст становится подписью: не больше {MAX_CAPTION} знаков "
+                             f"(сейчас {visible_len(text, html)}). Сократите текст или уберите картинку.")
+
+
+# ── Картинка ─────────────────────────────────────────────────────────────────
+
+def _sniff(data: bytes) -> str | None:
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+async def save_media(db, actor_id: int, data: bytes) -> int:
+    """Сохранить картинку рассылки; та же картинка второй раз — тот же номер."""
+    import hashlib
+    if not data or len(data) > MAX_MEDIA_BYTES:
+        raise BroadcastError(f"Картинка — до {MAX_MEDIA_BYTES // (1024 * 1024)} МБ.")
+    mime = _sniff(data)
+    if not mime:
+        raise BroadcastError("Подойдёт картинка JPEG, PNG или WebP.")
+    digest = hashlib.sha256(data).hexdigest()
+    async with db.execute(
+        "INSERT INTO bot_broadcast_media (sha256, mime, data, created_by) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT (sha256) DO UPDATE SET sha256 = EXCLUDED.sha256 RETURNING id", (digest, mime, data, actor_id)) as cur:
+        return int((await cur.fetchone())[0])
+
+
+async def media(db, media_id: int | None) -> dict | None:
+    if not media_id:
+        return None
+    async with db.execute("SELECT id, mime, data, file_id FROM bot_broadcast_media WHERE id = ?", (int(media_id),)) as cur:
+        row = await cur.fetchone()
+    return {"id": int(row[0]), "mime": row[1], "data": bytes(row[2]), "file_id": row[3]} if row else None
+
+
+async def require_media(db, media_id) -> int | None:
+    if not media_id:
+        return None
+    try:
+        media_id = int(media_id)
+    except (TypeError, ValueError):
+        raise BroadcastError("Картинка не найдена: загрузите её ещё раз.")
+    async with db.execute("SELECT 1 FROM bot_broadcast_media WHERE id = ?", (media_id,)) as cur:
+        if not await cur.fetchone():
+            raise BroadcastError("Картинка не найдена: загрузите её ещё раз.")
+    return media_id
+
+
+class Photo:
+    """Картинка одной отправки: сначала файл, после первого успешного сообщения — file_id (его же запоминает база)."""
+
+    def __init__(self, item: dict | None):
+        self.item = item
+
+    def __bool__(self) -> bool:
+        return self.item is not None
+
+    def payload(self):
+        from aiogram.types import BufferedInputFile
+        if self.item["file_id"]:
+            return self.item["file_id"]
+        return BufferedInputFile(self.item["data"], filename=f"broadcast.{MEDIA_TYPES.get(self.item['mime'], 'jpg')}")
+
+    async def remember(self, message, pool_db=None, db=None) -> None:
+        if self.item["file_id"] or not getattr(message, "photo", None):
+            return
+        self.item["file_id"] = message.photo[-1].file_id
+        sql = "UPDATE bot_broadcast_media SET file_id = ? WHERE id = ? AND file_id IS NULL"
+        try:
+            if db is not None:
+                await db.execute(sql, (self.item["file_id"], self.item["id"]))
+            elif pool_db is not None:
+                async with pool_db() as fresh:
+                    await fresh.execute(sql, (self.item["file_id"], self.item["id"]))
+        except Exception as exc:   # не запомнили — следующая отправка просто загрузит файл ещё раз
+            logger.debug(f"broadcast media file_id not saved: {exc}")
+
 
 def _int(value, low: int, high: int, what: str) -> int | None:
     if value in (None, "", 0, "0"):
@@ -308,26 +422,27 @@ def _markup(button_text, button_url):
 
 async def templates(db) -> list[dict]:
     async with db.execute(
-        "SELECT id, title, text, html, button_text, button_url FROM bot_broadcast_templates "
+        "SELECT id, title, text, html, button_text, button_url, media_id FROM bot_broadcast_templates "
         "WHERE deleted_at IS NULL ORDER BY id DESC LIMIT ?", (TEMPLATES_MAX,)) as cur:
         return [{"id": int(r[0]), "title": r[1], "text": r[2], "html": bool(r[3]),
-                 "button": {"text": r[4], "url": r[5]} if r[4] and r[5] else None} for r in await cur.fetchall()]
+                 "button": {"text": r[4], "url": r[5]} if r[4] and r[5] else None,
+                 "media_id": int(r[6]) if r[6] else None} for r in await cur.fetchall()]
 
 
-async def save_template(db, actor_id: int, title: str, text: str, html: bool, button) -> int:
+async def save_template(db, actor_id: int, title: str, text: str, html: bool, button, media_id=None) -> int:
     title, text = (title or "").strip(), (text or "").strip()
     if not 1 <= len(title) <= 60:
         raise BroadcastError("Название шаблона — от 1 до 60 символов.")
-    if not 1 <= len(text) <= MAX_TEXT:
-        raise BroadcastError(f"Текст — от 1 до {MAX_TEXT} символов.")
+    media_id = await require_media(db, media_id)
+    check_text(text, html, media_id)
     btn = normalize_button(button)
     async with db.execute("SELECT COUNT(*) FROM bot_broadcast_templates WHERE deleted_at IS NULL") as cur:
         if int((await cur.fetchone())[0]) >= TEMPLATES_MAX:
             raise BroadcastError("Слишком много шаблонов: удалите ненужные.")
     async with db.execute(
-        "INSERT INTO bot_broadcast_templates (title, text, html, button_text, button_url, created_by) "
-        "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-        (title, text, bool(html), btn[0] if btn else None, btn[1] if btn else None, actor_id)) as cur:
+        "INSERT INTO bot_broadcast_templates (title, text, html, button_text, button_url, created_by, media_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+        (title, text, bool(html), btn[0] if btn else None, btn[1] if btn else None, actor_id, media_id)) as cur:
         return int((await cur.fetchone())[0])
 
 
@@ -340,7 +455,7 @@ async def delete_template(db, template_id: int) -> bool:
 # ── Список и отчёт ───────────────────────────────────────────────────────────
 
 _COLUMNS = ("b.id, b.actor_id, u.user_tg_username, b.audience, b.text, b.status, b.total, b.sent, b.failed, "
-            "b.created_at, b.finished_at, b.html, b.segment::text, b.button_text, b.button_url, b.scheduled_at")
+            "b.created_at, b.finished_at, b.html, b.segment::text, b.button_text, b.button_url, b.scheduled_at, b.media_id")
 
 
 def _item(r) -> dict:
@@ -352,7 +467,7 @@ def _item(r) -> dict:
             "sent": int(r[7]), "failed": int(r[8]), "created_at": r[9].isoformat() if r[9] else None,
             "finished_at": r[10].isoformat() if r[10] else None, "html": bool(r[11]),
             "button": {"text": r[13], "url": r[14]} if r[13] and r[14] else None,
-            "scheduled_at": r[15].isoformat() if r[15] else None}
+            "scheduled_at": r[15].isoformat() if r[15] else None, "media_id": int(r[16]) if r[16] else None}
 
 
 async def listing(db, limit: int = 20) -> list[dict]:
@@ -435,12 +550,11 @@ async def _check_free(db) -> None:
 
 
 async def precheck(db, actor_id: int, audience: str | None, text: str, request_id: str = "", *, segment=None,
-                   scheduled_at=None) -> bool:
+                   scheduled_at=None, html: bool = False, media_id=None) -> bool:
     """Те же проверки, что у create, но ничего не создаёт: нужны до пробной отправки администратору, чтобы отказ
     не оставлял ему лишнее сообщение. True — рассылка с таким request_id уже есть (повторный запрос)."""
     seg = normalize_segment(segment, audience)
-    if not 1 <= len(text) <= MAX_TEXT:
-        raise BroadcastError(f"Текст — от 1 до {MAX_TEXT} символов.")
+    check_text(text, html, await require_media(db, media_id))
     when = _parse_when(scheduled_at)
     if request_id:
         async with db.execute("SELECT 1 FROM bot_broadcasts WHERE actor_id = ? AND request_id = ?",
@@ -455,15 +569,15 @@ async def precheck(db, actor_id: int, audience: str | None, text: str, request_i
 
 
 async def create(db, actor_id: int, audience: str | None, text: str, request_id: str = "", html: bool = False, *,
-                 segment=None, button=None, scheduled_at=None, parent_id: int | None = None) -> Created:
+                 segment=None, button=None, scheduled_at=None, parent_id: int | None = None, media_id=None) -> Created:
     """Создать рассылку: сразу запускаемую (получатели фиксируются здесь) или отложенную (получатели — в момент отправки).
     Повтор того же request_id возвращает уже созданную."""
     seg = normalize_segment(segment, audience)
-    if not 1 <= len(text) <= MAX_TEXT:
-        raise BroadcastError(f"Текст — от 1 до {MAX_TEXT} символов.")
+    media_id = await require_media(db, media_id)
+    check_text(text, html, media_id)
     btn = normalize_button(button)
     when = _parse_when(scheduled_at)
-    cols = (actor_id, seg["kind"], text, request_id or None, bool(html), __import__("json").dumps(seg), parent_id)
+    cols = (actor_id, seg["kind"], text, request_id or None, bool(html), __import__("json").dumps(seg), parent_id, media_id)
     btn_cols = (btn[0] if btn else None, btn[1] if btn else None)
     async with db.connection.transaction():
         await db.execute("SELECT pg_advisory_xact_lock(?)", (LOCK,))
@@ -475,8 +589,8 @@ async def create(db, actor_id: int, audience: str | None, text: str, request_id:
                 return Created(int(row[0]), False, int(row[1]), row[2] == "scheduled")
         if when:
             async with db.execute(
-                "INSERT INTO bot_broadcasts (actor_id, audience, text, request_id, html, segment, parent_id, button_text, "
-                "button_url, status, scheduled_at) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, 'scheduled', ?) RETURNING id",
+                "INSERT INTO bot_broadcasts (actor_id, audience, text, request_id, html, segment, parent_id, media_id, button_text, "
+                "button_url, status, scheduled_at) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, 'scheduled', ?) RETURNING id",
                 (*cols, *btn_cols, when)) as cur:
                 return Created(int((await cur.fetchone())[0]), True, 0, True)
         await _check_free(db)
@@ -484,8 +598,8 @@ async def create(db, actor_id: int, audience: str | None, text: str, request_id:
         if not targets:
             raise BroadcastError("Некому отправлять.")
         async with db.execute(
-            "INSERT INTO bot_broadcasts (actor_id, audience, text, request_id, html, segment, parent_id, button_text, "
-            "button_url, total) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?) RETURNING id",
+            "INSERT INTO bot_broadcasts (actor_id, audience, text, request_id, html, segment, parent_id, media_id, button_text, "
+            "button_url, total) VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?) RETURNING id",
             (*cols, *btn_cols, len(targets))) as cur:
             bid = int((await cur.fetchone())[0])
         await _insert_targets(db, bid, targets)
@@ -534,7 +648,7 @@ async def retry_failed(db, actor_id: int, broadcast_id: int) -> Created:
         raise BroadcastError("Недоставленных нет.")
     seg = {"kind": item["segment"]["kind"], "target_ids": ids, "retry_of": broadcast_id}
     return await create(db, actor_id, None, item["text"], "", item["html"], segment=seg, button=item["button"],
-                        parent_id=broadcast_id)
+                        parent_id=broadcast_id, media_id=item["media_id"])
 
 
 # ── Отправка ─────────────────────────────────────────────────────────────────
@@ -552,7 +666,10 @@ def reason_of(exc: Exception) -> str:
     return "other: " + str(exc)[:120]
 
 
-async def send(bot, chat_id: int, text: str, html: bool, markup=None):
+async def send(bot, chat_id: int, text: str, html: bool, markup=None, photo: Photo | None = None):
+    if photo:
+        return await bot.send_photo(chat_id, photo.payload(), caption=text, parse_mode="HTML" if html else None,
+                                    reply_markup=markup)
     return await bot.send_message(chat_id, text, parse_mode="HTML" if html else None, disable_web_page_preview=True,
                                   reply_markup=markup)
 
@@ -570,9 +687,14 @@ async def _flush(db, broadcast_id: int, results: list[tuple[int, str, str | None
         (broadcast_id, broadcast_id, broadcast_id))
 
 
-async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: bool = False, markup=None) -> None:
+async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: bool = False, markup=None,
+              media_id: int | None = None) -> None:
     """Отправка тем, кому ещё не отправлено. pool_db — асинхронный контекст, дающий соединение (на каждый шаг своё)."""
     from aiogram.exceptions import TelegramRetryAfter
+    photo = None
+    if media_id:
+        async with pool_db() as db:
+            photo = Photo(await media(db, media_id))
     while True:
         async with pool_db() as db:
             async with db.execute("SELECT status FROM bot_broadcasts WHERE id = ?", (broadcast_id,)) as cur:
@@ -592,7 +714,9 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: b
             outcome: tuple[str, str | None] = ("failed", "other")
             for attempt in range(2):
                 try:
-                    await send(bot, target, text, html, markup)
+                    message = await send(bot, target, text, html, markup, photo)
+                    if photo:
+                        await photo.remember(message, pool_db=pool_db)
                     outcome = ("sent", None)
                     break
                 except TelegramRetryAfter as exc:
@@ -618,7 +742,8 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: b
         await _flush(db, broadcast_id, [])
 
 
-def start(bot, pool_db, broadcast_id: int, audience: str, text: str, html: bool = False, button=None) -> asyncio.Task:
+def start(bot, pool_db, broadcast_id: int, audience: str, text: str, html: bool = False, button=None,
+          media_id: int | None = None) -> asyncio.Task:
     running = _tasks.get(broadcast_id)
     if running and not running.done():   # «Остановить» и сразу «Продолжить»: старая отправка ещё жива и подхватит остаток сама
         return running
@@ -627,7 +752,7 @@ def start(bot, pool_db, broadcast_id: int, audience: str, text: str, html: bool 
     async def guarded():
         try:
             for _ in range(3):
-                await run(bot, pool_db, broadcast_id, audience, text, html, markup)
+                await run(bot, pool_db, broadcast_id, audience, text, html, markup, media_id)
                 async with pool_db() as db:   # остановили и тут же продолжили, пока цикл выходил: доделываем остаток
                     async with db.execute("SELECT 1 FROM bot_broadcasts b WHERE b.id = ? AND b.status = 'running' AND EXISTS "
                                           "(SELECT 1 FROM bot_broadcast_targets t WHERE t.broadcast_id = b.id AND t.status = 'pending')",
@@ -651,7 +776,7 @@ async def launch(bot, pool_db, broadcast_id: int) -> None:
     async with pool_db() as db:
         item = await get(db, broadcast_id)
     if item:
-        start(bot, pool_db, broadcast_id, item["audience"], item["text"], item["html"], item["button"])
+        start(bot, pool_db, broadcast_id, item["audience"], item["text"], item["html"], item["button"], item["media_id"])
 
 
 async def launch_due(bot, pool_db) -> int | None:

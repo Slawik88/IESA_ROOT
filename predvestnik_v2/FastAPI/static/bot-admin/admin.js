@@ -1575,7 +1575,11 @@ const searchPlayers = async q => (await api(`/search?q=${encodeURIComponent(q)}`
 
 // Черновик живёт, пока открыта админка: обновление списка или ошибка не стирают набранное.
 const BC = {kind: 'players', chats: [], players: [], active: '', chatKind: '', vip: '', newDays: '', minMsg: '', text: '', html: true,
-            btnText: '', btnUrl: '', later: false, at: ''};
+            btnText: '', btnUrl: '', later: false, at: '', mediaId: null, mediaUrl: ''};
+const BC_CAPTION = 1024, BC_MEDIA_MB = 5;   // подпись к картинке в Telegram; размер картинки (как на сервере)
+// Сколько знаков увидит Telegram: теги не считаются, &amp; — один знак.
+const bcVisible = (text, html) => html ? new DOMParser().parseFromString(text.replace(/<[^>]*>/g, ''), 'text/html').documentElement.textContent.length : text.length;
+const bcImg = url => url ? `<img src="${esc(url)}" alt="Картинка рассылки" style="display:block;max-width:100%;max-height:260px;border-radius:10px;margin-bottom:8px"/>` : '';
 
 function bcSegment() {
   const seg = {kind: BC.kind};
@@ -1597,7 +1601,7 @@ function bcHistoryRow(b) {
   const progress = b.status === 'scheduled' ? `отправится ${when(b.scheduled_at)}` : `${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}`;
   const resumable = b.status === 'interrupted' || (b.status === 'stopped' && b.total > b.sent + b.failed);
   return `<div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${progress}</div>
-    <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(text)}${b.button ? `\n[ ${esc(b.button.text)} ]` : ''}</div>
+    <div class="sub" style="white-space:pre-wrap">${b.media_id ? '🖼 ' : ''}${(b.html ? tgHtml : esc)(text)}${b.button ? `\n[ ${esc(b.button.text)} ]` : ''}</div>
     <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div>
     <div class="actions" style="margin-top:6px">
       ${b.status === 'running' ? `<button class="btn small" data-bstop="${b.id}">⏹ Остановить</button>` : ''}
@@ -1640,9 +1644,14 @@ async function broadcastView(main) {
         `<option value="${a.key}" ${a.key === BC.kind ? 'selected' : ''}>${esc(a.title)} · всего ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
       <div id="bseg"></div>
       <div class="card" id="bcount" style="margin:8px 0">Считаем получателей…</div>
-      <div class="field"><label>Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
+      <div class="field"><label for="btext" id="btextlbl">Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
       <div class="field switch"><input type="checkbox" id="bhtml"/><label for="bhtml" style="margin:0">HTML-разметка Telegram</label></div>
       <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
+      <div class="field" style="margin-top:8px"><label>Картинка (необязательно)</label>
+        <input type="file" id="bimg" accept="image/jpeg,image/png,image/webp" hidden/>
+        <div class="actions"><button type="button" class="btn small" id="bimgpick">🖼 Выбрать картинку</button>
+          <button type="button" class="btn small danger" id="bimgdel" hidden>Убрать картинку</button></div>
+        <div class="sub">JPEG, PNG или WebP до ${BC_MEDIA_MB} МБ. С картинкой текст становится подписью к ней — до ${BC_CAPTION} знаков.</div></div>
       <div class="grid2" style="margin-top:8px">
         <div class="field"><label>Кнопка под сообщением: подпись</label><input id="bbtext" maxlength="64" placeholder="Например: Играть"/></div>
         <div class="field"><label>Ссылка кнопки</label><input id="bburl" maxlength="512" placeholder="https://t.me/…"/></div></div>
@@ -1700,7 +1709,11 @@ async function broadcastView(main) {
   const draw = () => {
     BC.text = $('#btext').value; BC.html = $('#bhtml').checked; BC.btnText = $('#bbtext').value; BC.btnUrl = $('#bburl').value;
     BC.later = $('#blater').checked; BC.at = $('#bat').value;
-    $('#bprev').innerHTML = (BC.html ? tgHtml : esc)(BC.text) + (bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText || '…')}</span></div>` : '');
+    const caption = BC.mediaId ? bcVisible(BC.text, BC.html) : 0;
+    $('#btextlbl').textContent = BC.mediaId ? `Подпись к картинке: ${caption} из ${BC_CAPTION} знаков` : 'Текст (до 3500 символов)';
+    $('#btextlbl').style.color = caption > BC_CAPTION ? 'var(--bad, #e5484d)' : '';
+    $('#bimgdel').hidden = !BC.mediaId; $('#bimgpick').textContent = BC.mediaId ? '🖼 Заменить картинку' : '🖼 Выбрать картинку';
+    $('#bprev').innerHTML = bcImg(BC.mediaUrl) + (BC.html ? tgHtml : esc)(BC.text) + (bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText || '…')}</span></div>` : '');
     $('#bhelp').hidden = !BC.html;
     $('#batwrap').hidden = !BC.later;
     $('#bgo').textContent = BC.later ? 'Проверить и запланировать' : 'Проверить и отправить';
@@ -1709,6 +1722,21 @@ async function broadcastView(main) {
   $('#blater').checked = BC.later; $('#bat').value = BC.at;
   ['#btext', '#bbtext', '#bburl', '#bat'].forEach(sel => $(sel).oninput = draw);
   $('#bhtml').onchange = $('#blater').onchange = draw;
+  const setMedia = (id, url) => { BC.mediaId = id || null; BC.mediaUrl = id ? url : ''; if (!id) $('#bimg').value = ''; draw(); };
+  $('#bimg').onchange = () => {
+    const file = $('#bimg').files[0];
+    if (!file) return;
+    if (file.size > BC_MEDIA_MB * 1024 * 1024) { toast(`Картинка — до ${BC_MEDIA_MB} МБ.`, true); $('#bimg').value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try { setMedia((await api('/broadcasts/media', {method: 'POST', body: JSON.stringify({data: reader.result})})).id, reader.result); toast('Картинка добавлена'); }
+      catch (e) { toast(e.message, true); $('#bimg').value = ''; }
+    };
+    reader.onerror = () => toast('Не получилось прочитать файл.', true);
+    reader.readAsDataURL(file);
+  };
+  $('#bimgdel').onclick = () => setMedia(null);
+  $('#bimgpick').onclick = () => $('#bimg').click();
   draw();
 
   // ── Шаблоны ──
@@ -1723,14 +1751,15 @@ async function broadcastView(main) {
     if (!t) return;
     $('#btext').value = t.text; $('#bhtml').checked = t.html;
     $('#bbtext').value = t.button ? t.button.text : ''; $('#bburl').value = t.button ? t.button.url : '';
-    draw();
+    setMedia(null);
+    if (t.media_id) api(`/broadcasts/media/${t.media_id}`).then(m => setMedia(m.id, m.data_url)).catch(e => toast(e.message, true));
   };
   $('#btplsave').onclick = () => {
     if (!$('#btext').value.trim()) { toast('Сначала напишите текст.', true); return; }
     sheet('Сохранить как шаблон', `<div class="field"><label>Название</label><input id="btitle" maxlength="60" placeholder="Например: Новости недели"/></div>
-      <div class="sub">Сохранятся текст, разметка и кнопка. Получатели и время — нет.</div>`, 'Сохранить', async () => {
+      <div class="sub">Сохранятся текст, разметка, кнопка и картинка. Получатели и время — нет.</div>`, 'Сохранить', async () => {
       const res = await api('/broadcasts/templates', {method: 'POST', body: JSON.stringify({
-        title: $('#btitle').value, text: $('#btext').value.trim(), html: $('#bhtml').checked, button: bcButton()})});
+        title: $('#btitle').value, text: $('#btext').value.trim(), html: $('#bhtml').checked, button: bcButton(), media_id: BC.mediaId})});
       templates = res.items; drawTemplates(); toast(res.message);
     });
   };
@@ -1746,7 +1775,7 @@ async function broadcastView(main) {
     const text = $('#btext').value.trim();
     if (!text) { toast('Напишите текст.', true); return; }
     $('#btest').disabled = true;
-    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: BC.html, button: bcButton()})})).message); }
+    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: BC.html, button: bcButton(), media_id: BC.mediaId})})).message); }
     catch (e) { toast(e.message, true); }
     $('#btest').disabled = false;
   };
@@ -1754,17 +1783,18 @@ async function broadcastView(main) {
     const text = BC.text.trim();
     if (!text) { toast('Напишите текст.', true); return; }
     if (BC.later && !BC.at) { toast('Выберите время отправки.', true); return; }
+    if (BC.mediaId && bcVisible(text, BC.html) > BC_CAPTION) { toast(`С картинкой подпись — не больше ${BC_CAPTION} знаков. Сократите текст или уберите картинку.`, true); return; }
     const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
     const who = BC.count == null ? 'Получатели не посчитаны' : `${num(BC.count)} получателей · ${BC.title}`;
     sheet(BC.later ? 'Запланировать рассылку?' : 'Отправить рассылку?', `
       <div class="sub" style="margin-bottom:8px">${esc(who)}${BC.later ? `<br/>Отправится ${when(BC.at)}.` : '<br/>Отменить уже отправленное нельзя.'}</div>
-      <div class="card" style="white-space:pre-wrap">${(BC.html ? tgHtml : esc)(text)}${bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText)}</span> <span class="sub">${esc(BC.btnUrl)}</span></div>` : ''}</div>`,
+      <div class="card" style="white-space:pre-wrap">${bcImg(BC.mediaUrl)}${(BC.html ? tgHtml : esc)(text)}${bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText)}</span> <span class="sub">${esc(BC.btnUrl)}</span></div>` : ''}</div>`,
       BC.later ? 'Запланировать' : 'Отправить', async () => {
         const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({
-          audience: BC.kind, segment: bcSegment(), text, html: BC.html, button: bcButton(), request_id: rid,
+          audience: BC.kind, segment: bcSegment(), text, html: BC.html, button: bcButton(), request_id: rid, media_id: BC.mediaId,
           scheduled_at: BC.later ? new Date(BC.at).toISOString() : null})});
         toast(res.message || 'Готово');
-        Object.assign(BC, {text: '', btnText: '', btnUrl: '', later: false, at: ''});
+        Object.assign(BC, {text: '', btnText: '', btnUrl: '', later: false, at: '', mediaId: null, mediaUrl: ''});
         broadcastView(main);
       });
   };

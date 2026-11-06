@@ -1,5 +1,9 @@
-"""Раздел «Рассылка»: сообщение от бота в чаты или игрокам в личку — всем или по сегменту, сразу или по расписанию."""
+"""Раздел «Рассылка»: сообщение от бота в чаты или игрокам в личку — всем или по сегменту, сразу или по расписанию,
+текстом или картинкой с подписью."""
 from __future__ import annotations
+
+import base64
+import binascii
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
@@ -46,6 +50,39 @@ def _markup_of(button):
     return broadcasts_service._markup(button["text"], button["url"]) if button else None
 
 
+async def _photo(db, media_id):
+    """Картинка пробной и проверочной отправки (номер уже проверен require_media)."""
+    item = await broadcasts_service.media(db, media_id)
+    return broadcasts_service.Photo(item) if item else None
+
+
+@router.post("/broadcasts/media")
+async def broadcast_media_upload(data: dict = Body(...), user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
+    """Картинка к рассылке: data URL или base64 (JPEG, PNG, WebP до 5 МБ). Возвращает номер для отправки и шаблона."""
+    raw = str(data.get("data") or "")
+    raw = raw.split(",", 1)[1] if raw.startswith("data:") and "," in raw else raw
+    if len(raw) > broadcasts_service.MAX_MEDIA_BYTES * 4 // 3 + 16:
+        raise HTTPException(400, f"Картинка — до {broadcasts_service.MAX_MEDIA_BYTES // (1024 * 1024)} МБ.")
+    try:
+        blob = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(400, "Не получилось прочитать картинку. Выберите файл ещё раз.")
+    try:
+        media_id = await broadcasts_service.save_media(db, user["id"], blob)
+    except broadcasts_service.BroadcastError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "id": media_id}
+
+
+@router.get("/broadcasts/media/{mid}")
+async def broadcast_media_get(mid: int, user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
+    """Предпросмотр картинки из шаблона или истории."""
+    item = await broadcasts_service.media(db, mid)
+    if not item:
+        raise HTTPException(404, "Картинки нет.")
+    return {"id": item["id"], "data_url": f"data:{item['mime']};base64," + base64.b64encode(item["data"]).decode()}
+
+
 @router.get("/broadcasts")
 async def broadcasts(user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     return {"items": await broadcasts_service.listing(db),
@@ -64,16 +101,22 @@ async def broadcast_preview(data: dict = Body(...), user=Depends(_user), db=Depe
 
 
 @router.post("/broadcasts/test")
-async def broadcast_test(data: dict = Body(...), user=Depends(_user)):
-    """Пробная отправка себе в личку: проверить вид, кнопку и HTML до рассылки."""
-    text = str(data.get("text") or "").strip()
-    if not 1 <= len(text) <= broadcasts_service.MAX_TEXT:
-        raise HTTPException(400, f"Текст — от 1 до {broadcasts_service.MAX_TEXT} символов.")
-    button = _button(data)
+async def broadcast_test(data: dict = Body(...), user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
+    """Пробная отправка себе в личку: проверить вид, кнопку, HTML и картинку до рассылки."""
+    text, html = str(data.get("text") or "").strip(), bool(data.get("html"))
     try:
-        await broadcasts_service.send(get_bot(), user["id"], text, bool(data.get("html")), _markup_of(button))
+        media_id = await broadcasts_service.require_media(db, data.get("media_id"))
+        broadcasts_service.check_text(text, html, media_id)
+    except broadcasts_service.BroadcastError as exc:
+        raise HTTPException(400, str(exc))
+    button = _button(data)
+    photo = await _photo(db, media_id)
+    try:
+        message = await broadcasts_service.send(get_bot(), user["id"], text, html, _markup_of(button), photo)
     except Exception as exc:
         raise _bad_markup(exc)
+    if photo:
+        await photo.remember(message, db=db)
     return {"ok": True, "message": "Отправлено вам в личку."}
 
 
@@ -87,7 +130,8 @@ async def template_save(data: dict = Body(...), user=Depends(_user), db=Depends(
     button = _button(data)
     try:
         tid = await broadcasts_service.save_template(db, user["id"], str(data.get("title") or ""),
-                                                     str(data.get("text") or ""), bool(data.get("html")), button)
+                                                     str(data.get("text") or ""), bool(data.get("html")), button,
+                                                     data.get("media_id"))
     except broadcasts_service.BroadcastError as exc:
         raise HTTPException(400, str(exc))
     await admin_people.audit(db, user["id"], "broadcast_template",
@@ -113,19 +157,24 @@ async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depen
     request_id = str(data.get("request_id") or "")[:64]
     try:   # сначала проверки, потом пробная отправка: отказ не должен оставлять администратору лишнее сообщение
         duplicate = await broadcasts_service.precheck(db, user["id"], audience, text, request_id,
-                                                      segment=data.get("segment"), scheduled_at=data.get("scheduled_at"))
+                                                      segment=data.get("segment"), scheduled_at=data.get("scheduled_at"),
+                                                      html=html, media_id=data.get("media_id"))
+        media_id = await broadcasts_service.require_media(db, data.get("media_id"))
     except broadcasts_service.BroadcastError as exc:
         raise HTTPException(400, str(exc))
-    if (html or button) and not duplicate:   # разметку и кнопку проверяем на себе: битое не уйдёт сотням получателей
+    if (html or button or media_id) and not duplicate:   # разметку, кнопку и картинку проверяем на себе: битое не уйдёт сотням получателей
+        photo = await _photo(db, media_id)
         try:
-            await broadcasts_service.send(get_bot(), user["id"], text, html, _markup_of(button))
+            message = await broadcasts_service.send(get_bot(), user["id"], text, html, _markup_of(button), photo)
         except Exception as exc:
             raise _bad_markup(exc)
+        if photo:
+            await photo.remember(message, db=db)   # дальше всем уйдёт уже загруженная в Telegram картинка
     try:
         seg = broadcasts_service.normalize_segment(data.get("segment"), audience)
         made = await broadcasts_service.create(
             db, user["id"], audience, text, request_id, html,
-            segment=seg, button=button, scheduled_at=data.get("scheduled_at"))
+            segment=seg, button=button, scheduled_at=data.get("scheduled_at"), media_id=media_id)
     except broadcasts_service.BroadcastError as exc:
         raise HTTPException(400, str(exc))
     if not made.new:
@@ -133,7 +182,7 @@ async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depen
     await admin_people.audit(db, user["id"], "broadcast",
                              details={"audience": broadcasts_service.describe_segment(seg), "text": text[:500],
                                       "total": made.total, "broadcast": made.id, "scheduled": made.scheduled,
-                                      "button": bool(button)})
+                                      "button": bool(button), "photo": bool(media_id)})
     await admin_security.after_action(db, user, "broadcast")
     if made.scheduled:
         return {"ok": True, "id": made.id, "message": "Рассылка запланирована: получатели посчитаются в момент отправки."}
