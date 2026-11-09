@@ -446,6 +446,7 @@
     const pets = data.pets || [];
     const ownedTab = _petPanel === 'owned';
     root.innerHTML = v3CurIn(`${v3Head('Питомцы', {back: "goTo('profile')", sub: 'Выбери питомца и отправь его в путь.'})}
+      ${v3ReminderButton('pets')}
       <div class="pet-tabs" role="tablist"><button type="button" role="tab" aria-selected="${ownedTab}" onclick="showPetPanel('owned',this)">Мои питомцы <small>${pets.length}</small></button><button type="button" role="tab" aria-selected="${!ownedTab}" onclick="showPetPanel('bestiary',this)">Бестиарий <small>${data.bestiary_owned || 0}/${data.bestiary_total || 0}</small></button></div>
       <div data-pet-panel="owned" ${ownedTab ? '' : 'hidden'}>${petOwnedPanel(data)}</div>
       <div data-pet-panel="bestiary" ${ownedTab ? 'hidden' : ''}>${petDex(data)}</div>`);
@@ -699,7 +700,7 @@
       return `<div class="ch-row"><span class="ch-tx"><b>${esc(o.name)} ${o.key_tier}★+</b><small>${left}</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost chest-offer" data-offer="${esc(o.offer_id)}" onclick="chestsV1AskOffer(this.dataset.offer,this)" ${busy||Number(o.remaining)<1?'disabled':''}>${chestPriceText(o.price)}</button></div>`;
     }).join(''):'';
     const loot=`${owned}/12 питомцев · ${fmt(cards)} карт · ${fmt(food)} еды · ${fmt(jokers)} джокеров`;
-    root.innerHTML=v3CurIn(`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}
+    root.innerHTML=v3CurIn(`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}${_chestsV1Prepared ? '' : v3ReminderButton('chests')}
       ${_chestsV1Prepared?'':chestsScene(chestRevealArt(0),_chestsV1Tier,tierBal,shelf?`${esc(tierName)} ключ${_chestsV1Tier>1?` · звёзд от ${_chestsV1Tier}`:''}`:_chestsV1Tier>1?`${esc(tierName)} ${_chestsV1Tier}★+`:achievementWord(tierBal,'ключ','ключа','ключей'),!!shelf)}
       ${shelf}<div class="ch-action">${action}</div>${result}
       ${offers?`<div class="v3-sec"><span class="v3-eyebrow">Ключи по звёздам</span></div><p class="ch-hint">Тот же сундук, но звёзды ниже N становятся N.</p><div class="ch-list">${offers}</div>`:''}
@@ -826,7 +827,7 @@
       body=`${goal||`<p class="qs-state">${sum.done}/${sum.total} · за все ${questRewardValue(items[period])}</p>`}${rows?`<div class="qs-list">${rows}</div>`:'<div class="v3-empty"><b>Нет доступных заданий</b><span>Задания появятся, как только откроется доступная игра.</span> <button type="button" class="v3-link" onclick="openQuestsV1()">Обновить</button></div>'}`;
     }
     const tab=(id,label)=>`<button type="button" id="quest-tab-${id}" class="v3-tab${_questsV1Tab===id?' on':''}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" aria-controls="quest-panel" onclick="questsV1SetTab('${id}')">${label}</button>`;
-    root.innerHTML=v3CurIn(`${v3Head('Задания',{sub:'Цели на день и неделю',end:v3GuideBtn('quests')})}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`);
+    root.innerHTML=v3CurIn(`${v3Head('Задания',{sub:'Цели на день и неделю',end:v3GuideBtn('quests')})}${v3ReminderButton('quests')}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`);
     v3EnterSync(root);
     if(typeof v3QuestsDone==='function')v3QuestsDone(root);
   }

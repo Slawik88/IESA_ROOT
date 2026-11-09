@@ -257,7 +257,7 @@ _TR_VIEWS.hub = me => {
   setTimeout(_trPassLoad, 0);
   const pets = (me.pets || []).length, collection = _tr.tab === 'collection';
   const daily = `<details class="tr-daily" data-detail="daily"><summary data-f="detail-daily"><span>Следы сегодня</span><b>${_trTraces(me,true).replace('Следы: ','')}</b></summary>${_trTraces(me)}</details>`;
-  return `${_trHead()}${_trTabs()}${daily}${_trPassHtml()}${collection ? (pets ? _trPets(me) : _trEmpty()) : `${_trResume(me)}${pets ? `${_trSlots(me)}${_trModes(me)}${_trPets(me,true)}` : _trEmpty()}${me.camp?.job?.done ? `<button class="tr-camp-notice" type="button" onclick="trailTab('camp')">Постройка в лагере готова · посмотреть ›</button>` : ''}`}`;
+  return `${_trHead()}${v3ReminderButton('pets')}${_trTabs()}${daily}${_trPassHtml()}${collection ? (pets ? _trPets(me) : _trEmpty()) : `${_trResume(me)}${pets ? `${_trSlots(me)}${_trModes(me)}${_trPets(me,true)}` : _trEmpty()}${me.camp?.job?.done ? `<button class="tr-camp-notice" type="button" onclick="trailTab('camp')">Постройка в лагере готова · посмотреть ›</button>` : ''}`}`;
 };
 
 // Секундомер: правит только текст таймеров (разметку не пересобирает). Время вышло, а сервер ещё не отметил занятие готовым: просим свежий ответ, не чаще раза в 4 секунды
