@@ -118,6 +118,41 @@ function _stNotifSet(key, on) {
     .then(() => { const row = (_ST.notif?.categories || []).find(c => c.key === key); if (row) row.enabled = on; toast(on ? 'Включено' : 'Выключено'); })
     .catch(e => { toast(e, false); _stLoad('notif'); });
 }
+function v3ReminderButton(key) {
+  return `<button type="button" class="v3-link v3-reminder" data-reminder="${key}" onclick="_stOpenReminder(this)">Напоминать</button>`;
+}
+
+async function _stOpenReminder(button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  const page = _activePage;
+  const key = button.dataset.reminder;
+  try {
+    const prefs = await api('/profile/notification-prefs');
+    if (!button.isConnected || _activePage !== page || el('modal').open) return;
+    const row = (prefs.categories || []).find(item => item.key === key);
+    if (!row) {
+      toast('Это напоминание сейчас недоступно.', false);
+      return;
+    }
+    const ready = prefs.dm_ready === false ? '<p>Чтобы получать напоминания, открой чат с ботом и нажми «Старт».</p>' : '';
+    button.disabled = false;
+    button.focus({preventScroll: true});
+    OM('Напоминания от бота',
+      `<p>${esc(row.hint)}</p><p>Сейчас ${row.enabled ? 'включено' : 'выключено'}.</p>${ready}`,
+      [
+        {l: 'Назад', c: 'ghost', f: 'CM()'},
+        {l: row.enabled ? 'Выключить' : 'Включить', c: 'primary', f: `CM();_stNotifSet('${key}',${!row.enabled})`},
+      ]);
+  } catch (error) {
+    if (button.isConnected && _activePage === page) toast('Не удалось проверить настройки. Попробуй ещё раз.', false);
+  } finally {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+  }
+}
+
 function _stInactivity(days) {
   _haptic('select');
   if (_ST.account) { _ST.account.delete_after_days = Number(days); _stRender(); }

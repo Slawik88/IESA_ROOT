@@ -159,6 +159,7 @@ dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; b
 .v3-pill:active { transform: scale(.95); }
 .v3-link { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--v3-dim); font: 500 13px/1 var(--v3-font); cursor: pointer; }
 .v3-link:active { opacity: .6; }
+.v3-reminder { display: block; margin-inline-start: auto; }
 .v3-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 0; border: 0; background: none; color: var(--v3-ink); font: 500 15px/1.3 var(--v3-font); text-align: left; cursor: pointer; transition: opacity .15s; }
 .v3-row + .v3-row { box-shadow: 0 -1px 0 var(--v3-faint); }
 .v3-row > svg:first-child { color: var(--v3-dim); }
