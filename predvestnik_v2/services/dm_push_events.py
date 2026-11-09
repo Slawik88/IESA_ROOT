@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from loguru import logger
 
 from core import dm_push as rules
+from core.chests_v1 import KEY_TIER_NAMES, tier_for_source
 from infrastructure.repositories import system_flags
 from services import dm_push
 
@@ -190,44 +191,84 @@ async def _pass(db, now: datetime) -> int:
     return sent
 
 
-_MORNING_LIMIT = 2000          # согласившихся за проход; «уже смотрели» отсеиваются в памяти
-_morning_seen: set[tuple[int, str]] = set()   # (игрок, его местная дата): письмо уже собрано или собирать было нечего
-_morning_day = [""]
+_DIGEST_LIMIT = 2000
+_digest_seen: dict[str, set[tuple[int, str]]] = {}
+_digest_day = [""]
 
 
-async def _morning(db, now: datetime) -> int:
-    """Утренний план: раз в день, с 09:00 до 12:00 по времени игрока, только если ему есть что забрать или сделать.
-    Час берётся из «наивного» UTC-времени (так адаптер отдаёт моменты в базу): `timestamptz` сместил бы его на пояс машины."""
-    from services import dm_plan
+async def _daily_digest(db, now, *, category, from_hour, to_hour, build_text) -> int:
     today = now.astimezone(timezone.utc).date().isoformat()
-    if _morning_day[0] != today:   # память не растёт: сутки прошли — прошлые отметки больше не нужны
-        _morning_seen.clear()
-        _morning_day[0] = today
+    if _digest_day[0] != today:
+        _digest_seen.clear()
+        _digest_day[0] = today
+    seen = _digest_seen.setdefault(category, set())
     async with db.execute(
         "SELECT np.user_id, ds.tz_offset FROM user_notification_prefs np " + _READY.format(alias="np") +
-        " WHERE np.category = 'digest' AND np.enabled = TRUE "
+        " WHERE np.category = ? AND np.enabled = TRUE "
         "AND ((EXTRACT(HOUR FROM ?::timestamp)::int + ds.tz_offset + 24) % 24) >= ? "
         "AND ((EXTRACT(HOUR FROM ?::timestamp)::int + ds.tz_offset + 24) % 24) < ? "
-        "AND np.user_id <> ALL(?::bigint[]) "
+        "AND NOT EXISTS (SELECT 1 FROM unnest(?::bigint[], ?::text[]) AS seen(user_id, local_day) "
+        "WHERE seen.user_id = np.user_id AND seen.local_day = "
+        "to_char(?::timestamp + make_interval(hours => ds.tz_offset::int), 'YYYY-MM-DD')) "
         "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = "
-        "'digest:' || to_char(?::timestamp + make_interval(hours => ds.tz_offset::int), 'YYYY-MM-DD')) "
+        "? || ':' || to_char(?::timestamp + make_interval(hours => ds.tz_offset::int), 'YYYY-MM-DD')) "
         "ORDER BY np.user_id LIMIT ?",
-        (now, rules.DIGEST_FROM_HOUR, now, rules.DIGEST_TO_HOUR, [uid for uid, _ in _morning_seen], now, _MORNING_LIMIT),
+        (category, now, from_hour, now, to_hour, [uid for uid, _ in seen], [day for _, day in seen], now,
+         category, now, _DIGEST_LIMIT),
     ) as c:
         rows = await c.fetchall()
     sent = 0
     for user_id, tz_offset in rows:
         local_day = (now.astimezone(timezone.utc) + timedelta(hours=int(tz_offset))).date().isoformat()
-        mark = (int(user_id), local_day)
-        if mark in _morning_seen:
-            continue
-        _morning_seen.add(mark)
-        text = await dm_plan.morning_text(db, int(user_id), now)
-        if text is None:
-            continue
+        text = await build_text(db, int(user_id), now)
+        if text is not None:
+            sent += await dm_push.enqueue(
+                db, user_id=int(user_id), category=category, dedup_key=f"{category}:{local_day}", text=text,
+                button={"kind": "cb", "data": "dn:plan", "label": "📋 Открыть план"},
+            )
+        seen.add((int(user_id), local_day))
+    return sent
+
+
+async def _morning(db, now: datetime) -> int:
+    from services import dm_plan
+
+    return await _daily_digest(
+        db, now, category="digest", from_hour=rules.DIGEST_FROM_HOUR,
+        to_hour=rules.DIGEST_TO_HOUR, build_text=dm_plan.morning_text,
+    )
+
+
+async def _evening(db, now: datetime) -> int:
+    from services import dm_plan
+
+    return await _daily_digest(
+        db, now, category="digest_evening", from_hour=rules.EVENING_FROM_HOUR,
+        to_hour=rules.EVENING_TO_HOUR, build_text=dm_plan.evening_text,
+    )
+
+
+async def _chests(db, now: datetime) -> int:
+    if not await system_flags.is_enabled(db, "content_chests_v1") or not await _has_table(db, "chest_key_grants_v1"):
+        return 0
+    async with db.execute(
+        f"SELECT g.id, g.user_id, g.source_kind FROM chest_key_grants_v1 g {_CONSENT.format(alias='g')} "
+        "JOIN chest_key_accounts_v1 acc ON acc.user_id=g.user_id AND acc.account_epoch=g.account_epoch "
+        "LEFT JOIN chest_key_allocations_v1 a ON a.grant_id=g.id "
+        "LEFT JOIN chest_key_revocations_v1 v ON v.grant_id=g.id "
+        "WHERE a.grant_id IS NULL AND v.grant_id IS NULL AND acc.balance > 0 "
+        "AND g.created_at > (?::timestamp AT TIME ZONE 'UTC') AND " +
+        _NEW.format(alias="g", key="'chest_key:' || g.id") + " ORDER BY g.created_at, g.id LIMIT ?",
+        ("chests", now - rules.EVENT_TTL, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for grant_id, user_id, source_kind in rows:
+        key_name = KEY_TIER_NAMES[tier_for_source(source_kind)]
         sent += await dm_push.enqueue(
-            db, user_id=int(user_id), category="digest", dedup_key=f"digest:{local_day}", text=text,
-            button={"kind": "cb", "data": "dn:plan", "label": "📋 Открыть план"},
+            db, user_id=int(user_id), category="chests", dedup_key=f"chest_key:{grant_id}",
+            text="🎁 <b>Ключ от сундука ждёт тебя</b>\nОткрой «Сундуки», чтобы забрать награду.",
+            button={"kind": "cb", "data": f"dn:chest:{grant_id}", "label": f"🎁 Открыть за 1 ключ · {key_name}"},
         )
     return sent
 
@@ -250,7 +291,7 @@ async def vip_daily_reminders(db, now: datetime | None = None) -> int:
     return queued
 
 
-COLLECTORS = (("digest", _morning), ("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))
+COLLECTORS = (("digest", _morning), ("digest_evening", _evening), ("chests", _chests), ("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))
 
 
 async def collect(db, now: datetime | None = None) -> dict[str, int]:

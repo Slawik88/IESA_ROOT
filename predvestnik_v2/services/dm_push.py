@@ -105,12 +105,21 @@ async def deliver_due(bot, db, *, now: datetime | None = None, markup: MarkupBui
 async def _deliver_user(bot, db, user_id: int, now: datetime, markup: MarkupBuilder | None, stats: dict) -> str:
     rows = await repo.pending_rows(db, user_id)
     consent = await repo.consented(db, user_id)
+    from infrastructure.repositories import chests_v1 as chest_repo, system_flags
+
+    chests_enabled = any(row["category"] == "chests" for row in rows) and await system_flags.is_enabled(db, "content_chests_v1")
     alive, dead = [], []
     for row in rows:
         if now - row["created_at"] > rules.EVENT_TTL:
             dead.append((row["id"], "expired"))
         elif row["category"] not in consent:
             dead.append((row["id"], "revoked"))
+        elif row["category"] == "chests" and (
+            not chests_enabled or not await chest_repo.unspent_grant_source(
+                db, user_id=user_id, grant_id=row["dedup_key"].removeprefix("chest_key:"),
+            )
+        ):
+            dead.append((row["id"], "expired"))
         else:
             alive.append(row)
     for reason in {r for _, r in dead}:
@@ -123,6 +132,20 @@ async def _deliver_user(bot, db, user_id: int, now: datetime, markup: MarkupBuil
         await repo.drop(db, [r["id"] for r in alive], "unreachable")
         stats["dropped"] += len(alive)
         return "unreachable"
+    local_now = now.astimezone(timezone.utc) + timedelta(hours=state["tz_offset"])
+    expired_evening = [
+        row for row in alive
+        if row["category"] == "digest_evening" and (
+            row["dedup_key"] != f"digest_evening:{local_now.date().isoformat()}"
+            or not rules.EVENING_FROM_HOUR <= local_now.hour < rules.EVENING_TO_HOUR
+        )
+    ]
+    if expired_evening:
+        await repo.drop(db, [row["id"] for row in expired_evening], "expired")
+        stats["dropped"] += len(expired_evening)
+        alive = [row for row in alive if row not in expired_evening]
+        if not alive:
+            return "empty"
     if state["paused_at"] is not None:
         await repo.defer(db, user_id, now + PAUSE_RECHECK)   # ждём первого ответа игрока; события живут до срока годности
         return "waiting"
@@ -136,7 +159,9 @@ async def _deliver_user(bot, db, user_id: int, now: datetime, markup: MarkupBuil
     if len(alive) == 1:
         text, button = alive[0]["text"], alive[0]["button"]
     else:
-        text, button = rules.merge_digest(alive), {"kind": "cb", "data": "dn:plan", "label": "📋 План дня"}
+        text = rules.merge_digest(alive)
+        button = next((row["button"] for row in alive if row["category"] == "chests" and row["button"]), None)
+        button = button or {"kind": "cb", "data": "dn:plan", "label": "📋 План дня"}
     thread_id = None
     if len(alive) == 1:   # дайджест смешивает темы — он идёт в общий поток
         thread_id = await _thread_for(bot, db, user_id, rules.BY_KEY[alive[0]["category"]].topic, now)

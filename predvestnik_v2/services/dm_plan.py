@@ -53,6 +53,23 @@ async def pass_ready(db, user_id: int, now: datetime) -> bool:
         return False
 
 
+async def evening_text(db, user_id: int, now: datetime) -> str | None:
+    lines = []
+    quests = await quests_state(db, user_id)
+    if quests is not None and (daily := quests["daily"]["quests"]):
+        done = sum(q["completed"] for q in daily)
+        if done:
+            lines.append(f"📋 Задания дня: сделано {done} из {len(daily)}.")
+        if any(reward["claimable"] for reward in quests["rewards"]["items"].values()):
+            lines.append("🎁 Награды за задания ещё ждут тебя.")
+    pets = await pets_state(db, user_id)
+    if pets is not None and pets[0]:
+        lines.append(f"🐾 Питомцы вернулись: {pets[0]} — добыча ждёт.")
+    if await pass_ready(db, user_id, now):
+        lines.append("🏆 В Пропуске есть награда, которую можно забрать.")
+    return "🌙 <b>Итоги дня</b>\n" + "\n".join(lines) if lines else None
+
+
 async def morning_text(db, user_id: int, now: datetime) -> str | None:
     """Утреннее письмо: что сегодня можно забрать или сделать. None — сегодня нечего сказать, письмо не нужно."""
     lines = []

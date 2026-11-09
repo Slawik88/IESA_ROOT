@@ -5,8 +5,10 @@
 """
 from __future__ import annotations
 
+import hmac
 import re
-from datetime import datetime, timezone
+import time
+from datetime import date, datetime, timezone
 
 from aiogram import F, Router
 from aiogram.filters import Command as SlashCommand
@@ -15,8 +17,11 @@ from loguru import logger
 
 from bot.chat.framework import Ctx, registry
 from core import dm_push as rules
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from core.zarniki_exchange_v1 import ZarnikiExchangePolicyError, quote
 from infrastructure.repositories import dm_push as repo
-from services import dm_plan, dm_push, dm_push_events
+from infrastructure.repositories import casino_v1 as casino_repo, system_flags, zarniki_exchange_v1 as exchange_repo
+from services import casino_v1, chests_v1, dm_plan, dm_push, dm_push_events, feature_switches, zarniki_exchange_v1
 
 router = Router(name="chat_notify")
 # Слэш-команды из меню «/» живут в отдельном роутере: он подключается раньше общего обработчика чата (bot/handlers/__init__.py),
@@ -194,6 +199,83 @@ async def _claim_pass(db, user_id: int) -> str:
     return "✅ Забрано из Пропуска: " + ", ".join(texts[:8]) + ("…" if len(texts) > 8 else "") + "."
 
 
+_EXCHANGE_COMMAND = "обменять зарники"
+_GIFT_COMMAND = "подарок фортуны"
+_EXCHANGE_TTL = 300
+
+
+def _exchange_signature(bot, uid: int, amount: int, issued: int, message_id: int, policy) -> str:
+    payload = f"dm-exchange:{uid}:{amount}:{issued}:{message_id}:{policy.policy_version}:{policy.amount_received}"
+    return hmac.digest(bot.token.encode(), payload.encode(), "sha256").hex()[:24]
+
+
+@registry.command(_EXCHANGE_COMMAND, section="basic",
+                  summary="Обменять Зарники на Мору с подтверждением в личке.",
+                  usage="бот обменять зарники 5", example="бот обменять зарники 5")
+async def cmd_exchange(ctx: Ctx) -> None:
+    if ctx.message.chat.type != "private":
+        await ctx.reply("Обменять Зарники можно в личке с ботом.")
+        return
+    if not re.fullmatch(r"[0-9]{1,16}", ctx.args.strip()):
+        await ctx.reply("Напиши «бот обменять зарники 5», где 5 — сколько Зарников ты хочешь обменять.")
+        return
+    try:
+        amount = int(ctx.args.strip())
+        policy = quote(zarniki=amount, target="mora")
+    except ZarnikiExchangePolicyError as exc:
+        await ctx.reply(str(exc))
+        return
+    issued, message_id = int(time.time()), ctx.message.message_id
+    signature = _exchange_signature(ctx.bot, ctx.user_id, amount, issued, message_id, policy)
+    payload = f"dn:x:{amount:x}:{issued:x}:{message_id:x}:{signature}"
+    await ctx.reply(
+        f"Обменять {amount} Зарников на {policy.amount_received:.0f} Моры? Кнопка действует 5 минут.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[_btn("Подтвердить обмен", payload)]]),
+    )
+
+
+async def _confirm_exchange(call: CallbackQuery, db, uid: int, parts: list[str]) -> str:
+    amount, issued, message_id = (int(value, 16) for value in parts[2:5])
+    policy = quote(zarniki=amount, target="mora")
+    signature = _exchange_signature(call.bot, uid, amount, issued, message_id, policy)
+    if not hmac.compare_digest(signature, parts[5]) or not 0 <= int(time.time()) - issued < _EXCHANGE_TTL:
+        return "Подтверждение устарело. Напиши «бот обменять зарники» и сумму ещё раз."
+    await exchange_repo.ensure_tables(db)
+    try:
+        result = await zarniki_exchange_v1.exchange(db, user_id=uid, zarniki=amount, target="mora",
+                                                   action_id=f"dm-exchange:{uid}:{message_id}")
+    except InsufficientBalance:
+        return "Для обмена не хватает Зарников."
+    except IdempotencyConflict:
+        return "Этот обмен уже обработан. Открой новый запрос, чтобы обменять другую сумму."
+    return ("✅ Уже обменяно." if result["idempotent_replay"]
+            else f"✅ Получено {policy.amount_received:.0f} Моры.")
+
+
+@registry.command(_GIFT_COMMAND, section="games",
+                  summary="Забрать ежедневный подарок Зала Фортуны в личке.",
+                  usage="бот подарок фортуны", example="бот подарок фортуны")
+async def cmd_casino_gift(ctx: Ctx) -> None:
+    if ctx.message.chat.type != "private":
+        await ctx.reply("Подарок Зала Фортуны можно забрать в личке с ботом.")
+        return
+    if not await system_flags.is_enabled(ctx.db, "game_casino_v1"):
+        await ctx.reply("Зал Фортуны сейчас закрыт.")
+        return
+    today = await casino_repo.today(ctx.db)
+    await ctx.reply("🎁 <b>Подарок Зала Фортуны</b>\nЗабери ежедневные фишки, если ещё не забрал их сегодня.",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [_btn("🎁 Забрать подарок", f"dn:gift:{today.isoformat()}")],
+                    ]))
+
+
+async def _claim_casino_gift(db, uid: int, day: date) -> str:
+    if not await system_flags.is_enabled(db, "game_casino_v1"):
+        return "Зал Фортуны сейчас закрыт."
+    result = await casino_v1.claim_gift(db, uid, expected_day=day)
+    return f"✅ Получено фишек: {result['gift']}."
+
+
 @router.callback_query(F.data.startswith("dn:"))
 async def on_notify_button(call: CallbackQuery, db) -> None:
     msg = call.message
@@ -219,6 +301,24 @@ async def on_notify_button(call: CallbackQuery, db) -> None:
             await _edit(msg, text, kb)
             await call.answer(notice[:190], show_alert=not notice.startswith("✅"))
             return
+        elif (parts[1] == "x" and len(parts) == 6) or (parts[1] == "gift" and len(parts) == 3):
+            is_exchange = parts[1] == "x"
+            name, section = (_EXCHANGE_COMMAND, "basic") if is_exchange else (_GIFT_COMMAND, "games")
+            if await feature_switches.disabled(db, ["all", f"section:{section}", f"cmd:{name}"], None):
+                await call.answer("Это действие сейчас недоступно.", show_alert=True)
+                return
+            notice = await (_confirm_exchange(call, db, uid, parts) if is_exchange
+                            else _claim_casino_gift(db, uid, date.fromisoformat(parts[2])))
+            await call.answer(notice, show_alert=True)
+            return
+        elif parts[1] == "chest" and len(parts) == 3 and re.fullmatch(r"[0-9a-f]{32}", parts[2]):
+            if not await system_flags.is_enabled(db, "content_chests_v1"):
+                await call.answer("Сундуки сейчас закрыты.", show_alert=True)
+                return
+            result = await chests_v1.open_with_grant(db, user_id=uid, grant_id=parts[2])
+            rewards = ", ".join(f"{reward['name']} ×{reward['amount']}" for reward in result["rewards"])
+            await call.answer(f"🎁 Награда: {rewards}"[:190], show_alert=True)
+            return
         elif parts[1] == "pets":
             await _open_pets(call, db)
             return
@@ -230,7 +330,7 @@ async def on_notify_button(call: CallbackQuery, db) -> None:
         await call.answer(notice)
     except Exception as exc:
         from services import quests_v1
-        if isinstance(exc, (quests_v1.QuestError,)):
+        if isinstance(exc, (quests_v1.QuestError, casino_v1.CasinoError, chests_v1.ChestKeyConflict, ZarnikiExchangePolicyError)):
             await call.answer(str(exc)[:190], show_alert=True)
             return
         logger.exception("notify button failed")

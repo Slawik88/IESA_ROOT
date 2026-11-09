@@ -667,9 +667,11 @@ async def apply_bonus_grants(
 async def find_open_by_action(db, *, user_id: int, action_id: str) -> dict[str, Any] | None:
     async with db.execute(
         "SELECT o.*,s.balance_before AS key_balance_before,s.balance_after AS key_balance_after,"
-        "(SELECT g.source_kind FROM chest_key_allocations_v1 ka JOIN chest_key_grants_v1 g ON g.id=ka.grant_id WHERE ka.open_id=o.id) AS key_source_kind,"
+        "g.source_kind AS key_source_kind,ka.grant_id AS key_grant_id,"
         "(r.open_id IS NOT NULL) AS revealed,r.economy_operation_id AS reveal_operation_id FROM chest_opens_v1 o "
         "JOIN chest_key_spends_v1 s ON s.open_id=o.id "
+        "LEFT JOIN chest_key_allocations_v1 ka ON ka.open_id=o.id "
+        "LEFT JOIN chest_key_grants_v1 g ON g.id=ka.grant_id "
         "LEFT JOIN chest_reveals_v1 r ON r.open_id=o.id "
         "JOIN chest_key_accounts_v1 a ON a.user_id=o.user_id AND a.account_epoch=o.account_epoch "
         "WHERE o.user_id=? AND o.action_id=?",
@@ -823,6 +825,19 @@ async def next_unspent_grant(
     ) as cursor:
         row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def unspent_grant_source(db, *, user_id: int, grant_id: str) -> str | None:
+    async with db.execute(
+        "SELECT g.source_kind FROM chest_key_grants_v1 g "
+        "JOIN chest_key_accounts_v1 acc ON acc.user_id=g.user_id AND acc.account_epoch=g.account_epoch "
+        "LEFT JOIN chest_key_allocations_v1 a ON a.grant_id=g.id "
+        "LEFT JOIN chest_key_revocations_v1 v ON v.grant_id=g.id "
+        "WHERE g.user_id=? AND g.id=? AND acc.balance>0 AND a.grant_id IS NULL AND v.grant_id IS NULL",
+        (int(user_id), grant_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return str(row[0]) if row else None
 
 
 async def find_purchase(db, *, user_id: int, action_id: str) -> dict[str, Any] | None:

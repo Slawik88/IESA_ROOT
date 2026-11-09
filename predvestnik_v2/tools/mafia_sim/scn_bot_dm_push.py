@@ -408,3 +408,125 @@ async def dm_push_vip_reminder_uses_the_same_rules(h: Harness) -> None:
         ok(len(to_player(h, vip, start)) == 1, "and arrives in the morning")
         await db.execute("DELETE FROM vip_subscriptions WHERE user_id = ANY(?::bigint[])", ([vip.id, plain.id],))
         await db.commit()
+
+
+
+@bot_scenario(volatile=True)
+async def dm_evening_digest_is_opt_in_and_never_arrives_next_morning(h: Harness) -> None:
+    from infrastructure.repositories import dm_push as repo
+    from services import dm_plan, dm_push_events
+    from unittest.mock import patch
+
+    subscribed = await player(h, "Вечерняя сводка")
+    morning_only = await player(h, "Только утро")
+    delayed = await player(h, "Опоздавшая сводка")
+    now = at(16)  # 19:00 at the default +3.
+    async with database() as db:
+        await consent(db, subscribed, "digest_evening")
+        await consent(db, delayed, "digest_evening")
+        await consent(db, morning_only, "digest")
+        await db.commit()
+        with patch.object(dm_plan, "evening_text", return_value="🌙 <b>Итоги дня</b>\nЗадания дня: сделано 2 из 3."):
+            ok(await dm_push_events._evening(db, now - timedelta(minutes=1)) == 0, "not before 19:00")
+            ok(await dm_push_events._evening(db, now) == 2, "both and only the explicit evening subscribers")
+            ok(await dm_push_events._evening(db, now + timedelta(minutes=1)) == 0, "once per local day")
+        await repo.defer(db, delayed.id, now + timedelta(hours=14))
+        await db.commit()
+        start = len(h.world.calls)
+        await deliver(h, db, now)
+        ok(len(to_player(h, subscribed, start)) == 1, "the evening subscriber receives one message")
+        ok(not to_player(h, morning_only, start), "morning consent alone grants no evening messages")
+        await deliver(h, db, now + timedelta(hours=14))
+        ok(not to_player(h, delayed, start) and not await repo.pending_rows(db, delayed.id),
+           "a digest deferred overnight is discarded")
+
+
+@bot_scenario(volatile=True)
+async def dm_chest_button_opens_only_its_own_key_once(h: Harness) -> None:
+    from infrastructure.repositories import chests_v1 as repo, dm_push as push_repo, economy_ledger, system_flags
+    from services import chests_v1, dm_push_events
+    from infrastructure.repositories import quests_v1 as quests_repo
+    from tools.test_chests_v1_pg import insert_receipt
+
+    user = await player(h, "Ключ в личке")
+    other = await player(h, "Ключ без согласия")
+    now = at(10)
+    async with database() as db:
+        original = await system_flags.is_enabled(db, "content_chests_v1")
+        await system_flags.set_flag(db, "content_chests_v1", True)
+        await economy_ledger.ensure_tables(db)
+        await repo.ensure_tables(db)
+        await quests_repo.ensure_tables(db)
+        await consent(db, user, "chests")
+        try:
+            for owner in (user, other):
+                await insert_receipt(db, owner.id, "daily", "daily:2026-09-12")
+                await chests_v1.grant_quest_completion_key(db, user_id=owner.id, reward_kind="daily", reward_id="daily:2026-09-12")
+            await db.commit()
+            ok(await dm_push_events._chests(db, now) >= 1, "only new unspent keys are queued")
+            ok(not await push_repo.pending_rows(db, other.id), "no opt-in means no chest reminder")
+            ok(await dm_push_events._chests(db, now) == 0, "the same keys are not queued twice")
+            await db.commit()
+            await deliver(h, db, now)
+            # More than one grant can merge into a digest. Exercise the exact same callback on its source notification.
+            pending = await repo.get_balance(db, user.id)
+            ok(pending >= 1, "the user has a key")
+            message = last_message(h, user.id, "Ключ от сундука")
+            foreign = await h.click(other, other.id, message, "Открыть за 1 ключ")
+            ok("недоступен" in foreign.text, "a forwarded callback cannot open somebody else's key")
+            first = await h.click(user, user.id, message, "Открыть за 1 ключ")
+            second = await h.click(user, user.id, message, "Открыть за 1 ключ")
+            ok("Награда" in first.text and first.text == second.text, "one reward receipt on repeat")
+            ok(await repo.get_balance(db, user.id) == pending - 1, "a repeated callback does not spend another key")
+        finally:
+            await system_flags.set_flag(db, "content_chests_v1", original)
+
+
+@bot_scenario(volatile=True)
+async def dm_exchange_confirms_the_quote_and_casino_rejects_an_old_day(h: Harness) -> None:
+    from datetime import date
+    from unittest.mock import patch
+    from infrastructure.repositories import casino_v1 as casino_repo, system_flags
+    from services import casino_v1
+    from tools.mafia_sim.scn_bot_payments import _balance, _buy
+
+    user = await player(h, "Кошелёк в личке")
+    other = await player(h, "Чужая кнопка")
+    async with database() as db:
+        invoice = await _buy(h, user, "50⭐")
+        await h.paid(user, invoice["payload"], invoice["stars"], f"sim-{h.run_tag}-exchange")
+        await say(h, user, user.id, "бот обменять зарники 3")
+        message = last_message(h, user.id, "30 Моры")
+        rejected = await h.click(other, other.id, message, "Подтвердить обмен")
+        ok("устарело" in rejected.text, "a quote is signed for its original player")
+        await say(h, user, user.id, "бот обменять зарники 4")
+        expired_message = last_message(h, user.id, "40 Моры")
+        with patch("bot.chat.notify.time.time", return_value=datetime.now(timezone.utc).timestamp() + 301):
+            denied = await h.click(user, user.id, expired_message, "Подтвердить обмен")
+        ok("устарело" in denied.text, "an expired confirmation cannot spend")
+        first = await h.click(user, user.id, message, "Подтвердить обмен")
+        repeat = await h.click(user, user.id, message, "Подтвердить обмен")
+        ok("30 Моры" in first.text and "Уже обменяно" in repeat.text, "only one confirmed exchange")
+        ok("Зарники: 657" in await _balance(h, user), "exactly three Zarniki were spent")
+
+        original = await system_flags.is_enabled(db, "game_casino_v1")
+        await system_flags.set_flag(db, "game_casino_v1", True)
+        await casino_repo.ensure_tables(db)
+        try:
+            try:
+                await casino_v1.claim_gift(db, user.id, expected_day=date(2000, 1, 1))
+            except casino_v1.CasinoError:
+                pass
+            else:
+                raise AssertionError("a stale gift callback cannot claim a new day's gift")
+            await say(h, user, user.id, "бот подарок фортуны")
+            gift = last_message(h, user.id, "Подарок Зала Фортуны")
+            await system_flags.set_flag(db, "game_casino_v1", False)
+            closed = await h.click(user, user.id, gift, "Забрать подарок")
+            ok("закрыт" in closed.text, "existing gift buttons respect the flag")
+            await system_flags.set_flag(db, "game_casino_v1", True)
+            first = await h.click(user, user.id, gift, "Забрать подарок")
+            repeat = await h.click(user, user.id, gift, "Забрать подарок")
+            ok("Получено" in first.text and "уже получен" in repeat.text, "only one gift per day")
+        finally:
+            await system_flags.set_flag(db, "game_casino_v1", original)
