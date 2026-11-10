@@ -44,7 +44,6 @@ def build_dispatcher(delivery: PollingDelivery | None = None) -> Dispatcher:
     if delivery is not None:
         dp.update.outer_middleware(delivery.update)
         dp.message.middleware(delivery.message)
-    dp.update.outer_middleware(measure_update_delivery)
     dp.update.middleware(config_middleware)
     # Keep non-allowlisted users outside DB and business middleware when the
     # temporary Cloudflare-backed test bot is publicly reachable.
@@ -52,6 +51,7 @@ def build_dispatcher(delivery: PollingDelivery | None = None) -> Dispatcher:
     dp.update.middleware(db_middleware)
     if delivery is not None:
         dp.update.middleware(delivery.admit)
+    dp.update.middleware(measure_update_delivery)
     dp.errors.register(note_handler_error)
     dp.include_router(main_router)
     return dp
