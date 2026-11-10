@@ -53,7 +53,7 @@ runpy.run_module("bot", run_name="__main__", alter_sys=True)
 """
 
 
-def serve(port: int, backlog: int) -> None:
+def serve(port: int, backlog: int, boot_fault: bool = False) -> None:
     """Minimal Telegram Bot API: enough for both bots to start, poll and answer; counts calls per bot."""
     from aiohttp import web
 
@@ -78,14 +78,19 @@ def serve(port: int, backlog: int) -> None:
                 await request.json() if request.can_read_body else {})
         except Exception:
             form = {}
+        if boot_fault and token == PV_TOKEN:
+            if method == "deleteWebhook" and calls["pv:deleteWebhook"] == 1:
+                return web.json_response({"ok": False, "error_code": 503, "description": "Test outage"}, status=503)
+            if method == "setMyCommands" and calls["pv:setMyCommands"] == 1:
+                await asyncio.sleep(60)
         if method == "getMe":
             result = {"id": 123456, "is_bot": True, "first_name": "Bot", "username": "pv_test_bot", "can_join_groups": True,
                       "can_read_all_group_messages": True, "supports_inline_queries": False}
         elif method == "getUpdates":
             offset = int(form.get("offset") or 0)
-            if offset:
+            if offset and token == PV_TOKEN:
                 updates[:] = [u for u in updates if u["update_id"] >= offset]
-            result = updates[:100]
+            result = updates[:100] if token == PV_TOKEN else []
             if not result:
                 await asyncio.sleep(min(int(form.get("timeout") or 0), 5))
         elif method in ("sendMessage", "editMessageText", "sendPhoto", "sendAnimation", "sendVideo", "sendDocument", "copyMessage"):
@@ -139,10 +144,12 @@ def main() -> int:
     parser.add_argument("--max-rss-mib", type=int, default=0, help="fail when both bots together hold more (0: only report)")
     parser.add_argument("--health-timeout", type=int, default=60, help="seconds until /api/health must answer")
     parser.add_argument("--no-domovoy", action="store_true")
+    parser.add_argument("--telegram-boot-fault", action="store_true",
+                        help="first deleteWebhook returns 503 and the first optional menu request hangs")
     parser.add_argument("--serve", nargs=2, metavar=("PORT", "BACKLOG"), help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.serve:
-        serve(int(args.serve[0]), int(args.serve[1]))
+        serve(int(args.serve[0]), int(args.serve[1]), args.telegram_boot_fault)
         return 0
     for dsn in (args.dsn, args.domovoy_dsn):
         if dsn and urlparse(dsn).hostname not in {"127.0.0.1", "localhost", "::1"}:
@@ -165,7 +172,10 @@ def main() -> int:
         logs[name] = out_dir / f"{name}.log"
         procs[name] = subprocess.Popen(argv, cwd=cwd, env=env, stdout=logs[name].open("wb"), stderr=subprocess.STDOUT)
 
-    start("fake_telegram", [sys.executable, __file__, "--serve", str(tg_port), str(args.backlog)], ROOT, base)
+    telegram_args = [sys.executable, __file__, "--serve", str(tg_port), str(args.backlog)]
+    if args.telegram_boot_fault:
+        telegram_args.append("--telegram-boot-fault")
+    start("fake_telegram", telegram_args, ROOT, base)
     time.sleep(1.5)
     start("predvestnik", [sys.executable, "-c", RUNNER], ROOT, dict(base, PYTHONPATH=str(ROOT)))
     if not args.no_domovoy:
@@ -213,6 +223,8 @@ def main() -> int:
     for key, label in (("pv", "predvestnik"), ("dom", "domovoy")):
         if label in procs and calls.get(f"{key}:getUpdates", 0) < 3:
             problems.append(f"{label} is not polling")
+    if args.telegram_boot_fault and (calls.get("pv:deleteWebhook", 0) < 2 or not calls.get("pv:setMyCommands")):
+        problems.append("the startup fault sequence was not exercised")
     if args.backlog and stats["pending_updates"] != 0:
         problems.append(f"{stats['pending_updates']} of {args.backlog} waiting updates were not taken")
     if args.max_rss_mib and total_mib > args.max_rss_mib:
@@ -224,7 +236,7 @@ def main() -> int:
         version = "?"
     print(json.dumps({"aiogram": version, "python": sys.version.split()[0], "first_health_s": first_health,
                       "peak_mib": {k: v // 2**20 for k, v in peak.items()}, "peak_total_mib": total_mib,
-                      "calls": {k: v for k, v in sorted(calls.items()) if k.endswith(("getUpdates", "getMe"))},
+                      "calls": {k: v for k, v in sorted(calls.items()) if k.endswith(("getUpdates", "getMe", "deleteWebhook", "setMyCommands"))},
                       "pending_updates": stats["pending_updates"], "problems": problems, "logs": str(out_dir)}, ensure_ascii=False))
     return 1 if problems else 0
 

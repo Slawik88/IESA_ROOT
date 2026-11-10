@@ -6,6 +6,7 @@ import signal
 import sys
 import asyncpg
 from aiogram import Bot
+from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter, TelegramServerError
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 from loguru import logger
 
@@ -114,6 +115,70 @@ async def _connect_for_lock():
             logger.warning(f"🔒 Нет соединения для advisory lock ({type(exc).__name__}), повтор через {delay:.0f} с")
             await asyncio.sleep(delay)
             delay = min(delay * 2, 60.0)
+
+
+_TELEGRAM_BOOT_RETRY_MAX_SEC = 30
+
+
+async def _prepare_telegram_polling(bot: Bot, failed: asyncio.Event) -> None:
+    delay = 1
+    while not failed.is_set():
+        try:
+            # Pending payments and chat messages must survive a restart.
+            await bot.delete_webhook(drop_pending_updates=False)
+            await bot.me()
+            if not failed.is_set():
+                return
+            break
+        except TelegramRetryAfter as exc:
+            retry_in = max(delay, exc.retry_after)
+            logger.warning("Telegram startup rate limited, retrying in {} s", retry_in)
+        except (TimeoutError, TelegramNetworkError, TelegramServerError) as exc:
+            retry_in = delay
+            logger.warning("Telegram startup unavailable ({}), retrying in {} s", type(exc).__name__, retry_in)
+        try:
+            await asyncio.wait_for(failed.wait(), retry_in)
+        except TimeoutError:
+            delay = min(delay * 2, _TELEGRAM_BOOT_RETRY_MAX_SEC)
+    raise RuntimeError("cannot start Telegram polling after losing the process lock or HTTP service")
+
+
+async def _configure_telegram_profile(bot: Bot) -> None:
+    # Update the menu button URL to the mini app.
+    # MINIAPP_URL must be HTTPS for WebAppInfo (Telegram requirement).
+    _miniapp_url = os.getenv("MINIAPP_URL", "")
+    if _miniapp_url.startswith("https://"):
+        try:
+            await bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text="🔮 Сайт",
+                    web_app=WebAppInfo(url=_miniapp_url),
+                )
+            )
+            logger.info(f"✅ Кнопка меню → {_miniapp_url}")
+        except Exception as _e:
+            logger.warning(f"Кнопка меню не установлена: {_e}")
+
+    # Меню команд (кнопка «/» в Telegram): те два входа, которые нужны новому человеку, чтобы подключить бота.
+    try:
+        from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
+        await bot.set_my_commands([
+            BotCommand(command="start", description="Начало: как добавить бота в чат"),
+            BotCommand(command="setup", description="Проверить и настроить бота в чате"),
+        ])
+        await bot.set_my_commands([   # в личке ещё справка и сайт; в группах для этого «бот помощь» и «бот сайт»
+            BotCommand(command="start", description="Начало: как добавить бота в чат"),
+            BotCommand(command="help", description="Все команды бота"),
+            BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
+            BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
+            BotCommand(command="plan", description="План дня: что забрать и сделать сегодня"),
+            BotCommand(command="notify", description="Уведомления: что бот присылает тебе в личку"),
+            BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
+        ], scope=BotCommandScopeAllPrivateChats())
+    except Exception as _e:
+        logger.warning(f"Меню команд не установлено: {_e}")
+    from bot.chat.onboarding import ensure_descriptions
+    await ensure_descriptions(bot)
 
 
 async def main():
@@ -228,46 +293,8 @@ async def main():
         pass  # Windows
 
     try:
-        # A queued ``successful_payment`` is money already paid by a player.
-        # Never discard it during a rolling restart; the payment ledger makes a
-        # replay safe, and the Stars-history task below repairs a crash window.
-        await bot.delete_webhook(drop_pending_updates=False)
-
-        # Update the menu button URL to the mini app.
-        # MINIAPP_URL must be HTTPS for WebAppInfo (Telegram requirement).
-        _miniapp_url = os.getenv("MINIAPP_URL", "")
-        if _miniapp_url.startswith("https://"):
-            try:
-                await bot.set_chat_menu_button(
-                    menu_button=MenuButtonWebApp(
-                        text="🔮 Сайт",
-                        web_app=WebAppInfo(url=_miniapp_url),
-                    )
-                )
-                logger.info(f"✅ Кнопка меню → {_miniapp_url}")
-            except Exception as _e:
-                logger.warning(f"Кнопка меню не установлена: {_e}")
-
-        # Меню команд (кнопка «/» в Telegram): те два входа, которые нужны новому человеку, чтобы подключить бота.
-        try:
-            from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
-            await bot.set_my_commands([
-                BotCommand(command="start", description="Начало: как добавить бота в чат"),
-                BotCommand(command="setup", description="Проверить и настроить бота в чате"),
-            ])
-            await bot.set_my_commands([   # в личке ещё справка и сайт; в группах для этого «бот помощь» и «бот сайт»
-                BotCommand(command="start", description="Начало: как добавить бота в чат"),
-                BotCommand(command="help", description="Все команды бота"),
-                BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
-                BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
-                BotCommand(command="plan", description="План дня: что забрать и сделать сегодня"),
-                BotCommand(command="notify", description="Уведомления: что бот присылает тебе в личку"),
-                BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
-            ], scope=BotCommandScopeAllPrivateChats())
-        except Exception as _e:
-            logger.warning(f"Меню команд не установлено: {_e}")
-        from bot.chat.onboarding import ensure_descriptions
-        await ensure_descriptions(bot)
+        await _prepare_telegram_polling(bot, background_failed)
+        background_tasks.append(asyncio.create_task(_configure_telegram_profile(bot), name="predvestnik:telegram-profile"))
 
         # Log RARITY_STICKER_ID so developer can easily copy it
         _rarity_sid = os.getenv("RARITY_STICKER_ID", "")

@@ -64,8 +64,16 @@ def _acquire_timeout_sec() -> float:
         return 10.0
 
 
+DB_CONNECTION_ERRORS = (
+    asyncpg.PostgresConnectionError,
+    asyncpg.AdminShutdownError,
+    asyncpg.CannotConnectNowError,
+    asyncpg.TooManyConnectionsError,
+)
+
+
 class PoolBusy(RuntimeError):
-    """No free pool connection within DB_ACQUIRE_TIMEOUT_SEC: the caller answers «busy» instead of hanging."""
+    """The caller could not obtain or keep a database connection for this operation."""
 
 
 async def acquire_connection(pool: asyncpg.Pool, source: str) -> asyncpg.Connection:
@@ -77,6 +85,8 @@ async def acquire_connection(pool: asyncpg.Pool, source: str) -> asyncpg.Connect
     except asyncio.TimeoutError:
         ops_metrics.count("pool_timeout", source)
         raise PoolBusy(f"no free database connection within {timeout:.0f} s ({source})") from None
+    except (OSError, *DB_CONNECTION_ERRORS) as exc:
+        raise PoolBusy(f"database connection unavailable ({source})") from exc
     finally:
         ops_metrics.observe("pool_wait", source, (time.perf_counter() - started) * 1000)
 
