@@ -34,6 +34,7 @@ from loguru import logger
 
 from core import ops_metrics
 from infrastructure.repositories import ops_telemetry as repo
+from infrastructure.repositories import update_receipts
 
 SAMPLE_EVERY = 1.0
 POOL_SAMPLE_EVERY = 10.0
@@ -338,6 +339,7 @@ async def _flush_loop(db_factory, bot) -> None:
                 if loop.time() >= next_cleanup:
                     next_cleanup = loop.time() + CLEANUP_EVERY
                     await repo.cleanup(db)
+                    await update_receipts.cleanup(db)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -382,6 +384,9 @@ def alerts_for(window: ops_metrics.Window) -> list[tuple[str, str]]:
     poll_errors = window.counters.get(("telegram_api_error", "GetUpdates"), 0)
     if poll_errors >= POLL_ERROR_ALERT_MIN:
         found.append(("telegram_poll", f"Telegram: {poll_errors} сетевых ошибок при получении обновлений за 5 минут."))
+    receipt_retries = window.counters.get(("telegram_receipt_retry", "get_updates"), 0)
+    if receipt_retries >= POLL_ERROR_ALERT_MIN:
+        found.append(("telegram_receipts", f"Очередь Telegram ждёт записи в базу: {receipt_retries} повторов за 5 минут."))
     client_timeouts = window.counters.get(("client_timeout", "request"), 0)
     if client_timeouts >= CLIENT_TIMEOUT_ALERT_MIN:
         found.append(("client_timeout", f"Приложение: {client_timeouts} запросов у игроков превысили время ожидания за 5 минут."))
@@ -466,6 +471,7 @@ async def dashboard(db, hours: int) -> dict:
                            key=lambda r: (r["p95"], r["count"]), reverse=True)[:6],
         "telegram_delivery": {n: _stat(s) for n, s in by_kind("telegram_delivery").items()},
         "telegram_delayed": sum(counts("telegram_delayed").values()),
+        "telegram_receipt_retries": sum(counts("telegram_receipt_retry").values()),
         "telegram_api": {n: _stat(s) for n, s in by_kind("telegram_api").items()
                          if n == "GetUpdates" or n.startswith(("Send", "Edit", "AnswerCallback"))},
         "telegram_api_errors": counts("telegram_api_error"),

@@ -15,6 +15,7 @@ from core import ops_metrics
 from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.db import DbReleaseMiddleware, db_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
+from bot.middlewares.polling_delivery import PollingDelivery
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
 from services import ops_health
 
@@ -38,8 +39,11 @@ async def measure_update_delivery(handler, event: Update, data):
     return await handler(event, data)
 
 
-def build_dispatcher() -> Dispatcher:
+def build_dispatcher(delivery: PollingDelivery | None = None) -> Dispatcher:
     dp = Dispatcher()
+    if delivery is not None:
+        dp.update.outer_middleware(delivery.update)
+        dp.message.middleware(delivery.message)
     dp.update.outer_middleware(measure_update_delivery)
     dp.update.middleware(config_middleware)
     # Keep non-allowlisted users outside DB and business middleware when the
@@ -51,9 +55,11 @@ def build_dispatcher() -> Dispatcher:
     return dp
 
 
-def attach_outbound(session, *, throttle: bool = True) -> None:
+def attach_outbound(session, *, throttle: bool = True, delivery: PollingDelivery | None = None) -> None:
     """Outbound middlewares of the bot client, outermost first: give back the idle DB connection, then wait
     for the Telegram send slot. The simulator passes throttle=False (its Telegram has no rate limit)."""
     session.middleware(DbReleaseMiddleware())
+    if delivery is not None:
+        session.middleware(delivery)
     if throttle:
         session.middleware(OutboundThrottleMiddleware())

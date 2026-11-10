@@ -11,8 +11,9 @@ from types import SimpleNamespace
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--dsn", required=True)
-dsn = ap.parse_args().dsn
-os.environ["DATABASE_URL"] = dsn
+ap.add_argument("--delivery-only", action="store_true", help="test delayed delivery, rollback and deduplication")
+args = ap.parse_args()
+os.environ["DATABASE_URL"] = args.dsn
 os.environ.setdefault("BOT_TOKEN", "1:x")
 os.environ["DEVELOPER_ID"] = "42"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,6 +40,10 @@ async def main():
     await ensure_chat_schema()   # повторный запуск безопасен
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
+        await delayed_message_flow(db)
+        if args.delivery_only:
+            print("OK: delayed delivery, atomic rollback, replay and membership on PostgreSQL")
+            return
         for _ in range(3):
             await record_message(db, msg(1001, -100, "alpha"))
         await record_message(db, msg(1002, -100, "beta"))
@@ -67,7 +72,6 @@ async def main():
         assert await ranks.can(db, -100, 42, "rights")          # разработчик
         assert await ranks.get_rank(db, -100, 42) == ranks.DEV_LEVEL
         await moderation_flow(db)
-        await delayed_message_flow(db)
     print("OK: chat bot on PostgreSQL")
 
 
@@ -76,6 +80,9 @@ async def delayed_message_flow(db):
 
     from asyncpg import CheckViolationError
     from bot.chat.tracking import local_now, record_message, tz_delta
+    from bot.middlewares.polling_delivery import Receipt
+    from infrastructure.repositories import update_receipts
+    from services import membership
 
     yesterday = local_now().date() - timedelta(days=1)
     sent_at = datetime.combine(yesterday, time(23, 59), tzinfo=timezone.utc) - tz_delta()
@@ -85,12 +92,16 @@ async def delayed_message_flow(db):
     conn = db.connection
     counts = await conn.fetch("SELECT date, message_count FROM daily_user_stats WHERE user_id=$1", delayed.from_user.id)
     assert [tuple(row) for row in counts] == [(yesterday.isoformat(), 1)], counts
+    await update_receipts.ensure_tables(db)
+    await membership.mark_left(db, delayed.chat.id, delayed.from_user.id)
+    loop = asyncio.get_running_loop()
+    receipt = Receipt(1, 321, loop.create_future())
 
     # Force the second write to fail. Lifetime must still match the daily count.
     await conn.execute("ALTER TABLE daily_user_stats ADD CONSTRAINT test_message_write CHECK (message_count <= 1) NOT VALID")
     try:
         try:
-            await record_message(db, delayed)
+            await record_message(db, delayed, receipt=receipt)
         except CheckViolationError:
             pass
         else:
@@ -99,6 +110,17 @@ async def delayed_message_flow(db):
         await conn.execute("ALTER TABLE daily_user_stats DROP CONSTRAINT test_message_write")
     total = await conn.fetchval("SELECT user_messages_count_all_time FROM user_chat_stats WHERE user_tg_id=$1", delayed.from_user.id)
     assert total == 1, total
+    assert not receipt.outcome.done() and not await update_receipts.seen(db, 1, 321)
+
+    await record_message(db, delayed, receipt=receipt)
+    assert receipt.outcome.result() and await update_receipts.seen(db, 1, 321)
+    duplicate = Receipt(1, 321, loop.create_future())
+    assert await record_message(db, delayed, receipt=duplicate) is False
+    assert duplicate.outcome.result()
+    row = await conn.fetchrow("SELECT user_messages_count_all_time, is_left FROM user_chat_stats WHERE user_tg_id=$1",
+                              delayed.from_user.id)
+    assert tuple(row) == (2, True), row  # An older Telegram update cannot undo a later departure.
+    assert await conn.fetchval("SELECT message_count FROM daily_user_stats WHERE user_id=$1", delayed.from_user.id) == 2
 
 
 class FakeBot:

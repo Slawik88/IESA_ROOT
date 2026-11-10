@@ -96,8 +96,8 @@ async def on_edited_message(message: Message, bot, db) -> None:
         logger.warning(f"mafia gate (edit) failed: {exc}")
 
 
-@router.message()
-async def on_message(message: Message, bot, db) -> None:
+@router.message(flags={"counts_group_message": True})
+async def on_message(message: Message, bot, db, delivery_receipt=None) -> None:
     """Каждое сообщение: закрытый чат, учёт активности, затем команда."""
     from loguru import logger
     from services import feature_switches, ops_health
@@ -119,6 +119,8 @@ async def on_message(message: Message, bot, db) -> None:
     try:
         bot_off = await feature_switches.disabled(db, ["all"], chat_id) is not None
     except Exception as exc:
+        if delivery_receipt is not None:
+            raise
         logger.warning(f"feature switches unavailable: {exc}")
         bot_off = False
     if bot_off:   # весь бот выключен: только закрытый чат, учёт сообщений и «бот админка»
@@ -126,11 +128,16 @@ async def on_message(message: Message, bot, db) -> None:
             if await purge.purge_gate(db, bot, message) or await moderation.closed_gate(db, bot, message):
                 return
         except Exception as exc:
+            if delivery_receipt is not None:
+                raise
             logger.warning(f"closed-chat gate failed: {exc}")
         try:
-            await record_message(db, message)
+            if await record_message(db, message, receipt=delivery_receipt) is False:
+                return
         except Exception as exc:
             ops_health.record_bot_error(exc, "message_tracking")
+            if delivery_receipt is not None and not delivery_receipt.outcome.done():
+                raise
             logger.warning(f"message tracking failed: {exc}")
         await dispatch(registry, message, bot, db)   # выключатель пропустит только «бот админка»
         return
@@ -138,14 +145,19 @@ async def on_message(message: Message, bot, db) -> None:
         if await mafia.gate_message(db, bot, message):
             return
     except Exception as exc:
+        if delivery_receipt is not None:
+            raise
         logger.warning(f"mafia gate failed: {exc}")
     try:
         if await purge.purge_gate(db, bot, message) or await moderation.closed_gate(db, bot, message):
             return
     except Exception as exc:
+        if delivery_receipt is not None:
+            raise
         logger.warning(f"closed-chat gate failed: {exc}")
     try:
-        await record_message(db, message)
+        if await record_message(db, message, receipt=delivery_receipt) is False:
+            return
         if message.chat.type == "private" and message.from_user:   # пишет боту — значит, не блокировал
             await db.execute("UPDATE users SET dm_blocked_at = NULL WHERE user_tg_id = ? AND dm_blocked_at IS NOT NULL",
                              (message.from_user.id,))
@@ -153,6 +165,8 @@ async def on_message(message: Message, bot, db) -> None:
             await dm_push.confirm_contact(db, message.from_user.id)   # личка подтверждена, пауза «без отклика» снята
     except Exception as exc:  # учёт не должен ломать команды
         ops_health.record_bot_error(exc, "message_tracking")
+        if delivery_receipt is not None and not delivery_receipt.outcome.done():
+            raise
         logger.warning(f"message tracking failed: {exc}")
     try:
         await mafia.after_message(db, bot, message)
