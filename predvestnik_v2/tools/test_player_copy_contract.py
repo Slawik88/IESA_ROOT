@@ -145,6 +145,10 @@ support_copy = json.dumps(topics["support"], ensure_ascii=False)
 for value in (dm_tickets.MIN_TEXT, dm_tickets.MAX_TEXT):
     assert str(value) in support_copy, f"support: число {value} расходится с правилами"
 assert dm_tickets.DAILY_LIMIT == 3 and "Три в сутки" in support_copy and dm_tickets.OPEN_LIMIT == 2 and "два твоих обращения" in support_copy, "support: лимиты обращений расходятся с правилами"
+staff_tickets = json.dumps(next(t for t in json.loads((ROOT / "FastAPI/static/bot-admin/guide-admin.json").read_text(encoding="utf-8"))["topics"]
+                                if t["id"] == "tickets"), ensure_ascii=False)
+assert f"Не больше {dm_tickets.CARDS_PER_HOUR} карточек в час" in staff_tickets and f"по {dm_tickets.LIST_LIMIT}" in staff_tickets, \
+    "справка администрации «Обращения игроков»: предел карточек или размер страницы расходятся с core/dm_tickets.py"
 dm_copy = json.dumps(topics["dm"], ensure_ascii=False)
 assert dm_push_rules.DIGEST_FROM_HOUR == 9 and dm_push_rules.DIGEST_TO_HOUR == 12 and "с 9 до 12" in dm_copy, "dm: часы утреннего плана расходятся с правилами"
 assert not PROBLEMS, "\n".join(PROBLEMS)

@@ -63,8 +63,27 @@ async def get(db, ticket_id: int) -> dict | None:
     return await repo.get(db, ticket_id)
 
 
-async def open_list(db) -> tuple[list[dict], int]:
-    return await repo.open_list(db, rules.LIST_LIMIT), await repo.open_total(db)
+async def open_page(db, page: int = 1) -> dict:
+    """Страница открытых обращений, старые первыми. Номер за пределами списка приводится к ближайшей существующей странице."""
+    total = await repo.open_total(db)
+    page = rules.clamp_page(page, total)
+    items = await repo.open_list(db, rules.LIST_LIMIT, (page - 1) * rules.LIST_LIMIT) if total else []
+    return {"items": items, "total": total, "page": page, "pages": rules.page_count(total)}
+
+
+async def reserve_card(db, ticket_id: int, staff_id: int) -> str:
+    """Можно ли прислать сотруднику карточку нового обращения: 'send', 'last' (последняя в этот час) или 'limited'.
+    При 'limited' обращение никуда не пропадает: оно ждёт в «бот обращения»."""
+    async with db.connection.transaction():
+        used = await repo.cards_in_window(db, staff_id, window_minutes=rules.CARDS_WINDOW_MINUTES, keep_hours=rules.CARDS_KEEP_HOURS)
+        if used >= rules.CARDS_PER_HOUR:
+            return "limited"
+        await repo.add_card(db, ticket_id, staff_id)
+    return "last" if used + 1 >= rules.CARDS_PER_HOUR else "send"
+
+
+async def release_card(db, ticket_id: int, staff_id: int) -> None:
+    await repo.release_card(db, ticket_id, staff_id)
 
 
 async def answer(db, *, ticket_id: int, staff_id: int, text: str) -> dict:

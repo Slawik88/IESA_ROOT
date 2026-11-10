@@ -3,7 +3,8 @@ from __future__ import annotations
 
 
 async def _ready(db) -> bool:
-    async with db.execute("SELECT to_regclass('dm_tickets') IS NOT NULL") as c:
+    """Готово, когда есть последняя по порядку таблица (dm_ticket_cards добавлена в S23d к уже существующей dm_tickets)."""
+    async with db.execute("SELECT to_regclass('dm_ticket_cards') IS NOT NULL") as c:
         row = await c.fetchone()
     return bool(row and row[0])
 
@@ -28,6 +29,16 @@ async def ensure_schema(db) -> None:
         """)
         await db.execute("CREATE INDEX IF NOT EXISTS idx_dm_tickets_open ON dm_tickets (created_at) WHERE status = 'new'")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_dm_tickets_user ON dm_tickets (user_id, created_at DESC)")
+        # Какому сотруднику и когда ушла карточка нового обращения: предел карточек в час (S23d). Строки старше суток не нужны.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS dm_ticket_cards (
+                ticket_id BIGINT NOT NULL REFERENCES dm_tickets (id) ON DELETE CASCADE,
+                staff_id BIGINT NOT NULL,
+                sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (ticket_id, staff_id)
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_dm_ticket_cards_staff ON dm_ticket_cards (staff_id, sent_at)")
 
 
 _COLUMNS = "t.id, t.user_id, t.text, t.status, t.answer, t.handled_by, t.handled_at, t.created_at, u.user_tg_username, u.user_tg_name"
@@ -70,14 +81,34 @@ async def settle(db, ticket_id: int, status: str, staff_id: int, answer: str | N
         return await c.fetchone() is not None
 
 
-async def open_list(db, limit: int) -> list[dict]:
-    async with db.execute(f"SELECT {_COLUMNS} {_JOIN} WHERE t.status = 'new' ORDER BY t.created_at, t.id LIMIT ?", (int(limit),)) as c:
+async def open_list(db, limit: int, offset: int = 0) -> list[dict]:
+    async with db.execute(f"SELECT {_COLUMNS} {_JOIN} WHERE t.status = 'new' ORDER BY t.created_at, t.id LIMIT ? OFFSET ?",
+                          (int(limit), int(offset))) as c:
         return [_row(r) for r in await c.fetchall()]
 
 
 async def open_total(db) -> int:
     async with db.execute("SELECT COUNT(*) FROM dm_tickets WHERE status = 'new'") as c:
         return int((await c.fetchone())[0])
+
+
+async def cards_in_window(db, staff_id: int, *, window_minutes: int, keep_hours: int) -> int:
+    """Сколько карточек сотрудник получил за окно. Заодно чистит его учёт старше keep_hours.
+    Вызывать внутри транзакции: замок на сотрудника держится до записи новой карточки."""
+    await db.execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", (f"dm_ticket_cards:{int(staff_id)}",))
+    await db.execute("DELETE FROM dm_ticket_cards WHERE staff_id = ? AND sent_at < NOW() - make_interval(hours => ?)", (int(staff_id), int(keep_hours)))
+    async with db.execute("SELECT COUNT(*) FROM dm_ticket_cards WHERE staff_id = ? AND sent_at > NOW() - make_interval(mins => ?)",
+                          (int(staff_id), int(window_minutes))) as c:
+        return int((await c.fetchone())[0] or 0)
+
+
+async def add_card(db, ticket_id: int, staff_id: int) -> None:
+    await db.execute("INSERT INTO dm_ticket_cards (ticket_id, staff_id) VALUES (?, ?) ON CONFLICT DO NOTHING", (int(ticket_id), int(staff_id)))
+
+
+async def release_card(db, ticket_id: int, staff_id: int) -> None:
+    """Карточка не дошла (личка сотрудника закрыта): место в его часовом пределе освобождается."""
+    await db.execute("DELETE FROM dm_ticket_cards WHERE ticket_id = ? AND staff_id = ?", (int(ticket_id), int(staff_id)))
 
 
 async def staff_ids(db, min_rank: int) -> list[int]:

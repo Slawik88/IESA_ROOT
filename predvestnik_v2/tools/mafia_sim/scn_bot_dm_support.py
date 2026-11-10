@@ -182,6 +182,90 @@ async def dm_ticket_reaches_staff_and_the_answer_reaches_the_player(h: Harness) 
     ok("Ждут ответа" in long_ticket, "and the ticket is kept in the staff list")
 
 
+def labels(message) -> list[str]:
+    return [b["text"] for b in message.buttons()]
+
+
+@bot_scenario
+async def dm_ticket_flood_limits_cards_and_the_list_has_pages(h: Harness) -> None:
+    """S23d: a flood of tickets does not bury a staff member in cards (CARDS_PER_HOUR an hour, the last one says so), nothing is lost,
+    and «бот обращения» pages through everything that waits, oldest first."""
+    from core import dm_tickets as rules
+    from infrastructure.repositories import dm_tickets as tickets_repo
+    from services import dm_tickets as tickets_service
+    staff = await player(h, "Дежурный по обращениям")
+    asker = await player(h, "Спрашивающий в час пик")
+    late = await player(h, "Опоздавший в час пик")
+    await set_rank(staff, 2)
+    flood: list[int] = []
+    try:
+        async with database() as db:
+            await db.execute("UPDATE dm_tickets SET status = 'closed' WHERE status = 'new'")   # other scenarios' leftovers do not shift the pages
+            everyone = await tickets_service.recipients(db)
+            ok(staff.id in everyone, f"the new staff member is a recipient: {everyone}")
+            for n in range(rules.CARDS_PER_HOUR - 1):        # an hour of cards already behind every recipient but one slot
+                flood.append(await tickets_repo.add(db, 9_000_000 + n, f"обращение из потока номер {n:02d}"))
+                for staff_id in everyone:
+                    await db.execute("INSERT INTO dm_ticket_cards (ticket_id, staff_id) VALUES (?, ?)", (flood[-1], staff_id))
+            await db.commit()
+        start = len(h.world.calls)
+        accepted = said(await say(h, asker, asker.id, "бот обращение награда за сундук не пришла"))
+        ok("принято" in accepted and "Ответ придёт сюда" in accepted and "очереди" not in accepted, f"the last free card still goes out: {accepted[:160]!r}")
+        cards = [p for n, p in h.world.calls[start:] if n == "SendMessage" and int(p["chat_id"]) == staff.id and "Обращение №" in str(p.get("text"))]
+        ok(len(cards) == 1 and "восьмая карточка за последний час" in str(cards[0]["text"]), f"the card says it is the last one this hour: {cards[:1]}")
+        start = len(h.world.calls)
+        queued = said(await say(h, late, late.id, "бот обращение и вопрос, когда у всех полно карточек"))
+        ok("принято" in queued and "в очереди" in queued and "нет на связи" not in queued, f"over the limit the player hears it is queued: {queued[:160]!r}")
+        ok(not [p for n, p in h.world.calls[start:] if n == "SendMessage" and int(p["chat_id"]) in everyone and int(p["chat_id"]) in h.world.dm_open],
+           "no staff member gets a card over the limit")
+        async with database() as db:
+            await db.execute("UPDATE dm_ticket_cards SET sent_at = sent_at - INTERVAL '61 minutes' WHERE staff_id = ?", (staff.id,))
+            await db.commit()
+        start = len(h.world.calls)
+        said(await say(h, late, late.id, "бот обращение второй вопрос через час"))
+        ok([p for n, p in h.world.calls[start:] if n == "SendMessage" and int(p["chat_id"]) == staff.id], "an hour later the cards come again")
+
+        async with database() as db:
+            for n in range(3):
+                flood.append(await tickets_repo.add(db, 9_100_000 + n, f"обращение из потока номер {rules.CARDS_PER_HOUR + n:02d}"))
+            await db.commit()
+            total = (await tickets_repo.open_total(db))
+        pages = rules.page_count(total)
+        ok(pages == 2, f"{total} waiting tickets make two pages")
+        start = len(h.world.calls)
+        first = said(await say(h, staff, staff.id, "бот обращения"))
+        ok(f"Ждут ответа: {total}. Страница 1 из 2, старые первыми." in first, f"the header names the page: {first[:200]!r}")
+        shown = [p for n, p in h.world.calls[start:] if n == "SendMessage" and "Обращение №" in str(p.get("text"))]
+        ok(len(shown) == rules.LIST_LIMIT and "номер 00" in str(shown[0]["text"]), f"a full page, oldest first: {len(shown)}")
+        nav = last_message(h, staff.id, "Это страница 1 из 2")
+        ok(labels(nav) == ["Страница 2 ›"], f"page one offers only the next page: {labels(nav)}")
+        start = len(h.world.calls)
+        await h.click(staff, staff.id, nav, "Страница 2")
+        rest = [p for n, p in h.world.calls[start:] if n == "SendMessage" and "Обращение №" in str(p.get("text"))]
+        ok(len(rest) == total - rules.LIST_LIMIT, f"page two shows the rest: {len(rest)} of {total}")
+        ok(last_message(h, staff.id, "Это страница 1 из 2").buttons() == [], "the old page buttons are gone")
+        ok(labels(last_message(h, staff.id, "Это страница 2 из 2")) == ["‹ Страница 1"], "the last page offers the way back")
+        typed = said(await say(h, staff, staff.id, "бот обращения 9"))
+        ok("Страница 2 из 2" in typed, f"a page past the end shows the last one: {typed[:120]!r}")
+        ok("Страница 1 из 2" in said(await say(h, staff, staff.id, "бот обращения ²")), "a non-ASCII digit is page one, not a crash")
+
+        async def broken(*_args, **_kwargs):
+            raise RuntimeError("relation dm_ticket_cards does not exist")
+        real, tickets_service.reserve_card = tickets_service.reserve_card, broken   # the card table failed to appear on start
+        try:
+            start = len(h.world.calls)
+            fallback = said(await say(h, asker, asker.id, "бот обращение когда учёт карточек сломан"))
+        finally:
+            tickets_service.reserve_card = real
+        ok("принято" in fallback and "очереди" not in fallback, f"without the card table the ticket is still accepted: {fallback[:120]!r}")
+        ok([p for n, p in h.world.calls[start:] if n == "SendMessage" and int(p["chat_id"]) == staff.id], "and the card still reaches the staff")
+    finally:
+        async with database() as db:
+            await db.execute("UPDATE dm_tickets SET status = 'closed' WHERE status = 'new'")
+            await db.execute("DELETE FROM dm_tickets WHERE id = ANY(?)", (flood,))
+            await db.commit()
+
+
 # ── buttons under a report card ─────────────────────────────────────────────
 
 async def report_setup(h: Harness, label: str):
