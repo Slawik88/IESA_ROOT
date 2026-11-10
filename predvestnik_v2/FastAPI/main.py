@@ -299,10 +299,12 @@ app = FastAPI(title="Predvestnik Mini App", lifespan=lifespan)
 
 @app.exception_handler(PoolBusy)
 async def _pool_busy(request, exc: PoolBusy):
-    # Every DB connection stayed busy past DB_ACQUIRE_TIMEOUT_SEC: a short «try again» instead of a hanging request.
-    # 503 is what the Mini App already retries once for GET (static/app.01.js api()).
-    return JSONResponse({"detail": "Сервер сейчас занят. Попробуй ещё раз через пару секунд."},
-                        status_code=503, headers={"Retry-After": "2"})
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return JSONResponse({"detail": "Сервер сейчас занят. Попробуй ещё раз через пару секунд."},
+                            status_code=503, headers={"Retry-After": "2"})
+    # A database connection can fail after a write has been committed.
+    return JSONResponse({"detail": "Не удалось подтвердить результат. Проверь, сохранилось ли действие."},
+                        status_code=503)
 app.include_router(mafia_online_router.router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -505,9 +507,10 @@ async def ready():
     try:
         if not readiness.startup_complete():
             raise RuntimeError("startup schema initialization has not finished")
-        await create_pool()
-        async with get_pool().acquire() as conn:
-            missing = await readiness.missing_tables(conn)
+        async with asyncio.timeout(ops_health.DB_HEALTH_TIMEOUT_SEC):
+            pool = await create_pool()
+            async with pool.acquire() as conn:
+                missing = await readiness.missing_tables(conn)
         if missing:
             raise RuntimeError(f"required tables are missing: {', '.join(missing)}")
     except Exception as exc:

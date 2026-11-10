@@ -12,7 +12,7 @@ from urllib.parse import unquote
 
 from fastapi import Depends, Header, HTTPException, Request
 from infrastructure import lazy_db
-from infrastructure.database import create_pool, get_pool
+from infrastructure.database import DB_CONNECTION_ERRORS, PoolBusy, create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from FastAPI import profile_snapshot
 from FastAPI.auth import (check_session_token, check_webapp_data, verify_preprod_browser_ticket,
@@ -24,6 +24,7 @@ from infrastructure.preprod import is_preprod, is_preprod_browser_test_user, req
 _DEV_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 _PREPROD_TEST_COOKIE = "predvestnik_preprod_test_session"
 AUTH_REASON_HEADER = "X-Auth-Reason"
+_DB_BOOT_HTTP_TIMEOUT_SEC = 5
 
 # POSTs that write visit analytics only: they change no player state, so the profile snapshot may keep
 # serving (profile reads never consult site_analytics). Every other non-GET request still resets it.
@@ -37,12 +38,18 @@ async def get_db(request: Request = None):   # None: a test drives the generator
     This protects FastAPI requests that arrive before the bot process finishes
     its startup sequence and global DB initialization.
     """
-    await create_pool()
+    try:
+        async with asyncio.timeout(_DB_BOOT_HTTP_TIMEOUT_SEC):
+            await create_pool()
+    except TimeoutError as exc:
+        raise PoolBusy("database pool is still starting") from exc
     try:
         # Lazy: the connection is taken on the first SQL and given back before any Telegram call made through
         # the bot client (infrastructure/lazy_db.py), so admin and purge requests do not hold it while Telegram answers.
         async with lazy_db.lazy_connection(get_pool(), source="http") as db:
             yield db
+    except DB_CONNECTION_ERRORS as exc:
+        raise PoolBusy("database connection lost during the request") from exc
     finally:
         # A write of the player (committed or not) ends the few seconds their own profile is served from memory.
         # FastAPI 0.115 (requirements.txt) runs this before the response is sent, so the client's next /profile/me is fresh;

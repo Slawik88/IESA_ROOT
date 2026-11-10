@@ -38,6 +38,7 @@ from infrastructure.repositories import ops_telemetry as repo
 SAMPLE_EVERY = 1.0
 POOL_SAMPLE_EVERY = 10.0
 DB_SERVER_SAMPLE_EVERY = 60.0
+DB_HEALTH_TIMEOUT_SEC = 2.0
 BUFFER_FLUSH_EVERY = 10.0
 FLUSH_EVERY = 300
 CLEANUP_EVERY = 3600.0
@@ -481,15 +482,16 @@ async def dashboard(db, hours: int) -> dict:
     }
 
 
-async def deep_check(timeout: float = 2.0) -> tuple[int, dict]:
+async def deep_check(timeout: float = DB_HEALTH_TIMEOUT_SEC) -> tuple[int, dict]:
     """/api/health/deep: a bounded database ping plus whether the metrics sampler is alive."""
     from infrastructure.database import create_pool
     started = time.perf_counter()
     body: dict = {"status": "ok"}
     try:
-        pool = await asyncio.wait_for(create_pool(), timeout)
-        async with pool.acquire(timeout=timeout) as conn:
-            await asyncio.wait_for(conn.fetchval("SELECT 1"), timeout)
+        async with asyncio.timeout(timeout):
+            pool = await create_pool()
+            async with pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
         body["database"] = {"ok": True, "ms": round((time.perf_counter() - started) * 1000, 1)}
     except Exception as exc:
         body["status"] = "down"
