@@ -50,6 +50,8 @@ def build_dispatcher(delivery: PollingDelivery | None = None) -> Dispatcher:
     # temporary Cloudflare-backed test bot is publicly reachable.
     dp.update.middleware(preprod_gate_middleware)
     dp.update.middleware(db_middleware)
+    if delivery is not None:
+        dp.update.middleware(delivery.admit)
     dp.errors.register(note_handler_error)
     dp.include_router(main_router)
     return dp
