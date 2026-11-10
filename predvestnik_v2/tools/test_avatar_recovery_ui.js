@@ -51,12 +51,12 @@ async function main() {
 
   // The current shell has no legacy hdr-ava. Its real profile loader must still hydrate.
   const modernNodes={'pro-main':{},'pro-showcase-ava':{}};
-  const modern=vm.createContext({Date,Promise,BASE:'',setTimeout:fn=>fn(),el:id=>modernNodes[id],
+  const modern=vm.createContext({Date,Promise,window:{},BASE:'',setTimeout:fn=>fn(),el:id=>modernNodes[id],
     _profileData:null,_initChatId:0,_cid:0,_uid:0,_ws:{},v3PaintCachedProfile(){},
     renderProfileHome:()=>'<profile>',updateCurrBar(){},v3SaveProfileCache(){},
     api:async route=>route==='/profile/me'?{is_vip:true,user_id:101,username:'QA',avatar:null,avatar_state:'loading'}:{vip:true,avatar:photo,avatar_state:'ready'}});
   vm.runInContext(esc + helpers + block,modern);
-  vm.runInContext(source.slice(source.indexOf('function loadProfile()'),source.indexOf('function openBotAdmin()')),modern);
+  vm.runInContext(source.slice(source.indexOf('let _profileLoadGeneration ='),source.indexOf('function openBotAdmin()')),modern);
   await vm.runInContext('loadProfile()',modern);
   await vm.runInContext('_vipAvatarLoading',modern);
   assert.match(modernNodes['pro-showcase-ava'].innerHTML,/\/profile\/avatar\//,'modern profile recovers without hdr-ava');
