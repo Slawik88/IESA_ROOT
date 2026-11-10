@@ -20,9 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from aiogram.exceptions import TelegramRetryAfter
 from aiogram.methods import (BanChatMember, CopyMessage, DeleteMessage, EditMessageText, ForwardMessage,
-                             GetChatMember, SendChatAction, SendMessage)
+                             GetChatMember, GetUpdates, SendChatAction, SendMessage)
 
 from bot.middlewares import outbound_throttle
+from core import ops_metrics
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 
 CHAT, OTHER = -100, -200
@@ -110,9 +111,25 @@ async def flood_control_is_retried() -> None:
     print("  retry_after is waited out and the call repeated")
 
 
+async def stalled_poll_has_transport_deadline() -> None:
+    from unittest.mock import patch
+
+    async def hung(bot, method):
+        await asyncio.sleep(60)
+
+    throttle = OutboundThrottleMiddleware()
+    with patch.object(outbound_throttle, "_POLL_TRANSPORT_GRACE_SEC", 0.02):
+        try:
+            await asyncio.wait_for(throttle(hung, None, GetUpdates(timeout=0)), 0.5)
+        except TimeoutError:
+            assert ops_metrics.registry.window.counters.get(("telegram_api_error", "GetUpdates")) == 1
+        else:
+            raise AssertionError("stalled GetUpdates must time out")
+
+
 async def main() -> None:
     for test in (read_calls_take_no_slot, messages_keep_one_per_second, cancelled_waiter_frees_its_place,
-                 urgent_overtakes_ordinary, flood_control_is_retried):
+                 urgent_overtakes_ordinary, flood_control_is_retried, stalled_poll_has_transport_deadline):
         await test()
     print("OK: outbound throttler — chat slot only for messages, cancellation, priority, flood retry")
 

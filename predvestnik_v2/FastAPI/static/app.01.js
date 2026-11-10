@@ -231,13 +231,27 @@ function handleAuthRefusal(reason) {
 // server: a purchase, a transfer or any other change is never sent twice behind the player's back.
 // A change gets a longer deadline: giving up early would leave the player unsure whether it was saved.
 const API_TIMEOUT_MS=15000, API_CHANGE_TIMEOUT_MS=30000, API_GET_RETRY_DELAYS=[800,2500], API_RETRY_STATUSES=new Set([502,503,504]);
-function _apiFetch(path, opts) {
+async function _apiFetch(path, opts, skipBody) {
   const {timeout, ...init} = opts;
   const controller = init.signal || typeof AbortController !== 'function' ? null : new AbortController();
   const deadline = timeout || ((init.method || 'GET').toUpperCase() === 'GET' ? API_TIMEOUT_MS : API_CHANGE_TIMEOUT_MS);
+  const started = performance.now();
   const timer = controller ? setTimeout(() => controller.abort(), deadline) : 0;
-  return fetch(BASE+path,{...init,headers:{...hdrs(),...(init.headers||{})},...(controller?{signal:controller.signal}:{})})
-    .finally(() => clearTimeout(timer));
+  try {
+    const response = await fetch(BASE+path,{...init,headers:{...hdrs(),...(init.headers||{})},...(controller?{signal:controller.signal}:{})});
+    if (skipBody(response)) {
+      response.body?.cancel().catch(() => {});
+      return {response};
+    }
+    return {response, body:await response.text()};
+  } catch (error) {
+    if (controller?.signal.aborted) {
+      window.PVDiagnostics?.requestTimedOut?.(path, Math.round(performance.now()-started));
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function _apiNetworkError(error, method, ownSignal) {
   if (ownSignal) return error;   // the caller cancelled on purpose: keep its own error
@@ -249,35 +263,34 @@ function _apiNetworkError(error, method, ownSignal) {
 function api(path, opts={}) {
   const method=(opts.method||'GET').toUpperCase();
   let attempt=0, reauthorized=false;
-  const send=()=>_apiFetch(path,opts).then(r=>{
-    if(method==='GET' && API_RETRY_STATUSES.has(r.status) && attempt<API_GET_RETRY_DELAYS.length)
+  const retryBusy = response => method==='GET' && API_RETRY_STATUSES.has(response.status) && attempt<API_GET_RETRY_DELAYS.length;
+  const send=()=>_apiFetch(path,opts,r=>r.status===401 || retryBusy(r)).then(result=>{
+    if(retryBusy(result.response))
       return new Promise(done=>setTimeout(done,API_GET_RETRY_DELAYS[attempt++])).then(send);
-    return r;
+    return result;
   },error=>{
     // A timed-out read is not repeated: the server is already slow, another wait would only add load.
     if(method==='GET' && !opts.signal && error?.name!=='AbortError' && attempt<API_GET_RETRY_DELAYS.length)
       return new Promise(done=>setTimeout(done,API_GET_RETRY_DELAYS[attempt++])).then(send);
     return Promise.reject(_apiNetworkError(error,method,!!opts.signal));
   });
-  const handle=r=>{
-      if(r.status===401){
-        // Newer Telegram launch data may have arrived (SDK copy, return to the app): one more read with it.
-        if(method==='GET' && !reauthorized && refreshInitData()){ reauthorized=true; return send().then(handle); }
-        return Promise.reject(handleAuthRefusal(r.headers.get('x-auth-reason')||''));
-      }
-      // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
-      if(r.ok && method!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
-      return r.ok?r.json():r.text().then(t=>{
-        try{
-          const e=JSON.parse(t);
-          const d=e.detail;
-          const msg=typeof d==='string'?d:Array.isArray(d)?d.map(x=>x.msg||x).join('; '):(d?JSON.stringify(d):'Ошибка');
-          return Promise.reject(_humanErr(msg, r.status));
-        }catch{
-          try{ console.warn('API raw error hidden:', t.slice(0,300)); }catch(_){ }
-          return Promise.reject(r.status>=500?'Сервер прилёг отдохнуть. Попробуй через минуту.':'Ошибка сервера');
-        }
-      });
+  const handle=({response:r, body})=>{
+    if(r.status===401){
+      // Newer Telegram launch data may have arrived: one more read with it.
+      if(method==='GET' && !reauthorized && refreshInitData()){ reauthorized=true; return send().then(handle); }
+      return Promise.reject(handleAuthRefusal(r.headers.get('x-auth-reason')||''));
+    }
+    // Refresh other views after a successful change, excluding background analytics.
+    if(r.ok && method!=='GET' && !path.startsWith('/analytics') && !path.startsWith('/profile/me')) _scheduleReactiveRefresh();
+    if (r.ok) return JSON.parse(body);
+    try {
+      const {detail} = JSON.parse(body);
+      const message = typeof detail==='string' ? detail : Array.isArray(detail)
+        ? detail.map(item=>item.msg||item).join('; ') : detail ? JSON.stringify(detail) : 'Ошибка';
+      return Promise.reject(_humanErr(message, r.status));
+    } catch {
+      return Promise.reject(r.status>=500?'Сервер прилёг отдохнуть. Попробуй через минуту.':'Ошибка сервера');
+    }
   };
   return send().then(handle);
 }

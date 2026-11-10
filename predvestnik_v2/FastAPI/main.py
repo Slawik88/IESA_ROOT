@@ -590,12 +590,12 @@ _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "appearance-ring-v
 # «Топ» and «Топ-10» (row 17, look/nick/avatar 20, ornaments 22, mark 29, scenes and signature details 32–38/48/53, podium 50). Not a copy: a change to the Mini App top reaches the games too.
 _TOP_BOARD_PARTS = ("top-board-v3.js", *(f"app.{i:02d}.js" for i in (17, 20, 22, 29, 32, 33, 34, 35, 36, 37, 38, 48, 50, 53)))   # in the order of app.js
 
-TELEGRAM_SDK_FALLBACK = "vendor/telegram-web-app.js"
+TELEGRAM_SDK = "vendor/telegram-web-app.js"
 
 # Buildpacks normalize mtimes (1980 on production), so only content identifies
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
 _ASSET_SOURCES = tuple(dict.fromkeys((
-    *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", TELEGRAM_SDK_FALLBACK, "app.css", *_SHELL_V3_CSS, *_SKIN_SCENE_ART,
+    *_APP_JS_PARTS, "page-transitions.js", "support-diagnostics.js", "support-feedback.js", TELEGRAM_SDK, "app.css", *_SHELL_V3_CSS, *_SKIN_SCENE_ART,
     "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html", "game-shell-v3.html",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
     "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *(n for n in _GAME_BOARD_ASSETS if n != "top-board.js"), *_TOP_BOARD_PARTS,
@@ -612,7 +612,7 @@ _JS_SOURCES = {"app.js": "".join(_read_static(p) for p in _APP_JS_PARTS), "top-b
     "page-transitions.js", "support-diagnostics.js", "support-feedback.js", "nickname-v3.js", "game-board-v3.js", "skin-runtime-v3.js",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "coin-market-chart.js", "coin-market-v2.js")}}
 _STORE: dict[str, StaticAsset] = {name: prepare(minify_js(source), _JS) for name, source in _JS_SOURCES.items()}
-_STORE[TELEGRAM_SDK_FALLBACK] = prepare(_read_static(TELEGRAM_SDK_FALLBACK), _JS)   # the official file, served as it is
+_STORE[TELEGRAM_SDK] = prepare(_read_static(TELEGRAM_SDK), _JS)   # the official file, served as it is
 for _css_name in ("app.css", *_SHELL_V3_CSS, *_SKIN_SCENE_ART, "coin-market-v2.css"):
     _STORE[_css_name] = prepare(_read_static(_css_name), _CSS)
 _VERSIONED_LINK = re.compile(r"/static/([\w./-]+)\?v=\{\{ASSET_VER\}\}")
@@ -748,7 +748,7 @@ def _register_asset(name: str) -> None:
     app.add_api_route(f"/static/{name}", _serve, methods=["GET"], include_in_schema=False)
 
 
-# vendor/telegram-web-app.js: a copy of the Telegram SDK, loaded by index.html only when telegram.org fails.
+# The Mini App loads the bundled Telegram SDK so telegram.org cannot block its startup.
 for _asset_name in _STORE:
     _register_asset(_asset_name)
 
