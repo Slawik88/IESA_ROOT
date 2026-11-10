@@ -202,7 +202,8 @@ class World(BotApiMixin):
 
     def _m_SendMessage(self, params: dict) -> dict:
         chat_id = int(params["chat_id"])
-        self._require_dm(chat_id)
+        if params.get("business_connection_id") is None:   # от имени аккаунта игрока бот пишет в его переписку, не в свою личку
+            self._require_dm(chat_id)
         plain, entities = self._visible(params.get("text"), params.get("parse_mode"))
         markup = self._dump_markup(params.get("reply_markup"))
         self._check_markup(markup)
@@ -223,7 +224,8 @@ class World(BotApiMixin):
 
     def _store_captionless(self, params: dict) -> dict:
         chat_id = int(params["chat_id"])
-        self._require_dm(chat_id)
+        if params.get("business_connection_id") is None:
+            self._require_dm(chat_id)
         self.next_id += 1
         stored = StoredMessage(chat_id, self.next_id, "", self._dump_markup(params.get("reply_markup")), topic_id=params.get("message_thread_id"))
         self.messages[(chat_id, stored.message_id)] = stored

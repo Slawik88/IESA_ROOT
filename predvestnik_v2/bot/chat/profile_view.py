@@ -48,7 +48,8 @@ def plain(data: CardData) -> str:
         blocks.append("🔥 <b>Прогресс</b>\n" + quote(pair_rows(data.progress)))
     if data.personal:
         blocks.append("\n".join(quote([line[1:]]) if line.startswith("\x00") else line for line in data.personal))
-    blocks.append("💰 <b>Кошелёк</b>\n" + quote([" · ".join(data.wallet[i:i + 2]) for i in range(0, len(data.wallet), 2)]))
+    if data.wallet:   # пусто только в «визитке» для чужой переписки (S24): кошелёк там не показываем
+        blocks.append("💰 <b>Кошелёк</b>\n" + quote([" · ".join(data.wallet[i:i + 2]) for i in range(0, len(data.wallet), 2)]))
     return "\n\n".join(["\n".join(head), *blocks])
 
 
@@ -81,7 +82,8 @@ def styled(data: CardData, look: ChatLook) -> str:
         for line in map(_linked, data.personal):
             rows += L.wrap(look, line[1:], nested=True) if line.startswith("\x00") else L.wrap(look, line)
         parts.append(L.section(look, "📅", "В чате", rows))
-    parts.append(L.section(look, look.icons[2], "Кошелёк", L.pack(look, data.wallet)))
+    if data.wallet:
+        parts.append(L.section(look, look.icons[2], "Кошелёк", L.pack(look, data.wallet)))
     return L.message(look, parts)
 
 

@@ -125,6 +125,7 @@ for item in guide["faq"]:
 assert "Рейтинг" in {x["w"] for x in guide["glossary"]} and "Мора" in {x["w"] for x in guide["glossary"]}, "ключевые слова в словаре"
 
 for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/inactive.py", "bot/chat/tickets.py", "services/dm_tickets.py",
+                 "bot/chat/business.py",
                  "services/dm_plan.py", "bot/chat/report_cards.py",
                  "bot/chat/ship.py", "bot/chat/ship_texts/announce.py", "bot/chat/ship_texts/compat.py",
                  "bot/chat/ship_texts/self_pair.py", "bot/chat/ship_texts/author_included.py",

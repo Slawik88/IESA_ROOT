@@ -6,7 +6,9 @@ from tools.mafia_sim.registry import bot_scenario, ok
 
 # Telegram only sends the update types a bot asks for; aiogram derives them from the registered handlers.
 # A new handler type (S23: topics, S24: business_*) must show up here on purpose, never by accident.
-EXPECTED_UPDATE_TYPES = ["callback_query", "chat_member", "edited_message", "message", "my_chat_member", "pre_checkout_query"]
+# S24: business_connection and business_message — the bot in the player's own private chats (Telegram Business)
+EXPECTED_UPDATE_TYPES = ["business_connection", "business_message", "callback_query", "chat_member", "edited_message", "message",
+                         "my_chat_member", "pre_checkout_query"]
 
 
 @bot_scenario

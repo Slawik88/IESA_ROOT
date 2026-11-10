@@ -7,7 +7,7 @@
 Ключи:
     all                  весь бот в чатах
     section:<раздел>     раздел «бот помощь» (games, social, moderation…)
-    group:<набор>        набор команд (group:warps — все варп-команды)
+    group:<набор>        набор команд (group:warps — все варп-команды; group:business — бот в личных переписках игроков)
     cmd:<команда>        одна команда («cmd:перевод»)
     notice:achievements  объявления о новых уровнях достижений
     site                 весь сайт (мини-приложение)
@@ -46,7 +46,8 @@ SITE_ALWAYS_OPEN = ("/bot-admin", "/auth", "/legal", "/support", "/api/health", 
 NOTICES = {"achievements": "🏆 Объявления о новых уровнях достижений"}
 GROUPS = {"warps": "🤗 Все варп-команды (обнять, погладить…)", "pets": "🐾 Управление питомцами", "star_dust": "🌠 Звёздная пыль",
           "ship": "💞 Шипперим: случайные пары по команде «шипирить»",
-          "article": "⚖️ Моя статья: пародийная статья про игрока"}
+          "article": "⚖️ Моя статья: пародийная статья про игрока",
+          "business": "💼 Бизнес-режим: бот в личных переписках игроков"}
 EVENTS = {"pass_race": ("🏁 Гонка за Пропуском: 50 ⭐ первым четверым",
                         "Выключено, пока не включите. Включение — старт гонки этого сезона; выплата вручную")}
 
@@ -169,6 +170,7 @@ def catalog() -> list[dict]:
     chat.append({"key": "group:ship", "title": GROUPS["ship"], "hint": "Команды «шипирить» и личные отказы"})
     chat.append({"key": "group:article", "title": GROUPS["article"], "hint": "Команда «моя статья»"})
     chat.append({"key": "group:pets", "title": GROUPS["pets"], "hint": "Все команды и кнопки питомцев"})
+    chat.append({"key": "group:business", "title": GROUPS["business"], "hint": "Telegram для бизнеса: команды «бот …» игрока в его переписках"})
     if other:
         chat.append({"key": "", "title": "Прочие команды", "items": other})
     for key, title in NOTICES.items():

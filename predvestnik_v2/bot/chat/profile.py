@@ -259,6 +259,23 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool,
     return profile_view.styled(data, look) if look else profile_view.plain(data)
 
 
+async def visiting_card(db, target: Target) -> tuple[str, skin_card.Media | None]:
+    """«Визитка» для личной переписки игрока (Telegram Business): та же карточка, что «бот я» в личке, но без кошелька
+    и без ID, без строк о семье (там чужие имена) — её видит собеседник. Картинка — график активности в стиле надетого
+    образа (None — не собралась)."""
+    look = await skins_chat.safe_card_look(db, target.user_id, target.user_id)
+    data = await _head(db, target.user_id, target, 0, False)
+    await _counters(db, data, target.user_id, target.user_id, False)
+    data.wallet.clear()
+    text = profile_view.styled(data, look) if look else profile_view.plain(data)
+    try:
+        media = await skin_card.graph_media(db, target.user_id, None, look, target.name or "", target.username)
+    except Exception as exc:
+        logger.warning(f"visiting card picture failed: {exc}")
+        media = None
+    return text, media
+
+
 def caption_len(text: str) -> int:
     """Длина подписи к фото так, как её считает Telegram: без HTML-тегов, в UTF-16.
 

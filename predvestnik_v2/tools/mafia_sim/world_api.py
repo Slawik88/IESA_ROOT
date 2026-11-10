@@ -6,6 +6,7 @@ so a bot that survives them is checked against Telegram's rules, not against a l
 """
 from __future__ import annotations
 
+import random
 import time
 from typing import Any
 
@@ -188,6 +189,12 @@ class BotApiMixin:
         del self.forum_topics[key]
         self.deleted_topics.add(key)
         return True
+
+    def _m_SendDice(self, params: dict) -> dict:
+        """A dice: stored like a captionless message; the value is random, like Telegram's."""
+        data = self._store_captionless(params)
+        data["dice"] = {"emoji": params.get("emoji") or "🎲", "value": random.randint(1, 6)}
+        return data
 
     # ── Telegram Business ───────────────────────────────────────────────────
     def _m_GetBusinessConnection(self, params: dict) -> dict:

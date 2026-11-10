@@ -88,6 +88,12 @@ async def ensure_chat_schema() -> None:
         except Exception as exc:
             from loguru import logger
             logger.exception(f"dm tickets schema failed: {exc}")
+        from infrastructure.repositories import business as business_repo
+        try:
+            await business_repo.ensure_schema(db)   # бот в личных переписках игрока, Telegram Business (S24)
+        except Exception as exc:
+            from loguru import logger
+            logger.exception(f"business schema failed: {exc}")
         from services.promo_v2 import ensure_schema as ensure_promo
         await ensure_promo(db)
         from bot.chat.achievements import ensure_schema as ensure_achievements
