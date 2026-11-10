@@ -2583,6 +2583,7 @@ async function healthOpsView(box, hours) {
       ${Object.keys(o.cache_flights || {}).length ? `<div class="sub">Загрузок топов, разделённых с параллельными запросами: ${Object.entries(o.cache_flights).map(([k, v]) => `${k === 'boards' ? 'таблицы' : 'места'} ${num(v)}`).join(' · ')}</div>` : ''}
       ${Object.entries(o.telegram_delivery || {}).map(([name, t]) => `<div class="log"><div>До обработки сообщения (${esc(name)}) <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} сообщений</div></div>`).join('')}
       ${o.telegram_delayed ? `<div class="log">Дольше 10 с до обработки: <b>${num(o.telegram_delayed)}</b></div>` : ''}
+      ${o.telegram_receipt_retries ? `<div class="log">Очередь ждала записи в базу: <b>${num(o.telegram_receipt_retries)} повторов</b></div>` : ''}
       ${Object.entries(o.telegram_api || {}).map(([name, t]) => `<div class="log"><div>Ответ Telegram: ${esc(name)} <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} вызовов · ${num(o.telegram_api_errors?.[name] || 0)} сетевых ошибок</div></div>`).join('')}
       ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram: ${esc(t.method)} <b>p95 ${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
     ${section('h-ops-routes', '🌐 Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'p50', 'p95', 'p99', '4xx / 5xx'],

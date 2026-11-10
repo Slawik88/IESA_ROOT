@@ -13,6 +13,7 @@ from loguru import logger
 from bot.config import config
 from bot.core.database import init_db
 from bot.dispatcher import attach_outbound, build_dispatcher
+from bot.middlewares.polling_delivery import PollingDelivery
 from bot.chat.payments import star_payment_reconciliation_task
 from infrastructure.database import connect_direct, create_pool
 from infrastructure.preprod import is_preprod
@@ -277,9 +278,10 @@ async def main():
     bot = Bot(token=config.bot_token)
     # Исходящие запросы (не апдейты!): соединение с базой отдаётся до вызова Telegram, затем троттлинг
     # против flood control (bot/middlewares/db.py, bot/middlewares/outbound_throttle.py).
-    attach_outbound(bot.session)
+    delivery = PollingDelivery()
+    attach_outbound(bot.session, delivery=delivery)
     logger.info("📡 Middleware, перехват ошибок обработчиков и роутеры...")
-    dp = build_dispatcher()
+    dp = build_dispatcher(delivery)
     logger.info("✅ Все роутеры подключены!")
 
     def _on_sigterm():
