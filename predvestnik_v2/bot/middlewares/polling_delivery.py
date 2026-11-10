@@ -6,8 +6,6 @@ from aiogram.methods import GetUpdates
 from loguru import logger
 
 from core import ops_metrics
-from infrastructure.database import get_pool
-from infrastructure.lazy_db import lazy_connection
 from infrastructure.repositories import update_receipts
 from services import chat_bots, membership
 
@@ -73,29 +71,39 @@ class PollingDelivery:
         if receipt is None:
             return await handler(event, data)
 
+        data["polling_receipt"] = receipt
         try:
-            message = event.message
-            counted = (message is not None and message.chat.type in ("group", "supergroup")
-                       and message.from_user and not chat_bots.is_bot(message.from_user)
-                       and not membership.is_service(message))
-            async with lazy_connection(get_pool(), source="bot") as db:
-                if not counted:
-                    if not await receipt.finish(db):
-                        return None
-                elif await update_receipts.seen(db, receipt.bot_id, receipt.update_id):
-                    receipt.complete()
-                    return None
-            if counted:
-                data["delivery_receipt"] = receipt
             result = await handler(event, data)
-            if not receipt.outcome.done():
-                # The normal route returned without counting (e.g. ignored by chat policy).
-                async with lazy_connection(get_pool(), source="bot") as db:
-                    await receipt.finish(db)
+            receipt.complete()  # Includes updates rejected before DB access by the preprod gate.
             return result
         finally:
             if not receipt.outcome.done():
                 receipt.outcome.set_result(False)
+
+    async def admit(self, handler, event, data):
+        receipt = data.pop("polling_receipt", None)
+        if receipt is None:
+            return await handler(event, data)
+
+        db = data["db"]
+        message = event.message
+        counted = (message is not None and message.chat.type in ("group", "supergroup")
+                   and message.from_user and not chat_bots.is_bot(message.from_user)
+                   and not membership.is_service(message))
+        if not counted:
+            if not await receipt.finish(db):
+                return None
+        elif await update_receipts.seen(db, receipt.bot_id, receipt.update_id):
+            receipt.complete()
+            return None
+        else:
+            data["delivery_receipt"] = receipt
+
+        result = await handler(event, data)
+        if not receipt.outcome.done():
+            # The route returned without counting, e.g. the chat is closed to the sender.
+            await receipt.finish(db)
+        return result
 
     async def message(self, handler, event, data):
         receipt = data.get("delivery_receipt")
