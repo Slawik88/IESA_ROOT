@@ -105,7 +105,9 @@ async def record_message(db, message: Message) -> None:
     if chat_bots.is_bot(user):   # боты и служебные аккаунты Telegram не участники: в топы и чистку не попадают, но признак запоминаем
         await chat_bots.observe(db, user)
         return
-    day = local_now().strftime("%Y-%m-%d")
+    sent_at = getattr(message, "date", None)
+    # Telegram can deliver a message after the local day (or week) has changed.
+    day = (sent_at.astimezone(timezone.utc) + tz_delta()).date() if sent_at else local_now().date()
     # Identity rows are rewritten only when the nick, name or title really changed (S04): an UPDATE that sets the same
     # nick still fired users_live_profile_v1, and every chat message made the author's open Mini App reload the profile.
     await db.execute(
@@ -124,23 +126,24 @@ async def record_message(db, message: Message) -> None:
         "WHERE chat_settings.chat_title IS DISTINCT FROM EXCLUDED.chat_title OR chat_settings.bot_left_at IS NOT NULL",
         (chat.id, chat.title),
     )
-    await db.execute(
-        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, user_messages_count_all_time, is_left) "
-        "VALUES (?, ?, 1, FALSE) "
-        "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET "
-        "user_messages_count_all_time = user_chat_stats.user_messages_count_all_time + 1, "
-        "last_message_at = NOW(), is_left = FALSE, "
-        "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
-        "ELSE user_chat_stats.rejoined_at END",
-        (user.id, chat.id),
-    )
+    async with db.connection.transaction():
+        await db.execute(
+            "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, user_messages_count_all_time, is_left) "
+            "VALUES (?, ?, 1, FALSE) "
+            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET "
+            "user_messages_count_all_time = user_chat_stats.user_messages_count_all_time + 1, "
+            "last_message_at = NOW(), is_left = FALSE, "
+            "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
+            "ELSE user_chat_stats.rejoined_at END",
+            (user.id, chat.id),
+        )
+        await db.execute(
+            "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (?, ?, ?, 1) "
+            "ON CONFLICT (user_id, chat_id, date) DO UPDATE SET "
+            "message_count = daily_user_stats.message_count + 1",
+            (user.id, chat.id, day.isoformat()),
+        )
     await member_tags.observe_message(db, message)   # тег автора приходит в каждом сообщении; пишем, только если он сменился
-    await db.execute(
-        "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (?, ?, ?, 1) "
-        "ON CONFLICT (user_id, chat_id, date) DO UPDATE SET "
-        "message_count = daily_user_stats.message_count + 1",
-        (user.id, chat.id, day),
-    )
     await touch_streak(db, user.id)
     commit = getattr(db, "commit", None)
     if commit:

@@ -37,7 +37,8 @@ from aiogram.client.session.middlewares.base import (
     BaseRequestMiddleware,
     NextRequestMiddlewareType,
 )
-from aiogram.exceptions import TelegramRetryAfter
+from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter, TelegramServerError
+from aiogram.methods import GetUpdates
 from aiogram.methods.base import TelegramType
 
 from core import ops_metrics
@@ -56,6 +57,7 @@ _GLOBAL_MAX_PER_SEC = 25
 # ровно столько, сколько просит Telegram, и повторяем. Без этого одно
 # исключение теряет ответ пользователю насовсем.
 _MAX_RETRY_ATTEMPTS = 3
+_POLL_TRANSPORT_GRACE_SEC = 10.0
 # Периодическая чистка очередей давно неактивных чатов — иначе dict
 # растёт вечно по числу когда-либо писавших чатов (утечка на долгом аптайме).
 _PRUNE_EVERY_SEC = 120.0
@@ -167,8 +169,20 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
 
         attempt = 0
         while True:
+            request_started = time.perf_counter()
             try:
-                return await make_request(bot, method)
+                try:
+                    request = make_request(bot, method)
+                    if isinstance(method, GetUpdates):
+                        # Allow the requested long poll plus a transport margin. On failure
+                        # aiogram polls again using the same offset and its existing backoff.
+                        return await asyncio.wait_for(request, (method.timeout or 0) + _POLL_TRANSPORT_GRACE_SEC)
+                    return await request
+                finally:
+                    ops_metrics.observe("telegram_api", name, (time.perf_counter() - request_started) * 1000)
+            except (TimeoutError, TelegramNetworkError, TelegramServerError):
+                ops_metrics.count("telegram_api_error", name)
+                raise
             except TelegramRetryAfter as e:
                 attempt += 1
                 if attempt > _MAX_RETRY_ATTEMPTS:

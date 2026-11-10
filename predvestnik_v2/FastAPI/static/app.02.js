@@ -7,9 +7,16 @@ function _profileDate(value){
   const parsed=new Date(value);
   return Number.isNaN(parsed.getTime())?_profileEsc(String(value).replace('T',' ').slice(0,16)):parsed.toLocaleDateString('ru-RU');
 }
+let _profileLoadGeneration = 0;
+
 function loadProfile() {
-  setTimeout(v3PaintCachedProfile, 0);   // после загрузки всех частей скрипта (loadProfile вызывается раньше app.15–19): кэш или скелет
+  const generation = ++_profileLoadGeneration;
+  // Первый вызов идёт до объявления функций и состояния остальных частей профиля.
+  setTimeout(() => {
+    if (generation === _profileLoadGeneration && !el('pv-profile-retry')) v3PaintCachedProfile();
+  }, 0);
   return api('/profile/me').then(d=>{
+    if (generation !== _profileLoadGeneration) return;
     if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
@@ -24,6 +31,7 @@ function loadProfile() {
     // turn it into the misleading “write the bot to create a profile” state.
     try { _applySysFlags(d.system_flags); } catch (_) {}
     el('pro-main').innerHTML=renderProfileHome(d);
+    window.PVDiagnostics?.profileReady?.();
     if(typeof v3EnterSync==='function')v3EnterSync(el('pro-main'));   // перерисовка не перезапускает каскад секций
     try { checkWhatsNewBadge(); } catch (_) {}
     try { passCheck(); } catch (_) {}   // точка на вкладке «Игры», пока есть что забрать из пропуска сезона (app.43.js)
@@ -32,7 +40,20 @@ function loadProfile() {
     try { _tosGate(d); } catch (_) {}
     try { if(!_ws && _uid) connectWS(); } catch (_) {}
     try { updateCurrBar(d); if(d.is_vip){if(_validAvatar(d.avatar))_vipAvatar=d.avatar;_ensureVipAvatar(d.avatar_state);} } catch (_) {}
-  }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
+  }).catch(error => {
+    if (generation !== _profileLoadGeneration || !el('login-ov')?.classList.contains('hidden')) return;
+    const host = el('pro-main');
+    if (!host) return;
+    host.querySelector('#pv-profile-retry')?.remove();
+    host.querySelectorAll('.sk').forEach(node => node.remove());
+    host.insertAdjacentHTML('afterbegin', '<div id="pv-profile-retry" class="v3-empty"><p role="status">Не удалось обновить профиль.</p><button type="button" class="btn btn-ghost" style="min-height:44px">Повторить загрузку</button></div>');
+    if (typeof error === 'string') host.querySelector('#pv-profile-retry p').textContent = error;
+    host.querySelector('#pv-profile-retry button').onclick = event => {
+      event.currentTarget.disabled = true;
+      event.currentTarget.textContent = 'Загружаем профиль…';
+      loadProfile();
+    };
+  });
 }
 
 function openBotAdmin(){

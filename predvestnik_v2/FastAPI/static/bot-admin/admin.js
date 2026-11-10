@@ -2581,6 +2581,9 @@ async function healthOpsView(box, hours) {
       ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
       ${(o.pool_hold || []).map(p => `<div class="log"><div>Удержание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} циклов «взял — сделал запрос — отдал»</div></div>`).join('')}
       ${Object.keys(o.cache_flights || {}).length ? `<div class="sub">Загрузок топов, разделённых с параллельными запросами: ${Object.entries(o.cache_flights).map(([k, v]) => `${k === 'boards' ? 'таблицы' : 'места'} ${num(v)}`).join(' · ')}</div>` : ''}
+      ${Object.entries(o.telegram_delivery || {}).map(([name, t]) => `<div class="log"><div>До обработки сообщения (${esc(name)}) <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} сообщений</div></div>`).join('')}
+      ${o.telegram_delayed ? `<div class="log">Дольше 10 с до обработки: <b>${num(o.telegram_delayed)}</b></div>` : ''}
+      ${Object.entries(o.telegram_api || {}).map(([name, t]) => `<div class="log"><div>Ответ Telegram: ${esc(name)} <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} вызовов · ${num(o.telegram_api_errors?.[name] || 0)} сетевых ошибок</div></div>`).join('')}
       ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram: ${esc(t.method)} <b>p95 ${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
     ${section('h-ops-routes', '🌐 Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'p50', 'p95', 'p99', '4xx / 5xx'],
       o.routes.map(r => [esc(r.route), num(r.count), ms(r.p50), ms(r.p95), ms(r.p99), `${num(r.e4)} / ${r.e5 ? `<b>${num(r.e5)}</b>` : 0}`])) : none('Запросов не было.'), {fold: true, open: false, count: num(o.http_total)})}
@@ -2588,6 +2591,7 @@ async function healthOpsView(box, hours) {
       `<div class="log"><div>${esc(AUTH_REASONS[r.reason] || r.reason)} <b>${num(r.count)}</b></div><div class="sub">${esc(r.reason)}</div></div>`).join('') : none('Отказов не было.'), {fold: true, open: o.auth_401.length > 0})}
     ${section('h-ops-client', '📱 Ошибки у игроков в приложении', `
       ${c.by_type.length ? c.by_type.map(t => `<div class="log"><div>${esc(CLIENT_TYPES[t.type] || t.type)} <b>${num(t.count)}</b></div><div class="sub">у ${num(t.sessions)} открытий приложения</div></div>`).join('') : none('Ошибок не было.')}
+      ${o.client_timeouts ? `<div class="log">Превышено время ожидания: <b>${num(o.client_timeouts)}</b></div>` : ''}
       ${c.boot.count ? `<div class="log"><div>Запуск до профиля <b>p50 ${ms(c.boot.p50_ms)}</b> · p95 ${ms(c.boot.p95_ms)}</div><div class="sub">${num(c.boot.count)} запусков</div></div>` : ''}
       ${c.by_version.length ? `<div class="sub">По версиям: ${c.by_version.map(v => `${esc(v.version)} — ${num(v.count)}`).join(' · ')}</div>` : ''}
       ${c.top.length ? `<h4 class="sub">Повторяются чаще всего</h4>` + c.top.map(t => `<div class="log"><div>${esc(CLIENT_TYPES[t.type] || t.type)}${t.status != null ? ` · ${t.status}` : ''} <b>×${num(t.count)}</b></div>

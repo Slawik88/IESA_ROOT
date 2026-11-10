@@ -370,3 +370,5 @@ function openGuide(id, block, returnTo) {
 _backHooks.push(() => _activePage === 'help' && gvBack());
 // Возврат из игры системным «Назад» достаёт страницу из памяти браузера с экраном «Открываем…» (_gvLeave): рисуем тему заново.
 addEventListener('pageshow', e => { if (e.persisted && _activePage === 'help' && _GV.data) gvPaint(); });
+
+window.pvFinishBoot?.();

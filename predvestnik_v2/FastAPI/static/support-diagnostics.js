@@ -122,7 +122,6 @@
   }
   setTimeout(() => sendBootTiming(undefined), 20000);   // the profile never arrived: timing without "ready"
   if (!window.Telegram?.WebApp) telemetry.send('sdk_missing', {message: /tgWebApp(Data|Platform|Version)=/.test(location.hash + location.search) ? 'opened in Telegram' : 'browser'});
-  else if (window.__pvTelegramSdk === 'fallback') telemetry.send('sdk_missing', {message: 'local copy loaded'});   // telegram.org failed, index.html's copy works
   function errorData(error, file, line, column) {
     const name = error?.name || 'Error';
     const frames = [...String(error?.stack || '').matchAll(/(?:https?:\/\/[^\s)]+\/)?([A-Za-z0-9_.-]{1,80}\.js)(?:\?[^\s):]*)?:(\d+):(\d+)/g)].slice(0,8).map(m => `${m[1]}:${m[2]}:${m[3]}`);
@@ -148,7 +147,6 @@
       if (response.status >= 500 || response.status === 401) issue();
       if (response.status >= 500 || response.status === 401 || took >= 15000)
         telemetry.send('fetch_fail',{path:routeName(route),status:response.status,ms:took,timeout:took >= 15000});
-      if (relative === '/profile/me') sendBootTiming(Math.round(performance.now()-bootStarted));
       // Only these booleans are read from JSON. Names, photos, messages and bodies are never retained.
       if (response.ok && ['/profile/avatar','/profile/me'].includes(relative)) {
         response.clone().json().then(data => {
@@ -231,7 +229,14 @@
     return env;
   }
   async function snapshot() { const env = await environment(); bind(); trim(); return {captured_at:Date.now(),environment:env,events:events.map(e => ({at:e.at,kind:e.kind,data:clean(e.data)})),dropped_events:dropped}; }
-  window.PVDiagnostics = {record,snapshot,owner:() => { bind(); return owner; },credentials,nativeFetch,base,version,safeText,flush,telemetry:telemetry.send};
+  window.PVDiagnostics = {record,snapshot,owner:() => { bind(); return owner; },credentials,nativeFetch,base,version,safeText,flush,telemetry:telemetry.send,
+    requestTimedOut: (path, ms) => {
+      const route = routeName(path);
+      record('request', {route, status:0, duration_ms:ms, error_kind:'Timeout'});
+      issue();
+      telemetry.send('fetch_fail', {path:route, status:0, ms, timeout:true, message:'Timeout'});
+    },
+    profileReady: () => sendBootTiming(Math.round(performance.now()-bootStarted))};
   setInterval(() => { if (events.length && events[0].at < Date.now()-WINDOW) flush(); },60000);
   record('lifecycle',{state:'open',page:routeName(location.href)});
 })();

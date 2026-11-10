@@ -67,7 +67,38 @@ async def main():
         assert await ranks.can(db, -100, 42, "rights")          # разработчик
         assert await ranks.get_rank(db, -100, 42) == ranks.DEV_LEVEL
         await moderation_flow(db)
+        await delayed_message_flow(db)
     print("OK: chat bot on PostgreSQL")
+
+
+async def delayed_message_flow(db):
+    from datetime import datetime, time, timedelta, timezone
+
+    from asyncpg import CheckViolationError
+    from bot.chat.tracking import local_now, record_message, tz_delta
+
+    yesterday = local_now().date() - timedelta(days=1)
+    sent_at = datetime.combine(yesterday, time(23, 59), tzinfo=timezone.utc) - tz_delta()
+    delayed = msg(89001, -89001, "delayed")
+    delayed.date = sent_at
+    await record_message(db, delayed)
+    conn = db.connection
+    counts = await conn.fetch("SELECT date, message_count FROM daily_user_stats WHERE user_id=$1", delayed.from_user.id)
+    assert [tuple(row) for row in counts] == [(yesterday.isoformat(), 1)], counts
+
+    # Force the second write to fail. Lifetime must still match the daily count.
+    await conn.execute("ALTER TABLE daily_user_stats ADD CONSTRAINT test_message_write CHECK (message_count <= 1) NOT VALID")
+    try:
+        try:
+            await record_message(db, delayed)
+        except CheckViolationError:
+            pass
+        else:
+            raise AssertionError("the test constraint should reject the daily update")
+    finally:
+        await conn.execute("ALTER TABLE daily_user_stats DROP CONSTRAINT test_message_write")
+    total = await conn.fetchval("SELECT user_messages_count_all_time FROM user_chat_stats WHERE user_tg_id=$1", delayed.from_user.id)
+    assert total == 1, total
 
 
 class FakeBot:

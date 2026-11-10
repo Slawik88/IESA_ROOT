@@ -108,6 +108,7 @@ Windows (Europe/Berlin), теперь скрипт дописывает `timezon
 | `/api/health/deep` | пинг базы с таймаутом 2 с (503, если база недоступна) и свежесть метрик (`status: degraded`, если сборщик не работает) | людям и внешнему мониторингу; **не ставить** проверкой живости в панели |
 
 Цифры для владельца: админка → «Состояние» → блок «Здоровье» (1 ч / 24 ч / 7 дн, хранится 14 дней, перезапуск не обнуляет). Там: лаг сервера, ожидание и занятость пула, очередь в Telegram, самые медленные запросы, причины 401, ошибки у игроков в приложении (по типам, версиям, повторяющиеся), **ошибки бота по обработчикам**.
+«Здоровье» показывает время от отправки сообщения до начала его обработки, время ответа Bot API и таймауты Mini App. Тревоги учитывают пачки задержанных сообщений, сетевые ошибки опроса Telegram и таймауты клиентов. Запрос обновлений ждёт срок опроса Telegram плюс 10 секунд на сеть. При обрыве aiogram повторяет опрос со своей задержкой.
 Устройство: `core/ops_metrics.py` (счётчики в памяти), `services/ops_health.py` (сборщик, тревоги, сводка; пороги — константы в начале файла), `infrastructure/repositories/ops_telemetry.py` (таблицы `ops_metrics_5m`, `client_telemetry_events`, `bot_handler_errors`), приём ошибок Mini App — `POST /telemetry` (`FastAPI/routers/telemetry.py`, клиент — `FastAPI/static/support-diagnostics.js`), перехват ошибок бота — `bot/dispatcher.py` (общий для бота и симулятора).
 
 ```bash
@@ -129,7 +130,7 @@ node tools/test_avatar_recovery_ui.js && node tools/test_leaderboard_avatar_ui.j
 ```
 
 Устройство: фото — `services/avatar_photos.py` (правила, состояния `ready/loading/absent/vip_only`), таблица `avatar_photos` (`infrastructure/repositories/avatar_photos.py`), Telegram — `infrastructure/telegram_photo.py`.
-Копия Telegram SDK — `FastAPI/static/vendor/telegram-web-app.js` (заменять целиком новой версией официального файла, не править).
+Mini App загружает Telegram SDK из `FastAPI/static/vendor/telegram-web-app.js` со своего домена. Копию заменяем целиком при обновлении SDK. Таймаут запроса действует до чтения тела ответа.
 
 ## Пул базы и троттлер Telegram (с S03)
 

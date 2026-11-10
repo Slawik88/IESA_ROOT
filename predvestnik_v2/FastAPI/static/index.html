@@ -3,7 +3,27 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,viewport-fit=cover"/>
-<script src="{{BASE}}/static/page-transitions.js?v={{ASSET_VER}}"></script>
+<script>
+(function () {
+  window.pvShowBootFailure = (timedOut = false) => {
+    const dialog = document.getElementById('pv-boot-failure');
+    if (!dialog || dialog.open) return;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    window.PVDiagnostics?.telemetry('fetch_fail', {path:'/static/app.js', status:0, message:'StartupBlocked', timeout:timedOut});
+  };
+  const deadline = setTimeout(() => window.pvShowBootFailure(true), 15000);
+  window.pvFinishBoot = () => {
+    clearTimeout(deadline);
+    const dialog = document.getElementById('pv-boot-failure');
+    if (dialog?.open) {
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+    }
+  };
+})();
+</script>
+<script defer src="{{BASE}}/static/page-transitions.js?v={{ASSET_VER}}"></script>
 <script>
 // Кнопка «🛠 Открыть админку» в группе ведёт сюда с параметром admin: сразу в админку, не показывая приложение.
 // Хеш с данными запуска Telegram переносим, чтобы админка получила вход без повторной авторизации.
@@ -11,19 +31,15 @@
   if((p[0]==='tgWebAppStartParam'||p[0]==='startapp')&&/^admin(_|$)/.test(decodeURIComponent(p[1]||''))){location.replace('{{BASE}}/bot-admin'+location.hash);return;}}}catch(e){}})();
 </script>
 <title>Предвестник</title>
+<script>window.__pvSceneArt={{SCENE_ART}};</script>
 <link rel="manifest" href="./manifest.json"/>
 <meta name="theme-color" content="#08090c"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script>
-// telegram.org is unreachable for some players: the app then loads its own copy of the SDK (same file, served by us).
-if(!(window.Telegram&&window.Telegram.WebApp)){window.__pvTelegramSdk='fallback';document.write('<script src="{{BASE}}/static/vendor/telegram-web-app.js?v={{ASSET_VER}}"><\/script>');}
-</script>
+<script defer src="{{BASE}}/static/vendor/telegram-web-app.js?v={{ASSET_VER}}"></script>
 <meta name="pv-release" content="{{RELEASE}}"/>
 <meta name="pv-bot" content="{{BOT_USERNAME}}"/>
-<script src="{{BASE}}/static/support-diagnostics.js?v={{ASSET_VER}}"></script>
-<script defer src="{{BASE}}/static/support-feedback.js?v={{ASSET_VER}}"></script>
+<script defer src="{{BASE}}/static/support-diagnostics.js?v={{ASSET_VER}}"></script>
 <script>
 // Стили экранов, которых нет на первом экране (media="print" и onload ниже), не держат первую отрисовку и запуск скрипта: грузятся параллельно.
 // Пока они не пришли, на <html> висит pv-css-wait: заставка не уходит, всплывающие окна прозрачны (app.css), ссылка из чата ждёт (pvLateCss.then).
@@ -63,7 +79,6 @@ setTimeout(go,12000);})();
 <link rel="stylesheet" href="{{BASE}}/static/skin-sig-d-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-scene-v3.css?v={{ASSET_VER}}"/>
 <!-- Картинки сцен образов (skin-scene-a…g-v3.css) не подключаются здесь: сцена сама запрашивает свой файл (apScene, app.35.js). Новый файл картинок — только в _SKIN_SCENE_ART (FastAPI/main.py). -->
-<script>window.__pvSceneArt={{SCENE_ART}};</script>
 <link rel="stylesheet" href="{{BASE}}/static/public-card-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/collect-v3.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
 <link rel="stylesheet" href="{{BASE}}/static/toast-v3.css?v={{ASSET_VER}}"/>
@@ -99,6 +114,12 @@ setTimeout(go,12000);})();
 </div>
 
 
+
+<dialog id="pv-boot-failure" aria-labelledby="pv-boot-message" oncancel="event.preventDefault()"
+  style="max-width:min(22rem,calc(100% - 2rem));padding:1.25rem;background:#181922;color:#fff;border:1px solid #a698c0;border-radius:1rem">
+  <p id="pv-boot-message" role="status">Не удалось открыть Предвестник.</p>
+  <button type="button" class="btn btn-ghost" style="min-height:44px" onclick="location.reload()">Повторить загрузку</button>
+</dialog>
 
 <!-- ═══ Постоянная панель: уровень, ресурсы и «Что нового» всегда под рукой ═══ -->
 <header class="v3-bar" id="v3-bar">
@@ -233,12 +254,13 @@ setTimeout(go,12000);})();
 </nav>
 
 <link rel="stylesheet" href="{{BASE}}/static/coin-market-v2.css?v={{ASSET_VER}}" media="print" onload="pvLateCss(this)" onerror="pvLateCss(this)"/>
-<script src="{{BASE}}/static/coin-market-chart.js?v={{ASSET_VER}}"></script>
-<script src="{{BASE}}/static/coin-market-v2.js?v={{ASSET_VER}}"></script>
-<script src="{{BASE}}/static/nickname-v3.js?v={{ASSET_VER}}"></script>
-<script src="{{BASE}}/static/game-board-v3.js?v={{ASSET_VER}}"></script>
+<script defer src="{{BASE}}/static/coin-market-chart.js?v={{ASSET_VER}}"></script>
+<script defer src="{{BASE}}/static/coin-market-v2.js?v={{ASSET_VER}}"></script>
+<script defer src="{{BASE}}/static/nickname-v3.js?v={{ASSET_VER}}"></script>
+<script defer src="{{BASE}}/static/game-board-v3.js?v={{ASSET_VER}}"></script>
 <link rel="stylesheet" href="{{BASE}}/static/desktop-v3.css?v={{ASSET_VER}}"/>
-<script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>
+<script defer src="{{BASE}}/static/app.js?v={{ASSET_VER}}" onerror="pvShowBootFailure()"></script>
+<script defer src="{{BASE}}/static/support-feedback.js?v={{ASSET_VER}}"></script>
 <!-- БЛОК 25: dev-оверлей — самодеактивируется для не-разработчиков (гейт на бэке) -->
 </body>
 </html>

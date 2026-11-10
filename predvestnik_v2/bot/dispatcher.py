@@ -3,12 +3,15 @@
 Both must see the same middlewares and the same error monitor, otherwise a simulated
 handler failure would never reach the health counters.
 """
+from datetime import datetime, timezone
+
 from aiogram import Dispatcher
 from aiogram.dispatcher.event.bases import UNHANDLED
-from aiogram.types import ErrorEvent
+from aiogram.types import ErrorEvent, Update
 from loguru import logger
 
 from bot.handlers import main_router
+from core import ops_metrics
 from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.db import DbReleaseMiddleware, db_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
@@ -25,8 +28,19 @@ async def note_handler_error(event: ErrorEvent):
     return UNHANDLED   # the original exception is re-raised and logged by aiogram unchanged
 
 
+async def measure_update_delivery(handler, event: Update, data):
+    # Callback and edit payloads can refer to arbitrarily old messages.
+    if event.message is not None:
+        age_ms = (datetime.now(timezone.utc) - event.message.date).total_seconds() * 1000
+        ops_metrics.observe("telegram_delivery", event.message.chat.type, max(0, age_ms))
+        if age_ms >= ops_health.TELEGRAM_DELIVERY_SLOW_MS:
+            ops_metrics.count("telegram_delayed", "message")
+    return await handler(event, data)
+
+
 def build_dispatcher() -> Dispatcher:
     dp = Dispatcher()
+    dp.update.outer_middleware(measure_update_delivery)
     dp.update.middleware(config_middleware)
     # Keep non-allowlisted users outside DB and business middleware when the
     # temporary Cloudflare-backed test bot is publicly reachable.

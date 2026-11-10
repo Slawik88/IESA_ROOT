@@ -100,7 +100,7 @@ async def on_edited_message(message: Message, bot, db) -> None:
 async def on_message(message: Message, bot, db) -> None:
     """Каждое сообщение: закрытый чат, учёт активности, затем команда."""
     from loguru import logger
-    from services import feature_switches
+    from services import feature_switches, ops_health
     from core import official_updates as official_policy
     if (message.chat.id == official_policy.CHAT_ID and message.is_topic_message
             and message.message_thread_id == official_policy.THREAD_ID):
@@ -130,6 +130,7 @@ async def on_message(message: Message, bot, db) -> None:
         try:
             await record_message(db, message)
         except Exception as exc:
+            ops_health.record_bot_error(exc, "message_tracking")
             logger.warning(f"message tracking failed: {exc}")
         await dispatch(registry, message, bot, db)   # выключатель пропустит только «бот админка»
         return
@@ -151,6 +152,7 @@ async def on_message(message: Message, bot, db) -> None:
             from services import dm_push
             await dm_push.confirm_contact(db, message.from_user.id)   # личка подтверждена, пауза «без отклика» снята
     except Exception as exc:  # учёт не должен ломать команды
+        ops_health.record_bot_error(exc, "message_tracking")
         logger.warning(f"message tracking failed: {exc}")
     try:
         await mafia.after_message(db, bot, message)

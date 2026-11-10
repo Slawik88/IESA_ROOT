@@ -10,6 +10,8 @@ Sources (all in-process, see ``core/ops_metrics.py``):
                  db_refused counts samples the server refused for lack of free connections
   loop_lag       event-loop delay, sampled every second
   throttle_wait  waiting for the outbound Telegram throttler, per Bot API method
+  telegram_delivery  message age when aiogram starts processing it, by chat type
+  telegram_api       Bot API round trip per method, excluding local queue and flood retry sleeps
   auth_401       why the Mini App refused a request (FastAPI/deps.py, AUTH_REASONS)
   client         anonymous events from the Mini App (POST /telemetry), stored per event for 14 days
   bot_error      exceptions in aiogram handlers, per handler and exception type (bot/dispatcher.py)
@@ -65,6 +67,10 @@ HTTP_5XX_MIN = 20
 HTTP_5XX_SHARE = 0.05
 CLIENT_ERRORS_MIN = 50
 BOT_ERRORS_MIN = 10
+TELEGRAM_DELIVERY_SLOW_MS = 10_000
+DELIVERY_ALERT_MIN = 3
+POLL_ERROR_ALERT_MIN = 3
+CLIENT_TIMEOUT_ALERT_MIN = 3
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _FRAME = re.compile(r"[\w.-]{1,80}\.js:\d{1,7}:\d{1,7}")
@@ -163,6 +169,8 @@ def accept_client_events(ip: str, payload: dict) -> tuple[int, bool]:
         _limits.global_minute += 1
         event = _client_event(raw, common, now)
         ops_metrics.count("client", event["type"])
+        if event["type"] == "fetch_fail" and (event["detail"] or {}).get("timeout"):
+            ops_metrics.count("client_timeout", "request")
         accepted += 1
         if _limits.stored_today >= STORED_PER_DAY:
             ops_metrics.count("client_dropped", "daily_cap")
@@ -367,6 +375,15 @@ def alerts_for(window: ops_metrics.Window) -> list[tuple[str, str]]:
     client = sum(c for (kind, name), c in window.counters.items() if kind == "client" and name in CLIENT_ERROR_TYPES)
     if client >= CLIENT_ERRORS_MIN:
         found.append(("client", f"Всплеск ошибок у игроков в приложении: {client} за 5 минут."))
+    delayed = window.counters.get(("telegram_delayed", "message"), 0)
+    if delayed >= DELIVERY_ALERT_MIN:
+        found.append(("telegram_delayed", f"Telegram: {delayed} сообщений ждали обработки больше 10 с за 5 минут."))
+    poll_errors = window.counters.get(("telegram_api_error", "GetUpdates"), 0)
+    if poll_errors >= POLL_ERROR_ALERT_MIN:
+        found.append(("telegram_poll", f"Telegram: {poll_errors} сетевых ошибок при получении обновлений за 5 минут."))
+    client_timeouts = window.counters.get(("client_timeout", "request"), 0)
+    if client_timeouts >= CLIENT_TIMEOUT_ALERT_MIN:
+        found.append(("client_timeout", f"Приложение: {client_timeouts} запросов у игроков превысили время ожидания за 5 минут."))
     bot_errors = {name: c for (kind, name), c in window.counters.items() if kind == "bot_error"}
     if sum(bot_errors.values()) >= BOT_ERRORS_MIN:
         top = max(bot_errors, key=bot_errors.get)
@@ -446,6 +463,12 @@ async def dashboard(db, hours: int) -> dict:
                       for name in ("total", "ours", "limit")} | {"refused": sum(counts("db_refused").values())},
         "throttle": sorted(({"method": n, **_stat(s)} for n, s in by_kind("throttle_wait").items()),
                            key=lambda r: (r["p95"], r["count"]), reverse=True)[:6],
+        "telegram_delivery": {n: _stat(s) for n, s in by_kind("telegram_delivery").items()},
+        "telegram_delayed": sum(counts("telegram_delayed").values()),
+        "telegram_api": {n: _stat(s) for n, s in by_kind("telegram_api").items()
+                         if n == "GetUpdates" or n.startswith(("Send", "Edit", "AnswerCallback"))},
+        "telegram_api_errors": counts("telegram_api_error"),
+        "client_timeouts": sum(counts("client_timeout").values()),
         "routes": routes[:12],
         "http_total": sum(r["count"] for r in routes), "http_5xx": sum(e5.values()), "http_4xx": sum(e4.values()),
         "auth_401": sorted(({"reason": n, "count": c} for n, c in counts("auth_401").items()),
