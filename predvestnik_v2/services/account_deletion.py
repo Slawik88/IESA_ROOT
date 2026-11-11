@@ -261,7 +261,8 @@ async def _mark_deleted_without_market_obligations(db, user_id: int) -> bool:
 # Created lazily by the global-skin repository; absent table = nothing to delete.
 # Every other table must exist: a missing one fails the whole finalization.
 _OPTIONAL_FINALIZE_TABLES = frozenset({"global_skin_v1_selection", "global_skin_v1_owned", "support_reports", "dm_tickets",
-                                       "business_connections"})
+                                       "business_connections", "business_settings", "business_usage", "business_partner_optout",
+                                       "business_remotes", "pair_games"})
 
 _FINALIZE_STEPS = [
     ("pets", "DELETE FROM pets WHERE owner_id = ?"),
@@ -269,6 +270,11 @@ _FINALIZE_STEPS = [
     ("support_reports", "DELETE FROM support_reports WHERE user_id = ?"),
     ("dm_tickets", "DELETE FROM dm_tickets WHERE user_id = ?"),   # обращения к администрации (S23b): личный текст
     ("business_connections", "DELETE FROM business_connections WHERE user_id = ?"),   # бот в переписках (S24); каскадом — включённые переписки
+    ("business_settings", "DELETE FROM business_settings WHERE user_id = ?"),         # настройки бота в переписках (S29a)
+    ("business_usage", "DELETE FROM business_usage WHERE user_id = ?"),
+    ("business_partner_optout", "DELETE FROM business_partner_optout WHERE user_id = ?"),
+    ("business_remotes", "UPDATE business_remotes SET partner_name = '' WHERE chat_id = ?"),   # имя удалённого как собеседника
+    ("pair_games", "UPDATE pair_games SET names = '{}'::jsonb WHERE ? IN (owner_id, partner_id)"),   # запись о жетонах остаётся, имена — нет
     ("global_skin_v1_selection", "DELETE FROM global_skin_v1_selection WHERE user_id = ?"),
     ("global_skin_v1_owned", "DELETE FROM global_skin_v1_owned WHERE user_id = ?"),
     ("user_cosmetics", "DELETE FROM user_cosmetics WHERE user_id = ?"),

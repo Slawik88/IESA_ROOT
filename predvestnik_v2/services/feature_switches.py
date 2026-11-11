@@ -8,6 +8,7 @@
     all                  весь бот в чатах
     section:<раздел>     раздел «бот помощь» (games, social, moderation…)
     group:<набор>        набор команд (group:warps — все варп-команды; group:business — бот в личных переписках игроков)
+    business:<функция>   часть бота в переписках (business:games, business:bets) — только глобально
     cmd:<команда>        одна команда («cmd:перевод»)
     notice:achievements  объявления о новых уровнях достижений
     site                 весь сайт (мини-приложение)
@@ -170,7 +171,9 @@ def catalog() -> list[dict]:
     chat.append({"key": "group:ship", "title": GROUPS["ship"], "hint": "Команды «шипирить» и личные отказы"})
     chat.append({"key": "group:article", "title": GROUPS["article"], "hint": "Команда «моя статья»"})
     chat.append({"key": "group:pets", "title": GROUPS["pets"], "hint": "Все команды и кнопки питомцев"})
-    chat.append({"key": "group:business", "title": GROUPS["business"], "hint": "Telegram для бизнеса: команды «бот …» игрока в его переписках"})
+    chat.append({"key": "group:business", "title": GROUPS["business"], "hint": "Telegram для бизнеса: команды «бот …» игрока в его переписках",
+                 "items": [{"key": "business:games", "title": "🎮 Игры вдвоём в переписках", "hint": "Камень-ножницы-бумага, кубики, крестики-нолики"},
+                           {"key": "business:bets", "title": "🎰 Игры на жетоны в переписках", "hint": "Ставки жетонами казино; без них игры остаются"}]})
     if other:
         chat.append({"key": "", "title": "Прочие команды", "items": other})
     for key, title in NOTICES.items():

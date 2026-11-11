@@ -159,6 +159,11 @@ async def maintenance_task(bot: Bot) -> None:
                     await onboarding.send_reminders(bot, db)
                 except Exception as onboarding_error:
                     logger.warning(f"onboarding reminders failed: {onboarding_error}")
+                try:   # игры вдвоём в переписках: брошенные на сутки закрыть и вернуть жетоны (S29a)
+                    from bot.chat import pair_cards
+                    await pair_cards.expire(bot, db)
+                except Exception as pair_error:
+                    logger.warning(f"pair games expiry failed: {pair_error}")
                 try:   # «Гонка за Пропуском»: место, о котором владельцу ещё не написали (запасной путь к фоновой отправке)
                     from services import pass_race
                     await pass_race.announce_pending(db)

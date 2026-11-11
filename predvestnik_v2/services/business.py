@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from core import business as rules
+from core import business_settings as features
 from infrastructure.repositories import business as repo
 
 
@@ -46,6 +47,12 @@ async def remember_connection(db, *, connection_id: str, user_id: int, user_chat
     """Обновление связи от Telegram: 'new' — подключил впервые, 'updated' — поменял настройки, 'dropped' — отключил
     (все данные связи удалены), 'gone' — отключение уже учтено."""
     if not enabled:
+        from loguru import logger
+        from services import pair_games   # сначала вернуть замороженные жетоны открытых партий, потом стереть связь
+        try:
+            await pair_games.cancel_for_connection(db, connection_id)
+        except Exception as exc:   # жетоны всё равно вернёт обслуживание через сутки; связь стираем в любом случае
+            logger.warning(f"pair games refund on disconnect failed: {type(exc).__name__}: {exc}")
         return "dropped" if await repo.drop_connection(db, connection_id) else "gone"
     return "new" if await repo.save_connection(db, connection_id, user_id, user_chat_id, can_reply) else "updated"
 
@@ -64,7 +71,7 @@ async def command_for(db, *, connection: dict, sender_id: int, chat_id: int, mes
     found = rules.parse(text)
     if found is None:
         return None
-    if found[0] not in ("on", "help") and not await repo.chat_enabled(db, connection["id"], chat_id):
+    if found[0] not in rules.ALWAYS and not await repo.chat_enabled(db, connection["id"], chat_id):
         return None
     if not await repo.mark_handled(db, connection["id"], chat_id, message_id, rules.HANDLED_KEEP_HOURS):
         return None
@@ -86,3 +93,73 @@ async def transfer_target(db, user_id: int) -> str:
         return "stranger"
     return "deleting" if found["deleting"] else "ok"
 
+
+# ── S29a: настройки, пульт, отказы собеседника ──────────────────────────────
+
+async def global_settings(db, user_id: int) -> dict[str, bool]:
+    """Общие настройки игрока: по каждой функции итоговое значение (с учётом умолчаний)."""
+    stored = await repo.settings(db, user_id)
+    return {key: features.resolve(key, None, stored.get(key)) for key in features.ORDER}
+
+
+async def chat_overrides(db, connection_id: str, chat_id: int) -> dict[str, bool]:
+    """Что игрок выставил отдельно для этой переписки (без строки — «как в общих»)."""
+    return await repo.chat_settings(db, connection_id, chat_id)
+
+
+async def feature_on(db, connection: dict, chat_id: int, key: str) -> bool:
+    """Включена ли функция в этой переписке: переписка → общие → по умолчанию; и не выключена ли администрацией."""
+    from services import feature_switches
+    admin_key = features.ADMIN_SWITCHES.get(key)
+    if admin_key and await feature_switches.disabled(db, [admin_key], None) is not None:
+        return False
+    chat = (await repo.chat_settings(db, connection["id"], chat_id)).get(key)
+    return features.resolve(key, chat, (await repo.settings(db, connection["user_id"])).get(key))
+
+
+async def toggle_global(db, user_id: int, key: str) -> bool:
+    if key not in features.FEATURES:
+        raise KeyError(key)
+    value = not (await global_settings(db, user_id))[key]
+    await repo.set_setting(db, user_id, key, value)
+    return value
+
+
+async def cycle_chat(db, connection_id: str, chat_id: int, key: str) -> bool | None:
+    if key not in features.FEATURES:
+        raise KeyError(key)
+    value = features.next_chat_value((await repo.chat_settings(db, connection_id, chat_id)).get(key))
+    await repo.set_chat_setting(db, connection_id, chat_id, key, value)
+    return value
+
+
+async def remote_for(db, connection_id: str, chat_id: int, partner_name: str) -> int:
+    return await repo.remote_id(db, connection_id, chat_id, partner_name)
+
+
+async def remote(db, remote_id: int, user_id: int) -> dict | None:
+    """Пульт переписки — только для владельца связи (кнопки пульта лежат в его личке)."""
+    found = await repo.remote(db, remote_id)
+    return found if found and found["connection"]["user_id"] == int(user_id) else None
+
+
+async def action_order(db, user_id: int, actions: list[str]) -> list[str]:
+    return features.order_by_use(actions, await repo.usage(db, user_id))
+
+
+async def count_use(db, user_id: int, action: str) -> None:
+    await repo.count_use(db, user_id, action)
+
+
+async def partner_declines_offers(db, user_id: int) -> bool:
+    """Собеседник нажал «🙅 Не предлагать мне»: игры, приглашения и совместимость ему не отправляются ни от кого."""
+    return await repo.partner_opted_out(db, user_id)
+
+
+async def set_partner_optout(db, user_id: int, opted_out: bool) -> bool:
+    return await repo.set_partner_optout(db, user_id, opted_out)
+
+
+async def is_player(db, user_id: int) -> bool:
+    found = await repo.known_player(db, user_id)
+    return bool(found and not found["deleting"])

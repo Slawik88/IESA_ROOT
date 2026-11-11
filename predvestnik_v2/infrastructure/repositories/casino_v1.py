@@ -157,6 +157,19 @@ async def settle_round(db, user_id: int, stake: int, paid: int, funds: str = 'bo
     return int(row[0]) if row else -1
 
 
+async def move_chips(db, user_id: int, delta: int, funds: str) -> int:
+    """Игры вдвоём (S29a): изменить один фонд на delta (минус — ставка, плюс — выигрыш или возврат). Казино-статистику
+    (total_staked/total_paid) не трогает: это не игра против казино. -1 — не хватает жетонов. Вызывать после lock_wallet."""
+    real = funds == 'redeemable'
+    change = ', redeemable_chips=redeemable_chips+?' if real else ''
+    available = 'redeemable_chips' if real else '(chips-redeemable_chips)'
+    args = (int(delta),) + ((int(delta),) if real else ()) + (int(user_id), int(delta))
+    async with db.execute("UPDATE casino_v1_wallets SET chips=chips+?" + change + ", updated_at=NOW() "
+                          "WHERE user_id=? AND " + available + "+?>=0 RETURNING chips", args) as cur:
+        row = await cur.fetchone()
+    return int(row[0]) if row else -1
+
+
 async def withdraw_chips(db, user_id: int, chips: int) -> int:
     async with db.execute("UPDATE casino_v1_wallets SET chips=chips-?,redeemable_chips=redeemable_chips-?,updated_at=NOW() "
                           "WHERE user_id=? AND redeemable_chips>=? RETURNING chips", (chips,chips,int(user_id),chips)) as cur:
