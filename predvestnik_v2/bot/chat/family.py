@@ -359,8 +359,20 @@ async def cmd_propose(ctx: Ctx) -> None:
         [InlineKeyboardButton(text="✖️ Отозвать", callback_data=ProposalCB(pid=pid, act="x").pack())],
     ])
     me = ping(u.id, member_tags.with_tag(u.first_name, member_tags.of_message(ctx.message)[1]))
-    await ctx.reply(f"💍 {me} делает предложение {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))}!\n"
-                    "Ответить может только тот, кому предложили. Предложение действует сутки.", reply_markup=kb)
+    sent = await ctx.reply(f"💍 {me} делает предложение {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))}!\n"
+                           "Ответить может только тот, кому предложили. Предложение действует сутки.", reply_markup=kb)
+    await _tell_in_dm(ctx, target.user_id, f"proposal:{pid}", getattr(sent, "message_id", None),
+                      "💍 <b>Тебе сделали предложение</b>\n{who} зовёт тебя в брак в чате {chat}. Ответить можно там: "
+                      "кнопки «Да» и «Нет» под сообщением. Предложение действует сутки.")
+
+
+async def _tell_in_dm(ctx: Ctx, user_id: int, key: str, message_id: int | None, template: str) -> None:
+    """Приглашение в чате могло утонуть в ленте: «Люди» в личку тому, кого зовут, если он их включил."""
+    from bot.chat.notify import chat_name, social_event
+    u = ctx.message.from_user
+    who = html.escape("@" + u.username if u.username else u.full_name)
+    await social_event(ctx.db, user_id=user_id, dedup_key=key, chat=ctx.message.chat, message_id=message_id,
+                       text=template.format(who=who, chat=chat_name(ctx.message.chat)))
 
 
 @router.callback_query(ProposalCB.filter())
@@ -557,8 +569,12 @@ async def cmd_adopt(ctx: Ctx) -> None:
         InlineKeyboardButton(text="🙅 Нет", callback_data=AdoptCB(**cb, act="n").pack()),
     ]])
     me = ping(u.id, member_tags.with_tag(u.first_name, member_tags.of_message(ctx.message)[1]))
-    await ctx.reply(f"👪 {me} зовёт {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))} "
-                    "в свою семью ребёнком. Согласны?", reply_markup=kb)
+    sent = await ctx.reply(f"👪 {me} зовёт {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))} "
+                           "в свою семью ребёнком. Согласны?", reply_markup=kb)
+    message_id = getattr(sent, "message_id", None)
+    await _tell_in_dm(ctx, target.user_id, f"adopt:{ctx.message.chat.id}:{message_id or ctx.message.message_id}", message_id,
+                      "👪 <b>Тебя зовут в семью</b>\n{who} зовёт тебя в свою семью ребёнком в чате {chat}. Согласиться или "
+                      f"отказаться можно там, кнопками под сообщением. Приглашение действует {ADOPT_INVITE_HOURS} ч.")
 
 
 async def _family_kin(db, fam: Family) -> set[int]:

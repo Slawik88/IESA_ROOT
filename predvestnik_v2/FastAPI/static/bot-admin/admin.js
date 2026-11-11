@@ -1586,7 +1586,7 @@ function bcSegment() {
   if (BC.chats.length) seg.chats = BC.chats.map(x => x.id);
   if (BC.kind === 'chats' && (BC.chatKind === 'main' || BC.chatKind === 'admin')) seg.chat_kind = BC.chatKind;
   if (+BC.active) seg.active_days = +BC.active;
-  if (BC.kind === 'players') {
+  if (BC.kind !== 'chats') {   // «players» и «events» (кто включил «События»): условия отбора игроков одинаковые
     if (BC.vip !== '') seg.vip = BC.vip === '1';
     if (+BC.newDays) seg.new_days = +BC.newDays;
     if (+BC.minMsg) seg.min_messages = +BC.minMsg;
@@ -1683,7 +1683,7 @@ async function broadcastView(main) {
   })();
   const numberField = (id, label, key, ph) => `<div class="field"><label>${label}</label><input id="${id}" type="number" min="0" inputmode="numeric" value="${esc(BC[key])}" placeholder="${ph}"/></div>`;
   function drawSegment() {
-    const players = BC.kind === 'players';
+    const players = BC.kind !== 'chats';
     $('#bseg').innerHTML = `
       <div class="field"><label>${players ? 'Только участники этих чатов (пусто — любых)' : 'Только эти чаты (пусто — все чаты бота)'}</label><div id="bpchats"></div></div>
       ${players ? '' : `<div class="field"><label for="bckind">Какие чаты</label><select id="bckind" aria-describedby="bckind-note">
@@ -1775,7 +1775,7 @@ async function broadcastView(main) {
     const text = $('#btext').value.trim();
     if (!text) { toast('Напишите текст.', true); return; }
     $('#btest').disabled = true;
-    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: BC.html, button: bcButton(), media_id: BC.mediaId})})).message); }
+    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: BC.html, button: bcButton(), media_id: BC.mediaId, audience: BC.kind})})).message); }
     catch (e) { toast(e.message, true); }
     $('#btest').disabled = false;
   };

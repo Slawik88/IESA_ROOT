@@ -3,7 +3,8 @@
 Не дублирует правила админки: кнопка вызывает те же обработчики раздела «Жалобы» (`FastAPI/routers/bot_admin/reports.py`),
 поэтому действуют те же роли и права по действиям, тот же журнал, та же защита от двойного наказания и то же письмо автору
 жалобы. Нажать может только персонал бота с доступом к «Жалобам»; остальные видят отказ, а карточка не меняется.
-Бан здесь только на 7 дней и после подтверждения; бессрочный — в админке.
+Бан здесь на 7 дней и после подтверждения. Бессрочный бан и бан во всех чатах — только у создателя (решение владельца
+2026-11-11): эти кнопки есть лишь на его карточке в личке, тоже с подтверждением, и перепроверяются при нажатии.
 """
 from __future__ import annotations
 
@@ -21,21 +22,37 @@ BAN_MINUTES = 7 * 24 * 60
 SECTION = "section:reports"
 SECTION_DEFAULT_RANK = 2
 # код кнопки → (действие админки, минуты, что написать на карточке)
-PUNISH = {"m": ("mute", 60, "мут на 1 час"), "w": ("warn", 0, "предупреждение"), "B": ("ban", BAN_MINUTES, "бан на 7 дней")}
+PUNISH = {"m": ("mute", 60, "мут на 1 час"), "w": ("warn", 0, "предупреждение"), "B": ("ban", BAN_MINUTES, "бан на 7 дней"),
+          "P": ("ban", 0, "бан навсегда")}   # 0 минут — бан без срока (как в админке)
+OWNER_CODES = {"p", "P", "g", "G"}   # бессрочный и во всех чатах: только создатель
+CONFIRM = {"b": ("✅ Да, бан на 7 дней", "B", "Бан на 7 дней — подтверди."),
+           "p": ("✅ Да, бан навсегда", "P", "Бан навсегда в этом чате — подтверди."),
+           "g": ("✅ Да, во всех чатах", "G", "Бан во всех чатах бота — подтверди.")}
 
 
 def _btn(text: str, code: str, rid: int) -> InlineKeyboardButton:
     return InlineKeyboardButton(text=text, callback_data=f"rp:{code}:{rid}")
 
 
-def keyboard(rid: int, *, taken: bool = False, confirm_ban: bool = False) -> InlineKeyboardMarkup:
-    if confirm_ban:
-        return InlineKeyboardMarkup(inline_keyboard=[[_btn("✅ Да, бан на 7 дней", "B", rid), _btn("↩️ Отмена", "x", rid)]])
+def keyboard(rid: int, *, taken: bool = False, confirm: str = "", owner: bool = False) -> InlineKeyboardMarkup:
+    """confirm — код кнопки, которую подтверждаем (b, p, g); owner — карточка создателя: ещё ряд с тяжёлыми банами."""
+    if confirm:
+        text, code, _ = CONFIRM[confirm]
+        return InlineKeyboardMarkup(inline_keyboard=[[_btn(text, code, rid), _btn("↩️ Отмена", "x", rid)]])
     rows = [[_btn("🔇 Мут 1 ч", "m", rid), _btn("⚠️ Варн", "w", rid), _btn("🚫 Бан", "b", rid)],
             [_btn("❌ Отклонить", "r", rid)]]
+    if owner:
+        rows.insert(1, [_btn("⛔ Бан навсегда", "p", rid), _btn("🌐 Во всех чатах", "g", rid)])
     if not taken:
-        rows[1].insert(0, _btn("👁 В работу", "t", rid))
+        rows[-1].insert(0, _btn("👁 В работу", "t", rid))
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def is_owner(db, user_id: int) -> bool:
+    """Создатель бота (роль 6 или разработчик): его карточка жалобы получает тяжёлые баны."""
+    from bot.chat.global_ranks import get_bot_rank
+    from services import admin_security
+    return admin_security.is_owner(int(user_id), await get_bot_rank(db, int(user_id)))
 
 
 async def _principal(db, user_id: int) -> dict | None:
@@ -78,7 +95,7 @@ def _name(call: CallbackQuery) -> str:
 async def on_report_button(call: CallbackQuery, db) -> None:
     from FastAPI.routers.bot_admin import reports as admin_reports
     msg, parts = call.message, (call.data or "").split(":")
-    if not isinstance(msg, Message) or len(parts) != 3 or not parts[2].isdigit() or parts[1] not in {"t", "r", "m", "w", "b", "B", "x"}:
+    if not isinstance(msg, Message) or len(parts) != 3 or not parts[2].isdigit() or parts[1] not in {"t", "r", "m", "w", "b", "B", "x", *OWNER_CODES}:
         await call.answer("Кнопка устарела.", show_alert=True)
         return
     code, rid = parts[1], int(parts[2])
@@ -86,16 +103,26 @@ async def on_report_button(call: CallbackQuery, db) -> None:
     if user is None:
         await call.answer("Эти кнопки — для персонала бота с доступом к жалобам.", show_alert=True)
         return
+    owner = await is_owner(db, call.from_user.id)
+    if code in OWNER_CODES and not owner:
+        await call.answer("Бан навсегда и бан во всех чатах выдаёт только создатель бота.", show_alert=True)
+        return
     base = _base(msg.html_text)
-    if code in ("b", "x"):   # бан спрашивает ещё раз; «Отмена» возвращает обычные кнопки
-        await _edit(msg, base, keyboard(rid, confirm_ban=code == "b"))
-        await call.answer("Бан на 7 дней — подтверди." if code == "b" else "")
+    if code in CONFIRM or code == "x":   # бан спрашивает ещё раз; «Отмена» возвращает обычные кнопки
+        taken = base != msg.html_text and "\n\n👁 В работе" in msg.html_text
+        await _edit(msg, msg.html_text, keyboard(rid, confirm=code if code in CONFIRM else "", taken=taken, owner=owner))
+        await call.answer(CONFIRM[code][2] if code in CONFIRM else "")
         return
     try:
         if code == "t":
             await admin_reports.report_action(rid, {"action": "take"}, user, db, None)
-            await _edit(msg, f"{base}\n\n👁 В работе: {_name(call)}", keyboard(rid, taken=True))
+            await _edit(msg, f"{base}\n\n👁 В работе: {_name(call)}", keyboard(rid, taken=True, owner=owner))
             await call.answer("Взял в работу.")
+            return
+        if code == "G":
+            result = await admin_reports.punish_everywhere(rid, user, db)
+            await _edit(msg, f"{base}\n\n✅ Бан во всех чатах: {_name(call)}. Жалоба закрыта.", None)
+            await call.answer(str(result["message"])[:190], show_alert=True)
             return
         if code == "r":
             await admin_reports.report_action(rid, {"action": "reject"}, user, db, None)

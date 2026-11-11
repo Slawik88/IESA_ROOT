@@ -122,6 +122,88 @@ async def _season(db, now: datetime) -> int:
     return sent
 
 
+_report_cursor: dict[int, int] = {}   # сезон → последний разобранный игрок: пустые итоги не перебираются каждый проход
+
+
+async def _season_report(db, now: datetime) -> int:
+    """Сезон закончился: личный итог (Пропуск, места, партии, образы) тем, кто включил «Сезон». Один раз за сезон."""
+    from services import season_report
+    number = season_report.due_season(now)
+    if number is None:
+        return 0
+    key = f"season_report:{number}"
+    async with db.execute(
+        "SELECT np.user_id FROM user_notification_prefs np " + _READY.format(alias="np") +
+        " WHERE np.category = 'season' AND np.enabled = TRUE AND np.user_id > ? "
+        "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
+        "ORDER BY np.user_id LIMIT ?", (_report_cursor.get(number, 0), key, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for (user_id,) in rows:
+        data = await season_report.report(db, int(user_id), number)
+        _report_cursor[number] = int(user_id)
+        if data is not None:
+            sent += await dm_push.enqueue(
+                db, user_id=int(user_id), category="season", dedup_key=key, text=season_report.text(data),
+                button={"kind": "app", "section": "pass", "label": "🏆 Пропуск нового сезона"},
+            )
+    return sent
+
+
+HOLIDAY_LOOKS_NOTICE = timedelta(days=3)
+_HOLIDAY_ICON = {"halloween": "🎃", "new_year": "🎄", "valentine": "💞"}
+
+
+async def _holiday_looks(db, now: datetime) -> int:
+    """Праздничные образы уходят из магазина через трое суток или меньше, а у игрока собраны не все. Один раз за окно."""
+    from core.skins_v3_catalog import SEASONS, SKINS
+    from core.skins_v3_collection import season_window
+    if not await _has_table(db, "skins_v3_owned"):
+        return 0
+    sent = 0
+    for season_id, spec in SEASONS.items():
+        window = season_window(season_id, now)
+        end = datetime.fromisoformat(window["ends_at"])
+        if not window["open"] or not (timedelta(0) < end - now <= HOLIDAY_LOOKS_NOTICE):
+            continue
+        looks = [k for k, s in SKINS.items() if s.get("season") == season_id and not s.get("exclusive")]
+        if not looks:
+            continue
+        key = f"holiday_looks:{season_id}:{end.date().isoformat()}"
+        days = max(1, -(-int((end - now).total_seconds()) // 86400))
+        word = "день" if days == 1 else "дня"
+        async with db.execute(
+            "SELECT np.user_id, ARRAY(SELECT o.skin_id FROM skins_v3_owned o WHERE o.user_id = np.user_id "
+            "AND o.skin_id = ANY(?::text[])) FROM user_notification_prefs np " + _READY.format(alias="np") +
+            " WHERE np.category = 'events' AND np.enabled = TRUE "
+            "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox ob WHERE ob.user_id = np.user_id AND ob.dedup_key = ?) "
+            "AND (SELECT COUNT(*) FROM skins_v3_owned o WHERE o.user_id = np.user_id AND o.skin_id = ANY(?::text[])) < ? "
+            "ORDER BY np.user_id LIMIT ?", (looks, key, looks, len(looks), BATCH),
+        ) as c:
+            rows = await c.fetchall()
+        for user_id, owned in rows:
+            missing = [SKINS[k]["name"] for k in looks if k not in set(owned or [])]
+            sent += await dm_push.enqueue(
+                db, user_id=int(user_id), category="events", dedup_key=key,
+                text=(f"{_HOLIDAY_ICON.get(season_id, '🎁')} <b>Праздничные образы скоро уйдут</b>\n"
+                      f"«{spec['name']}» в магазине образов ещё {days} {word}. Пока не твои: {', '.join(missing)}.\n"
+                      "Потом эти образы вернутся только через год."),
+                button={"kind": "app", "section": "looks", "label": "🎨 К образам"},
+            )
+    return sent
+
+
+async def social(db, *, user_id: int, dedup_key: str, text: str, button: dict | None = None) -> bool:
+    """Событие «Люди» (перевод в чате, предложение брака, приглашение в семью): ставится сразу из обработчика.
+    Никогда не роняет сам обработчик: уведомление — дополнение, действие игрока уже выполнено."""
+    try:
+        return await dm_push.enqueue(db, user_id=int(user_id), category="social", dedup_key=dedup_key, text=text, button=button)
+    except Exception as exc:
+        logger.warning(f"dm push social {dedup_key} skipped: {type(exc).__name__}: {exc}")
+        return False
+
+
 async def _vip(db, now: datetime) -> int:
     """VIP закончится меньше чем через 3 дня."""
     from core.constants import VIP_EXPIRY_REMINDER_DAYS
@@ -291,7 +373,8 @@ async def vip_daily_reminders(db, now: datetime | None = None) -> int:
     return queued
 
 
-COLLECTORS = (("digest", _morning), ("digest_evening", _evening), ("chests", _chests), ("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))
+COLLECTORS = (("digest", _morning), ("digest_evening", _evening), ("chests", _chests), ("pets", _pets), ("quests", _quests), ("pass", _pass),
+              ("market", _market), ("season", _season), ("season_report", _season_report), ("events", _holiday_looks), ("vip_expiry", _vip))
 
 
 async def collect(db, now: datetime | None = None) -> dict[str, int]:

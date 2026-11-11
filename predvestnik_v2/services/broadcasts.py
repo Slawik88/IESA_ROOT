@@ -9,6 +9,10 @@ bot_broadcast_targets, поэтому у каждой рассылки есть 
 ограничивает подпись 1024 знаками). Картинка хранится в базе (bot_broadcast_media) и загружается в Telegram один раз:
 дальше всем уходит её file_id.
 
+Получатели «events» — игроки, которые сами включили уведомления «События» (категория events, core/dm_push.py) и
+открыли личку с ботом: так администрация объявляет события и акции, не тревожа остальных. Им в конце сообщения
+добавляется строка, как выключить такие сообщения.
+
 Рассылка идёт в фоне того же процесса, с паузой между сообщениями (лимиты Telegram). Игроки, которым бот не отвечает
 (блокировка) или с глобальным баном, а также те, кто заблокировал бота в Telegram, и чаты, из которых бота удалили, рассылку не получают. Одновременно идёт одна рассылка.
 """
@@ -73,14 +77,16 @@ STATEMENTS = (
     )""",
     "ALTER TABLE bot_broadcast_templates ADD COLUMN IF NOT EXISTS media_id BIGINT",
 )
-KINDS = {"chats": "Чаты", "players": "Игроки в личку"}
-AUDIENCES = {"chats": "Все чаты бота", "players": "Все игроки в личку"}
+KINDS = {"chats": "Чаты", "players": "Игроки в личку", "events": "Игроки, которые ждут события (включили «События»)"}
+AUDIENCES = {"chats": "Все чаты бота", "players": "Все игроки в личку", "events": "Игроки, которые ждут события"}
+PLAYER_KINDS = ("players", "events")   # получатели — игроки в личку; у «events» те же условия отбора
+EVENTS_FOOTER = "🔕 Это сообщение пришло, потому что ты включил «События». Выключить: напиши мне «уведомления»."
 STATUS_TITLES = {"scheduled": "Запланирована", "running": "Идёт", "done": "Готово", "stopped": "Остановлена",
                  "interrupted": "Прервана перезапуском"}
 ERROR_TITLES = {"blocked": "Заблокировали бота", "no_dialog": "Не открывали диалог с ботом",
                 "chat_gone": "Бот удалён из чата или чата нет", "no_rights": "У бота нет прав писать в чате",
                 "other": "Другая ошибка Telegram"}
-PAUSE = {"chats": 0.35, "players": 0.05}
+PAUSE = {"chats": 0.35, "players": 0.05, "events": 0.05}
 MAX_TEXT = 3500
 MAX_CAPTION = 1024              # подпись к картинке в Telegram
 MAX_MEDIA_BYTES = 5 * 1024 * 1024
@@ -129,12 +135,21 @@ def visible_len(text: str, html: bool) -> int:
     return len(text.encode("utf-16-le")) // 2
 
 
-def check_text(text: str, html: bool, media_id: int | None) -> None:
-    if not 1 <= len(text) <= MAX_TEXT:
-        raise BroadcastError(f"Текст — от 1 до {MAX_TEXT} символов.")
-    if media_id and visible_len(text, html) > MAX_CAPTION:
-        raise BroadcastError(f"С картинкой текст становится подписью: не больше {MAX_CAPTION} знаков "
-                             f"(сейчас {visible_len(text, html)}). Сократите текст или уберите картинку.")
+def check_text(text: str, html: bool, media_id: int | None, kind: str = "") -> None:
+    """kind «events»: в конце допишется строка про выключение, поэтому лимиты на неё меньше."""
+    reserve = len(EVENTS_FOOTER) + 2 if kind == "events" else 0
+    if not 1 <= len(text) <= MAX_TEXT - reserve:
+        raise BroadcastError(f"Текст — от 1 до {MAX_TEXT - reserve} символов"
+                             + (" (в конце добавится строка, как выключить «События»)." if reserve else "."))
+    if media_id and visible_len(text, html) > MAX_CAPTION - reserve:
+        raise BroadcastError(f"С картинкой текст становится подписью: не больше {MAX_CAPTION - reserve} знаков "
+                             f"(сейчас {visible_len(text, html)}"
+                             + ("; в конце добавится строка, как выключить «События»" if reserve else "")
+                             + "). Сократите текст или уберите картинку.")
+
+
+def with_footer(text: str, audience: str) -> str:
+    return f"{text}\n\n{EVENTS_FOOTER}" if audience == "events" else text
 
 
 # ── Картинка ─────────────────────────────────────────────────────────────────
@@ -268,7 +283,7 @@ def normalize_segment(raw, audience: str | None = None) -> dict:
             seg["chat_kind"] = chat_kind
     if (days := _int(raw.get("active_days"), 1, 365, "Активность, дней")):
         seg["active_days"] = days
-    if kind == "players":
+    if kind in PLAYER_KINDS:
         if raw.get("vip") in (True, False):
             seg["vip"] = bool(raw["vip"])
         if (days := _int(raw.get("new_days"), 1, 365, "Новички, дней")):
@@ -323,7 +338,7 @@ def describe_segment(seg: dict) -> str:
         parts.append(f"от {seg['min_messages']} сообщений")
     if seg.get("chats"):
         parts.append(f"участники чатов ({len(seg['chats'])})")
-    return "В личку: " + ", ".join(parts)
+    return ("События в личку (кто включил): " if seg["kind"] == "events" else "В личку: ") + ", ".join(parts)
 
 
 async def recipients(db, seg: dict) -> list[int]:
@@ -377,6 +392,12 @@ async def recipients(db, seg: dict) -> list[int]:
             where.append("(SELECT COALESCE(SUM(s.user_messages_count_all_time), 0) FROM user_chat_stats s "
                          "WHERE s.user_tg_id = u.user_tg_id) >= ?")
             args.append(seg["min_messages"])
+        if seg["kind"] == "events":   # только кто сам включил «События» и уже открыл личку с ботом
+            from infrastructure.repositories import dm_push as dm_repo
+            await dm_repo.ensure_schema(db)
+            where.append("EXISTS (SELECT 1 FROM user_notification_prefs np JOIN dm_push_settings ds ON ds.user_id = np.user_id "
+                         "WHERE np.user_id = u.user_tg_id AND np.category = 'events' AND np.enabled = TRUE "
+                         "AND ds.dm_confirmed_at IS NOT NULL AND ds.dm_disabled_at IS NULL)")
         order = "ORDER BY u.user_tg_id"
     if where:
         sql += " AND " + " AND ".join(where)
@@ -554,7 +575,7 @@ async def precheck(db, actor_id: int, audience: str | None, text: str, request_i
     """Те же проверки, что у create, но ничего не создаёт: нужны до пробной отправки администратору, чтобы отказ
     не оставлял ему лишнее сообщение. True — рассылка с таким request_id уже есть (повторный запрос)."""
     seg = normalize_segment(segment, audience)
-    check_text(text, html, await require_media(db, media_id))
+    check_text(text, html, await require_media(db, media_id), seg["kind"])
     when = _parse_when(scheduled_at)
     if request_id:
         async with db.execute("SELECT 1 FROM bot_broadcasts WHERE actor_id = ? AND request_id = ?",
@@ -574,7 +595,7 @@ async def create(db, actor_id: int, audience: str | None, text: str, request_id:
     Повтор того же request_id возвращает уже созданную."""
     seg = normalize_segment(segment, audience)
     media_id = await require_media(db, media_id)
-    check_text(text, html, media_id)
+    check_text(text, html, media_id, seg["kind"])
     btn = normalize_button(button)
     when = _parse_when(scheduled_at)
     cols = (actor_id, seg["kind"], text, request_id or None, bool(html), __import__("json").dumps(seg), parent_id, media_id)
@@ -691,6 +712,7 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: b
               media_id: int | None = None) -> None:
     """Отправка тем, кому ещё не отправлено. pool_db — асинхронный контекст, дающий соединение (на каждый шаг своё)."""
     from aiogram.exceptions import TelegramRetryAfter
+    text = with_footer(text, audience)
     photo = None
     if media_id:
         async with pool_db() as db:

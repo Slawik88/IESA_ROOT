@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hmac
+import html
 import re
 import time
 from datetime import date, datetime, timezone
@@ -41,6 +42,8 @@ async def markup_for(button: dict | None, bot) -> InlineKeyboardMarkup | None:
         return None
     if button.get("kind") == "cb":
         return InlineKeyboardMarkup(inline_keyboard=[[_btn(button["label"], button["data"])]])
+    if button.get("kind") == "url":
+        return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=button["label"], url=button["url"])]])
     from bot.chat.site import site_keyboard
     me = await bot.me()
     return site_keyboard("private", me.username or "", button.get("section", ""), button["label"])
@@ -75,6 +78,28 @@ async def _show(ctx: Ctx) -> None:
     await dm_push.confirm_contact(ctx.db, ctx.user_id)
     text, kb = await settings_view(ctx.db, ctx.user_id)
     await ctx.reply(text, reply_markup=kb)
+
+
+def message_url(chat, message_id: int | None) -> str | None:
+    """Ссылка на сообщение в группе: публичный чат — по имени, супергруппа — t.me/c/…; у обычной группы ссылок нет."""
+    if not message_id:
+        return None
+    if getattr(chat, "username", None):
+        return f"https://t.me/{chat.username}/{int(message_id)}"
+    cid = str(getattr(chat, "id", ""))
+    return f"https://t.me/c/{cid[4:]}/{int(message_id)}" if cid.startswith("-100") and cid[4:].isdigit() else None
+
+
+async def social_event(db, *, user_id: int, dedup_key: str, text: str, chat=None, message_id: int | None = None) -> bool:
+    """«Люди»: событие с другим игроком в чате — в личку тому, кого оно касается, если он включил «Люди».
+    Кнопка ведёт к сообщению в чате, где можно ответить. Ошибки не мешают самому действию в чате."""
+    url = message_url(chat, message_id) if chat is not None else None
+    button = {"kind": "url", "url": url, "label": "💬 Открыть сообщение"} if url else None
+    return await dm_push_events.social(db, user_id=user_id, dedup_key=dedup_key, text=text, button=button)
+
+
+def chat_name(chat) -> str:
+    return f"«{html.escape(getattr(chat, 'title', None) or 'чат')}»"
 
 
 async def _need_private(ctx: Ctx, what: str) -> bool:

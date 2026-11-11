@@ -142,6 +142,28 @@ async def report_action(rid: int, data: dict = Body(...), user=Depends(_user), d
     return {"ok": True, "message": reports_service.STATUS_TITLES[status] + "."}
 
 
+async def punish_everywhere(rid: int, user: dict, db) -> dict:
+    """Бан во всех чатах по жалобе (кнопка карточки в личке создателя). Не маршрут: в админке этот бан выдаётся из карточки
+    игрока с вводом ID. Те же проверки, журнал и защита от двойной обработки, что у наказания из жалобы."""
+    if rid in _busy:
+        raise HTTPException(409, "Эту жалобу уже обрабатывают.")
+    _busy.add(rid)
+    try:
+        await reports_service.ensure_schema(db)
+        report = await reports_service.get(db, rid)
+        if not report:
+            raise HTTPException(404, "Жалоба не найдена.")
+        if report["status"] not in reports_service.OPEN:
+            raise HTTPException(409, "Жалоба уже закрыта.")
+        target = int(report["target_id"])
+        reason = f"жалоба №{rid}"
+        result = await people.player_action(target, {"action": "global_ban", "confirm": str(target), "reason": reason}, user, db)
+        await _finish(db, user, report, "resolved", f"бан во всех чатах: {reason}")
+    finally:
+        _busy.discard(rid)
+    return {"ok": True, "message": str(result.get("message") or "Забанен в чатах.") + " Жалоба закрыта."}
+
+
 @router.post("/reports/{rid}/punish")
 async def report_punish(rid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     """Наказать нарушителя прямо из жалобы (в чате, где подана жалоба) и, если не сказано иное, закрыть её."""

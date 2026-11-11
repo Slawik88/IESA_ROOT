@@ -30,10 +30,10 @@ CATEGORIES: tuple[Category, ...] = (
     Category("chests", "🎁 Сундуки", "Напишу, когда новый ключ от сундука ждёт тебя.", "quests"),
     Category("pass", "🏆 Пропуск", "Напишу, когда в Пропуске есть награда, которую можно забрать.", "quests"),
     Category("market", "📈 Биржа", "Напишу, когда твой ордер исполнен.", "market"),
-    Category("season", "🏁 Сезон", "Напишу, когда сезон скоро закончится.", "news"),
-    Category("events", "🎉 События", "Напишу о событиях и акциях.", "news", live=False),
+    Category("season", "🏁 Сезон", "Напишу, когда сезон скоро закончится, а после конца — твои итоги сезона.", "news"),
+    Category("events", "🎉 События", "Напишу, когда администрация объявит событие или акцию и когда праздничные образы скоро уйдут.", "news"),
     Category("vip_expiry", "⏳ VIP", "Напишу про поручение VIP и за 3 дня до конца срока.", "news"),
-    Category("social", "💬 Люди", "Напишу о том, что случилось с тобой среди игроков.", "news", live=False),
+    Category("social", "💬 Люди", "Напишу, когда тебе переведут валюту в чате, позовут в брак или в семью.", "news"),
 )
 BY_KEY: dict[str, Category] = {c.key: c for c in CATEGORIES}
 LIVE_KEYS: tuple[str, ...] = tuple(c.key for c in CATEGORIES if c.live)

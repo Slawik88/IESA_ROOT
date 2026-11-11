@@ -106,13 +106,15 @@ async def broadcast_test(data: dict = Body(...), user=Depends(_user), db=Depends
     text, html = str(data.get("text") or "").strip(), bool(data.get("html"))
     try:
         media_id = await broadcasts_service.require_media(db, data.get("media_id"))
-        broadcasts_service.check_text(text, html, media_id)
+        audience = str(data.get("audience") or "")   # «events»: проба сразу со строкой про выключение «Событий»
+        broadcasts_service.check_text(text, html, media_id, audience)
     except broadcasts_service.BroadcastError as exc:
         raise HTTPException(400, str(exc))
     button = _button(data)
     photo = await _photo(db, media_id)
     try:
-        message = await broadcasts_service.send(get_bot(), user["id"], text, html, _markup_of(button), photo)
+        message = await broadcasts_service.send(get_bot(), user["id"], broadcasts_service.with_footer(text, audience), html,
+                                                _markup_of(button), photo)
     except Exception as exc:
         raise _bad_markup(exc)
     if photo:
