@@ -46,8 +46,14 @@ def fmt_num(n: int) -> str:
     return f"{int(n):,}".replace(",", " ")
 
 
-def render(title: str, rows: list[tuple[int, str, int]], page: int, pages: int, period: str, scope: str) -> str:
-    head = f"🏆 <b>{title}</b>\n<i>{PERIODS[period]}</i>"
+def span(a: str, b: str) -> str:
+    """«11.11» для одного дня, «09.11–11.11» для нескольких (a и b — ISO-даты)."""
+    da, db = date.fromisoformat(a), date.fromisoformat(b)
+    return da.strftime("%d.%m") if da == db else f"{da:%d.%m}–{db:%d.%m}"
+
+
+def render(title: str, rows: list[tuple[int, str, int]], page: int, pages: int, period: str, scope: str, dates: str = "") -> str:
+    head = f"🏆 <b>{title}</b>\n<i>{PERIODS[period]}{' · ' + dates if dates else ''}</i>"
     if not rows:
         return head + "\n\nПока тихо — сообщений за этот период нет."
     width = len(fmt_num(rows[0][2]))
@@ -85,11 +91,12 @@ def keyboard(uid: int, scope: str, period: str, page: int, pages: int, chat: int
 
 async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> tuple[str, int]:
     a, b = period_range(period, local_now().date())
+    dates = span(a, b)
     if scope == "k":
         result = await stats_repo.chat_top_page(db,a,b,page=page,page_size=PAGE_SIZE)
         page,pages = result["page"],result["pages"]
         rows = [(page * PAGE_SIZE + i + 1,_esc(r["chat_title"]),int(r["msg_count"])) for i,r in enumerate(result["items"])]
-        return render("Топ чатов", rows, page, pages, period, scope), pages
+        return render("Топ чатов", rows, page, pages, period, scope, dates), pages
 
     # Боты и ушедшие в рейтинге игроков не нужны: в топе чата — кто ещё в этом чате, в общем — кто ещё хоть в одной группе.
     where, params = f"d.date BETWEEN ? AND ? AND {chat_bots.NOT_BOT_DAILY}", [a, b]
@@ -124,7 +131,7 @@ async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> 
         (page * PAGE_SIZE + i + 1, profile_link(int(r[0]), r[1], tags.get(int(r[0])), soft=True, mark=marks.get(int(r[0]))), int(r[2]))
         for i, r in enumerate(data)
     ]
-    return render(title, rows, page, pages, period, scope), pages
+    return render(title, rows, page, pages, period, scope, dates), pages
 
 
 @registry.command(

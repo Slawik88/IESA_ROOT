@@ -165,7 +165,7 @@ def render_png(counts: list[int], start: date, today: date, st: dict) -> bytes:
     # No legend, date paragraph, secondary KPIs or text below the plot.
     fig.text(X_TEXT, .94, "Активность", color=st["title"], fontsize=19,
              ha="left", va="top", **_ff("bold"))
-    fig.text(X_TEXT, .83, f"{_fmt(total)} сообщений · {n} дней", color=st["dates"],
+    fig.text(X_TEXT, .83, f"{_fmt(total)} сообщений · {n} дней · {start:%d.%m}–{start + timedelta(days=n - 1):%d.%m}", color=st["dates"],
              fontsize=12.5, ha="left", va="top", **_ff("medium"))
     fig.text(.95, .945, _fmt(today_v), color=st.get("headline", st["bar_last"]), fontsize=28 if today_v < 1_000_000 else 23,
              ha="right", va="top", **_ff("bold"))

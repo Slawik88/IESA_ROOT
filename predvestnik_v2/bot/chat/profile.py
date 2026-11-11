@@ -98,13 +98,28 @@ async def balances(db, user_id: int) -> list[str]:
     return out
 
 
-async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
-    today = local_now().date()
-    ranges = {
+def period_ranges(today) -> dict[str, tuple]:
+    """Даты, за которые считаются счётчики «сегодня / неделя / месяц» (неделя — с понедельника, месяц — с 1-го числа)."""
+    return {
         "day": (today, today),
         "week": (today - timedelta(days=today.weekday()), today),
         "month": (today.replace(day=1), today),
     }
+
+
+def span(a, b) -> str:
+    """«11.11» для одного дня, «09.11–11.11» для нескольких."""
+    return a.strftime("%d.%m") if a == b else f"{a:%d.%m}–{b:%d.%m}"
+
+
+def period_note(today) -> str:
+    r = period_ranges(today)
+    return " · ".join(f"{label} {span(*r[key])}" for key, label in (("day", "сегодня"), ("week", "неделя"), ("month", "месяц")))
+
+
+async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
+    today = local_now().date()
+    ranges = period_ranges(today)
     out = {}
     for key, (a, b) in ranges.items():
         async with db.execute(
@@ -186,6 +201,7 @@ async def _counters(db, data: CardData, chat_id: int, uid: int, is_group: bool) 
     if is_group:
         c = await message_counts(db, chat_id, uid)
         data.messages = [("сегодня", fmt_num(c["day"])), ("неделя", fmt_num(c["week"])), ("месяц", fmt_num(c["month"]))]
+        data.period_note = period_note(today)
         data.totals = [("всего", fmt_num(c["all"]))]
         if c["everywhere"] > c["all"]:
             data.totals.append(("во всех", fmt_num(c["everywhere"])))

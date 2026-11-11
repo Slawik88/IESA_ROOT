@@ -33,6 +33,7 @@ class CardData:
     head: list[str] = field(default_factory=list)       # тег, роли, VIP и ID — по строке
     messages: list[tuple[str, str]] = field(default_factory=list)   # («сегодня», «12»)
     totals: list[tuple[str, str]] = field(default_factory=list)
+    period_note: str = ""   # «сегодня 11.11 · неделя 09.11–11.11 · месяц 01.11–11.11»: за какие даты счётчики сообщений
     progress: list[tuple[str, str]] = field(default_factory=list)
     personal: list[str] = field(default_factory=list)   # свободные строки; «» — подстрока предыдущей
     wallet: list[str] = field(default_factory=list)
@@ -43,7 +44,10 @@ def plain(data: CardData) -> str:
     head = [f"👤 <b>{esc(data.title)}</b>" + (f" · @{esc(data.username)}" if data.username else ""), *data.head]
     blocks = []
     if data.messages:
-        blocks.append("💬 <b>Сообщения</b>\n" + quote([" · ".join(pair(*c) for c in data.messages), " · ".join(pair(*c) for c in data.totals)]))
+        lines = [" · ".join(pair(*c) for c in data.messages), " · ".join(pair(*c) for c in data.totals)]
+        if data.period_note:
+            lines.append(f"<i>{esc(data.period_note)}</i>")
+        blocks.append("💬 <b>Сообщения</b>\n" + quote(lines))
     if data.progress:
         blocks.append("🔥 <b>Прогресс</b>\n" + quote(pair_rows(data.progress)))
     if data.personal:
@@ -74,7 +78,10 @@ def styled(data: CardData, look: ChatLook) -> str:
     if profile_rows:
         parts.append(L.section(look, look.glyph, "Профиль", profile_rows))
     if data.messages:
-        parts.append(L.section(look, look.icons[0], "Сообщения", L.pack(look, _cells(data.messages + data.totals))))
+        rows = L.pack(look, _cells(data.messages + data.totals))
+        if data.period_note:
+            rows += L.wrap(look, esc(data.period_note))   # без курсива: перенос строки не должен рвать теги
+        parts.append(L.section(look, look.icons[0], "Сообщения", rows))
     if data.progress:
         parts.append(L.section(look, look.icons[1], "Прогресс", L.pack(look, _cells(data.progress))))
     if data.personal:

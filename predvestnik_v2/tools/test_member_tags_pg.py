@@ -288,9 +288,9 @@ async def shown_everywhere(db, bot):
     assert f"🏷 <b>{tag_beta}</b>" in text, text
     text = await profile.card(db, 1002, target, 1001, False)
     assert "🏷" not in text, text
-    # Варп: тег автора берётся из его сообщения, тег цели из базы
+    # Варп: только имена, без тегов (владелец, 2026-11-11)
     out = await run(db, bot, "бот обнять, @beta", tag="Итто")
-    assert "[Итто]" in out and f"[{tag_beta}]" in out, out
+    assert "[" not in out and tag_beta not in out, out
     # Реплай-цель: тег из сообщения, на которое ответили, свежее базы
     out = await run(db, bot, "бот варн", reply_to=FakeMessage("x", 1003, "gamma", tag="Свежий"))
     assert "[Свежий]" in out, out
