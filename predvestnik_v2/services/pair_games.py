@@ -159,14 +159,17 @@ async def _reward(db, game: dict) -> None:
         await league_pass.add_xp(db, user_id=uid, source="pair_game", event_id=str(game["id"]), xp=rules.XP, casual=True)
 
 
-async def cancel(db, game_id: int, status: str = "expired") -> dict | None:
+async def cancel(db, game_id: int, status: str = "expired", *, owner_forfeits: bool = False) -> dict | None:
     """Закрыть партию без итога (давно нет ходов или бота отключили) и вернуть ставки. Повтор ничего не меняет.
-    Исключение — крестики-нолики, брошенные посреди партии: проигрывает тот, чей ход (иначе проигрывающий просто молчал бы)."""
+    Исключение — начатые крестики-нолики: через сутки без хода проигрывает тот, чей ход (иначе проигрывающий просто молчал бы);
+    если владелец отключил бота посреди партии (owner_forfeits), проигрывает он — иначе отключение было бы выходом из проигрыша."""
     async with db.connection.transaction():
         game = await repo.get(db, game_id, lock=True)
         if game is None or game["status"] not in ("invited", "playing"):
             return None
-        forfeit = rules.forfeit(game["kind"], game["state"]) if status == "expired" and game["status"] == "playing" else None
+        forfeit = None
+        if game["status"] == "playing" and rules.forfeit(game["kind"], game["state"]):
+            forfeit = "partner" if owner_forfeits else rules.forfeit(game["kind"], game["state"]) if status == "expired" else None
         if forfeit:
             await _pay(db, game, forfeit)
             await repo.save(db, game_id, status="finished", state={**game["state"], "forfeit": True}, winner=forfeit, settled=bool(game["held"]))
@@ -189,7 +192,7 @@ async def expire_due(db) -> list[dict]:
 async def cancel_for_connection(db, connection_id: str) -> list[dict]:
     closed = []
     for game_id in await repo.open_ids_for_connection(db, connection_id):
-        game = await cancel(db, game_id, "cancelled")
+        game = await cancel(db, game_id, "cancelled", owner_forfeits=True)
         if game:
             closed.append(game)
     return closed

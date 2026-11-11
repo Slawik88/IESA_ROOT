@@ -129,6 +129,16 @@ async def run(dsn: str) -> None:
         assert await wallet(players[loser]) == ((900, 450) if loser == "owner" else (1100, 450))
         print("PASS tic-tac-toe abandoned mid-game: the player whose turn it was loses (no escaping a loss by silence)")
 
+        quit_ = await with_db(lambda db: invite(db, kind="ttt", stake=50, funds="redeemable"))
+        quit_ = await with_db(lambda db: pair_games.accept(db, quit_["id"], FRIEND))
+        await with_db(lambda db: pair_games.play(db, quit_["id"], players[quit_["state"]["turn"]], "4"))
+        owner_before, friend_before = await wallet(OWNER), await wallet(FRIEND)
+        await with_db(lambda db: pair_games.cancel_for_connection(db, "bc-pg-test"))
+        quitted = await with_db(lambda db: pair_games.get(db, quit_["id"]))
+        assert quitted["winner"] == "partner", quitted
+        assert await wallet(FRIEND) == (friend_before[0], friend_before[1] + 100) and await wallet(OWNER) == owner_before
+        print("PASS the owner who disconnects the bot mid tic-tac-toe loses the game (no escaping a loss by disconnecting)")
+
         try:
             await with_db(lambda db: invite(db, kind="rps", stake=10, funds="redeemable", allowed=False))
             raise AssertionError("bought chips must follow the Mora transfer switch")
