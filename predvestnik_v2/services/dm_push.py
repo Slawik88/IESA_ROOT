@@ -155,6 +155,9 @@ async def _deliver_user(bot, db, user_id: int, now: datetime, markup: MarkupBuil
     if await repo.sent_batches_since(db, user_id, now - timedelta(days=1)) >= rules.DAILY_CAP:
         await repo.defer(db, user_id, now + CAP_RECHECK)
         return "waiting"
+    solo = next((r for r in alive if str(r["dedup_key"]).startswith(rules.SOLO_KEYS)), None)
+    if solo is not None:   # итог сезона уходит отдельным сообщением целиком, остальное — следующим проходом
+        alive = [solo]
     ids = [r["id"] for r in alive]
     if len(alive) == 1:
         text, button = alive[0]["text"], alive[0]["button"]

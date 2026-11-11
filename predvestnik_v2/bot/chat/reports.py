@@ -73,9 +73,12 @@ async def _notify(ctx: Ctx, rid: int, target_label: str, reason: str, text: str,
             logger.debug(f"report {rid} admin chat notify failed: {exc}")
     where = f" · {html.escape(chat.title)}" if chat.title else ""
     for uid in await reports_service.recipients(ctx.db, chat.id, ctx.user_id, conf):
+        markup = None
+        if uid in staff:   # создателю — ещё бан навсегда и во всех чатах (только в его личке)
+            markup = report_cards.keyboard(rid, owner=True) if await report_cards.is_owner(ctx.db, uid) else buttons
         try:
             await ctx.bot.send_message(uid, body + f"\n<i>Чат{where}</i>", parse_mode="HTML",
-                                       disable_web_page_preview=True, reply_markup=buttons if uid in staff else None)
+                                       disable_web_page_preview=True, reply_markup=markup)
         except Exception as exc:   # не открывал личку с ботом
             logger.debug(f"report {rid} dm {uid} failed: {exc}")
 
