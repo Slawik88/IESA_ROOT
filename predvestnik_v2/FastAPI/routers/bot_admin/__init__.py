@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from FastAPI.routers.bot_admin import access, avatars, broadcasts, health, journal, metrics, owner, page, people, promo, reports, settings, switches, patch_notes
+from FastAPI.routers.bot_admin import access, avatars, broadcasts, health, journal, metrics, owner, page, people, promo, reports, settings, switches, patch_notes, widgets
 from FastAPI.routers.bot_admin.auth import router as auth_router
 from FastAPI.routers.bot_admin import mafia_online, diagnostics
 
@@ -30,4 +30,5 @@ router.include_router(health.router)
 router.include_router(promo.router)
 router.include_router(switches.router)
 router.include_router(settings.router)
+router.include_router(widgets.router)
 site_gate = switches.site_gate

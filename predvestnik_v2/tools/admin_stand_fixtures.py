@@ -10,7 +10,7 @@ SECTIONS = [
     {"key": "people", "title": "Игроки и чаты"}, {"key": "reports", "title": "Жалобы"}, {"key": "metrics", "title": "Метрики"},
     {"key": "journal", "title": "Журнал"}, {"key": "broadcast", "title": "Рассылка"}, {"key": "promo", "title": "Промокоды"},
     {"key": "switches", "title": "Функции"}, {"key": "settings", "title": "Настройки"}, {"key": "health", "title": "Состояние"},
-    {"key": "access", "title": "Права"},
+    {"key": "access", "title": "Права"}, {"key": "widgets", "title": "Виджеты"},
 ]
 ME = {"user_id": 5000, "rank": 6, "rank_name": "Владелец", "sections": SECTIONS, "creator": True,
       "ranks": ["🌱 Младший хелпер", "💬 Хелпер", "🎓 Старший хелпер", "🛠 Разработчик", "👑 Владелец"]}
@@ -327,3 +327,8 @@ MATRIX = {"floor": 2, "ceiling": 5, "roles": _ROLES, "items": [
     {"key": "action:ban", "group": "moderation", "title": "⛔ Бан в чате с очень длинным названием права " + "x" * 30, "default": 4, "current": 4, "changed": False},
     {"key": "action:warn", "group": "moderation", "title": "⚠️ Варн в чате", "default": 3, "current": 2, "changed": True}]}
 ROUTES["/access/matrix"] = MATRIX
+ROUTES["/widgets"] = {"items": [
+    {"key": "ping", "icon": "📡", "title": "Проверка связи", "hint": "Тема, отклик бота, вибрация, копирование", "size": 2000},
+    {"key": "ttt", "icon": "❌", "title": "Крестики-нолики", "hint": "Партия с ботом прямо в сообщении", "size": 2500},
+], "off": False, "limit": 4096}
+ROUTES["/widgets/send"] = {"ok": True, "message": "Отправлено вам в личку."}

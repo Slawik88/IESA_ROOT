@@ -38,6 +38,18 @@ class UpdateFeeds:
                                    "telegram_payment_charge_id": charge_id, "provider_payment_charge_id": f"prov-{charge_id}"}}})
         return message_id
 
+    # ── HTML widgets ────────────────────────────────────────────────────────
+    async def widget_query(self, user, message_id: int, data: str, *, kind: str = "data", chat_id: int | None = None) -> dict:
+        """A tap (or a background refresh) inside a widget; returns the bot's answer, which Telegram requires within 15 s."""
+        before = len(self.world.widget_answers)
+        query_id = str(next(self._ids))
+        chat = self._chat_json(chat_id if chat_id is not None else user.id, user)
+        await self._feed({"widget_query": {"id": query_id, "from": user.json(), "chat": chat, "message_id": message_id,
+                                           "chat_instance": "sim", "type": {"type": kind}, "data": data}})
+        got = self.world.widget_answers[before:]
+        assert got and got[-1]["id"] == query_id, "the bot must answer every widget query"
+        return got[-1]
+
     # ── the bot and other members in a chat ─────────────────────────────────
     def _member_json(self, chat_id: int, user_id: int, status: str, **flags: Any) -> dict:
         self.world.set_member(chat_id, user_id, status, **flags)

@@ -107,6 +107,8 @@ class World(BotApiMixin):
     forum_topics: dict[tuple[int, int], dict] = field(default_factory=dict)
     next_topic_id: int = 5000
     deleted_topics: set[tuple[int, int]] = field(default_factory=set)
+    widgets: dict[tuple[int, int], dict] = field(default_factory=dict)  # HTML widgets by (chat, message): html and state (world_api)
+    widget_answers: list[dict] = field(default_factory=list)
 
     # ── configuration helpers ───────────────────────────────────────────────
     def set_member(self, chat_id: int, user_id: int, status: str = "member", **flags: Any) -> None:

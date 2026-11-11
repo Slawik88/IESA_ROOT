@@ -34,6 +34,7 @@ const SECTION_META = {
   access: ['🛡', 'Права', 'Читаем права ролей и вход владельцев'],
   mychats: ['💬', 'Мои чаты', 'Собираем ваши чаты и действия с участниками'],
   patchnotes: ['📣', 'Патч-ноуты', 'Собираем посты обновлений для канала'],
+  widgets: ['🧩', 'Виджеты', 'Собираем пробные виджеты'],
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
 
@@ -160,10 +161,11 @@ const ICONS = {
   mychats: '<path d="M4 5.5h16v10H9l-5 4z"/>',
   access: '<path d="M12 3.5 5 6v5.5c0 4.2 2.8 7.4 7 9 4.2-1.6 7-4.8 7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
   patchnotes: '<path d="M5 4.5h10l4 4v11H5z"/><path d="M14.5 4.5v4h4M8.5 12h7M8.5 15.5h5"/>',
+  widgets: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13v7M13 16.5h7"/>',
   more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
 };
 const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
-const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты', access: 'Права', patchnotes: 'Патч-ноуты'};
+const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты', access: 'Права', patchnotes: 'Патч-ноуты', widgets: 'Виджеты'};
 const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
 
 function dockSplit() {

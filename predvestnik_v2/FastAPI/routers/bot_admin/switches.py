@@ -49,6 +49,8 @@ async def set_switch(data: dict = Body(...), user=Depends(_user), db=Depends(get
         admin_access.require_chat(user, chat_id)
     if chat_id and feature.startswith("site"):
         raise HTTPException(400, "Сайт выключается только везде, не по чату.")
+    if chat_id and feature == "group:widgets":
+        raise HTTPException(400, "Виджеты живут только в личке с ботом: они выключаются только везде, не по чату.")
     if feature.startswith("event:"):
         _creator(user)
         if chat_id:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import random
 import time
+import zlib
 from typing import Any
 
 from tools.mafia_sim.errors import BOT_ID, TgError
@@ -20,7 +21,7 @@ class BotApiMixin:
     """Methods are looked up by ``World.handle`` as ``_m_<ApiMethodName>``."""
 
     # state lives in World's dataclass fields: invoices, precheckout_answers, star_transactions,
-    # business_connections, topics_enabled, forum_topics, next_topic_id
+    # business_connections, topics_enabled, forum_topics, next_topic_id, widgets, widget_answers
 
     def _pre(self, name: str, params: dict) -> None:
         """Checks that apply to every method before it runs (Business connection, topics in private chats)."""
@@ -73,6 +74,56 @@ class BotApiMixin:
         return {"transactions": list(self.star_transactions)}
 
     def _m_RefundStarPayment(self, params: dict) -> bool:
+        return True
+
+    # ── HTML widgets (Bot API 10.4): production allows them only in the private chat with the bot ──
+    @staticmethod
+    def _widget_state(params: dict, key: str) -> str | None:
+        value = params.get(key)
+        if value is not None and len(str(value).encode()) > 1024:
+            raise TgError(400, "Bad Request: INPUT_MEDIA_WIDGET_DATA_TOO_LARGE")
+        return value
+
+    def _m_SendWidget(self, params: dict) -> dict:
+        chat_id = int(params["chat_id"])
+        if chat_id < 0 or params.get("business_connection_id") is not None:
+            raise TgError(400, "Bad Request: widgets can be sent only to private chats")
+        self._require_dm(chat_id)
+        source = str(params.get("html") or "")
+        raw = source.encode()
+        if "\x00" in source or not raw:
+            raise TgError(400, "Bad Request: INPUT_MEDIA_WIDGET_HTML_INVALID")
+        if len(raw) > 32768 or len(zlib.compress(raw, 9)) > 4096:
+            raise TgError(400, "Bad Request: INPUT_MEDIA_WIDGET_TOO_LARGE")
+        caption = params.get("caption") or ""
+        if len(caption) > 1024:
+            raise TgError(400, "Bad Request: message caption is too long")
+        chat_data, public_data = self._widget_state(params, "chat_data"), self._widget_state(params, "public_data")
+        data = self._m_SendMessage({**params, "text": caption}) if caption else self._store_captionless(params)
+        widget = {"html": source, **({"chat_data": chat_data} if chat_data else {}), **({"public_data": public_data} if public_data else {})}
+        self.widgets[(chat_id, data["message_id"])] = {**widget, "allow_queries": bool(params.get("allow_queries"))}
+        data.pop("text", None)
+        data.pop("entities", None)
+        return {**data, "widget": widget, **({"caption": caption} if caption else {})}
+
+    def _m_EditMessageWidgetData(self, params: dict) -> bool:
+        key = (int(params["chat_id"]), int(params["message_id"]))
+        widget = self.widgets.get(key)
+        stored = self.messages.get(key)
+        if widget is None or stored is None or stored.deleted:
+            raise TgError(400, "Bad Request: message to edit not found")
+        changes = {k: self._widget_state(params, k) for k in ("chat_data", "public_data") if params.get(k) is not None}
+        if all(widget.get(k) == v for k, v in changes.items()):
+            raise TgError(400, "Bad Request: message is not modified")
+        widget.update(changes)
+        stored.edits += 1
+        return True
+
+    def _m_AnswerWidgetQuery(self, params: dict) -> bool:
+        data = params.get("data")
+        if data is not None and len(str(data).encode()) > 1024:
+            raise TgError(400, "Bad Request: WIDGET_RESULT_TOO_LARGE")
+        self.widget_answers.append({"id": params["widget_query_id"], "data": data})
         return True
 
     # ── media and message management ────────────────────────────────────────

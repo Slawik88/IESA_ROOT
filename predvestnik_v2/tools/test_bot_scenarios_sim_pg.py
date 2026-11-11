@@ -88,7 +88,7 @@ async def _run_one(harness, name: str) -> tuple[bool, dict]:
     from tools.mafia_sim.registry import BOT_SCENARIOS, VOLATILE
 
     random.seed(name)
-    for per_scenario in (harness.world.invoices, harness.world.precheckout_answers, harness.world.answers):
+    for per_scenario in (harness.world.invoices, harness.world.precheckout_answers, harness.world.answers, harness.world.widget_answers):
         per_scenario.clear()
     first_call, first_user, first_chat = len(harness.world.calls), len(harness.users_made), len(harness.chats)
     started = time.monotonic()

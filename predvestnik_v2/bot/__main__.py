@@ -12,7 +12,7 @@ from loguru import logger
 
 from bot.config import config
 from bot.core.database import init_db
-from bot.dispatcher import attach_outbound, build_dispatcher
+from bot.dispatcher import allowed_updates, attach_outbound, build_dispatcher
 from bot.middlewares.polling_delivery import PollingDelivery
 from bot.chat.payments import star_payment_reconciliation_task
 from infrastructure.database import connect_direct, create_pool
@@ -377,7 +377,7 @@ async def main():
             ))
         # График активности рисует отдельный короткоживущий процесс (bot/chat/activity_graph_render.py): matplotlib
         # в процессе бота держал 60–80 МиБ из 512 МБ контейнера, поэтому здесь его не прогреваем.
-        polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
+        polling = asyncio.create_task(dp.start_polling(bot, allowed_updates=allowed_updates(dp)), name="predvestnik:polling")
         failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")
         done, pending = await asyncio.wait({polling, failed_wait}, return_when=asyncio.FIRST_COMPLETED)
         for task in pending:

@@ -917,6 +917,10 @@
    "db": false,
    "s": 0.3
   },
+  "test_telegram_widgets_contract.py": {
+   "db": false,
+   "s": 4.0
+  },
   "test_text_banks.py": {
    "db": false,
    "s": 11.1
