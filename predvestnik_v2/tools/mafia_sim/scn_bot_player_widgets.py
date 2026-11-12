@@ -210,3 +210,35 @@ async def widget_links_from_a_group(h: Harness) -> None:
         start = len(h.world.calls)
         reply = said(await say(h, player, player.id, "/start w-mines"))
         ok(_widget_sent(h, player, start) is None and "Сапёр" in reply, f"without the switch the link answers with text: {reply!r}")
+
+
+@bot_scenario
+async def widget_track_finds_the_cache(h: Harness) -> None:
+    from core import pets_v2 as pet_rules
+    from infrastructure.repositories import pets_v2 as pets_repo
+    from tools.mafia_sim.scn_bot_widgets import database
+    player = await _player(h, "Следопыт")
+    async with database() as db:
+        await pets_repo.ensure_tables(db)
+    species = next(iter(pet_rules.SPECIES))
+    pet = (await h.sql("INSERT INTO predvestnik.pets(owner_id,name,species_id,rarity) VALUES ($1,'Рыжик',$2,'common') RETURNING id",
+                       player.id, species))[0]["id"]
+    async with flags(h, widgets_players_v1=True, pets_v2=True):
+        start = len(h.world.calls)
+        await say(h, player, player.id, "выслеживание")
+        found = _widget_sent(h, player, start)
+        ok(found is not None, "«выслеживание» in the DM sends the field")
+        mid, widget = found
+        first = json.loads(widget["chat_data"])
+        ok(first["st"] == "n" and first["p"] and first["p"][0][0] == pet, f"a fresh day offers the pet: {first}")
+        state = _answer(await h.widget_query(player, mid, f"track:b:{pet}"))
+        ok(state.get("st") == "o" and state["c"].count("?") == 6 and "f" not in state["c"], f"three clues, the cache hidden: {state}")
+        hidden = (await h.sql("SELECT hidden FROM predvestnik.pet_v2_tracks WHERE user_id=$1", player.id))[0]["hidden"]
+        wrong = next(i for i, c in enumerate(state["c"]) if c == "?" and i != hidden)
+        again = _answer(await h.widget_query(player, mid, f"track:o:{state['i']}:{wrong}"))
+        twice = _answer(await h.widget_query(player, mid, f"track:o:{state['i']}:{wrong}"))
+        ok(again["pt"] == state["pt"] - 1 and twice.get("pt") == again["pt"], f"a repeated tap spends attention once: {again} / {twice}")
+        won = _answer(await h.widget_query(player, mid, f"track:o:{state['i']}:{hidden}"))
+        ok(won.get("st") == "w" and won["c"][hidden] == "f" and "Тайник найден" in won.get("o", ""), f"the cache is found: {won}")
+        ok(won.get("a") == pet_rules.TRACK_DAILY - 1 and won.get("p"), "one attempt left and the pet offered again")
+        ok(json.loads(h.world.widgets[(player.id, mid)]["chat_data"])["st"] == "w", "the result stays in the message")

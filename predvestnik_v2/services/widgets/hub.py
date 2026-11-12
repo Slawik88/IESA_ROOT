@@ -418,11 +418,23 @@ async def _pets(db, user_id: int) -> dict:
         else:
             end = _ms(run["ends_at"])
             rows.append({**head, "s": "Вернётся", "w": [end - int(run["hours"]) * 3_600_000, end]})
+    tracks = view.get("track") or {}
+    left = int(tracks.get("attempts_left") or 0)
+    if left and await _track_link():
+        rows.append({"i": "🔎", "t": f"Выслеживание: попыток {left}", "s": "Питомец ищет тайник на поле 3×3",
+                     "a": [["Искать", await _track_link()]]})
     busy = sum(1 for p in view["pets"] if p.get("run_id") or p.get("outing"))
     free = max(0, min(pet_rules.SLOTS, len(view["pets"])) - busy)
     rows.append({"i": "🧭", "t": f"Можно отправить ещё: {free}" if free else "Все питомцы заняты",
                  "s": "Поход, экспедиция и дозор — в приложении или «бот отправить питомца»", "a": pets_app})
     return {"l": rows, "b": {"pets": int(ready > 0)}}
+
+
+async def _track_link() -> str:
+    """Ссылка «в личку» с /start w-track: бот пришлёт поле выслеживания отдельным сообщением."""
+    import os
+    bot = os.getenv("BOT_USERNAME", "").strip().lstrip("@")
+    return f"https://t.me/{bot}?start=w-track" if bot else ""
 
 
 def _pet_result(result: dict) -> str:

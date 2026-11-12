@@ -66,6 +66,12 @@ async def _dm_button(ctx: Ctx, label: str, key: str, view: str | None = None) ->
 
 async def text_view(db, user_id: int, key: str, view: str | None) -> tuple[str, InlineKeyboardMarkup | None]:
     """Экран виджета обычным сообщением: прежние тексты команд «план», «квесты», «пропуск», «баланс», «питомцы»."""
+    if key == "track":
+        from types import SimpleNamespace
+        from bot.chat import pets
+        if not await pets.available(db, user_id, SimpleNamespace(type="private", id=int(user_id)), {"screen": "choose", "target": "track"}):
+            return "⛔ Питомцы сейчас недоступны.", None
+        return await pets.render(db, user_id, int(user_id), {"screen": "choose", "target": "track"})
     if key == "mines":
         kb = InlineKeyboardMarkup(inline_keyboard=[row]) if (row := _app_row("games", "💣 Открыть Сапёр")) else None
         return ("💣 <b>Сапёр</b>\n\nОткрывай клетки и не попадись на мину: цифра на клетке — сколько мин рядом. "
@@ -122,7 +128,7 @@ async def on_widget_button(call: CallbackQuery, db) -> None:
         await call.answer("Готово: план, задания и Пропуск будут приходить текстом. Вернуть табло — «бот табло вкл».",
                           show_alert=True)
         return
-    if len(parts) == 4 and parts[1] == "t" and parts[2] in ("hub", "mines"):
+    if len(parts) == 4 and parts[1] == "t" and parts[2] in ("hub", "mines", "track"):
         await _send_text(msg, db, uid, parts[2], parts[3] or None, offer_text_mode=True)
         await call.answer()
         return
@@ -144,7 +150,7 @@ async def open_widget(message: Message, bot, db, user_id: int, key: str, view: s
 async def from_start(message: Message, bot, db, payload: str) -> bool:
     """/start w-<ключ>[-<экран>]: ссылка «в личку» из группы. False — это не ссылка на виджет."""
     found = _START.match(payload or "")
-    if not found or found.group(1) not in ("hub", "mines"):
+    if not found or found.group(1) not in ("hub", "mines", "track"):
         return False
     await dm_push.confirm_contact(db, message.from_user.id)
     await open_widget(message, bot, db, message.from_user.id, found.group(1), found.group(2))

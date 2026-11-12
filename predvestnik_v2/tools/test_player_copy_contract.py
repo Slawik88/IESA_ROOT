@@ -311,7 +311,7 @@ for name in ("rhythm-v2.html", "minesweeper-v2.html", "rhythm-v2.js", "minesweep
         assert_plain(name, line)
 # Виджеты в личке (S30b): шаблоны и тексты, которые бот кладёт в пульт и Сапёр
 for path in [*sorted((ROOT / "core" / "widgets" / "html").glob("*.html")), ROOT / "services" / "widgets" / "hub.py",
-             ROOT / "services" / "widgets" / "mines.py", ROOT / "bot" / "chat" / "widgets.py"]:
+             ROOT / "services" / "widgets" / "mines.py", ROOT / "services" / "widgets" / "track.py", ROOT / "bot" / "chat" / "widgets.py"]:
     for line in re.findall(r'"([^"\n]*[А-Яа-яЁё][^"\n]*)"', path.read_text(encoding="utf-8")):
         assert_plain(path.name, line)
 assert not PROBLEMS, "\n".join(PROBLEMS)

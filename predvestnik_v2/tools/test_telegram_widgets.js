@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '../core/widgets/html');
 const boot = fs.readFileSync(path.join(root, '_boot.js'), 'utf8');
-const KEYS = ['ping', 'ttt', 'hub', 'mines'];
+const KEYS = ['ping', 'ttt', 'hub', 'mines', 'track'];
 
 function element(tag = 'div') {
   const props = {};
@@ -214,6 +214,15 @@ async function run() {
 
   await hubChecks();
   await minesChecks();
+  const track = widget('track', {chatData: JSON.stringify({st: 'o', c: 'cw?w??c??', i: 'f'.repeat(32), pt: 3, a: 1, n: '🦊 Рыжик', r: 1}), look: VOID});
+  track.pending.shift().resolve({result: JSON.stringify({st: 'o', c: 'cw?w??c??', i: 'f'.repeat(32), pt: 3, a: 1, r: 2})});
+  await settle();
+  const cells = track.nodes.get('g').children;
+  assert.equal(cells[1].textContent, '♨');
+  assert.equal(cells[2].textContent, '⋆', 'closed cells wear the skin mark');
+  cells[0].onclick({currentTarget: cells[0]});
+  cells[2].onclick({currentTarget: cells[2]});
+  assert.deepEqual(track.calls.slice(1), [`track:o:${'f'.repeat(32)}:2`], 'only closed cells are dug');
   process.stdout.write('OK: widget scripts, offline render, broken storage, retry, double click, state revisions, ' +
                        'board tabs/claims/links/skin dress, mines moves/queue/flags/picker\n');
 }
