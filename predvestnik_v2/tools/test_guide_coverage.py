@@ -48,13 +48,13 @@ COMMAND_TOPIC = {"перевод": "transfers", "стрик": "streak", "вип"
                  "шипирить": "ship", "шипирить меня": "ship", "не шипирить меня": "ship", "шипирить меня разрешаю": "ship",
                  "моя статья": "article", "пропуск": "pass",
                  "обменять зарники": "dm-rewards", "подарок фортуны": "dm-rewards",
-                 "бизнес": "business", "предлагать мне": "business"}
+                 "бизнес": "business", "предлагать мне": "business", "табло": "board", "сапёр": "board"}
 # ── Выключатели: ключ → тема или причина ──────────────────────────────────────────────────────────────────────────────────────
 FLAGS = {"tab_economy": "transfers", "tab_purge": "chat-admin", "tab_cosmetics": "looks", "tab_quests": "quests", "game_rhythm_v2": "rhythm",
          "game_minesweeper_v2": "mines", "game_mafia_v1": "mafia", "game_casino_v1": "casino", "game_mafia_online": "mafia-online", "content_chests_v1": "keys",
          "star_dust_v1": "dust", "pets_v2": "trail", "pets_level_up_v1": "pet-growth", "pets_route_rewards_v1": "trail", "shop_v1": "keys", "season_pass_v1": "pass",
          "economy_player_exchange_v1": "market", "economy_player_exchange_shorts_v1": "market", "coin_market_v2": "market", "coin_market_v2_shorts": "market",
-         "pass_race_v1": "pass-race"}
+         "pass_race_v1": "pass-race", "widgets_players_v1": "board"}
 FLAG_EXCEPT = {"tab_bp": "прежний Боевой пропуск, экрана нет (его место занял Пропуск сезона)", "tab_zoo": "прежний Зоопарк, экрана нет",
                "tab_market": "прежний рынок с гачей, экрана нет", "tab_auction": "прежний аукцион, экрана нет",
                "game_reconstruction_v1": "игра в разработке, игрокам не показана", "reconstruction_real_settlement_v1": "служебный выключатель той же игры",

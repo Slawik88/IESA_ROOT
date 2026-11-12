@@ -36,6 +36,8 @@ _DEFAULTS = [
     ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", False),
     # Деньги владельца: выключено, пока владелец не включит в админке «Функции» (services/pass_race.py).
     ("pass_race_v1", "🏁 Гонка за Пропуском: 50 ⭐ первым четверым", False),
+    # Живые карточки в личке для всех (core/widgets): до проверки создателем в настоящем Telegram их видит только он.
+    ("widgets_players_v1", "🧩 Виджеты в личке для всех: табло и Сапёр", False),
 ]
 
 _DEFAULT_ENABLED = {key: enabled for key, _label, enabled in _DEFAULTS}

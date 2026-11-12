@@ -1,4 +1,4 @@
-"""Widget limits, creator access and bounded failure handling; no database or real Telegram."""
+"""Widget limits, player access, skin palettes, text fallback and bounded failure handling; no database or real Telegram."""
 from __future__ import annotations
 
 import asyncio
@@ -21,6 +21,11 @@ from infrastructure.telegram_widgets import AnswerWidgetQuery, SendWidget, Widge
 from services import widgets
 
 
+def longest_signature() -> str:
+    from core.skins_v3_catalog import SKINS
+    return max((f"{skin_id}:SSS" for skin_id in SKINS), key=len)
+
+
 def query(**changes) -> Update:
     raw = {"id": "test-query", "from": {"id": 1}, "chat": {"id": 1, "type": "private"},
            "message_id": 10, "type": {"type": "data"}, "data": "ping:s"}
@@ -36,7 +41,74 @@ class Limits(unittest.TestCase):
                 self.assertEqual(rules.size_problems(source), [])
                 self.assertLessEqual(rules.packed_size(source), rules.PACKED_BUDGET)
                 self.assertEqual(profile.problems(source), [])
-                rules.encode({**widgets.module(key).SAMPLE, "r": 9999999999999})
+                sample = widgets.module(key).SAMPLE
+                self.assertNotIn("e", sample, "`e` is the refusal field of every answer")
+                if rules.REGISTRY[key].themed:
+                    sample = {**sample, "k": longest_signature()}
+                fitted = rules.fit(sample)
+                self.assertEqual(len(fitted.get(rules.ROWS_KEY, [])), len(sample.get(rules.ROWS_KEY, [])),
+                                 "the longest plausible screen keeps every row")
+                rules.encode({**fitted, "r": 9999999999999})
+
+    def test_every_skin_and_tier_dresses_the_widgets(self):
+        from core.skins_v3 import contrast
+        from core.skins_v3_catalog import SKINS
+        from core.widgets import skin
+        for skin_id in [None, *SKINS]:
+            for tier in skin.TIERS:
+                look = skin.look(skin_id, tier)
+                for key in (k for k, spec in rules.REGISTRY.items() if spec.themed):
+                    with self.subTest(skin=skin_id, tier=tier, key=key):
+                        source = rules.html(key, skin_id, tier)
+                        self.assertLessEqual(rules.packed_size(source), rules.PACKED_BUDGET)
+                        self.assertEqual(profile.problems(source), [])
+                        self.assertIn(look.data, source)
+            if skin_id:
+                with self.subTest(skin=skin_id):
+                    self.assertTrue(skin.ink_readable(skin_id), "text and hints read on the skin background")
+                    tokens = SKINS[skin_id]["tokens"]
+                    on = "#000000" if contrast(tokens["--v3-on-acc"], tokens["--v3-acc"]) < 4.5 else tokens["--v3-on-acc"]
+                    self.assertGreaterEqual(contrast(on, tokens["--v3-acc"]), 4.5, "button text on the accent")
+        poor, rich = skin.look("void", "D"), skin.look("void", "SSS")
+        self.assertNotIn(".card{border", poor.css, "the frame comes with the tier, as in chat")
+        self.assertIn(".card{border:2px dashed", rich.css)
+        self.assertIn('"q":"🌌"', rich.data)
+        self.assertIn('"b":["",""]', poor.data)
+        self.assertEqual(skin.look(None).signature, "")
+        self.assertEqual(rich.signature, "void:SSS")
+
+    def test_fit_trims_text_then_rows(self):
+        payload = {"v": "q", "k": longest_signature(), "l": [{"i": "🔸", "t": "я" * 60, "s": "ж" * 60} for _ in range(12)]}
+        fitted = rules.fit(payload)
+        self.assertLessEqual(rules.size_of(fitted) + rules.ROOM_FOR_REVISION, rules.MAX_STATE_BYTES)
+        self.assertEqual(fitted[rules.ROWS_KEY][-1]["t"], "Остальное — в приложении")
+        self.assertEqual((fitted["v"], fitted["k"]), (payload["v"], payload["k"]))
+        self.assertTrue(all("s" in row for row in payload["l"]), "the caller's rows are not mutated")
+
+    def test_every_emitted_query_fits_telegram(self):
+        from services.widgets import hub
+        for view in rules.REGISTRY["hub"].views:
+            self.assertIsNotNone(rules.parse_query(f"hub:v:{view}"))
+            self.assertIsNotNone(rules.parse_query(f"hub:s:{view}"))
+            self.assertIsNotNone(rules.parse_query(f"hub:r:{'f' * 32}:c:{view}"))
+        for row in hub.SAMPLE["l"]:
+            for verb in ([row["a"]] if isinstance(row.get("a"), str) else [a[1] for a in row.get("a", [])]):
+                self.assertIsNotNone(rules.parse_query(f"hub:{verb}:pass"), verb)
+        self.assertIsNotNone(rules.parse_query("mines:o:9368210f-133:80:999999"))
+        self.assertEqual(rules.view_of(rules.REGISTRY["hub"], "nope"), "day")
+        self.assertIsNone(rules.view_of(rules.REGISTRY["mines"], "day"))
+
+    def test_mines_board_never_reveals_hidden_mines(self):
+        from services.widgets import mines
+        run = {"run_id": "abc", "difficulty": "easy", "size": 6, "status": "active", "revision": 2, "elapsed_ms": 900,
+               "changed": [{"cell": 0, "adjacent": 0}, {"cell": 1, "adjacent": 2}], "mines": []}
+        view = mines._view(run)
+        self.assertEqual(view["b"], "02" + "#" * 34)
+        self.assertNotIn("p", view)
+        lost = mines._view({**run, "status": "lost", "mines": [5]})
+        self.assertEqual(lost["b"][5], "*")
+        self.assertIn("p", lost)
+        self.assertEqual(mines._view(None)["st"], "n")
 
     def test_utf8_limits_and_bad_queries(self):
         for data in (None, "", "ping", "unknown:s", "ping:", "ping:s:" + "я" * 30):
@@ -189,6 +261,59 @@ class Failures(unittest.IsolatedAsyncioTestCase):
         with patch.object(widgets, "answer", side_effect=asyncio.CancelledError):
             with self.assertRaises(asyncio.CancelledError):
                 await self.invoke()
+
+    async def test_players_see_widgets_only_with_the_flag(self):
+        from infrastructure.repositories import system_flags
+        hub, ping = rules.REGISTRY["hub"], rules.REGISTRY["ping"]
+        with patch("bot.chat.access.is_developer", return_value=False):
+            with patch.object(system_flags, "is_enabled", new=AsyncMock(return_value=False)):
+                self.assertFalse(await widgets.may_use(object(), hub, 5))
+            with patch.object(system_flags, "is_enabled", new=AsyncMock(return_value=True)) as flag:
+                self.assertTrue(await widgets.may_use(object(), hub, 5))
+                self.assertFalse(await widgets.may_use(object(), ping, 5), "creator tools stay creator-only")
+                self.assertEqual(flag.await_args.args[1], rules.PLAYERS_FLAG)
+        with patch("bot.chat.access.is_developer", return_value=True):
+            self.assertTrue(await widgets.may_use(object(), ping, 1))
+
+    async def test_offer_falls_back_to_text(self):
+        from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+        from aiogram.methods import SendMessage
+        from infrastructure.repositories import dm_push as prefs
+        method = SendMessage(chat_id=1, text="x")
+        with patch.object(widgets, "may_use", new=AsyncMock(return_value=True)), \
+             patch.object(widgets, "switched_off", new=AsyncMock(return_value=False)):
+            with patch.object(prefs, "prefers_text_menus", new=AsyncMock(return_value=True)), \
+                 patch.object(widgets, "send", new_callable=AsyncMock) as send:
+                self.assertIsNone(await widgets.offer(AsyncMock(), object(), 1, "hub"))
+            send.assert_not_awaited()
+            with patch.object(prefs, "prefers_text_menus", new=AsyncMock(return_value=False)):
+                with patch.object(widgets, "send", side_effect=TelegramBadRequest(method, "method not found")):
+                    self.assertIsNone(await widgets.offer(AsyncMock(), object(), 1, "hub"))
+                with patch.object(widgets, "send", side_effect=TelegramForbiddenError(method, "bot was blocked")):
+                    with self.assertRaises(TelegramForbiddenError):
+                        await widgets.offer(AsyncMock(), object(), 1, "hub")
+                with patch.object(widgets, "send", new=AsyncMock(return_value="message")):
+                    self.assertEqual(await widgets.offer(AsyncMock(), object(), 1, "hub"), "message")
+        with patch.object(widgets, "may_use", new=AsyncMock(return_value=False)):
+            self.assertIsNone(await widgets.offer(AsyncMock(), object(), 1, "hub"))
+
+    async def test_blocked_player_gets_nothing_from_a_widget(self):
+        from services import dm_push
+        parsed = WidgetQuery.model_validate(query(data="hub:p:day").model_extra["widget_query"])
+        with patch.object(widgets, "may_use", new=AsyncMock(return_value=True)), \
+             patch.object(widgets, "switched_off", new=AsyncMock(return_value=False)), \
+             patch.object(dm_push, "player_reachable", new=AsyncMock(return_value=False)), \
+             patch.object(widgets, "module") as module:
+            text, state = await widgets.answer(object(), parsed)
+        module.assert_not_called()
+        self.assertIsNone(state)
+        self.assertIn("недоступно", json.loads(text)["e"])
+
+    async def test_stale_pult_actions_are_refused_in_words(self):
+        from services.widgets import hub
+        for verb, args in (("q", ["x", "day"]), ("q", ["d"]), ("zz", ["day"]), ("r", ["id", "q", "pets"])):
+            with self.subTest(verb=verb, args=args), self.assertRaises(widgets.Refused):
+                await hub.act(object(), 1, verb, args, action_id="widget:1")
 
     async def test_malformed_query_is_answered_without_service(self):
         with patch.object(widgets, "answer", new_callable=AsyncMock) as answer:

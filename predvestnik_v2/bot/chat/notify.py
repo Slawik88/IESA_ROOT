@@ -15,6 +15,7 @@ from aiogram.filters import Command as SlashCommand
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from loguru import logger
 
+from bot.chat import widgets as widgets_chat
 from bot.chat.framework import Ctx, registry
 from core import dm_push as rules
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
@@ -77,11 +78,11 @@ async def _show(ctx: Ctx) -> None:
     await ctx.reply(text, reply_markup=kb)
 
 
-async def _need_private(ctx: Ctx, what: str) -> bool:
+async def _need_private(ctx: Ctx, what: str, reply_markup=None) -> bool:
     """Личное состояние игрока (настройки, план) не показываем в общем чате."""
     if ctx.message.chat.type == "private":
         return False
-    await ctx.reply(f"🔔 {what} — в личке с ботом: открой чат со мной и напиши «{ctx.command.name}».")
+    await ctx.reply(f"🔔 {what} — в личке с ботом: открой чат со мной и напиши «{ctx.command.name}».", reply_markup=reply_markup)
     return True
 
 
@@ -151,53 +152,20 @@ async def plan_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
 @registry.command("план", aliases=("план дня", "plan"), section="basic",
                   summary="Что забрать и что сделать сегодня: задания, питомцы, Пропуск.", usage="бот план", example="бот план")
 async def cmd_plan(ctx: Ctx) -> None:
-    if await _need_private(ctx, "План дня показываю"):
+    if ctx.message.chat.type != "private":
+        me = await ctx.bot.me()
+        link = widgets_chat.deep_link(me.username, "hub", "day") if me.username else ""
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🎛 Открыть в личке", url=link)]]) if link else None
+        await _need_private(ctx, "План дня показываю", kb)
         return
     await dm_push.confirm_contact(ctx.db, ctx.user_id)
+    if await widgets_chat.show(ctx.bot, ctx.db, ctx.user_id, "hub", "day"):   # живое табло вместо текста, если оно подходит
+        return
     text, kb = await plan_view(ctx.db, ctx.user_id)
     await ctx.reply(text, reply_markup=kb)
 
 
 # ── кнопки ──────────────────────────────────────────────────────────────────
-
-async def _claim_quest(db, user_id: int, kind: str) -> str:
-    from infrastructure.repositories.economy_ledger import ensure_tables as ensure_ledger
-    from infrastructure.repositories.quests_v1 import ensure_tables
-    from services import quests_v1 as quests
-    from services.vip import is_vip_active
-    await ensure_tables(db)
-    await ensure_ledger(db)
-    sources = await quests.available_sources(db, user_id=user_id)
-    state = await quests.claim_reward(db, user_id=user_id, vip_active=await is_vip_active(db, user_id), kind=kind, sources=sources)
-    result = state["reward_result"]
-    if result["already_claimed"]:
-        return "Эту награду ты уже забрал."
-    parts = [f"Мора +{result['amount_mora']}"]
-    if result.get("amount_keys"):
-        parts.append(f"ключей +{result['amount_keys']}")
-    if result.get("amount_essence"):
-        parts.append(f"Эссенции +{result['amount_essence']}")
-    return "✅ Забрано: " + ", ".join(parts) + "."
-
-
-async def _claim_pass(db, user_id: int) -> str:
-    from infrastructure.repositories.economy_ledger import ensure_tables as ensure_ledger
-    from services import league_pass
-    await ensure_ledger(db)
-    seasons = await dm_push_events.ready_pass_seasons(db, user_id, datetime.now(timezone.utc))
-    if not seasons:
-        return "Сейчас в Пропуске нечего забирать."
-    texts = []
-    for season in seasons:
-        try:
-            result = await league_pass.claim(db, user_id=user_id, season=season)
-        except league_pass.PassError as exc:
-            if texts:
-                break
-            return str(exc)
-        texts += [g["text"] for g in result["granted"]]
-    return "✅ Забрано из Пропуска: " + ", ".join(texts[:8]) + ("…" if len(texts) > 8 else "") + "."
-
 
 _EXCHANGE_COMMAND = "обменять зарники"
 _GIFT_COMMAND = "подарок фортуны"
@@ -269,13 +237,6 @@ async def cmd_casino_gift(ctx: Ctx) -> None:
                     ]))
 
 
-async def _claim_casino_gift(db, uid: int, day: date) -> str:
-    if not await system_flags.is_enabled(db, "game_casino_v1"):
-        return "Зал Фортуны сейчас закрыт."
-    result = await casino_v1.claim_gift(db, uid, expected_day=day)
-    return f"✅ Получено фишек: {result['gift']}."
-
-
 @router.callback_query(F.data.startswith("dn:"))
 async def on_notify_button(call: CallbackQuery, db) -> None:
     msg = call.message
@@ -296,7 +257,7 @@ async def on_notify_button(call: CallbackQuery, db) -> None:
         elif parts[1] == "q":
             await repo.set_quiet(db, uid, not (await repo.get_settings(db, uid))["quiet_enabled"])
         elif parts[1] == "claim" and len(parts) == 3:
-            notice = await (_claim_pass(db, uid) if parts[2] == "pass" else _claim_quest(db, uid, parts[2]))
+            notice = await (dm_plan.claim_pass(db, uid) if parts[2] == "pass" else dm_plan.claim_quest(db, uid, parts[2]))
             text, kb = await plan_view(db, uid)
             await _edit(msg, text, kb)
             await call.answer(notice[:190], show_alert=not notice.startswith("✅"))
@@ -308,7 +269,7 @@ async def on_notify_button(call: CallbackQuery, db) -> None:
                 await call.answer("Это действие сейчас недоступно.", show_alert=True)
                 return
             notice = await (_confirm_exchange(call, db, uid, parts) if is_exchange
-                            else _claim_casino_gift(db, uid, date.fromisoformat(parts[2])))
+                            else dm_plan.claim_casino_gift(db, uid, date.fromisoformat(parts[2])))
             await call.answer(notice, show_alert=True)
             return
         elif parts[1] == "chest" and len(parts) == 3 and re.fullmatch(r"[0-9a-f]{32}", parts[2]):
@@ -321,6 +282,9 @@ async def on_notify_button(call: CallbackQuery, db) -> None:
             return
         elif parts[1] == "pets":
             await _open_pets(call, db)
+            return
+        if parts[1] == "plan" and await widgets_chat.show(call.bot, db, uid, "hub", "day"):
+            await call.answer("Табло — ниже 👇")
             return
         if parts[1] == "plan":
             text, kb = await plan_view(db, uid)
@@ -383,5 +347,7 @@ async def slash_plan(message: Message, db) -> None:
     if message.from_user is None or await _quiet(message, db):
         return
     await dm_push.confirm_contact(db, message.from_user.id)
+    if await widgets_chat.show(message.bot, db, message.from_user.id, "hub", "day"):
+        return
     text, kb = await plan_view(db, message.from_user.id)
     await message.answer(text, parse_mode="HTML", reply_markup=kb)

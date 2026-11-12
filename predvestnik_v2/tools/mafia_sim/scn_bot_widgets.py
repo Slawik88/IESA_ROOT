@@ -105,7 +105,7 @@ async def widget_crash_is_answered_and_bot_keeps_working(h: Harness) -> None:
         message_id = await _send(h, owner, "ping")
         original = ping.state
 
-        async def broken(db, user_id):
+        async def broken(db, user_id, view=None):
             raise RuntimeError("simulated widget bug")
         ping.state = broken
         try:

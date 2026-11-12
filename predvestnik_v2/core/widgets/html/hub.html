@@ -1,0 +1,42 @@
+<style>
+#tabs{display:flex;gap:3px;margin:10px 0 2px;padding:4px;border:1px solid var(--t);border-radius:14px;background:var(--s)}
+#tabs button{position:relative;flex:1;margin:0;padding:5px 0;background:none;border:0;border-radius:10px;color:var(--h);font-size:.68em}
+#tabs button i{display:block;font-style:normal;font-size:1.5em;line-height:1.2}
+#tabs .on{background:var(--a);color:var(--on)}
+#tabs .dot::before{content:"";position:absolute;top:3px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--g)}
+.r{margin-top:6px;padding:8px 10px;border:1px solid var(--t);border-radius:12px;background:var(--s)}
+.rl{display:flex;align-items:center;gap:10px}
+.rl>i{width:1.5em;font:1.3em/1 system-ui;text-align:center}
+.rl>div{flex:1;min-width:0}
+.rt{font-weight:700;font-size:.92em}
+.rs{color:var(--h);font-size:.8em}
+.ok .rt::after{content:" ✓";color:var(--ok)}
+.ch{display:flex;gap:6px;margin-top:7px}
+.ch .btn{flex:1;padding:7px 3px}
+.sec{background:transparent;color:var(--a);border:1px solid var(--a)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chips span{padding:4px 8px;border:1px solid var(--t);border-radius:9px;background:var(--bg);font-size:.85em}
+.hm{display:grid;grid-template-rows:repeat(7,9px);grid-auto-flow:column;grid-auto-columns:9px;gap:3px;margin-top:6px}
+.hm i{border-radius:2px;background:var(--t)}
+.ph{margin-top:4px;color:var(--h);font-size:.78em;font-style:italic;text-align:center}
+</style>
+<div class="card" id="cd"><div class="hero"><div class="halo" id="hg"></div><div><div class="nm" id="hn"></div><div class="hs" id="hs"></div></div><i class="tier" id="ht"></i></div><div class="orn" id="dv"></div></div>
+<div id="tabs"></div>
+<div id="rows"></div>
+<div class="orn" id="ft"></div>
+<div class="ph" id="ph"></div>
+<div id="m"></div>
+<script>
+var KEY="hub",LIVE=1,TAB="day",DOTS={},DONE={},TABS=[["me","👤","Я"],["day","☀️","День"],["q","📜","Задания"],["pass","🎫","Пропуск"],["pets","🐾","Питомцы"]];
+function SNAP(){return KEY+":s:"+TAB}
+function el(t,c,x,p){var e=document.createElement(t);e.className=c||"";if(x!=null)e.textContent=x;if(p)p.appendChild(e);return e}
+function put(i,x){var e=$(i);e.textContent=x||"";e.hidden=!x}
+function left(m){m=Math.ceil(m/6e4);var h=m/60|0;return"ещё "+(h<1?m+" мин":h<48?h+" ч"+(m%60?" "+m%60+" мин":""):(h/24|0)+" дн")}
+function go(v){if(!v.indexOf("https:"))return T&&T.openTelegramLink(v);var t=!v.indexOf("v:"),was=TAB;if(t){TAB=v.slice(2);tabs()}ask(KEY+":"+v+(t?"":":"+TAB),1).then(function(o){if(t&&(!o||o.e)){TAB=was;tabs()}if(o&&o.o&&T&&T.HapticFeedback)T.HapticFeedback.notificationOccurred("success")})}
+function btn(a,p){el("button","btn"+(/^[vh]/.test(a[1])?" sec":""),a[0],p).onclick=function(){go(a[1])}}
+function tabs(){var box=$("tabs");box.textContent="";TABS.forEach(function(t){var on=t[0]==TAB||t[0]=="q"&&TAB=="qw",b=el("button",(on?"on":"")+(DOTS[t[0]]?" dot":""),null,box);el("i","",t[1],b);el("span","",t[2],b);b.onclick=function(){on||go("v:"+t[0])}})}
+function tick(){var now=Date.now(),due=[];document.querySelectorAll("[data-w]").forEach(function(n){var w=n.dataset.w.split(","),e=+w[1];n.querySelector(".bar>i").style.width=Math.min(100,(now-w[0])/(e-w[0])*100)+"%";n.querySelector(".rs").textContent=(n.dataset.s?n.dataset.s+" · ":"")+(now<e?left(e-now):"готово");if(now>=e&&!DONE[e])due.push(e)});if(due[0])ask(SNAP()).then(function(o){if(o)due.forEach(function(e){DONE[e]=1})})}
+function row(o,box){var r=el("div","r "+(o.c||""),null,box),l=el("div","rl",null,r),d,a=o.a||[];if(o.i)el("i","",o.i[0]=="@"?L.i["mpw".indexOf(o.i[1])]:o.i,l);d=el("div","",null,l);el("div","rt",o.t,d);if(o.s||o.w)el("div","rs",o.s||"",d);if(o.p||o.w)el("i","",null,el("div","bar",null,d)).style.width=o.p?Math.min(100,o.p[0]/(o.p[1]||1)*100)+"%":0;if(o.w){r.dataset.w=o.w.join(",");r.dataset.s=o.s||""}if(o.g){var c=el("div","chips",null,d);o.g.forEach(function(g){el("span","",g.join(" "),c)})}if(o.m){var h=el("div","hm",null,d);o.m.split("").forEach(function(v){el("i","l"+v,null,h)})}if(typeof a=="string")a=[[a=="d"?"Поймать":"Забрать",a]];if(a.length==1)btn(a[0],l);else if(a[0]){var ch=el("div","ch",null,r);a.forEach(function(x){btn(x,ch)})}}
+function draw(s){TAB=s.v||TAB;for(var n in s.b)DOTS[n]=s.b[n];var v=T&&T.viewer;put("hg",L.g);$("hn").textContent=(L.b[0]+" "+(v&&v.first_name||"Предвестник")+" "+L.b[1]).trim();$("hs").textContent=L.s?L.ti:"Образ не выбран";put("ht",L.t&&L.q+" "+L.t);tabs();var box=$("rows");box.textContent="";(s.l||[]).forEach(function(o){row(o,box)});tick()}
+function start(){var cd=$("cd");put("dv",L.d);put("ft",L.f);put("ph",L.ph);if(L.q)cd.className+=" sh";if(L.pt)el("span","sp",(L.pt+" ").repeat(5),cd);setInterval(tick,15e3)}
+</script>

@@ -172,7 +172,8 @@ async def _configure_telegram_profile(bot: Bot) -> None:
             BotCommand(command="help", description="Все команды бота"),
             BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
             BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
-            BotCommand(command="plan", description="План дня: что забрать и сделать сегодня"),
+            BotCommand(command="plan", description="Табло: день, задания, Пропуск и питомцы"),
+            BotCommand(command="mines", description="Сапёр прямо в чате"),
             BotCommand(command="notify", description="Уведомления: что бот присылает тебе в личку"),
             BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
         ], scope=BotCommandScopeAllPrivateChats())

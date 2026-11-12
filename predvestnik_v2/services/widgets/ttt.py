@@ -59,11 +59,11 @@ def _view(board: str) -> dict:
     return out
 
 
-async def state(db, user_id: int) -> dict:
+async def state(db, user_id: int, view: str | None = None) -> dict:
     return _view(EMPTY)
 
 
-async def act(db, user_id: int, verb: str, args: list[str]) -> Reply:
+async def act(db, user_id: int, verb: str, args: list[str], *, action_id: str = "") -> Reply:
     if verb == "n":
         return Reply(_view(EMPTY), persist=True)
     if verb != "m" or len(args) != 2 or not args[0].isdigit():

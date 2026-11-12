@@ -109,6 +109,23 @@ async def set_consent(db, user_id: int, category: str, enabled: bool) -> None:
     await db.commit()
 
 
+TEXT_MENUS = "widgets_text"   # не категория уведомлений, а выбор игрока: личные меню текстом, а не виджетом
+
+
+async def prefers_text_menus(db, user_id: int) -> bool:
+    """Игрок попросил «бот табло выкл»: план, задания и Пропуск в личке приходят прежним текстом."""
+    return await has_consent(db, user_id, TEXT_MENUS)
+
+
+async def set_text_menus(db, user_id: int, enabled: bool) -> None:
+    await db.execute(
+        "INSERT INTO user_notification_prefs (user_id, category, enabled) VALUES (?, ?, ?) "
+        "ON CONFLICT (user_id, category) DO UPDATE SET enabled = EXCLUDED.enabled",
+        (int(user_id), TEXT_MENUS, bool(enabled)),
+    )
+    await db.commit()
+
+
 # ── настройки и связь с игроком ─────────────────────────────────────────────
 
 async def get_settings(db, user_id: int) -> dict:

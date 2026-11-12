@@ -330,6 +330,24 @@ python tools/check_full_start.py --dsn <локальная БД Предвест
 
 Вкладка на локальных фикстурах: `python tools/admin_stand.py --tabs widgets --out <каталог вне git>` (320/390/430, две темы; при необходимости `CHROMIUM_PATH`). После выкладки создатель открывает админку → «Ещё» → «Виджеты»: присылает обе карточки, проверяет нажатия, светлую/тёмную тему, повтор после отказа, сворачивание Telegram и глобальный выключатель в «Функции». Другим игрокам доступ не открывать.
 
+## Виджеты игрокам: «Табло» и «Сапёр» (S30b)
+
+Те же проверки, что у S30, плюс:
+
+```text
+python tools/test_player_copy_contract.py        # тексты шаблонов и сервисов виджетов без внутренних слов
+BOT_TOKEN=1:x PYTHONPATH=. python tools/test_guide_coverage.py   # «табло», «сапёр» и флаг widgets_players_v1 → тема board
+python tools/test_bot_scenarios_sim_pg.py --dsn <локальная predvestnik_preprod> --only widget_pult_replaces_plan_for_players,widget_pult_follows_the_skin,widget_mines_is_played_to_the_end,widget_links_from_a_group
+```
+
+Сценарии `scn_bot_player_widgets.py` включают флаги сами и возвращают их; у игрока симулятора нет строки в `users` — сценарий
+создаёт её (без неё питомцы честно «недоступны»). Контракт собирает каждый «одетый» виджет для каждого образа и уровня (`core.widgets.html(key, skin, tier)`): профиль Telegram,
+читаемость текста и кнопки, сжатие не больше `PACKED_BUDGET` = 4064 (предел Telegram 4096; худший случай сейчас 4057 —
+новая строка CSS/JS в «Табло» требует сначала ужать старое), самый длинный экран «День» в 1024 байта без потери строк.
+Глазами: страницы с двойником `TelegramWidget` (`chatData`, `viewer`) вокруг `core.widgets.html(...)`, 320/390 —
+карточка тёмная в любой теме Telegram, как приложение. Поле `e` в состоянии занято отказом (загрузчик
+показывает его как ошибку), `o` — строка итога действия.
+
 ## Windows-проверка бота (S23)
 
 `env-setup.sh` на Windows не запускается. Использовались Python 3.11.9 (venv вне репозитория) с пакетами из `requirements.txt` (aiogram 3.24.0 + `defusedxml`, `openpyxl` для Домового: без них `check_full_start.py` пишет «process exited: domovoy»), PostgreSQL 17 из `C:\Program Files\PostgreSQL\17` (кластер в папке сессии, порт 55423, `initdb --locale-provider=icu --icu-locale=und -E UTF8`, `fsync=off`, UTC). База-шаблон `tpl_boot` = `bootstrap_test_db.py` + `migrate_marriage_members_v1.py --apply`; **перед каждым тестом** `predvestnik_preprod` пересоздаётся из шаблона (`CREATE DATABASE … TEMPLATE tpl_boot`). Шаблон нужно пересоздавать после изменения схемы бота (новые таблицы создаются в `ensure_chat_schema`). Таблицы бота лежат в схеме `predvestnik`, а не `public` (`\dt` без указания схемы их не покажет). В PowerShell/Git Bash не клади путь с пробелом в переменную-команду: оборачивай вызов `psql` в функцию. Сценарии лички: `tools/mafia_sim/scn_bot_dm_push.py` — у игроков симулятора нет строки в `users`, сценарий создаёт её сам; «время» доставки задаётся параметром `now` (`dm_push.deliver_due(..., now=...)`), поэтому ночь и сутки проверяются без ожидания.

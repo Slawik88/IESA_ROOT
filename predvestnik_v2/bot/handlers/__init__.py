@@ -6,6 +6,7 @@ from bot.chat import router as chat_router
 from bot.chat.notify import slash_router as notify_slash_router
 from bot.chat.onboarding import router as onboarding_router
 from bot.chat.payments import router as payments_router
+from bot.chat.widgets import slash_router as widgets_slash_router
 
 main_router = Router(name="main_router")
 # Оплата Stars и /start — раньше общего обработчика чата, который ловит все сообщения.
@@ -14,4 +15,5 @@ main_router.include_router(payments_router)
 main_router.include_router(onboarding_router)
 # /plan и /notify из меню «/» — тоже раньше общего обработчика чата.
 main_router.include_router(notify_slash_router)
+main_router.include_router(widgets_slash_router)
 main_router.include_router(chat_router)
