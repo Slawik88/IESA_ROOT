@@ -152,6 +152,10 @@ assert f"Не больше {dm_tickets.CARDS_PER_HOUR} карточек в ча�
     "справка администрации «Обращения игроков»: предел карточек или размер страницы расходятся с core/dm_tickets.py"
 dm_copy = json.dumps(topics["dm"], ensure_ascii=False)
 assert dm_push_rules.DIGEST_FROM_HOUR == 9 and dm_push_rules.DIGEST_TO_HOUR == 12 and "с 9 до 12" in dm_copy, "dm: часы утреннего плана расходятся с правилами"
+for relative in ("services/season_report.py", "services/dm_push_events.py", "core/dm_push.py", "bot/chat/report_cards.py"):
+    source = re.sub(r'""".*?"""', '', (ROOT / relative).read_text(encoding="utf-8"), flags=re.S)
+    for line in re.findall(r'"([^"\n]*[А-Яа-яЁё][^"\n]*)"', source):
+        assert_plain(relative, line)
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # ── Дары: Путеводитель показывает ровно то, что видит игрок в игре ──────────────────────────────────────────────────────

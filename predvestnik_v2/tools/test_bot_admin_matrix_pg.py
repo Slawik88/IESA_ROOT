@@ -59,7 +59,9 @@ async def run():
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         for uid, rank in ((DEV, 0), (JUNIOR, 2), (HELPER, 3), (SENIOR, 4), (CODER, 5), (TESTER, 1), (P1, 0), (P2, 0), (P3, 0), (P4, 0)):
-            await db.execute("INSERT INTO users (user_tg_id, user_tg_username, bot_rank) VALUES (?, ?, ?)", (uid, f"u{uid}", rank))
+            await db.execute("INSERT INTO users (user_tg_id, user_tg_username, bot_rank) VALUES (?, ?, ?) "
+                             "ON CONFLICT (user_tg_id) DO UPDATE SET user_tg_username=EXCLUDED.user_tg_username, bot_rank=EXCLUDED.bot_rank",
+                             (uid, f"u{uid}", rank))
         await db.execute("INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, 'Чат')", (CHAT,))
         for uid in (P1, P2, P3, P4):
             await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, is_left) VALUES (?, ?, FALSE)", (uid, CHAT))
@@ -94,10 +96,26 @@ async def run():
     m = (await get(DEV, "/access/matrix")).json()
     keys = {i["key"]: i for i in m["items"]}
     assert keys["action:ban"]["current"] == 4 and keys["action:ban"]["default"] == 4 and not keys["action:ban"]["changed"], keys["action:ban"]
-    assert "action:balance" not in keys and "action:rank" not in keys and "section:settings" not in keys
+    assert keys["action:balance"]["current"] == 5 and keys["action:rank"]["current"] == 5 and keys["section:settings"]["current"] == 5
+    assert [r["rank"] for r in keys["action:skin_grant"]["roles"]] == [6]
+    assert [r["rank"] for r in keys["action:skin_revoke"]["roles"]] == [6]
     assert [r["rank"] for r in m["roles"]] == [2, 3, 4, 5]
     assert "access" not in [s["key"] for s in (await get(HELPER, "/me")).json()["sections"]]
     assert "access" in [s["key"] for s in (await get(DEV, "/me")).json()["sections"]]
+
+    # Global bans remain admin actions: the creator may tighten role 5 to 6, never delegate below 5.
+    for action in ("global_ban", "global_unban"):
+        key = f"action:{action}"
+        assert keys[key]["current"] == 5 and [r["rank"] for r in keys[key]["roles"]] == [5, 6]
+        assert (await setm(key, 4, "старший хелпер")).status_code == 400
+        assert (await setm(key, 6, "")).status_code == 400
+        assert (await setm(key, 6, "создатель")).status_code == 200
+        assert (await post(CODER, f"/player/{P3}/action", action=action, reason="x", confirm=str(P3))).status_code == 403
+        card = (await get(CODER, f"/player/{P3}")).json()
+        assert action not in [a["key"] for a in card["actions"]["player"]]
+        card = (await get(DEV, f"/player/{P3}")).json()
+        assert action in [a["key"] for a in card["actions"]["player"]]
+        assert (await setm(key, None, "сброс")).status_code == 200
 
     # ── подтверждение вводом названия роли, пол и потолок ──
     assert (await setm("action:ban", 3, "")).status_code == 400
@@ -151,7 +169,7 @@ async def run():
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         async with db.execute("SELECT COUNT(*) FROM bot_admin_actions WHERE action = 'grant' AND actor_id = ?", (DEV,)) as cur:
-            assert (await cur.fetchone())[0] == 5   # три изменения и два сброса попали в журнал
+            assert (await cur.fetchone())[0] == 9   # прежние пять + два глобальных права: ограничить и сбросить
 
 
 def main():

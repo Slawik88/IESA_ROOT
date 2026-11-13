@@ -122,6 +122,152 @@ async def _season(db, now: datetime) -> int:
     return sent
 
 
+# сезон → игроки, чей итог уже разобран (поставлен или пустой): они не перебираются каждый проход, а включившие «Итоги сезона»
+# позже и те, кому сейчас нельзя писать, подхватятся следующим проходом. Сбой одного игрока не останавливает остальных.
+_report_seen: dict[int, set[int]] = {}
+
+
+async def _season_report(db, now: datetime) -> int:
+    """Личный итог тем, кто отдельно включил «Итоги сезона». Один раз за сезон."""
+    from services import season_report
+    number = season_report.due_season(now)
+    if number is None:
+        return 0
+    key = f"season_report:{number}"
+    seen = _report_seen.setdefault(number, set())
+    for old in [s for s in _report_seen if s != number]:
+        del _report_seen[old]
+    async with db.execute(
+        "SELECT np.user_id FROM user_notification_prefs np " + _READY.format(alias="np") +
+        " WHERE np.category = 'season_report' AND np.enabled = TRUE AND NOT (np.user_id = ANY(?::bigint[])) "
+        "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
+        "ORDER BY np.user_id LIMIT ?", (list(seen), key, BATCH),
+    ) as c:
+        rows = await c.fetchall()
+    sent = 0
+    for (user_id,) in rows:
+        try:
+            data = await season_report.report(db, int(user_id), number)
+            if data is not None:
+                queued = await dm_push.enqueue(
+                    db, user_id=int(user_id), category="season_report", dedup_key=key, text=season_report.text(data),
+                    button={"kind": "app", "section": "pass", "label": "🏆 Пропуск нового сезона"},
+                )
+                if not queued:
+                    continue
+                sent += 1
+        except Exception as exc:   # повторим следующим проходом; остальные игроки не ждут
+            logger.warning(f"season report {number} for {user_id} failed: {type(exc).__name__}: {exc}")
+            continue
+        seen.add(int(user_id))
+    return sent
+
+
+HOLIDAY_LOOKS_NOTICE = timedelta(days=3)
+_HOLIDAY_ICON = {"halloween": "🎃", "new_year": "🎄", "valentine": "💞"}
+
+
+def _holiday_text(season_id: str, end: datetime, missing: list[str], now: datetime) -> str:
+    from core.skins_v3_catalog import SEASONS
+    days = max(1, -(-int((end - now).total_seconds()) // 86400))
+    word = "день" if days == 1 else "дня"
+    return (f"{_HOLIDAY_ICON.get(season_id, '🎁')} <b>Праздничные образы скоро уйдут</b>\n"
+            f"«{SEASONS[season_id]['name']}» в магазине образов ещё {days} {word}. Пока не твои: {', '.join(missing)}.\n"
+            "Потом эти образы вернутся только через год.")
+
+
+async def holiday_notice(db, user_id: int, key: str, now: datetime) -> str | None:
+    """Перед доставкой: окно ещё открыто, а недостающие образы и срок в письме актуальны."""
+    from core.skins_v3_catalog import SEASONS, SKINS
+    from core.skins_v3_collection import season_window
+    _, season_id, end_day = key.split(":", 2)
+    if season_id not in SEASONS:
+        return None
+    window = season_window(season_id, now)
+    end = datetime.fromisoformat(window["ends_at"])
+    if not window["open"] or end.date().isoformat() != end_day:
+        return None
+    async with db.execute("SELECT skin_id FROM skins_v3_owned WHERE user_id = ?", (user_id,)) as cur:
+        owned = {r[0] for r in await cur.fetchall()}
+    missing = [s["name"] for k, s in SKINS.items() if s.get("season") == season_id and not s.get("exclusive") and k not in owned]
+    return _holiday_text(season_id, end, missing, now) if missing else None
+
+
+async def _holiday_looks(db, now: datetime) -> int:
+    """Праздничные образы уходят из магазина через трое суток или меньше, а у игрока собраны не все. Один раз за окно."""
+    from core.skins_v3_catalog import SEASONS, SKINS
+    from core.skins_v3_collection import season_window
+    if not await _has_table(db, "skins_v3_owned"):
+        return 0
+    sent = 0
+    for season_id in SEASONS:
+        window = season_window(season_id, now)
+        end = datetime.fromisoformat(window["ends_at"])
+        if not window["open"] or not (timedelta(0) < end - now <= HOLIDAY_LOOKS_NOTICE):
+            continue
+        looks = [k for k, s in SKINS.items() if s.get("season") == season_id and not s.get("exclusive")]
+        if not looks:
+            continue
+        key = f"holiday_looks:{season_id}:{end.date().isoformat()}"
+        async with db.execute(
+            "SELECT np.user_id, ARRAY(SELECT o.skin_id FROM skins_v3_owned o WHERE o.user_id = np.user_id "
+            "AND o.skin_id = ANY(?::text[])) FROM user_notification_prefs np " + _READY.format(alias="np") +
+            " WHERE np.category = 'events' AND np.enabled = TRUE "
+            "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox ob WHERE ob.user_id = np.user_id AND ob.dedup_key = ?) "
+            "AND (SELECT COUNT(*) FROM skins_v3_owned o WHERE o.user_id = np.user_id AND o.skin_id = ANY(?::text[])) < ? "
+            "ORDER BY np.user_id LIMIT ?", (looks, key, looks, len(looks), BATCH),
+        ) as c:
+            rows = await c.fetchall()
+        for user_id, owned in rows:
+            missing = [SKINS[k]["name"] for k in looks if k not in set(owned or [])]
+            sent += await dm_push.enqueue(
+                db, user_id=int(user_id), category="events", dedup_key=key,
+                text=_holiday_text(season_id, end, missing, now),
+                button={"kind": "app", "section": "looks", "label": "🎨 К образам"},
+            )
+    return sent
+
+
+async def social(db, *, user_id: int, dedup_key: str, text: str, button: dict | None = None, chat_id: int | None = None) -> bool:
+    """Событие «Люди» (перевод в чате, предложение брака, приглашение в семью): ставится сразу из обработчика.
+    Никогда не роняет сам обработчик: уведомление — дополнение, действие игрока уже выполнено."""
+    try:
+        if chat_id is not None and chat_id < 0:
+            async with db.execute("SELECT 1 FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ? AND NOT COALESCE(is_left, FALSE)",
+                                  (int(user_id), int(chat_id))) as cur:
+                if await cur.fetchone() is None:
+                    return False
+        return await dm_push.enqueue(db, user_id=int(user_id), category="social", dedup_key=dedup_key, text=text, button=button)
+    except Exception as exc:
+        logger.warning(f"dm push social {dedup_key} skipped: {type(exc).__name__}: {exc}")
+        return False
+
+
+async def withdraw_invitation(db, kind: str, sender_id: int, target_id: int) -> None:
+    """Уже отвеченное или отозванное приглашение не должно ждать в очереди лички."""
+    from infrastructure.repositories import dm_push as push_repo
+    prefix = f"{kind}:{sender_id}:{target_id}:"
+    try:
+        rows = await push_repo.pending_rows(db, target_id)
+        await push_repo.drop(db, [r["id"] for r in rows if r["dedup_key"].startswith(prefix)], "expired")
+    except Exception as exc:
+        logger.warning(f"dm push invitation withdrawal failed: {type(exc).__name__}: {exc}")
+
+
+async def invitation_current(db, user_id: int, invitation: dict, now: datetime) -> bool:
+    """Читаем само предложение: ответ из Mini App тоже отменяет устаревшее письмо."""
+    if now.timestamp() >= invitation["until"]:
+        return False
+    if "proposal_id" in invitation:
+        async with db.execute("SELECT 1 FROM marriage_proposals WHERE id=? AND target_id=? AND status='pending' "
+                              "AND expires_at > (?::timestamp AT TIME ZONE 'UTC')", (invitation["proposal_id"], user_id, now)) as cur:
+            return await cur.fetchone() is not None
+    async with db.execute("SELECT 1 FROM marriages WHERE id=? AND ended_at IS NULL AND ? IN (user1_id,user2_id) "
+                          "AND NOT EXISTS (SELECT 1 FROM family_children WHERE user_id=? AND left_at IS NULL)",
+                          (invitation["marriage_id"], invitation["inviter_id"], user_id)) as cur:
+        return await cur.fetchone() is not None
+
+
 async def _vip(db, now: datetime) -> int:
     """VIP закончится меньше чем через 3 дня."""
     from core.constants import VIP_EXPIRY_REMINDER_DAYS
@@ -291,7 +437,8 @@ async def vip_daily_reminders(db, now: datetime | None = None) -> int:
     return queued
 
 
-COLLECTORS = (("digest", _morning), ("digest_evening", _evening), ("chests", _chests), ("pets", _pets), ("quests", _quests), ("pass", _pass), ("market", _market), ("season", _season), ("vip_expiry", _vip))
+COLLECTORS = (("digest", _morning), ("digest_evening", _evening), ("chests", _chests), ("pets", _pets), ("quests", _quests), ("pass", _pass),
+              ("market", _market), ("season", _season), ("season_report", _season_report), ("events", _holiday_looks), ("vip_expiry", _vip))
 
 
 async def collect(db, now: datetime | None = None) -> dict[str, int]:

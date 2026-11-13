@@ -4,8 +4,8 @@
 либо владелец чатов (`kind="owner"`, `rank=0`, `chats` — свои чаты из БД). Владелец НЕ ранг: числовые проверки
 сотрудников (`section()`, `_check`, `_guard_target`) его никогда не пропускают.
 
-Права ролей 1–4 хранятся в `admin_role_grants` как порог «минимальная роль» на раздел или действие.
-Менять можно только то, что перечислено в CONFIGURABLE, и только в пределах [FLOOR, CEILING]: всё остальное
+Права ролей хранятся в `admin_role_grants` как порог «минимальная роль» на раздел или действие.
+Менять можно только то, что перечислено в CONFIGURABLE, и только в пределах bounds(key): всё остальное
 закреплено в коде за разработчиком и создателем. Потолок применяется при ЧТЕНИИ, строка сверх него (ручной SQL,
 старая версия) просто ужимается. Один порог на действие = монотонность: если роль может, то и все роли выше тоже.
 """
@@ -21,15 +21,26 @@ FLOOR = 2     # ниже «мл. хелпера» порог опустить н
 CEILING = 5   # выше «разработчика» тоже нельзя: создатель не должен терять доступ
 
 # Ключи: "section:<раздел>" и "action:<действие>". Остальное закреплено в коде.
+# Глобальные действия и разделы видны в «Правах». Их можно только ограничить сильнее:
+# нижняя граница совпадает с прежним порогом, выдача образов и полномочия создателя остаются только у роли 6.
+GLOBAL_FLOORS = {
+    "action:block": 4, "action:unblock": 4,
+    "action:global_ban": 5, "action:global_unban": 5,
+    "action:balance": 5, "action:vip": 5, "action:rank": 5, "action:dm": 5,
+    "action:skin_grant": 6, "action:skin_revoke": 6,
+    "action:mark_grant": 5, "action:mark_revoke": 5, "action:revoke_sessions": 6,
+    "section:broadcast": 5, "section:promo": 5, "section:switches": 5, "section:settings": 5,
+    "section:diagnostics": 5, "section:access": 6, "section:patchnotes": 6, "section:widgets": 6,
+}
 CONFIGURABLE = frozenset({
     "section:people", "section:reports", "section:metrics", "section:journal", "section:health",
     "action:warn", "action:mute", "action:unmute", "action:unwarn_all", "action:kick", "action:ban", "action:unban",
     "action:close", "action:open", "action:warn_limit",
     "feature:early_access",
-})
+} | GLOBAL_FLOORS.keys())
 # Своя граница у права, которое не опасно и выдаётся точечно: ранний доступ к контенту можно открыть и тестерам
-# (1), а по умолчанию он только у создателя (6). Остальные права живут в общих [FLOOR, CEILING].
-KEY_BOUNDS = {"feature:early_access": (1, 6)}
+# (1), а по умолчанию он только у создателя (6). Глобальные действия можно только ограничить сильнее.
+KEY_BOUNDS = {"feature:early_access": (1, 6), **{key: (floor, 6) for key, floor in GLOBAL_FLOORS.items()}}
 FEATURES: dict[str, tuple[str, int]] = {
     "early_access": ("Ранний доступ к контенту", 6),   # Лига открыта всем с 25.10.2026; право оставлено для следующего ещё не выпущенного контента
 }

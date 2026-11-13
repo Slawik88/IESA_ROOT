@@ -23,6 +23,7 @@ from core import dm_push as rules
 from infrastructure.repositories import dm_push as repo
 
 MAX_ATTEMPTS = 3
+INVITATION_TTL = timedelta(hours=24)
 CAP_RECHECK = timedelta(minutes=30)   # упёрся в суточный лимит: проверить снова через полчаса
 FAIL_RECHECK = timedelta(minutes=5)   # сбой доставки: не мучить игрока каждую минуту
 PAUSE_RECHECK = timedelta(days=1)     # пауза без отклика снимается ответом игрока (он сбрасывает отметку сам)
@@ -114,12 +115,34 @@ async def _deliver_user(bot, db, user_id: int, now: datetime, markup: MarkupBuil
             dead.append((row["id"], "expired"))
         elif row["category"] not in consent:
             dead.append((row["id"], "revoked"))
+        elif row["dedup_key"].startswith(("proposal:", "adopt:")) and now - row["created_at"] >= INVITATION_TTL:
+            dead.append((row["id"], "expired"))
+        elif (row["button"] or {}).get("invitation"):
+            from services.dm_push_events import invitation_current
+            if await invitation_current(db, user_id, row["button"]["invitation"], now):
+                alive.append(row)
+            else:
+                dead.append((row["id"], "expired"))
         elif row["category"] == "chests" and (
             not chests_enabled or not await chest_repo.unspent_grant_source(
                 db, user_id=user_id, grant_id=row["dedup_key"].removeprefix("chest_key:"),
             )
         ):
             dead.append((row["id"], "expired"))
+        elif row["dedup_key"].startswith("holiday_looks:"):
+            from services.dm_push_events import holiday_notice
+            current_text = await holiday_notice(db, user_id, row["dedup_key"], now)
+            if current_text is None:
+                dead.append((row["id"], "expired"))
+            else:
+                row["text"] = current_text
+                alive.append(row)
+        elif row["category"] == "season_report":
+            from services.season_report import due_season
+            if row["dedup_key"] != f"season_report:{due_season(now)}":
+                dead.append((row["id"], "expired"))
+            else:
+                alive.append(row)
         else:
             alive.append(row)
     for reason in {r for _, r in dead}:
@@ -155,6 +178,9 @@ async def _deliver_user(bot, db, user_id: int, now: datetime, markup: MarkupBuil
     if await repo.sent_batches_since(db, user_id, now - timedelta(days=1)) >= rules.DAILY_CAP:
         await repo.defer(db, user_id, now + CAP_RECHECK)
         return "waiting"
+    solo = next((r for r in alive if str(r["dedup_key"]).startswith(rules.SOLO_KEYS)), None)
+    if solo is not None:   # итог сезона уходит отдельным сообщением целиком, остальное — следующим проходом
+        alive = [solo]
     ids = [r["id"] for r in alive]
     if len(alive) == 1:
         text, button = alive[0]["text"], alive[0]["button"]
@@ -176,6 +202,16 @@ async def _deliver_user(bot, db, user_id: int, now: datetime, markup: MarkupBuil
     if revoked:
         logger.debug(f"dm push for {user_id}: consent for {revoked} was taken back before sending")
         return "waiting"   # следующий проход выбросит снятые категории
+    if any(r["dedup_key"].startswith(("proposal:", "adopt:")) for r in alive):
+        pending = {r["id"] for r in await repo.pending_rows(db, user_id)}
+        if not set(ids) <= pending:
+            return "waiting"   # на приглашение ответили, пока готовились тема и кнопка; пересоберём письмо
+        from services.dm_push_events import invitation_current
+        for row in alive:
+            invitation = (row["button"] or {}).get("invitation")
+            if invitation and not await invitation_current(db, user_id, invitation, now):
+                await repo.drop(db, [row["id"]], "expired")
+                return "waiting"
     try:
         try:
             await bot.send_message(user_id, text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=reply_markup,

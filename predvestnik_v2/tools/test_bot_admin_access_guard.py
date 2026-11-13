@@ -126,8 +126,18 @@ def main():
         assert acc.FLOOR <= t <= acc.CEILING
         assert t <= CREATOR_RANK   # создатель (6) всегда проходит любой порог
     fixed = {"action:" + k for k, (_, r, _) in people.ACTIONS.items() if r >= 5}
-    assert not (fixed & acc.CONFIGURABLE), fixed & acc.CONFIGURABLE
-    assert {"section:broadcast", "section:promo", "section:switches", "section:settings"}.isdisjoint(acc.CONFIGURABLE)
+    assert fixed & acc.CONFIGURABLE == {"action:" + k for k, (_, r, scope) in people.ACTIONS.items() if r >= 5 and scope == "player"}
+    for action in ("global_ban", "global_unban"):
+        key = f"action:{action}"
+        assert acc.effective_min(key, 5, {key: 2}) == 5
+        assert acc.effective_min(key, 5, {key: 6}) == 6
+    for key, floor in acc.GLOBAL_FLOORS.items():
+        kind, name = key.split(":")
+        default = (people.ACTIONS if kind == "action" else auth.SECTIONS)[name][1]
+        assert floor == default and acc.bounds(key) == (default, CREATOR_RANK)
+        assert acc.effective_min(key, default, {key: 1}) == default
+        assert acc.effective_min(key, default, {key: 99}) == CREATOR_RANK
+    assert {"action:" + k for k, (_, _, scope) in people.ACTIONS.items() if scope == "player"} <= acc.CONFIGURABLE
     configurable_actions = {k[7:] for k in acc.CONFIGURABLE if k.startswith("action:")}
     assert configurable_actions <= set(people.ACTIONS), configurable_actions - set(people.ACTIONS)
     assert {k[8:] for k in acc.CONFIGURABLE if k.startswith("section:")} <= set(auth.SECTIONS)
