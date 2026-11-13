@@ -1,3 +1,7 @@
+> **Исторический документ.** С 2026-11-13 хостинг ботов и порядок выпуска изменены.
+> Актуальные правила: [хостинг и деплой](../../../../docs/agent/03-hosting-and-deploy.md). Старые инструкции запуска/БД
+> не применять к production. Loopback PostgreSQL на Droplet — рабочие базы, не тестовые.
+
 # A14 — Test DB bootstrap for the release gate
 
 Tier: T1 (test tooling only; production code untouched).
