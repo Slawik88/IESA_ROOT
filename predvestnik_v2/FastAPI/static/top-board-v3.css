@@ -1,0 +1,97 @@
+/* Общие блоки игрока для топов: аватар в кольце, созвездие без фото, подиум тройки лидеров и строки рейтинга.
+   Один файл на Mini App («Топ», «Топ-10» в профиле, публичный профиль) и страницы игр (Ритм, Сапёр: top-board.js, FastAPI/main.py) —
+   правка здесь меняет топ везде одинаково. В Mini App стоит сразу перед art-v3.css, как стояли эти правила раньше. */
+
+/* ── аватар в кольце (профиль, подиум) ── */
+.v3-ring { position: relative; flex: none; width: 76px; height: 76px; }
+.v3-ring > svg { width: 76px; height: 76px; transform: rotate(-90deg); fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.v3-ava { position: absolute; inset: 8px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: rgba(255,255,255,.07); font-size: 24px; font-weight: var(--v3-w-head); }
+.v3-ava img { width: 100%; height: 100%; object-fit: cover; }
+/* аватар без фото: созвездие в токенах образа; единственное движение, мерцание двух звёзд, включается только под .ap-anim */
+.cn { display: block; width: 100%; height: 100%; }
+.cn-bg { fill: color-mix(in srgb, var(--v3-acc) 10%, transparent); }
+.cn-ln { fill: none; stroke: color-mix(in srgb, var(--v3-acc) 58%, transparent); stroke-width: .8; stroke-linecap: round; }
+.cn-st { fill: var(--v3-ink); opacity: .92; }
+.cn-dust { fill: var(--v3-ink); opacity: .32; }
+.cn-glow { fill: var(--v3-acc); opacity: .2; }
+.cn-main { fill: var(--v3-ink); }
+.cn-vip .cn-main { fill: var(--v3-vip, #f1cf7e); } .cn-vip .cn-glow { fill: var(--v3-vip, #f1cf7e); }
+@keyframes cntw { from { opacity: .35; } to { opacity: 1; } }
+@keyframes cnpop { 0% { opacity: 0; transform: scale(0); } 55% { opacity: 1; transform: scale(2.6); } 100% { opacity: 1; transform: scale(1); } }
+.cn-pop { transform-box: fill-box; transform-origin: center; animation: cnpop .9s var(--v3-ease) .5s both; }   /* новая звезда уровня: одна вспышка */
+.ap-anim .cn-tw { animation: cntw 4.2s ease-in-out infinite alternate; }
+.ap-anim .cn-tw:nth-child(odd) { animation-duration: 5.6s; animation-delay: -1.7s; }
+
+/* ── строки рейтинга ── */
+.v3-rowbtn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: opacity .15s; }
+.v3-rowbtn:active { opacity: .55; }
+.v3-top-body { min-height: 170px; }
+.v3-top-body:has(> .v3-empty) { min-height: 0; }   /* пустой рейтинг — одна строка, без пустого поля под ней */
+.v3-top-list { margin: 0; padding: 0; list-style: none; }
+.v3-top-list li { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
+.v3-top-list li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
+.v3-top-list i { width: 18px; color: var(--v3-dim); font-size: 12px; font-style: normal; }
+.v3-top-list li:nth-child(-n+3) i { color: var(--v3-acc); font-weight: 700; }
+.v3-top-list .v3-rowbtn > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 14px 24px; margin: -14px -24px; }   /* многоточие режет по рамке, поэтому свечению образа оставлен запас: иначе у свечения видны прямые края */
+/* Ник и титул образа столбиком: ник занимает всю ширину строки, титул под ним; оба — многоточием, если не влезают */
+.v3-top-list .v3-rowbtn .v3-who { display: grid; justify-items: start; gap: 3px; }
+.v3-top-list .v3-rowbtn .v3-who > span:first-child { display: flex; max-width: 100%; }
+.v3-top-list b { font-weight: 600; }
+.v3-top-list .is-me { color: var(--v3-acc); }
+.v3-top-list--full { margin-top: 10px; }
+.v3-top-list--full .v3-rowbtn { min-height: 52px; }
+.v3-top-list small { display: block; margin-top: 1px; color: var(--v3-dim); font-size: 11.5px; }
+.v3-top-body.is-loading { animation: v3dim .25s ease .25s forwards; }
+
+/* фото VIP в строке топа: рядом с ником, в золотом ободке VIP */
+.v3-top-list .v3-rowbtn > .v3-row-ava, .v3-row-ava { flex: 0 0 30px; width: 30px; min-width: 30px; height: 30px; margin: 0; padding: 0; overflow: hidden; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--v3-vip, #f1cf7e); }
+.v3-row-ava img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ── подиум тройки лидеров: карточка-сцена с образом игрока, как в его публичном профиле ── */
+.v3-podium { display: grid; grid-template-columns: 1fr 1.12fr 1fr; align-items: end; gap: 6px; margin: 8px 0 6px; padding: 0; list-style: none; }
+.v3-pod { display: grid; justify-items: center; gap: 2px; min-width: 0; text-align: center; }
+.v3-pod-btn { display: grid; justify-items: center; gap: 4px; width: 100%; min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.v3-pod-btn:disabled { cursor: default; }
+.v3-pod-btn:not(:disabled):active { opacity: .6; }
+.v3-pod-card { position: relative; display: block; width: 100%; min-width: 0; overflow: hidden; isolation: isolate; border-radius: 16px; background: color-mix(in srgb, var(--v3-ink) 4%, transparent); box-shadow: inset 0 0 0 1px var(--v3-faint); }
+.v3-pod-card .ap-stage { --bleed: 0px; }
+.v3-pod-card .ap-bg { inset: 0; -webkit-mask-image: none; mask-image: none; }
+.v3-pod-id { display: grid; justify-items: center; gap: 5px; min-width: 0; max-width: 100%; padding: 12px 5px 10px; }
+.v3-pod .v3-ring { zoom: .74; } .v3-pod.is-p1 .v3-ring { zoom: .86; }   /* вся связка ореол · аватар · рамка уменьшается разом */
+.v3-pod .v3-ring > svg circle { stroke: var(--v3-track); }
+.v3-pod-name { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; min-width: 0; color: var(--v3-ink); font-size: 13px; font-weight: 600; line-height: 1.2; }
+.v3-pod-name > :first-child { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* длинный ник — многоточием, а не в соседнюю колонку */
+.v3-pod-name > :not(:first-child) { flex: none; }
+.v3-pod-card .ap-title { display: block; max-width: 100%; overflow: hidden; padding: 1px 6px; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.v3-pod-card .ap-crest { display: none; }
+.v3-pod small { color: var(--v3-dim); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.v3-pod > i { display: block; width: 100%; margin-top: 4px; border-radius: 12px 12px 4px 4px; }
+.v3-pod.is-p1 > i { height: 40px; --pc: #f5cf73; } .v3-pod.is-p2 > i { height: 26px; --pc: #cfd6e4; } .v3-pod.is-p3 > i { height: 16px; --pc: #d08a4e; }
+.v3-pod > i { background: linear-gradient(180deg, color-mix(in srgb, var(--pc, var(--v3-ink)) 22%, transparent), color-mix(in srgb, var(--pc, var(--v3-ink)) 4%, transparent)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--pc, var(--v3-ink)) 40%, transparent); }   /* пьедестал в цвет медали */
+.v3-pod.is-me small::after { content: " · вы"; color: var(--v3-dim); font-weight: 500; }
+.v3-pod.is-p1 .v3-pod-card { box-shadow: inset 0 0 0 1px color-mix(in srgb, #f5cf73 34%, transparent); }
+/* медаль сидит на нижнем крае аватара, как значок уровня в профиле */
+.v3-pod-medal { position: absolute; left: 50%; bottom: -6px; z-index: 4; display: grid; place-items: center; width: 30px; height: 30px; transform: translateX(-50%); border-radius: 50%; font-size: 15px; font-weight: 750; color: #2b1d02;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #f2c45a 55%, #b97f1d); box-shadow: 0 0 0 2px var(--v3-bg), inset 0 -2px 0 rgba(0,0,0,.18); }
+.v3-pod.is-p2 .v3-pod-medal { color: #1d2230; background: radial-gradient(circle at 35% 30%, #fff, #cfd6e4 55%, #8a94a8); }
+.v3-pod.is-p3 .v3-pod-medal { color: #2c1505; background: radial-gradient(circle at 35% 30%, #ffe0c2, #d08a4e 55%, #8a4f22); }
+.v3-pod .v3-ring { display: block; margin-bottom: 6px; }
+.v3-pod-empty { padding: 4px 0 6px; text-align: center; } .v3-pod-empty p { margin: 10px auto 0; max-width: 300px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.45; }
+.v3-podium.is-ghost .v3-pod-medal { filter: saturate(.25); opacity: .55; } .v3-podium.is-ghost .v3-pod-name { color: var(--v3-dim); } .v3-podium.is-ghost .v3-pod > i { opacity: .55; }
+.v3-podium .v3-pod { animation: v3podin .5s var(--v3-ease) both; animation-delay: calc(var(--d, 0ms) - var(--enter-skip, 0ms)); }
+.v3-pod.is-p1 { --d: 120ms; } .v3-pod.is-p3 { --d: 60ms; }
+@keyframes v3podin { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (max-width: 360px) { .v3-pod-name { font-size: 12px; } }
+
+/* Public chat identities: automatic colours, independent of player skin ownership. */
+.chat-theme { --chat-a:#8ba5df;--chat-b:#817ccf;--chat-c:#b6c3e4; }
+.v3-top-list>li.chat-theme { border-radius:12px;background:linear-gradient(115deg,color-mix(in srgb,var(--chat-a) 10%,transparent),transparent 80%); }
+.chat-theme .chat-theme-avatar { position:relative;display:inline-flex;width:34px;height:34px;flex:0 0 34px;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;color:var(--chat-c);font-weight:800;background:linear-gradient(145deg,color-mix(in srgb,var(--chat-a) 32%,#0e1019),color-mix(in srgb,var(--chat-b) 16%,#0e1019));box-shadow:0 0 0 2px var(--chat-a),0 0 14px color-mix(in srgb,var(--chat-a) 18%,transparent); }
+.chat-theme-avatar>img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
+.v3-pod-card.chat-theme { background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--chat-a) 22%,transparent),transparent 75%),linear-gradient(160deg,color-mix(in srgb,var(--chat-b) 14%,#151827),#0e1019);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--chat-a) 45%,transparent); }
+.chat-theme .v3-ring>.chat-theme-avatar { width:58px;height:58px;flex-basis:58px; }
+.chat-theme .v3-pod-name { color:var(--chat-c); }
+
+.v3-pod-btn[role="group"] { cursor:default; }
+
+.v3-top-list .v3-rowbtn>.chat-theme-avatar { box-sizing:border-box;flex:0 0 34px;width:34px;min-width:34px;height:34px;padding:0;margin:0; }

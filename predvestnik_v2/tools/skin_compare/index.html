@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Предвестник · Образы до и после</title><link rel="stylesheet" href="gallery.css"></head>
+<body><main>
+<header><p class="eyebrow">Предвестник · S16</p><h1>Каждый образ,<br>каждый шаг роста</h1>
+<p id="overview">Сравнение двух снимков кода. Предложения по образу откроются при выборе тира.</p>
+<p id="revisions" class="meta"></p></header>
+<form id="filters" aria-label="Фильтры образов">
+<label>Найти образ<input id="search" type="search" placeholder="Например, Бездна" autocomplete="off"></label>
+<label>Набор<select id="set"><option value="">Все наборы</option></select></label>
+<label>Редкость<select id="rarity"><option value="">Любая</option></select></label>
+<label>Предложение<select id="decision"><option value="">Все</option><option value="redraw">Перерисовать</option><option value="refine">Довести детали</option><option value="keep">Оставить</option></select></label>
+<label>Оценка образа<select id="score"><option value="">Любая</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+</form>
+<p id="count" role="status"></p><p class="meta">Сплошная рамка — есть изменения в одном из проверенных видов. Пунктир — предложение на будущее. «После» пока совпадает с «До».</p><div id="rows"></div>
+<button id="more" type="button" class="pill">Показать ещё</button>
+<footer>Тестовый персонаж, без личных данных. Цены и правила не меняются. Фото и образы других игроков в приложении — только у VIP.
+<p>Локальный Onest 400/500/700; веса 300 и 600/650 заменены ближайшими 400 и 700. Кадры заморожены одинаково. Статичная карточка не проверяет видео SSS.</p></footer>
+</main>
+<dialog id="detail" aria-labelledby="detail-title"><div class="detail-body">
+<div class="detail-head"><h2 id="detail-title"></h2><button id="close" type="button" class="quiet">Закрыть</button></div>
+<div class="controls"><label>Тир<select id="tier"></select></label><label>Где видно<select id="mode"><option value="profile">Сцена профиля</option><option value="nick">Ник и титул</option><option value="top">Строка топа</option><option value="telegram">Карточка Telegram</option></select></label>
+<label>Телефон<select id="device"><option value="high">Полный вид</option><option value="mid">Средний</option><option value="low">Слабый</option><option value="calm">Спокойный режим</option><option value="reduced">Браузер без движения · кадр профиля</option></select></label>
+<label>Кадр<select id="phase"><option value="normal">Обычный</option><option value="rare">Редкое событие</option></select></label></div>
+<p id="diff" role="status"></p><div class="pair"><section><h3>До</h3><iframe id="before" title="Образ до изменений"></iframe></section><section><h3>После</h3><iframe id="after" title="Образ после изменений"></iframe></section></div>
+<div class="actions"><button id="play" type="button" class="quiet">Запустить движение</button><button id="pause" type="button" class="quiet">Вернуть одинаковый кадр</button></div>
+<p class="meta">На снимках — одинаково замороженный кадр. Спокойный режим и настройка браузера без движения проверены отдельно. Для настройки браузера показан измеренный кадр профиля.</p>
+<article id="concept"></article><label>Твои заметки для этого образа<textarea id="notes" rows="3" placeholder="Что оставить, что поправить"></textarea></label>
+<p class="meta">Заметки сохраняются только в этом браузере. Чтобы передать их в работу, скопируй и отправь в чат.</p>
+<p id="notes-state" role="status" class="meta"></p>
+</div></dialog>
+<script src="manifest.js"></script><script src="audit.js"></script><script src="gallery.js"></script></body></html>

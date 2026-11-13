@@ -81,7 +81,7 @@ class SlowTelegram(BaseSession):
                 user=User(id=BOT_ID, is_bot=True, first_name="bot"), can_be_edited=False, is_anonymous=False,
                 can_manage_chat=True, can_delete_messages=True, can_manage_video_chats=False, can_restrict_members=True,
                 can_promote_members=False, can_change_info=False, can_invite_users=True, can_post_stories=False,
-                can_edit_stories=False, can_delete_stories=False)
+                can_edit_stories=False, can_delete_stories=False, can_send_welcome_messages=False)   # required since aiogram 3.31 (Bot API 10.3)
             if name == "GetChatAdministrators":
                 return [owner, admin]
             return admin if uid == BOT_ID else ChatMemberMember(user=User(id=uid, is_bot=False, first_name="p"))

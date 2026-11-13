@@ -2,7 +2,7 @@
 // Обычный — страница игры (/rhythm-v2, /minesweeper), рейтинг — лестница Лиги этой же игры (/league?game=…).
 // Последний выбор запоминается: из меню «Играть» игра откроется в нём (app.04.js). Страницы подключают его так:
 // <div data-game-mode="rhythm" data-gmode="casual" hidden></div> (монтируется сам) или GameMode.mount(host, {game, mode}).
-// Переключатель появляется, только когда Лига открыта игроку (до сезона 2 — ранний доступ).
+// Переключатель появляется, только когда Лига открыта игроку (Лига открыта всем с сезона 2, 25.10.2026; раньше — только ранний доступ).
 // Переход плавный: ползунок уезжает, содержимое под шапкой уходит в сторону нового режима (а шапка, переключатель и полоска Пропуска
 // остаются на месте — у обеих страниц они одинаковые), новая страница приходит с той же стороны. Следующая страница подгружается заранее.
 (() => {
@@ -39,6 +39,7 @@
 
   function go(game, mode) {
     write(MODE + game, mode);
+    window.GameShell?.carryReturn();
     try { window.Telegram?.WebApp?.HapticFeedback?.selectionChanged(); } catch (_) { /* old client */ }
     try { sessionStorage.setItem('pv_mode_dir', mode === 'ranked' ? '1' : '-1'); } catch (_) { /* без памяти: страница просто появится */ }
     document.body.classList.add('gm-leaving', mode === 'ranked' ? 'gm-to-ranked' : 'gm-to-casual');

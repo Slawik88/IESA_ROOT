@@ -3,10 +3,7 @@
 
 
 def get_client_ip(request):
-    """Получить IP клиента из запроса"""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0]
+    """Получить IP клиента из запроса (REMOTE_ADDR уже настоящий: users.middleware.RealClientIPMiddleware)."""
     return request.META.get('REMOTE_ADDR')
 
 

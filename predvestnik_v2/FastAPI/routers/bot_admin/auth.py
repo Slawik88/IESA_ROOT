@@ -28,6 +28,7 @@ SECTIONS: dict[str, tuple[str, int]] = {
     "diagnostics": ("Проблемы приложения", 5),
     "access": ("Права", 6),   # только создатель: матрица прав ролей и вход владельцев чатов
     "patchnotes": ("Патч-ноуты", 6),   # только создатель: посты обновлений в официальный канал
+    "widgets": ("Виджеты", 6),   # только создатель: пробные HTML-виджеты себе в личку (S30)
 }
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 
@@ -97,7 +98,7 @@ async def badges(user=Depends(staff_user), db=Depends(get_db)):
         from infrastructure.repositories import patch_notes as patch_repo
         await patch_repo.ensure_tables(db)
         out["patchnotes"] = await patch_repo.pending_count(db)
-    if user["rank"] >= 5:
+    if user["rank"] >= admin_access.min_rank(user, "section:diagnostics", SECTIONS["diagnostics"][1]):
         from services import support_reports
         await support_reports.storage.prepare(db)
         from infrastructure.repositories import support_reports as support_repo

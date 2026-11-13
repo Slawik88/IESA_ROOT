@@ -48,7 +48,7 @@ function shopBack() { if (_navStack.length) navBack(); else switchPage('profile'
 
 function _shopLoad() {
   const root = el('pg-shop'); if (!root) return;
-  if (!_shop.me) root.innerHTML = '<div class="loader" style="margin-top:44px">Загрузка магазина…</div>';
+  if (!_shop.me) root.innerHTML = v3Skel('Загрузка магазина…', 5);
   Object.values(_shopExtra).forEach(x => { try { x.load(); } catch (_) {} });
   api('/shop-v1/me').then(d => {
     _shop.me = d; _shop.failed = null; _shopOn = true; _shopSyncEntries(); _shopRender();
@@ -135,11 +135,11 @@ function _shopRender() {
   const links = (d.links || []).filter(l => typeof window[_SHOP_LINK_FN[l.target]] === 'function')   // нет экрана — нет плитки
     .map(l => `<button type="button" onclick="shopLink('${l.target}')"><span aria-hidden="true">${esc(l.icon)}</span>${esc(l.name)}</button>`).join('');
   const focused = document.activeElement?.closest?.('.shop-amount') ? document.activeElement.closest('[data-item]')?.dataset.item : null;
-  root.innerHTML = `<header class="looks-head shop-head"><button class="looks-back" onclick="shopBack()" aria-label="Назад">‹</button><div><h1>🛒 Магазин</h1><small>Цены и лимиты — с сервера, сутки и неделя по UTC</small></div></header>
+  root.innerHTML = v3CurIn(`<header class="looks-head shop-head"><button class="looks-back" onclick="shopBack()" aria-label="Назад">‹</button><div><h1>🛒 Магазин</h1><small>Цены и лимиты — с сервера, сутки и неделя по UTC</small></div></header>
     ${_shopBalances(d.balances || {})}
     <div class="shop-tabs" role="tablist" aria-label="Разделы магазина">${tabs}</div>
     <section class="shop-sec" role="tabpanel">${_shopExtra[tab] ? _shopExtra[tab].html() : _shopSection(section)}</section>
-    ${links ? `<nav class="shop-links" aria-label="Другие экраны">${links}</nav>` : ''}`;
+    ${links ? `<nav class="shop-links" aria-label="Другие экраны">${links}</nav>` : ''}`);
   if (focused) { const input = root.querySelector(`[data-item="${focused}"] .shop-amount input`); if (input) { input.focus({ preventScroll: true }); const v = input.value; input.value = ''; input.value = v; } }
 }
 

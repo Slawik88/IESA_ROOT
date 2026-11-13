@@ -27,6 +27,16 @@ TESTER, PLAYER = 910_001, 910_002
 async def run(dsn: str) -> None:
     connection = await asyncpg.connect(dsn)
     db = PGAdapter(connection)
+    # The gate below needs the tester's role and its grant row. Seed them here too:
+    # in the all-tests gate this file runs before its *_pg sibling (alphabetical),
+    # so relying on the sibling's users made this proof fail every full run.
+    from core import league_v1 as league_rules
+    from services import admin_access
+    await admin_access.ensure_schema(db)
+    await db.execute("INSERT INTO users (user_tg_id, user_tg_username, bot_rank) VALUES (?, 'tester', 1), (?, 'player', 0) "
+                     "ON CONFLICT (user_tg_id) DO UPDATE SET bot_rank = EXCLUDED.bot_rank", (TESTER, PLAYER))
+    await db.execute("INSERT INTO admin_role_grants (key, min_rank, updated_by) VALUES (?, 1, 1) "
+                     "ON CONFLICT (key) DO UPDATE SET min_rank = 1", (league_rules.FLAG_KEY,))
     who = {"id": PLAYER}
     app = FastAPI()
     app.include_router(router_module.router)
@@ -80,6 +90,9 @@ async def run(dsn: str) -> None:
             line = await client.get("/league-demo/api/pass/casual/rhythm/never-played")
             assert line.status_code == 200 and line.json()["counted"] is False, line.text
     finally:
+        # Remove this run's grant row: the *_pg sibling inserts its own with a plain
+        # INSERT (it would collide) and its gate expects no row beforehand.
+        await db.execute("DELETE FROM admin_role_grants WHERE key = ?", (league_rules.FLAG_KEY,))
         await connection.close()
     print("PASS league HTTP: page and assets; before season 2 early access only (403), after it open to all")
 

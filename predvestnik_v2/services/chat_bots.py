@@ -144,6 +144,8 @@ async def screen(bot, db, chat_id: int, user_ids, *, limit: int | None = None) -
             await mark(db, uid)
         elif state == "ok":
             await member_tags.observe(db, chat_id, uid, tag)   # раз уж спросили: тег сохраняем
+        elif state == "gone":   # уже не в чате: пометка «ушёл», дальше список это учтёт
+            await member_tags.settle(db, chat_id, uid, state, None)
     for uid in bots:   # свой бот и служебные аккаунты тоже запоминаем, чтобы следующая чистка их не искала
         await mark(db, uid)
     commit = getattr(db, "commit", None)

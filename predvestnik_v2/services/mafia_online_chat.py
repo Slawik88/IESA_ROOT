@@ -32,6 +32,8 @@ async def send(db, room_id, uid, channel, text, nonce, reply_to=None):
         msg_id = await repo.message(db, room_id, channel, text, user_id=uid, name=me["name"], nonce=nonce, reply_to=reply_to, seat=me.get("seat"))
         me["seen"] = now
         await repo.save(db, state, bump=False)
+        await repo.room_changed(db, state, [p["id"] for p in state["players"]
+                                          if channel in rules.channels(state, p)])
         return {"id": msg_id, "replayed": False}
 
 

@@ -84,7 +84,7 @@ function _trRender() {
   const opened = same ? [...root.querySelectorAll('details[data-detail][open]')].map(n => n.dataset.detail) : [];
   const focus = same && root.contains(document.activeElement) ? document.activeElement?.dataset?.f : null;
   const view = _TR_VIEWS[_tr.view] || _TR_VIEWS.hub;
-  root.innerHTML = `${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}${_tr.view === 'hub' && _tr.me.star_dust?.enabled ? `<section class="tr-grp"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 ${fmt(_tr.me.star_dust.balance)} пыли · VIP за игру ›</button></section>` : ''}`;
+  root.innerHTML = v3CurIn(`${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}${_tr.view === 'hub' && _tr.me.star_dust?.enabled ? `<section class="tr-grp"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 ${fmt(_tr.me.star_dust.balance)} пыли · VIP за игру ›</button></section>` : ''}`);
   root.dataset.trView = `${_tr.view}:${_tr.pet}:${_tr.tab || ''}`;
   opened.forEach(key => root.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open', ''));
   v3EnterSync(root);
@@ -210,7 +210,7 @@ function _trEmpty() {
 function _trTags(t) { return [(_TR_ROUTE[t.route] || [])[1], `${t.tempo}\u00a0ч`, t.style === 'careful' ? 'осторожный путь' : 'рискованный путь'].filter(Boolean).join(' · '); }
 function _trTabs() {
   const current = _tr.view === 'camp' ? 'camp' : (_tr.tab || 'overview');
-  return `<nav class="tr-nav" aria-label="Разделы питомцев">${[['overview','Обзор'],['collection','Питомцы'],['camp','Лагерь']].map(([key,label])=>`<button type="button" data-f="tab-${key}"${current===key?' aria-current="page"':''} onclick="trailTab('${key}')">${label}</button>`).join('')}</nav>`;
+  return `<nav class="v3-tabs v3-tabs--wide tr-nav" aria-label="Разделы питомцев">${[['overview','Обзор'],['collection','Питомцы'],['camp','Лагерь']].map(([key,label])=>`<button type="button" class="v3-tab${current===key?' on':''}" data-f="tab-${key}"${current===key?' aria-current="page"':''} onclick="trailTab('${key}')">${label}</button>`).join('')}</nav>`;
 }
 function trailTab(tab) {
   if (!['overview','collection','camp'].includes(tab)) return;
@@ -242,7 +242,7 @@ function _trPassHtml() {
   const p = _trPass;
   if (!p || !p.active || !p.pets) return '<div id="pet-pass-line" hidden></div>';
   const full = Number(p.pets.today) >= Number(p.pets.cap);
-  return `<button type="button" id="pet-pass-line" class="pet-pass${full ? ' is-full' : ''}" onclick="location.href=BASE+'/league#pass'"><span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`;
+  return `<button type="button" id="pet-pass-line" class="pet-pass${full ? ' is-full' : ''}" onclick="leaveForGame('/league#pass','pets')"><span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`;
 }
 function _trPassLoad() {
   if (Date.now() - _trPassAt < 3000) return;
@@ -286,7 +286,7 @@ function _trSheet(html) {
   const keep = document.getElementById('tr-sheet') ? _tr.opener : document.activeElement;
   trailClose(true); _tr.opener = keep;
   const host = document.createElement('div'); host.id = 'tr-sheet'; host.className = 'lk-sheet-back';
-  host.innerHTML = `<section class="lk-sheet tr-sheet" role="dialog" aria-modal="true" aria-labelledby="tr-sheet-t" tabindex="-1">${html}</section>`;
+  host.innerHTML = v3CurIn(`<section class="lk-sheet tr-sheet" role="dialog" aria-modal="true" aria-labelledby="tr-sheet-t" tabindex="-1">${html}</section>`);
   host.addEventListener('click', e => { if (e.target === host) trailClose(); });
   _trKeys = e => {
     if (document.getElementById('cf-sheet')) return;   // сверху окно подтверждения: клавиши принадлежат ему
@@ -304,7 +304,7 @@ function _trRepaint(html) {
   const sheet = document.querySelector('#tr-sheet .tr-sheet'); if (!sheet) return _trSheet(html);
   const body = sheet.querySelector('.tr-sbody'), top = body ? body.scrollTop : 0, key = document.activeElement?.dataset?.f;
   const opened = [...sheet.querySelectorAll('details[data-detail][open]')].map(n=>n.dataset.detail);
-  sheet.innerHTML = html;
+  sheet.innerHTML = v3CurIn(html);
   opened.forEach(key=>sheet.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open',''));
   const next = sheet.querySelector('.tr-sbody'); if (next) next.scrollTop = top;
   (key && sheet.querySelector(`[data-f="${key}"]`) || sheet).focus({ preventScroll: true });

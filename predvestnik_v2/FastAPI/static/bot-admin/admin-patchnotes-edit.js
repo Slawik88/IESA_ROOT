@@ -34,11 +34,12 @@ async function pnRefreshPreview(main) {
   const plan = $('#pn-plan', main);
   if (plan && typeof pnPlanNow === 'function') plan.textContent = pnPlanNow();
   await pnPaintImages(box, PN.note.note_id);
-  const n = pnLen(PN.work.text), lim = PN.list ? PN.list.limits : {message: 990, caption: 1024};
+  const n = pnLen(PN.work.text), lim = PN.list ? PN.list.limits : {message: 990, caption: 1024, post: 4096};
   const issue = pnMarkupIssue(PN.work.text), words = pnJargon(PN.work.text);
-  const tone = n <= 500 ? 'коротко, отлично' : n <= lim.message ? 'можно короче' : 'слишком длинно — сократите';
-  $('#pn-count', main).innerHTML = `${num(n)} / ${num(lim.message)} знаков · ${tone}${issue ? ` · <span class="warn">${esc(issue)}</span>` : ''}${words.length ? ` · <span class="warn">технические слова: ${esc(words.join(', '))}</span>` : ''}`;
-  $('#pn-count', main).classList.toggle('warn', n > lim.message);
+  const max = lim.post || 4096;
+  const tone = n <= 500 ? 'коротко, отлично' : n <= lim.message ? 'можно короче' : n <= max ? 'сводный пост: текст уйдёт после фото' : 'слишком длинно — сократите';
+  $('#pn-count', main).innerHTML = `${num(n)} / ${num(n > lim.message ? max : lim.message)} знаков · ${tone}${issue ? ` · <span class="warn">${esc(issue)}</span>` : ''}${words.length ? ` · <span class="warn">технические слова: ${esc(words.join(', '))}</span>` : ''}`;
+  $('#pn-count', main).classList.toggle('warn', n > max);
 }
 
 function pnImagesMarkup() {

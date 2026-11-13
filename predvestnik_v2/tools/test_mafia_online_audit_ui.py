@@ -133,7 +133,7 @@ def run(dsn, out, functional_only=False):
             check(page.locator("#mo-messages img[src=x]").count()==0, "message markup escaped")
             check(page.evaluate("[...MO.messages.values()].filter(m=>m.body.startsWith('Проверка <img')).length")==1, "message sent once")
             sent=page.evaluate("[...MO.messages.values()].find(m=>m.body.startsWith('Проверка <img')).id")
-            page.locator(f'[data-msg="{sent}"] header button').click()
+            page.locator(f'[data-msg="{sent}"] .mo-msg-menu').click()
             page.locator("#mo-sheet").get_by_role("button",name="Ответить",exact=True).click()
             check(page.locator("#mo-reply").inner_text().strip()!="", "reply preview shown")
             page.reload()
@@ -169,7 +169,7 @@ def run(dsn, out, functional_only=False):
             page.unroute("**/mafia-online/rooms/*/messages",lose_ack)
             # Edit a second message while the first acknowledgement is uncertain.
             # The old immutable send is retried, while the new draft/reply must survive.
-            page.locator(f'[data-msg="{sent}"] header button').click()
+            page.locator(f'[data-msg="{sent}"] .mo-msg-menu').click()
             page.locator("#mo-sheet").get_by_role("button",name="Ответить",exact=True).click()
             newer_draft="Новый текст "*50
             page.locator("#mo-text").fill(newer_draft)

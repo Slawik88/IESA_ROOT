@@ -264,6 +264,6 @@ function _svRender() {
   const body = _sv.loading ? '<div class="sv-skel" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'
     : _sv.failed && _sv.tab === 'zarniki' ? `<div class="v3-empty" role="alert">${_profileEsc(_sv.failed)} <button type="button" class="v3-link" onclick="openStoreV3('zarniki')">Повторить</button></div>`
     : _sv.tab === 'vip' ? _svVip() : _svZarniki();
-  root.innerHTML = `<div class="v3-scope lk-scope sv-scope v3-stagger">${_svTop()}${body}</div>`;
+  root.innerHTML = v3CurIn(`<div class="v3-scope lk-scope sv-scope v3-stagger">${_svTop()}${body}</div>`);
   v3EnterSync(root);
 }

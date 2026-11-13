@@ -1,3 +1,8 @@
+# ИСТОРИЧЕСКИЙ ЧЕРНОВИК, НЕ PRODUCTION APP SPEC.
+# Имена и настройки ниже не совпадают с действующим iesaroot-app.
+# С 2026-11-13 боты работают на отдельном Droplet/systemd.
+# Актуальная конфигурация: ../docs/agent/03-hosting-and-deploy.md и экспорт из DO.
+# Не загружать этот файл в App Platform как способ деплоя личных проектов.
 name: iesa-app
 services:
 - name: iesa-web
@@ -51,23 +56,3 @@ services:
     value: "https://iesasport.ch"
   - key: RUN_PREDVESTNIK_IN_WEB
     value: "0"
-
-workers:
-- name: predvestnik-bot
-  github:
-    branch: master
-    repo: Slawik88/IESA_ROOT
-  source_dir: .
-  build_command: pip install -r requirements.txt
-  run_command: cd PredvestnikBot && python main.py
-  instance_count: 1
-  instance_size_slug: basic-xxs
-  envs:
-  - key: PREDVESTNIK_BOT_TOKEN
-    value: ""
-    type: SECRET
-  - key: PREDVESTNIK_DATABASE_URL
-    value: ""
-    type: SECRET
-  - key: PYTHONUNBUFFERED
-    value: "1"

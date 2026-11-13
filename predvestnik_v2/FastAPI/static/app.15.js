@@ -33,12 +33,6 @@ function _v3Ring(percent) {
   const offset = Math.round(220 * (1 - Math.min(100, Math.max(0, percent)) / 100));
   return `<svg viewBox="0 0 76 76" aria-hidden="true"><circle cx="38" cy="38" r="35" stroke="var(--v3-faint)"/><circle cx="38" cy="38" r="35" stroke="var(--v3-acc)" stroke-dasharray="220" stroke-dashoffset="${offset}"/></svg>`;
 }
-function _v3Avatar(d) {
-  const constellation = _v3Constellation(d.seed ?? d.user_id ?? d.display_name ?? d.username, d.account_level ?? d.level, !!d.is_vip);   // без фото: личное созвездие (app.20.js)
-  if (!_validAvatar(d.avatar)) return constellation;
-  // The photo address can fail (VIP ended, network): the image then turns back into the constellation.
-  return `<img src="${_profileEsc(_avatarSrc(d.avatar))}" alt="" decoding="async" data-fallback="${_profileEsc(constellation)}" onerror="this.outerHTML=this.dataset.fallback">`;
-}
 function renderProfileHome(data) {
   const d = data || {};
   const wallet = _v3Wallet(d);

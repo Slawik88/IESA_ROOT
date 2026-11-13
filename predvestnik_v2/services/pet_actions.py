@@ -1,4 +1,4 @@
-"""Pet actions → experience of the season pass (from season 2) or of the early-access demo (before it).
+"""Pet actions → experience of the season pass (from season 2) or of the early-access demo (only before 25.10.2026).
 
 Call inside the pet writer's transaction, after ownership/validation and replay checks.  Which actions count
 and how much: core.league_pass.PET_XP (free toggles give nothing), under the pets' own daily cap.

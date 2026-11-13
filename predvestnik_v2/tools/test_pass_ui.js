@@ -31,6 +31,16 @@ async function main() {
   assert(host.innerHTML.includes('data-cell="41-free"')&&!host.innerHTML.includes('data-cell="41-vip"'));
   assert(!host.innerHTML.includes('<aside')&&!host.innerHTML.includes('VIP-дорожка: активная подписка'));
   assert(host.innerHTML.indexOf('data-cell="41-free"')>host.innerHTML.indexOf('<ol role="list">'),'Repeat belongs inside the reward ribbon');
+  assert(!host.innerHTML.includes('lgp-race'),'No race line while the race is off (S28)');
+  const race={running:true,places:4,left:3,prize_stars:50,level:40};
+  await passCtx.window.LeaguePass.render(host,{active:true,vip:false,vip_min_days:30,account:{eligible:true},race,seasons:[season,{...season,season:1,current:false}]});
+  assert.equal((host.innerHTML.match(/class="lgp-race"/g)||[]).length,1,'One race strip, on the current season only');
+  assert(host.innerHTML.includes('Гонка: по 50 ⭐ Telegram Stars')&&host.innerHTML.includes('3 из 4')&&host.innerHTML.includes('Свободно 3 из 4'));
+  assert(!host.innerHTML.includes('lgp-race-place'),'No ribbon-like cells: the strip must not look like a second pass');
+  assert(host.innerHTML.indexOf('class="lgp-race"')<host.innerHTML.indexOf('lgp-ribbon'),'The strip sits in the card, above the ribbon');
+  await passCtx.window.LeaguePass.render(host,{active:true,vip:false,vip_min_days:30,account:{eligible:true},race:{...race,left:0},seasons:[season]});
+  assert(host.innerHTML.includes('Все места заняты')&&host.innerHTML.includes('lgp-race-seats is-full'));
+  await passCtx.window.LeaguePass.render(host,{active:true,vip:false,vip_min_days:30,account:{eligible:true},seasons:[season]});
   const pending=button.onclick();
   L.state.view='rhythm';button.isConnected=false;
   resolveClaim({granted:[{level:41,track:'free',text:'ключ'}]});

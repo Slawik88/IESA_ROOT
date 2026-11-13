@@ -7,9 +7,16 @@ function _profileDate(value){
   const parsed=new Date(value);
   return Number.isNaN(parsed.getTime())?_profileEsc(String(value).replace('T',' ').slice(0,16)):parsed.toLocaleDateString('ru-RU');
 }
+let _profileLoadGeneration = 0;
+
 function loadProfile() {
-  setTimeout(v3PaintCachedProfile, 0);   // после загрузки всех частей скрипта (loadProfile вызывается раньше app.15–19): кэш или скелет
+  const generation = ++_profileLoadGeneration;
+  // Первый вызов идёт до объявления функций и состояния остальных частей профиля.
+  setTimeout(() => {
+    if (generation === _profileLoadGeneration && !el('pv-profile-retry')) v3PaintCachedProfile();
+  }, 0);
   return api('/profile/me').then(d=>{
+    if (generation !== _profileLoadGeneration) return;
     if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
@@ -24,6 +31,7 @@ function loadProfile() {
     // turn it into the misleading “write the bot to create a profile” state.
     try { _applySysFlags(d.system_flags); } catch (_) {}
     el('pro-main').innerHTML=renderProfileHome(d);
+    window.PVDiagnostics?.profileReady?.();
     if(typeof v3EnterSync==='function')v3EnterSync(el('pro-main'));   // перерисовка не перезапускает каскад секций
     try { checkWhatsNewBadge(); } catch (_) {}
     try { passCheck(); } catch (_) {}   // точка на вкладке «Игры», пока есть что забрать из пропуска сезона (app.43.js)
@@ -32,7 +40,20 @@ function loadProfile() {
     try { _tosGate(d); } catch (_) {}
     try { if(!_ws && _uid) connectWS(); } catch (_) {}
     try { updateCurrBar(d); if(d.is_vip){if(_validAvatar(d.avatar))_vipAvatar=d.avatar;_ensureVipAvatar(d.avatar_state);} } catch (_) {}
-  }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
+  }).catch(error => {
+    if (generation !== _profileLoadGeneration || !el('login-ov')?.classList.contains('hidden')) return;
+    const host = el('pro-main');
+    if (!host) return;
+    host.querySelector('#pv-profile-retry')?.remove();
+    host.querySelectorAll('.sk').forEach(node => node.remove());
+    host.insertAdjacentHTML('afterbegin', '<div id="pv-profile-retry" class="v3-empty"><p role="status">Не удалось обновить профиль.</p><button type="button" class="btn btn-ghost" style="min-height:44px">Повторить загрузку</button></div>');
+    if (typeof error === 'string') host.querySelector('#pv-profile-retry p').textContent = error;
+    host.querySelector('#pv-profile-retry button').onclick = event => {
+      event.currentTarget.disabled = true;
+      event.currentTarget.textContent = 'Загружаем профиль…';
+      loadProfile();
+    };
+  });
 }
 
 function openBotAdmin(){
@@ -43,7 +64,7 @@ function openBotAdmin(){
 function _legalUrl(slug){ return BASE+'/legal/'+slug; }   // прямая публичная ссылка
 function openLegalDoc(slug){
   const t={tos:'📖 Пользовательское соглашение',privacy:'🔒 Политика конфиденциальности'};
-  OM(t[slug]||'Документ','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'ghost',f:'CM()'}]);
+  OM(t[slug]||'Документ',v3Skel('Загружаем документ…', 6),[{l:'Закрыть',c:'ghost',f:'CM()'}]);
   api('/legal/'+slug+'/text').then(d=>{
     el('mb').innerHTML=`<div class="legal-doc">${d.html}</div>
       <div class="legal-link">Прямая ссылка: <a href="${_legalUrl(slug)}" target="_blank" rel="noopener">${_legalUrl(slug)}</a></div>`;
@@ -96,34 +117,48 @@ function _toggleEasyInput(on){
   toast(on?'🧿 Упрощённый ввод включён':'Упрощённый ввод выключен');
 }
 // Блок-экран принятия документов (неубираемый оверлей) — для не принявших.
+function _tosTrap(event){
+  const g=el('tos-gate');
+  if(!g || event.key!=='Tab' || el('modal')?.open) return;
+  const buttons=[...g.querySelectorAll('button:not(:disabled)')];
+  const first=buttons[0], last=buttons[buttons.length-1];
+  if(!first) return;
+  if(event.shiftKey && (document.activeElement===first || !buttons.includes(document.activeElement))) { event.preventDefault(); last.focus(); }
+  else if(!event.shiftKey && (document.activeElement===last || !buttons.includes(document.activeElement))) { event.preventDefault(); first.focus(); }
+}
 function _tosGate(d){
   const ex=el('tos-gate');
-  if(d&&d.tos_accepted){ if(ex) ex.remove(); return; }
+  if(d&&d.tos_accepted){ if(ex) ex.remove(); document.removeEventListener('keydown',_tosTrap); return; }
   if(ex) return;
   const g=document.createElement('div');
   g.id='tos-gate'; g.className='tos-gate';
+  g.setAttribute('role','dialog'); g.setAttribute('aria-modal','true');
+  g.setAttribute('aria-labelledby','tos-gate-title'); g.tabIndex=-1;
   g.innerHTML=`<div class="tos-gate-box">
-    <div class="tos-gate-emoji">📋</div>
-    <div class="tos-gate-title">Добро пожаловать в PREDVESTNIK</div>
+    <div class="tos-gate-mark" aria-hidden="true">${v3Emblem("quests")}</div>
+    <h1 class="tos-gate-title" id="tos-gate-title">Добро пожаловать в Предвестник</h1>
     <div class="tos-gate-sub">Чтобы играть, прочитай и прими правила игры и политику конфиденциальности.</div>
     <div class="tos-gate-links">
-      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
-      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('tos')">Правила игры</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('privacy')">Конфиденциальность</button>
     </div>
-    <button class="v3-pill v3-pill--full" onclick="_tosAccept(this)">✅ Принять и играть</button>
+    <button class="v3-pill v3-pill--full" onclick="_tosAccept(this)">Принять и играть</button>
     <div class="tos-gate-hint">Нажимая «Принять», ты соглашаешься с Пользовательским соглашением и Политикой конфиденциальности.</div>
   </div>`;
   document.body.appendChild(g);
+  g.focus();
+  document.addEventListener('keydown',_tosTrap);
 }
 function _tosAccept(btn){
   if(btn){ btn.disabled=true; btn.textContent='Сохраняем…'; }
   api('/legal/accept',{method:'POST'}).then(()=>{
     const g=el('tos-gate'); if(g) g.remove();
+    document.removeEventListener('keydown',_tosTrap);
     toast('✅ Спасибо! Приятной игры.',true);
     if(_profileData) _profileData.tos_accepted=true;
     loadProfile();
     _showWelcome();
-  }).catch(e=>{ toast(e,false); if(btn){ btn.disabled=false; btn.textContent='✅ Принять и играть'; } });
+  }).catch(e=>{ toast(e,false); if(btn){ btn.disabled=false; btn.textContent='Принять и играть'; } });
 }
 // UX-аудит: единственный «welcome»-экран был юридическим гейтом без единого
 // слова о геймплее — новый игрок оставался один на один с пустым профилем.
@@ -156,14 +191,17 @@ function _plSkip() {
   setTimeout(()=>{ const p=el('preloader'); if(p) p.remove(); }, 600);
 }
 function _runPreloader() {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.pl-orb, .login-orb').forEach(node => { node.innerHTML = v3Emblem('compass'); });
+  }, {once:true});
   const pl = el('preloader'); if(!pl) return;
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const box = el('pl-lines');
   // UX_AUDIT С2: гостю без сессии нечего «синхронизировать» — честные нейтральные строки
   const _authed = !!(INIT_DATA || sess());
   const lines = _authed
-    ? ['🔌 Синхронизация с сервером…','🔍 Проверка сигнатур…','📦 Загрузка данных…']
-    : ['🌘 Открываем врата…','📦 Загрузка данных…'];
+    ? ['Открываем Предвестник…','Загружаем твой профиль…']
+    : ['Открываем Предвестник…','Готовим вход…'];
   let i = 0;
   const add = () => { if(!box || i>=lines.length) return; const d=document.createElement('div'); d.className='pl-line'; d.textContent=lines[i++]; box.appendChild(d); };
   add();
@@ -187,15 +225,21 @@ _runPreloader();
 // Parity registry: bot redirects open the Mini App through
 // ?startapp=<section>; lightweight chat surfaces remain in chat and do not
 // need a web hop. The start parameter only selects the complex destination.
-function _handleStartParam(){
-  // ?startapp=<раздел> в адресе страницы главнее нативного start_param: это переход внутри приложения (например «‹» из игры),
-  // а нативный параметр остаётся от первого запуска и перебил бы его.
-  let p=''; try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){}
+function _handleStartParam(profileReady){
+  // Сначала проверенный возврат из игры, затем ?startapp в адресе и нативный
+  // start_param: параметры первого входа не должны перебивать поздний возврат.
+  let p=gameReturnTarget();
+  const restored=!!p;
+  if(!p) try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){}
   if(!p){ try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){} }
   if(!p) return;
   const base=p.split('_')[0];
   if(base==='admin'){ openBotAdmin(); return; }   // ссылка «🛠 Открыть админку» из чата: сразу в админку, без показа приложения
-  const run=fn=>setTimeout(()=>{ const go=()=>{ try{ fn(); }catch(e){} }; window.pvLateCss ? pvLateCss.then(go) : go(); }, 380);   // экран по ссылке строится, когда его стили пришли
+  const run=fn=>setTimeout(()=>{
+    const go=()=>{ try{ fn(); if(restored) sessionStorage.removeItem('pv_game_return'); }catch(e){} };
+    const styled=()=>{ window.pvLateCss ? pvLateCss.then(go) : go(); };
+    if(restored) Promise.resolve(profileReady).then(styled); else styled();
+  }, 380);   // возврат ждёт флаги профиля и стили; старый параметр запуска его не перебивает
   const settings=()=>{ switchPage('profile'); setTimeout(()=>{ try{ openSettingsModal(); }catch(e){} },260); };
   // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
   // Лениво: часть экранов (window.openQuestsV1 и др.) объявляется в более поздних частях скрипта, прямое обращение здесь роняло весь скрипт ReferenceError'ом.
@@ -217,7 +261,7 @@ function _handleStartParam(){
   if(LINKS[base]) { run(LINKS[base]); return; }
   if(['arena','games','game','barracks','gates','gacha','deal','craft','auction','market','relics','clans','ach'].includes(base)) run(()=>goTo('arena','game'));
 }
-if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
+if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){const initialProfile=loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam(initialProfile);}
 
 // ── Sticky currency bar ───────────────────────────────────────────────────────
 // Редизайн v5: хедер с валютами виден ВСЕГДА (см. showCurrBar ниже — параметр show
@@ -274,13 +318,6 @@ function updateCurrBar(data) {
 // loading — фото ещё качается (спросить позже), absent и vip_only — фото не будет, не спрашивать.
 let _vipAvatar = null, _vipAvatarLoading = null, _vipAvatarRetryAt = 0;
 const _AVATAR_FINAL_STATES = new Set(['absent', 'vip_only']);
-function _validAvatar(value) {
-  return typeof value === 'string' && (/^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
-    || /^\/profile\/avatar\/[A-Za-z0-9_-]{16,64}\?v=[0-9a-f]{16}$/.test(value));
-}
-function _avatarSrc(value) {
-  return value.startsWith('/') ? BASE + value : value;
-}
 async function _requestVipAvatar(ref, current = () => true) {
   // Bounded recovery while the server is still fetching the photo. Leaving a card stops its retries;
   // "no photo" and "not a VIP" are answers, not errors, and end the loop at once.
@@ -336,7 +373,7 @@ function showCurrModal() {
     <div class="wallet-assets">${[['mora','Мора','Игры и задания'],['diamonds','Алмазы','Редкие награды'],['essence','Эссенция','Развитие образов']].map(([id,name,sub])=>`<div class="wallet-asset">${_walletIcon(id)}<span><b>${name}</b><small>${sub}</small></span><strong id="cm-bal-${id}">${fmtF(d[id] || 0)}</strong></div>`).join('')}</div>
     <section class="wallet-exchange" id="wallet-exchange" aria-live="polite"><p class="v3-sub">Загружаем актуальные курсы…</p></section>
     <details class="wallet-help"><summary>Как устроен обмен</summary><p>Зарники можно обменять на Мору, Алмазы или Эссенцию. Курс один для кошелька, магазина и «Образов».</p><p>Мору и Алмазы можно менять в любом количестве и в любой день. Эссенция продаётся готовыми наборами — такими же, как в «Образах».</p><p>Обмен нельзя отменить: обратно в Зарники ничего не превратится.</p></details>
-  </div>`, [{l:'Пополнить Зарники',c:'ghost',f:'CM();openZarnikiTopup()'},{l:'Закрыть',c:'ghost',f:'CM()'}]);
+  </div>`, [{l:'Пополнить Зарники',c:'ghost',f:'CM();openZarnikiTopup()'},{l:'Закрыть',c:'ghost',f:'CM()'}], {navPage:'wallet'});
   api('/wallet/exchange-policy').then(p => {
     if (mine !== _walletSeq || !el('modal')?.open || !el('wallet-exchange')) return;
     if (!Array.isArray(p?.routes) || !p.routes.length) throw new Error('Курсы временно недоступны');

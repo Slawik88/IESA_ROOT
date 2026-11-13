@@ -80,7 +80,7 @@ function _lkRender(anim) {
   if (!st) { root.innerHTML = `<div class="v3-scope lk-scope v3-stagger"><div class="v3-empty">${_profileEsc(_lk.failed || 'Загрузка…')} <button type="button" class="v3-link" onclick="openLooksModal()">Повторить</button></div></div>`; v3EnterSync(root); return; }
   const item = _lkItem(_lk.sel), look = { ...item, tier: _lk.tier }, ap = apFromLook(look), act = _lkAction(item, st);
   const tokens = v3TokenStyle(item.tokens);
-  if (_lk.view === 'album') { root.innerHTML = `<div class="v3-scope lk-scope v3-stagger" style="${tokens}">${_lkTop(st)}${lkAlbumHtml(st)}</div>`; v3EnterSync(root); lkMainButton(); return; }
+  if (_lk.view === 'album') { root.innerHTML = v3CurIn(`<div class="v3-scope lk-scope v3-stagger" style="${tokens}">${_lkTop(st)}${lkAlbumHtml(st)}</div>`); v3EnterSync(root); lkMainButton(); return; }
   const avatar = _v3Avatar(_profileData || {});
   const name = _profileEsc(String(_profileData?.display_name || 'Игрок'));
   const stripScroll = root.querySelector('.lk-strip')?.scrollLeft || 0;
@@ -93,7 +93,7 @@ function _lkRender(anim) {
     : _lk.tier === item.level ? '' : _lk.tier === 'SSS' && !st.vip ? 'Превью тира SSS. Последний тир открывается только с активным VIP.' : `Превью тира ${_lk.tier}, сейчас у вас ${item.level}.`;
   const total = Math.ceil(item.total_upgrade_essence / st.essence.per_zarnik);
   const owner = st.vip ? '' : '<p class="lk-fine">Другие игроки видят ваш образ только пока у вас активен VIP. Вы сами видите его всегда. <button type="button" class="v3-link" onclick="openStoreV3(\'vip\')">Что даёт VIP ›</button></p>';
-  root.innerHTML = `<div class="v3-scope lk-scope v3-stagger" style="${tokens}">
+  root.innerHTML = v3CurIn(`<div class="v3-scope lk-scope v3-stagger" style="${tokens}">
     ${_lkTop(st)}
     <div class="lk-hero${anim ? ' is-swap' : ''}">${apStage(ap, identity)}</div>
     <h1 class="lk-title">${_profileEsc(item.name)}</h1>
@@ -109,7 +109,7 @@ function _lkRender(anim) {
     <div class="v3-sec"><span class="v3-eyebrow">Сеты</span></div>${_lkSets(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Эссенция</span><button type="button" class="v3-link" onclick="lkTour()">Как это работает</button></div>
     <p class="lk-fine">Валюта прокачки. Её дают задания (+${st.essence.quest_reward.daily} за день, +${st.essence.quest_reward.weekly} за неделю, +${st.essence.quest_reward.combined} за всё) или обмен: 1 ✨ = ${String(st.essence.per_zarnik).replace(".", ",")} Эссенции.</p>
-    ${lkFitNote(st, item)}<div class="lk-packs" aria-label="Пакеты Эссенции: 1 Зарник — 2,5 Эссенции">${st.essence.packs.map(p => `<button type="button" class="v3-pill v3-pill--ghost${p.zarniki === lkFitPack(st, item) ? ' is-fit' : ''}" onclick="lkAct('pack',${p.zarniki})" ${_lk.busy ? 'disabled' : ''}>${p.zarniki} ✨ → ${fmt(p.essence)}</button>`).join('')}</div></div>`;
+    ${lkFitNote(st, item)}<div class="lk-packs" aria-label="Пакеты Эссенции: 1 Зарник — 2,5 Эссенции">${st.essence.packs.map(p => `<button type="button" class="v3-pill v3-pill--ghost${p.zarniki === lkFitPack(st, item) ? ' is-fit' : ''}" onclick="lkAct('pack',${p.zarniki})" ${_lk.busy ? 'disabled' : ''}>${p.zarniki} ✨ → ${fmt(p.essence)}</button>`).join('')}</div></div>`);
   v3EnterSync(root);
   const strip = root.querySelector('.lk-strip');
   lkMainButton();

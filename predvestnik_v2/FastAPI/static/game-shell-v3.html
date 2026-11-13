@@ -3,7 +3,7 @@
 <script src="{{BASE}}/static/support-diagnostics.js?v={{VER}}"></script>
 <script defer src="{{BASE}}/static/support-feedback.js?v={{VER}}"></script>
 <script>try{var d=sessionStorage.getItem('pv_mode_dir');if(d){document.documentElement.dataset.gm=d;sessionStorage.removeItem('pv_mode_dir');}}catch(e){}</script>
-    <header class="lg-hero">
+    <header class="lg-hero v3-head">
       <svg class="lg-sky" viewBox="0 0 360 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
         <path d="M196 30L232 18L270 40L300 26L332 52M270 40L262 78L298 96M232 18L214 62L262 78" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width=".8"/>
         <g fill="currentColor"><circle cx="196" cy="30" r="1.3" opacity=".7"/><circle cx="232" cy="18" r="1.9"/><circle cx="270" cy="40" r="1.5" opacity=".85"/>
@@ -12,8 +12,7 @@
           <circle cx="176" cy="104" r=".7" opacity=".35"/><circle class="lg-tw" cx="232" cy="18" r="3.2" opacity="0"/><circle class="lg-tw lg-tw2" cx="262" cy="78" r="3.4" opacity="0"/></g>
       </svg>
       <a class="lg-back" id="lg-back-link" href="{{BASE}}/?startapp=games" aria-label="Назад к играм">‹</a>
-      <script>/* игру открыли из Путеводителя (app.57.js, _gvLeave): «‹» возвращает в ту же тему */try{var b=sessionStorage.getItem('pv_back');if(b&&/^guide_[a-z]+(-[a-z]+)*$/.test(b)){var a=document.getElementById('lg-back-link');a.href=a.href.replace(/startapp=games$/,'startapp='+b);a.setAttribute('aria-label','Назад в Путеводитель');}sessionStorage.removeItem('pv_back');}catch(e){}</script>
-      <div class="lg-hero-t"><small id="lg-eyebrow">{{EYEBROW}}</small><h1 id="lg-title">{{TITLE}}</h1></div>
+      <div class="lg-hero-t v3-head-tx"><small id="lg-eyebrow">{{EYEBROW}}</small><h1 id="lg-title" class="v3-title">{{TITLE}}</h1></div>
       <button type="button" class="lg-support" data-support-open data-support-category="games" aria-label="Сообщить о проблеме">Помощь</button>
       <p class="lg-days" id="lg-days" hidden></p>
     </header>

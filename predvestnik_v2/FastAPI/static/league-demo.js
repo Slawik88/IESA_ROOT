@@ -59,7 +59,7 @@
     $('lg-note').classList.toggle('lg-hidden', !demo);
     Shell().paintDays(Shell().summary(state.pass));
     const link = $('lg-back-link'), inPage = pass && state.game;
-    link.setAttribute('aria-label', inPage ? `Назад: ${NAMES[state.game]}` : 'Назад к играм');
+    link.setAttribute('aria-label', inPage ? `Назад: ${NAMES[state.game]}` : link.href.includes('startapp=guide_') ? 'Назад в Путеводитель' : link.href.includes('startapp=pets') ? 'Назад к питомцам' : 'Назад к играм');
     link.onclick = inPage ? event => { event.preventDefault(); go(state.game, -1); } : null;
   }
 
@@ -74,7 +74,7 @@
     if (view === state.view) return;
     state.view = view;
     if (view !== 'pass') state.game = view;
-    try { history.replaceState(null, '', view === 'pass' ? (state.game ? `?game=${state.game}#pass` : '#pass') : `?game=${view}`); } catch (_) { /* file:// */ }
+    try { history.replaceState(history.state, '', view === 'pass' ? (state.game ? `?game=${state.game}#pass` : '#pass') : `?game=${view}`); } catch (_) { /* file:// */ }
     render(dir);
     window.scrollTo({top: 0});
   }

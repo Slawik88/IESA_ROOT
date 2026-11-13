@@ -15,7 +15,7 @@ from datetime import timedelta
 from core.economy_contract import CURRENCY_SPECS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from loguru import logger
-from services import chat_bots, member_tags, vip as vip_service
+from services import chat_bots, member_tags, membership, vip as vip_service
 from bot.chat import family, global_ranks, profile_view, ranks, skin_card, streak
 from bot.chat.profile_view import CardData, esc
 from bot.chat.achievements_data import ACHIEVEMENTS
@@ -98,13 +98,28 @@ async def balances(db, user_id: int) -> list[str]:
     return out
 
 
-async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
-    today = local_now().date()
-    ranges = {
+def period_ranges(today) -> dict[str, tuple]:
+    """Даты, за которые считаются счётчики «сегодня / неделя / месяц» (неделя — с понедельника, месяц — с 1-го числа)."""
+    return {
         "day": (today, today),
         "week": (today - timedelta(days=today.weekday()), today),
         "month": (today.replace(day=1), today),
     }
+
+
+def span(a, b) -> str:
+    """«11.11» для одного дня, «09.11–11.11» для нескольких."""
+    return a.strftime("%d.%m") if a == b else f"{a:%d.%m}–{b:%d.%m}"
+
+
+def period_note(today) -> str:
+    r = period_ranges(today)
+    return " · ".join(f"{label} {span(*r[key])}" for key, label in (("day", "сегодня"), ("week", "неделя"), ("month", "месяц")))
+
+
+async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
+    today = local_now().date()
+    ranges = period_ranges(today)
     out = {}
     for key, (a, b) in ranges.items():
         async with db.execute(
@@ -125,7 +140,7 @@ async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
 
 
 async def chat_place(db, chat_id: int, user_id: int, since: str, until: str) -> int | None:
-    """Место в чате по сообщениям за период: 1 — больше всех. None, если игрок не писал."""
+    """Место в чате по сообщениям за период среди тех, кто ещё в чате (как в «бот топ»): 1 — больше всех. None, если игрок не писал."""
     async with db.execute(
         "SELECT COALESCE(SUM(message_count), 0) FROM daily_user_stats "
         "WHERE chat_id = ? AND user_id = ? AND date BETWEEN ? AND ?",
@@ -135,7 +150,7 @@ async def chat_place(db, chat_id: int, user_id: int, since: str, until: str) -> 
         return None
     async with db.execute(
         "SELECT COUNT(*) FROM (SELECT d.user_id FROM daily_user_stats d "
-        "WHERE d.chat_id = ? AND d.date BETWEEN ? AND ? AND " + chat_bots.NOT_BOT_DAILY +
+        "WHERE d.chat_id = ? AND d.date BETWEEN ? AND ? AND " + chat_bots.NOT_BOT_DAILY + " AND " + membership.PRESENT_DAILY +
         " GROUP BY d.user_id HAVING SUM(d.message_count) > ?) t",
         (chat_id, since, until, mine)) as cur:
         ahead = int((await cur.fetchone())[0])
@@ -186,6 +201,7 @@ async def _counters(db, data: CardData, chat_id: int, uid: int, is_group: bool) 
     if is_group:
         c = await message_counts(db, chat_id, uid)
         data.messages = [("сегодня", fmt_num(c["day"])), ("неделя", fmt_num(c["week"])), ("месяц", fmt_num(c["month"]))]
+        data.period_note = period_note(today)
         data.totals = [("всего", fmt_num(c["all"]))]
         if c["everywhere"] > c["all"]:
             data.totals.append(("во всех", fmt_num(c["everywhere"])))
@@ -257,6 +273,23 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool,
         await _presence(db, data, chat_id, target.user_id)
     await _family(db, data, chat_id, target.user_id, is_group)
     return profile_view.styled(data, look) if look else profile_view.plain(data)
+
+
+async def visiting_card(db, target: Target) -> tuple[str, skin_card.Media | None]:
+    """«Визитка» для личной переписки игрока (Telegram Business): та же карточка, что «бот я» в личке, но без кошелька
+    и без ID, без строк о семье (там чужие имена) — её видит собеседник. Картинка — график активности в стиле надетого
+    образа (None — не собралась)."""
+    look = await skins_chat.safe_card_look(db, target.user_id, target.user_id)
+    data = await _head(db, target.user_id, target, 0, False)
+    await _counters(db, data, target.user_id, target.user_id, False)
+    data.wallet.clear()
+    text = profile_view.styled(data, look) if look else profile_view.plain(data)
+    try:
+        media = await skin_card.graph_media(db, target.user_id, None, look, target.name or "", target.username)
+    except Exception as exc:
+        logger.warning(f"visiting card picture failed: {exc}")
+        media = None
+    return text, media
 
 
 def caption_len(text: str) -> int:

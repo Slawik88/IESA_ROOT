@@ -4,7 +4,7 @@ function pnPlanText(n, images, button) {   // то же правило, что s
   if (!images) return 'Один пост: текст и кнопка.';
   if (images === 1 && n <= 1024) return 'Один пост: фото, под ним текст и кнопка.';
   if (images > 1 && n + (button ? pnLen(button.label) + 4 : 0) <= 1024) return `Один пост: альбом из ${images} фото, под ним текст и ссылка на приложение (у альбомов нет кнопок).`;
-  return 'Текст длиннее 1024 знаков и не влезает подписью: фото уйдут отдельно, текст следом. Лучше сократите.';
+  return 'Текст длиннее 1024 знаков и не влезает подписью: фото уйдут первыми, текст с кнопкой — следом.';
 }
 const pnPlanNow = () => pnPlanText(pnLen(PN.work.text), PN.work.images.length, PN.work.button);
 

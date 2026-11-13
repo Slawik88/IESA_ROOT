@@ -1,0 +1,215 @@
+"""
+services/households.py — дома, участники, права.
+
+Единственное место, где решается «можно ли этому человеку это». Бот и будущий
+веб спрашивают здесь, а не решают сами (CLEAN_CODE 2.2).
+"""
+
+from loguru import logger
+
+from core import permissions as perms
+from core.constants import DEFAULT_CATEGORIES, MAX_HOUSE_NAME_LEN, MAX_MEMBER_NAME_LEN
+from infrastructure import repositories as repo
+
+
+class DomainError(Exception):
+    """Понятный отказ пользователю: бот показывает message, ничего не падает."""
+
+
+# ── Дома ─────────────────────────────────────────────────────────────────────
+
+def _house_name(house_name: str) -> str:
+    name = house_name.strip()
+    if not name:
+        raise DomainError("Название дома не может быть пустым")
+    if len(name) > MAX_HOUSE_NAME_LEN:
+        raise DomainError(f"Название дома — до {MAX_HOUSE_NAME_LEN} символов")
+    return name
+
+
+async def create_house(owner_tg_id: int, owner_name: str, house_name: str) -> int:
+    name = _house_name(house_name)
+    house_id = await repo.houses.create_house(name, owner_tg_id, owner_name.strip() or "Жилец")
+    await repo.money.seed_default_categories(house_id, DEFAULT_CATEGORIES)
+    logger.info(f"🏠 Создан дом id={house_id} «{name}» (владелец {owner_tg_id})")
+    return house_id
+
+
+async def create_house_once(owner_tg_id: int, owner_name: str, house_name: str) -> tuple[int, bool]:
+    name = _house_name(house_name)
+    house_id, created = await repo.houses.create_house_once(name, owner_tg_id, owner_name.strip() or "Жилец")
+    if created:
+        await repo.money.seed_default_categories(house_id, DEFAULT_CATEGORIES)
+        logger.info("🏠 Создан дом через сайт id={}", house_id)
+    return house_id, created
+
+
+async def get_house(house_id: int):
+    return await repo.houses.get_house(house_id)
+
+
+async def get_house_by_invite(token: str):
+    return await repo.houses.get_house_by_invite(token)
+
+
+async def houses_of_user(tg_id: int) -> list:
+    return await repo.houses.list_houses_of_user(tg_id)
+
+
+async def new_invite_token(house_id: int) -> str:
+    return await repo.houses.refresh_invite_token(house_id)
+
+
+def invite_link(house, bot_username: str) -> str:
+    return f"https://t.me/{bot_username}?start=join_{house['invite_token']}"
+
+
+async def set_chat_id(house_id: int, chat_id: int | None) -> None:
+    await repo.houses.set_chat(house_id, chat_id)
+
+
+# ── Участники ────────────────────────────────────────────────────────────────
+
+async def join_house(house, tg_id: int, display_name: str) -> bool:
+    """Вступить по приглашению. False — уже участник (это не ошибка)."""
+    added = await repo.houses.add_member_by_invite(
+        house["id"], house["invite_token"], tg_id, display_name.strip() or "Жилец",
+    )
+    if added is None:
+        raise DomainError("Приглашение уже заменили. Попросите новое у жильцов дома.")
+    return added
+
+
+async def members(house_id: int) -> list:
+    return await repo.houses.list_active_members(house_id)
+
+
+async def membership(house_id: int, tg_id: int):
+    return await repo.houses.get_membership(house_id, tg_id)
+
+
+async def require_member(house_id: int, tg_id: int) -> None:
+    member = await membership(house_id, tg_id)
+    if member is None or member["status"] != "active":
+        raise DomainError("Вы больше не участник этого дома. Выберите другой дом.")
+
+
+async def leave_house(house_id: int, tg_id: int) -> None:
+    from services import settings
+
+    m = await repo.houses.get_membership(house_id, tg_id)
+    if m and m["role"] == perms.ROLE_OWNER:
+        raise DomainError("Владелец не может выйти из дома. Передайте дом другому жильцу "
+                          "(Дом → Управление домом) или удалите его.")
+    today = settings.house_today(await settings.house_settings(house_id))
+    if not await repo.houses.leave_member(house_id, tg_id, today):
+        raise DomainError("Участие в доме уже изменилось. Обновите страницу.")
+
+
+def member_label(member_row) -> str:
+    """Имя участника для сообщений (username, если задан, — в скобках)."""
+    name = member_row["display_name"]
+    username = member_row["username"] if "username" in member_row.keys() else None
+    return f"{name} (@{username})" if username else name
+
+
+# ── Права ────────────────────────────────────────────────────────────────────
+
+async def can(house_id: int, tg_id: int, code: str) -> bool:
+    perms.has_permission(perms.ROLE_MEMBER, set(), code)  # валидация кода права — всегда
+    m = await repo.houses.get_membership(house_id, tg_id)
+    if m is None or m["status"] != "active":
+        return False
+    if m["role"] == perms.ROLE_OWNER:
+        return True
+    grants = await repo.houses.member_grants(house_id, tg_id)
+    return perms.has_permission(m["role"], grants, code)
+
+
+async def require(house_id: int, tg_id: int, code: str) -> None:
+    """Хранитель правила: отказ — DomainError с текстом для человека."""
+    if not await can(house_id, tg_id, code):
+        raise DomainError("Это может делать только владелец дома или тот, кому он выдал право.")
+
+
+async def grants_of(house_id: int, tg_id: int) -> frozenset[str]:
+    return await repo.houses.member_grants(house_id, tg_id)
+
+
+async def set_grant(house_id: int, tg_id: int, code: str, granted: bool) -> None:
+    if code not in perms.PERMISSION_CODES:
+        raise DomainError("Неизвестное право")
+    await require_member(house_id, tg_id)
+    if granted:
+        if not await repo.houses.grant(house_id, tg_id, code):
+            raise DomainError("Жилец уже вышел из дома. Обновите список участников.")
+    else:
+        await repo.houses.revoke(house_id, tg_id, code)
+
+
+async def grantor_candidates(house_id: int, acting_tg_id: int) -> list:
+    """Кому можно выдавать права: все активные, кроме владельца и самого себя."""
+    return [
+        m for m in await repo.houses.list_active_members(house_id)
+        if m["role"] != perms.ROLE_OWNER and m["tg_id"] != acting_tg_id
+    ]
+
+
+# ── Имя внутри дома ──────────────────────────────────────────────────────────
+
+async def rename_member(house_id: int, tg_id: int, new_name: str) -> None:
+    name = new_name.strip()
+    if not name or len(name) > MAX_MEMBER_NAME_LEN:
+        raise DomainError("Имя не может быть пустым или слишком длинным")
+    await repo.houses.set_display_name(house_id, tg_id, name)
+
+
+# ── Управление домом: удаление, передача, исключение ─────────────────────────
+
+async def _active_owner(house_id: int, tg_id: int, refusal: str):
+    member = await membership(house_id, tg_id)
+    if member is None or member["status"] != "active" or member["role"] != perms.ROLE_OWNER:
+        raise DomainError(refusal)
+    return member
+
+
+async def delete_house(house_id: int, actor: int, confirm_name: str) -> dict:
+    """Дом со всеми записями исчезает навсегда: только владелец и только с точным названием."""
+    await _active_owner(house_id, actor, "Дом может удалить только его владелец")
+    house = await get_house(house_id)
+    if confirm_name.strip() != house["name"]:
+        raise DomainError("Название не совпало, дом не удалён")
+    others = [row["tg_id"] for row in await repo.houses.list_active_members(house_id) if row["tg_id"] != actor]
+    await repo.houses.delete_house(house_id)
+    logger.info(f"🗑 Дом id={house_id} «{house['name']}» удалён владельцем {actor}")
+    return {"name": house["name"], "others": others}
+
+
+async def transfer_ownership(house_id: int, actor: int, target: int) -> str:
+    await _active_owner(house_id, actor, "Передать дом может только его владелец")
+    if target == actor:
+        raise DomainError("Выберите другого жильца")
+    heir = await membership(house_id, target)
+    if heir is None or heir["status"] != "active":
+        raise DomainError("Жилец уже вышел из дома. Обновите список жильцов")
+    if not await repo.houses.transfer_owner(house_id, actor, target):
+        raise DomainError("Состав дома изменился. Обновите страницу и повторите")
+    logger.info(f"👑 Дом id={house_id}: владение передано {target}")
+    return heir["display_name"]
+
+
+async def remove_member(house_id: int, actor: int, target: int) -> str:
+    await require(house_id, actor, "manage_members")
+    if target == actor:
+        raise DomainError("Себя убрать нельзя — используйте «Выйти из дома»")
+    member = await membership(house_id, target)
+    if member is None or member["status"] != "active":
+        raise DomainError("Жилец уже вышел из дома. Обновите список жильцов")
+    if member["role"] == perms.ROLE_OWNER:
+        raise DomainError("Владельца убрать нельзя")
+    from services import settings
+
+    today = settings.house_today(await settings.house_settings(house_id))
+    if not await repo.houses.leave_member(house_id, target, today):
+        raise DomainError("Участие уже изменилось. Обновите список жильцов")
+    return member["display_name"]

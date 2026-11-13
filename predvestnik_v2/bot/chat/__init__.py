@@ -2,7 +2,7 @@ from aiogram import F, Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import account, achievements, admin_chat, admin_help, cosmetics, family, games, help, mafia, members, migration, moderation, onboarding, pets, profile, promo, purge, rank_commands, reports, sanctions, site, streak, star_dust, tags, top, transfer, vip, warps, word_chain  # noqa: F401
+from bot.chat import account, achievements, admin_chat, admin_help, article, business, business_remote, pair_cards, cosmetics, family, games, help, mafia, members, migration, moderation, notify, onboarding, pets, profile, promo, purge, rank_commands, report_cards, reports, sanctions, ship, site, streak, star_dust, tags, tickets, top, transfer, vip, warps, widgets, word_chain  # noqa: F401
 from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat import mafia_online  # noqa: F401,E402  (отдельный режим, локальная команда без изменений)
 from bot.chat import inactive  # noqa: F401,E402
@@ -78,7 +78,7 @@ async def _callback_gate(handler, event, data):
     return await handler(event, data)
 
 
-for sub in (top.router, help.router, inactive.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, star_dust.router, word_chain.router):
+for sub in (top.router, help.router, inactive.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, notify.router, tickets.router, report_cards.router, star_dust.router, word_chain.router, business.router, business_remote.router, pair_cards.router, widgets.router):
     sub.callback_query.middleware(_callback_gate)
     router.include_router(sub)
 
@@ -96,11 +96,11 @@ async def on_edited_message(message: Message, bot, db) -> None:
         logger.warning(f"mafia gate (edit) failed: {exc}")
 
 
-@router.message()
-async def on_message(message: Message, bot, db) -> None:
+@router.message(flags={"counts_group_message": True})
+async def on_message(message: Message, bot, db, delivery_receipt=None) -> None:
     """Каждое сообщение: закрытый чат, учёт активности, затем команда."""
     from loguru import logger
-    from services import feature_switches
+    from services import feature_switches, ops_health
     from core import official_updates as official_policy
     if (message.chat.id == official_policy.CHAT_ID and message.is_topic_message
             and message.message_thread_id == official_policy.THREAD_ID):
@@ -110,10 +110,17 @@ async def on_message(message: Message, bot, db) -> None:
             await official_repo.topic_seen(db, official_policy.CHAT_ID, official_policy.THREAD_ID)
         except Exception as error:
             logger.warning("official topic observation failed: {}", type(error).__name__)
+    try:   # до ворот закрытого чата и чистки: они удаляют и служебные «вошёл» / «покинул группу»
+        from services import membership
+        await membership.observe_service(db, message)
+    except Exception as exc:
+        logger.warning(f"membership service message failed: {exc}")
     chat_id = message.chat.id if message.chat.type in ("group", "supergroup") else None
     try:
         bot_off = await feature_switches.disabled(db, ["all"], chat_id) is not None
     except Exception as exc:
+        if delivery_receipt is not None:
+            raise
         logger.warning(f"feature switches unavailable: {exc}")
         bot_off = False
     if bot_off:   # весь бот выключен: только закрытый чат, учёт сообщений и «бот админка»
@@ -121,10 +128,16 @@ async def on_message(message: Message, bot, db) -> None:
             if await purge.purge_gate(db, bot, message) or await moderation.closed_gate(db, bot, message):
                 return
         except Exception as exc:
+            if delivery_receipt is not None:
+                raise
             logger.warning(f"closed-chat gate failed: {exc}")
         try:
-            await record_message(db, message)
+            if await record_message(db, message, receipt=delivery_receipt) is False:
+                return
         except Exception as exc:
+            ops_health.record_bot_error(exc, "message_tracking")
+            if delivery_receipt is not None and not delivery_receipt.outcome.done():
+                raise
             logger.warning(f"message tracking failed: {exc}")
         await dispatch(registry, message, bot, db)   # выключатель пропустит только «бот админка»
         return
@@ -132,18 +145,28 @@ async def on_message(message: Message, bot, db) -> None:
         if await mafia.gate_message(db, bot, message):
             return
     except Exception as exc:
+        if delivery_receipt is not None:
+            raise
         logger.warning(f"mafia gate failed: {exc}")
     try:
         if await purge.purge_gate(db, bot, message) or await moderation.closed_gate(db, bot, message):
             return
     except Exception as exc:
+        if delivery_receipt is not None:
+            raise
         logger.warning(f"closed-chat gate failed: {exc}")
     try:
-        await record_message(db, message)
+        if await record_message(db, message, receipt=delivery_receipt) is False:
+            return
         if message.chat.type == "private" and message.from_user:   # пишет боту — значит, не блокировал
             await db.execute("UPDATE users SET dm_blocked_at = NULL WHERE user_tg_id = ? AND dm_blocked_at IS NOT NULL",
                              (message.from_user.id,))
+            from services import dm_push
+            await dm_push.confirm_contact(db, message.from_user.id)   # личка подтверждена, пауза «без отклика» снята
     except Exception as exc:  # учёт не должен ломать команды
+        ops_health.record_bot_error(exc, "message_tracking")
+        if delivery_receipt is not None and not delivery_receipt.outcome.done():
+            raise
         logger.warning(f"message tracking failed: {exc}")
     try:
         await mafia.after_message(db, bot, message)
@@ -151,9 +174,13 @@ async def on_message(message: Message, bot, db) -> None:
         logger.warning(f"mafia lobby repost failed: {exc}")
     # Addressed word-game turns must win over bare actions such as «чай» and «торт».
     handled = False
-    if message.chat.type in ("group", "supergroup") and word_chain.is_reply(bot, message):
+    if message.chat.type in ("group", "supergroup", "private") and word_chain.is_reply(bot, message):
         if not await _silent(message, db):
             handled = await word_chain.on_reply(db, bot, message)
+    if not handled and message.chat.type == "private" and tickets.is_answer_prompt(bot, message):   # сотрудник отвечает на обращение игрока
+        handled = await tickets.on_staff_reply(db, bot, message)
+    if not handled and message.chat.type == "private" and not await _silent(message, db):   # «слова» в личке: просто слово — ход
+        handled = await word_chain.on_plain_word(db, bot, message)
     if not handled:
         handled = await dispatch(registry, message, bot, db)
     if not handled and message.chat.type == "private":   # «привет» в личке: не молчим, показываем, с чего начать

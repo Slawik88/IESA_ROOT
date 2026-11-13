@@ -70,8 +70,19 @@ def test_stars_and_xp() -> None:
     assert rules.rhythm_stars(spec, alive=True, score=0) == 1
     assert rules.rhythm_stars(spec, alive=True, score=math.ceil(reference * 0.7)) == 2
     assert rules.rhythm_stars(spec, alive=True, score=math.ceil(reference * 0.9)) == 3
-    assert rules.xp_gain(0, 1) == 60 and rules.xp_gain(1, 3) == 40 and rules.xp_gain(3, 2) == 0 and rules.xp_gain(2, 0) == 0
+    assert rules.xp_gain(0, 1) == 90 and rules.xp_gain(1, 3) == 60 and rules.xp_gain(3, 2) == 0 and rules.xp_gain(2, 0) == 0
     assert rules.mines_par_seconds(rules.mines_level(40), 20) >= 30 + 20 * 4, "the third-star time stays generous"
+
+
+def test_ranked_xp_table() -> None:
+    """S28a: the star base and the casual cap stay; ranked experience is the base times the owner's factor."""
+    assert rules.XP_STAR_BASE == {1: 60, 2: 80, 3: 100}
+    assert rules.RANKED_XP_PCT == 150 and rules.XP_BY_STARS == {1: 90, 2: 120, 3: 150}
+    assert all(rules.XP_BY_STARS[s] == rules.XP_STAR_BASE[s] * rules.RANKED_XP_PCT // 100 for s in rules.XP_STAR_BASE)
+    assert rules.XP_BY_STARS[1] < rules.XP_BY_STARS[2] < rules.XP_BY_STARS[3]
+    assert sum(rules.xp_gain(a, b) for a, b in ((0, 1), (1, 2), (2, 3))) == rules.xp_gain(0, 3) == rules.XP_BY_STARS[3]
+    from core import league_pass
+    assert league_pass.CASUAL_DAILY_CAP == 300, "the casual cap guards against forged phone-timed results: not part of S28a"
 
 
 def test_gift_plan_is_shared() -> None:

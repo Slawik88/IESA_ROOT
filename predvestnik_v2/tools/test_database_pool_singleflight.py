@@ -48,7 +48,8 @@ async def run() -> None:
         pools = await asyncio.gather(*(database.create_pool() for _ in range(25)))
         assert all(pool is sentinel for pool in pools)
         assert len(calls) == 1, "concurrent startup created more than one pool"
-        # DB_POOL_MAX_SIZE is the process total, capped at 10; two of them are the direct connections.
+        # DB_POOL_MAX_SIZE is the process total, capped at 10; reserve lock and both LISTEN connections.
+        assert database.DIRECT_CONNECTIONS == 3
         assert calls[0]["min_size"] == 1 and calls[0]["max_size"] == 10 - database.DIRECT_CONNECTIONS
         os.environ["DB_POOL_MAX_SIZE"] = "invalid"
         assert database._pool_max_size() == 10 - database.DIRECT_CONNECTIONS

@@ -28,6 +28,8 @@ function v3Head(title, { sub = '', back = '', end = '' } = {}) {
   const emb = typeof _V3_HEAD_EMB === 'object' && _V3_HEAD_EMB ? _V3_HEAD_EMB[title] : '';   // эмблема и созвездие вкладки (app.50.js)
   return `<header class="v3-head${emb ? ' v3-head--hero' : ''}">${emb ? V3_SKY : ''}${btn}${emb ? v3Emblem(emb) : ''}<div class="v3-head-tx"><h1 class="v3-title">${esc(title)}${v3GlintMark(title)}</h1>${sub ? `<p class="v3-head-s">${esc(sub)}</p>` : ''}</div>${end}</header>`;
 }
+// Скелетон загрузки вместо текста «Загрузка…»: n серых строк списка; подпись читает экранный диктор
+function v3Skel(label = 'Загружаем…', n = 3) { return `<div class="v3-skel" role="status" aria-label="${esc(label)}">${'<div class="sk sk-row"></div>'.repeat(n)}</div>`; }
 function apName(ap, html, plain) {
   if (!ap) return html;
   const text = plain ?? String(html).replace(/<[^>]*>/g, '').replace(/&(amp|lt|gt|quot|#39|#x27);/g, e => ({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&#39;':"'",'&#x27;':"'"}[e]));
@@ -62,6 +64,21 @@ function apStage(ap, inner) {
 function apWho(row) {
   const ap = apFromLook(row.look);
   return `<span class="v3-who"><span>${ap ? apName(ap, _profileEsc(row.name)) : `<span class="ap-plain">${_profileEsc(row.name)}</span>`}${row.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}${v3MarkDot(row.mark)}</span>${apTitle(ap)}</span>`;
+}
+
+// ── Аватар: фото VIP или личное созвездие. Здесь, а не в профиле: тот же аватар рисуют топы страниц игр (top-board-v3.js) ──
+function _validAvatar(value) {
+  return typeof value === 'string' && (/^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+    || /^\/profile\/avatar\/[A-Za-z0-9_-]{16,64}\?v=[0-9a-f]{16}$/.test(value));
+}
+function _avatarSrc(value) {
+  return value.startsWith('/') ? BASE + value : value;
+}
+function _v3Avatar(d) {
+  const constellation = _v3Constellation(d.seed ?? d.user_id ?? d.display_name ?? d.username, d.account_level ?? d.level, !!d.is_vip);   // без фото: личное созвездие (app.20.js)
+  if (!_validAvatar(d.avatar)) return constellation;
+  // The photo address can fail (VIP ended, network): the image then turns back into the constellation.
+  return `<img src="${_profileEsc(_avatarSrc(d.avatar))}" alt="" decoding="async" data-fallback="${_profileEsc(constellation)}" onerror="this.outerHTML=this.dataset.fallback">`;
 }
 
 // ── Аватар без фото: личное созвездие ──────────────────────────────────────────────

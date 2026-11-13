@@ -6,18 +6,21 @@ import signal
 import sys
 import asyncpg
 from aiogram import Bot
+from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter, TelegramServerError
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 from loguru import logger
 
 from bot.config import config
 from bot.core.database import init_db
-from bot.dispatcher import attach_outbound, build_dispatcher
+from bot.dispatcher import allowed_updates, attach_outbound, build_dispatcher
+from bot.middlewares.polling_delivery import PollingDelivery
 from bot.chat.payments import star_payment_reconciliation_task
 from infrastructure.database import connect_direct, create_pool
 from infrastructure.preprod import is_preprod
 from services.scheduler import (
     mafia_phase_task,
     maintenance_task,
+    dm_push_task,
     player_exchange_match_task,
     coin_market_v2_task,
 )
@@ -115,6 +118,71 @@ async def _connect_for_lock():
             delay = min(delay * 2, 60.0)
 
 
+_TELEGRAM_BOOT_RETRY_MAX_SEC = 30
+
+
+async def _prepare_telegram_polling(bot: Bot, failed: asyncio.Event) -> None:
+    delay = 1
+    while not failed.is_set():
+        try:
+            # Pending payments and chat messages must survive a restart.
+            await bot.delete_webhook(drop_pending_updates=False)
+            await bot.me()
+            if not failed.is_set():
+                return
+            break
+        except TelegramRetryAfter as exc:
+            retry_in = max(delay, exc.retry_after)
+            logger.warning("Telegram startup rate limited, retrying in {} s", retry_in)
+        except (TimeoutError, TelegramNetworkError, TelegramServerError) as exc:
+            retry_in = delay
+            logger.warning("Telegram startup unavailable ({}), retrying in {} s", type(exc).__name__, retry_in)
+        try:
+            await asyncio.wait_for(failed.wait(), retry_in)
+        except TimeoutError:
+            delay = min(delay * 2, _TELEGRAM_BOOT_RETRY_MAX_SEC)
+    raise RuntimeError("cannot start Telegram polling after losing the process lock or HTTP service")
+
+
+async def _configure_telegram_profile(bot: Bot) -> None:
+    # Update the menu button URL to the mini app.
+    # MINIAPP_URL must be HTTPS for WebAppInfo (Telegram requirement).
+    _miniapp_url = os.getenv("MINIAPP_URL", "")
+    if _miniapp_url.startswith("https://"):
+        try:
+            await bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text="🔮 Сайт",
+                    web_app=WebAppInfo(url=_miniapp_url),
+                )
+            )
+            logger.info(f"✅ Кнопка меню → {_miniapp_url}")
+        except Exception as _e:
+            logger.warning(f"Кнопка меню не установлена: {_e}")
+
+    # Меню команд (кнопка «/» в Telegram): те два входа, которые нужны новому человеку, чтобы подключить бота.
+    try:
+        from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
+        await bot.set_my_commands([
+            BotCommand(command="start", description="Начало: как добавить бота в чат"),
+            BotCommand(command="setup", description="Проверить и настроить бота в чате"),
+        ])
+        await bot.set_my_commands([   # в личке ещё справка и сайт; в группах для этого «бот помощь» и «бот сайт»
+            BotCommand(command="start", description="Начало: как добавить бота в чат"),
+            BotCommand(command="help", description="Все команды бота"),
+            BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
+            BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
+            BotCommand(command="plan", description="Табло: день, задания, Пропуск и питомцы"),
+            BotCommand(command="mines", description="Сапёр прямо в чате"),
+            BotCommand(command="notify", description="Уведомления: что бот присылает тебе в личку"),
+            BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
+        ], scope=BotCommandScopeAllPrivateChats())
+    except Exception as _e:
+        logger.warning(f"Меню команд не установлено: {_e}")
+    from bot.chat.onboarding import ensure_descriptions
+    await ensure_descriptions(bot)
+
+
 async def main():
     _configure_safe_logging()
     background_tasks: list[asyncio.Task] = []
@@ -135,10 +203,12 @@ async def main():
             import uvicorn
             from FastAPI.main import app as _fastapi_app
             from FastAPI.prefix import strip_prefix_middleware
+            from FastAPI.private_house_gateway import PrivateHouseGateway
             _root_path = os.getenv("ROOT_PATH", "").rstrip("/")
+            _private_app = PrivateHouseGateway(_fastapi_app)
             _mounted_app = (
-                strip_prefix_middleware(_fastapi_app, _root_path)
-                if _root_path else _fastapi_app
+                strip_prefix_middleware(_private_app, _root_path)
+                if _root_path else _private_app
             )
             _api_cfg = uvicorn.Config(
                 _mounted_app,
@@ -209,9 +279,10 @@ async def main():
     bot = Bot(token=config.bot_token)
     # Исходящие запросы (не апдейты!): соединение с базой отдаётся до вызова Telegram, затем троттлинг
     # против flood control (bot/middlewares/db.py, bot/middlewares/outbound_throttle.py).
-    attach_outbound(bot.session)
+    delivery = PollingDelivery()
+    attach_outbound(bot.session, delivery=delivery)
     logger.info("📡 Middleware, перехват ошибок обработчиков и роутеры...")
-    dp = build_dispatcher()
+    dp = build_dispatcher(delivery)
     logger.info("✅ Все роутеры подключены!")
 
     def _on_sigterm():
@@ -225,44 +296,8 @@ async def main():
         pass  # Windows
 
     try:
-        # A queued ``successful_payment`` is money already paid by a player.
-        # Never discard it during a rolling restart; the payment ledger makes a
-        # replay safe, and the Stars-history task below repairs a crash window.
-        await bot.delete_webhook(drop_pending_updates=False)
-
-        # Update the menu button URL to the mini app.
-        # MINIAPP_URL must be HTTPS for WebAppInfo (Telegram requirement).
-        _miniapp_url = os.getenv("MINIAPP_URL", "")
-        if _miniapp_url.startswith("https://"):
-            try:
-                await bot.set_chat_menu_button(
-                    menu_button=MenuButtonWebApp(
-                        text="🔮 Сайт",
-                        web_app=WebAppInfo(url=_miniapp_url),
-                    )
-                )
-                logger.info(f"✅ Кнопка меню → {_miniapp_url}")
-            except Exception as _e:
-                logger.warning(f"Кнопка меню не установлена: {_e}")
-
-        # Меню команд (кнопка «/» в Telegram): те два входа, которые нужны новому человеку, чтобы подключить бота.
-        try:
-            from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
-            await bot.set_my_commands([
-                BotCommand(command="start", description="Начало: как добавить бота в чат"),
-                BotCommand(command="setup", description="Проверить и настроить бота в чате"),
-            ])
-            await bot.set_my_commands([   # в личке ещё справка и сайт; в группах для этого «бот помощь» и «бот сайт»
-                BotCommand(command="start", description="Начало: как добавить бота в чат"),
-                BotCommand(command="help", description="Все команды бота"),
-                BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
-                BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
-                BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
-            ], scope=BotCommandScopeAllPrivateChats())
-        except Exception as _e:
-            logger.warning(f"Меню команд не установлено: {_e}")
-        from bot.chat.onboarding import ensure_descriptions
-        await ensure_descriptions(bot)
+        await _prepare_telegram_polling(bot, background_failed)
+        background_tasks.append(asyncio.create_task(_configure_telegram_profile(bot), name="predvestnik:telegram-profile"))
 
         # Log RARITY_STICKER_ID so developer can easily copy it
         _rarity_sid = os.getenv("RARITY_STICKER_ID", "")
@@ -312,6 +347,7 @@ async def main():
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
             _spawn_supervised("coin-market-v2", coin_market_v2_task(), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
+            _spawn_supervised("dm-push", dm_push_task(bot), failed=background_failed),
         ])
         try:
             from services import broadcasts as _bc, chat_bots as _chat_bots
@@ -340,15 +376,9 @@ async def main():
             background_tasks.append(_spawn_supervised(
                 "stars-reconciliation", star_payment_reconciliation_task(bot, pool), failed=background_failed,
             ))
-        # Прогрев графика активности: matplotlib и шрифты готовим заранее,
-        # чтобы первый «бот я» не платил за импорт библиотеки.
-        try:
-            from bot.chat import activity_graph
-            await asyncio.to_thread(activity_graph.prewarm)
-            logger.info("📈 График активности: рендер прогрет")
-        except Exception as _e:
-            logger.warning(f"График активности не прогрет: {_e}")
-        polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
+        # График активности рисует отдельный короткоживущий процесс (bot/chat/activity_graph_render.py): matplotlib
+        # в процессе бота держал 60–80 МиБ из 512 МБ контейнера, поэтому здесь его не прогреваем.
+        polling = asyncio.create_task(dp.start_polling(bot, allowed_updates=allowed_updates(dp)), name="predvestnik:polling")
         failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")
         done, pending = await asyncio.wait({polling, failed_wait}, return_when=asyncio.FIRST_COMPLETED)
         for task in pending:

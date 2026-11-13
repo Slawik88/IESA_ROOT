@@ -1,0 +1,32 @@
+<style>
+.hero>div+div{flex:1;min-width:0}
+.st{text-align:right;font-size:.85em}
+#g{display:grid;gap:3px;max-width:330px;margin:10px auto 8px;padding:6px;border:1px solid var(--t);border-radius:14px;background:var(--s);touch-action:none;user-select:none}
+#g button{aspect-ratio:1;margin:0;padding:0;border:1px solid var(--t);border-radius:6px;background:linear-gradient(160deg,var(--t),transparent),var(--bg);font-weight:800}
+#g .o{border-color:transparent;background:transparent}
+#g .x{background:var(--bad);color:#000}
+#g .c1{color:var(--a)}#g .c2{color:var(--ok)}#g .c3{color:var(--bad)}#g .c4,#g .c5,#g .c6,#g .c7,#g .c8{color:var(--g)}
+.ctl{display:flex}
+.ctl .btn{flex:1}
+.sec{background:transparent;color:var(--a);border:1px solid var(--a)}
+#pk{display:grid;gap:6px;margin-top:6px}
+</style>
+<div class="card" id="cd"><div class="hero"><div class="halo">💣</div><div><div class="nm">Сапёр</div><div class="hs" id="lv"></div></div><div class="st n"><div id="tm">0:00</div><div class="hs" id="fc"></div></div></div><div class="orn" id="dv"></div></div>
+<div id="g"></div>
+<div class="ctl" id="cl"><button class="btn sec" id="fl">🚩 Ставить флажки</button></div>
+<div id="pk"></div>
+<div id="m"></div>
+<script>
+var KEY="mines",LIVE=1,FLAG=0,PEND=-1,T0=0,F=[],RUN=0,LS=0;
+function store(){try{localStorage.setItem("f",JSON.stringify({x:S.x,f:F}))}catch(e){}}
+function load(){try{var o=JSON.parse(localStorage.getItem("f"));F=o&&o.x==S.x?o.f:[]}catch(e){F=[]}}
+function live(){return S.st=="a"||S.st=="f"}
+function clock(){var s=Math.floor((S.st=="a"?Date.now()-T0:+S.t||0)/1e3);$("tm").textContent=Math.floor(s/60)+":"+("0"+s%60).slice(-2)}
+function flag(i){var at=F.indexOf(i);if(at<0)F.push(i);else F.splice(at,1);store();draw(S);if(T&&T.HapticFeedback)T.HapticFeedback.selectionChanged()}
+function dig(i){if(Q){PEND=i;return}PEND=-1;ask(KEY+":o:"+S.x+":"+i+":"+S.v,1).then(function(o){if(o&&!o.e&&o.st!="a"&&o.st!="f"&&T&&T.HapticFeedback)T.HapticFeedback.notificationOccurred(o.st=="w"?"success":"error")})}
+function AFTER(){var p=PEND;PEND=-1;if(p>=0&&!Q&&(S.b||"")[p]=="#"&&live())dig(p)}
+function tap(i){if(!live()||(S.b||"")[i]!="#")return;if(FLAG)flag(i);else if(F.indexOf(i)<0)dig(i)}
+function draw(s){var z=+s.z||0,b=s.b||"",g=$("g"),on=live();if(s.x!=RUN){RUN=s.x;load()}F=F.filter(function(i){return b[i]=="#"});if(s!==LS){LS=s;T0=Date.now()-(+s.t||0)}$("lv").textContent=s.n||"Выбери сложность";g.hidden=!z;g.style.gridTemplateColumns="repeat("+z+",1fr)";g.textContent="";for(var i=0;i<z*z;i++){var c=document.createElement("button"),v=b[i];c.dataset.i=i;if(v=="#"){c.textContent=F.indexOf(i)>=0?"🚩":""}else if(v=="*"){c.className="x";c.textContent="💣"}else{c.className="o c"+v;c.textContent=v=="0"?"":v}c.onclick=function(e){tap(+e.currentTarget.dataset.i)};c.oncontextmenu=function(e){e.preventDefault();var i=+e.currentTarget.dataset.i;if(live()&&(S.b||"")[i]=="#")flag(i)};g.appendChild(c)}
+$("fc").textContent=z?"мин: "+Math.max(0,(+s.c||0)-F.length):"";$("cl").hidden=!on;$("fl").className="btn"+(FLAG?"":" sec");var pk=$("pk");pk.textContent="";(on?[]:s.p||[]).forEach(function(p){var n=document.createElement("button");n.className="btn";n.textContent=p[1];n.onclick=function(){FLAG=0;ask(KEY+":n:"+p[0],1)};pk.appendChild(n)});clock()}
+function start(){var d=$("dv");d.textContent=L.d;d.hidden=!L.d;if(L.q)$("cd").className+=" sh";$("fl").onclick=function(){FLAG=!FLAG;draw(S)};setInterval(function(){if(S.st=="a")clock()},1e3)}
+</script>

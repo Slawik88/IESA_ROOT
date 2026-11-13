@@ -11,8 +11,9 @@ from types import SimpleNamespace
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--dsn", required=True)
-dsn = ap.parse_args().dsn
-os.environ["DATABASE_URL"] = dsn
+ap.add_argument("--delivery-only", action="store_true", help="test delayed delivery, rollback and deduplication")
+args = ap.parse_args()
+os.environ["DATABASE_URL"] = args.dsn
 os.environ.setdefault("BOT_TOKEN", "1:x")
 os.environ["DEVELOPER_ID"] = "42"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,6 +40,10 @@ async def main():
     await ensure_chat_schema()   # повторный запуск безопасен
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
+        await delayed_message_flow(db)
+        if args.delivery_only:
+            print("OK: delayed delivery, atomic rollback, replay and membership on PostgreSQL")
+            return
         for _ in range(3):
             await record_message(db, msg(1001, -100, "alpha"))
         await record_message(db, msg(1002, -100, "beta"))
@@ -68,6 +73,54 @@ async def main():
         assert await ranks.get_rank(db, -100, 42) == ranks.DEV_LEVEL
         await moderation_flow(db)
     print("OK: chat bot on PostgreSQL")
+
+
+async def delayed_message_flow(db):
+    from datetime import datetime, time, timedelta, timezone
+
+    from asyncpg import CheckViolationError
+    from bot.chat.tracking import local_now, record_message, tz_delta
+    from bot.middlewares.polling_delivery import Receipt
+    from infrastructure.repositories import update_receipts
+    from services import membership
+
+    yesterday = local_now().date() - timedelta(days=1)
+    sent_at = datetime.combine(yesterday, time(23, 59), tzinfo=timezone.utc) - tz_delta()
+    delayed = msg(89001, -89001, "delayed")
+    delayed.date = sent_at
+    await record_message(db, delayed)
+    conn = db.connection
+    counts = await conn.fetch("SELECT date, message_count FROM daily_user_stats WHERE user_id=$1", delayed.from_user.id)
+    assert [tuple(row) for row in counts] == [(yesterday.isoformat(), 1)], counts
+    await update_receipts.ensure_tables(db)
+    await membership.mark_left(db, delayed.chat.id, delayed.from_user.id)
+    loop = asyncio.get_running_loop()
+    receipt = Receipt(1, 321, loop.create_future())
+
+    # Force the second write to fail. Lifetime must still match the daily count.
+    await conn.execute("ALTER TABLE daily_user_stats ADD CONSTRAINT test_message_write CHECK (message_count <= 1) NOT VALID")
+    try:
+        try:
+            await record_message(db, delayed, receipt=receipt)
+        except CheckViolationError:
+            pass
+        else:
+            raise AssertionError("the test constraint should reject the daily update")
+    finally:
+        await conn.execute("ALTER TABLE daily_user_stats DROP CONSTRAINT test_message_write")
+    total = await conn.fetchval("SELECT user_messages_count_all_time FROM user_chat_stats WHERE user_tg_id=$1", delayed.from_user.id)
+    assert total == 1, total
+    assert not receipt.outcome.done() and not await update_receipts.seen(db, 1, 321)
+
+    await record_message(db, delayed, receipt=receipt)
+    assert receipt.outcome.result() and await update_receipts.seen(db, 1, 321)
+    duplicate = Receipt(1, 321, loop.create_future())
+    assert await record_message(db, delayed, receipt=duplicate) is False
+    assert duplicate.outcome.result()
+    row = await conn.fetchrow("SELECT user_messages_count_all_time, is_left FROM user_chat_stats WHERE user_tg_id=$1",
+                              delayed.from_user.id)
+    assert tuple(row) == (2, True), row  # An older Telegram update cannot undo a later departure.
+    assert await conn.fetchval("SELECT message_count FROM daily_user_stats WHERE user_id=$1", delayed.from_user.id) == 2
 
 
 class FakeBot:
@@ -462,6 +515,7 @@ async def transfer_flow(db, bot):
     await transfer.on_transfer(c, c.data_cb, db)
     assert "целым" in c.alerts[0]
     assert transfer.parse_amount("@ник 12,5") == transfer.Decimal("12.5") and transfer.parse_amount("0") is None
+    await ship_flow(db, bot)   # S21; дальше цепочка обрывается известным красным streak_flow на master
     await streak_flow(db, bot)
 
 
@@ -1087,6 +1141,201 @@ async def rank_guard_flow(db, bot):
     token2 = (await run(db, bot, "бот привязать админ чат", chat=-301)).split("<code>бот админ чат ")[1].split("</code>")[0]
     out = await run(db, bot, f"бот админ чат {token2}", chat=-878, uid=3102, username="adm7")
     assert "нет права" in out and await admin_chat_of(db, chat) == -878, out
+    await ship_flow(db, bot)
+
+
+async def ship_flow(db, bot):
+    """S21 «Шипперим»: случайная пара, детерминизм процента, пауза, отказ, выключатель."""
+    import re
+    from core import ship as ship_core
+    from infrastructure.repositories import ship_v1
+    from bot.chat import ranks
+    from bot.chat.tracking import record_message
+
+    await ship_v1.ensure_tables(db)
+    await ship_v1.ensure_tables(db)   # повторный запуск безопасен
+
+    async def say(text, uid=1001, username="alpha", **kw):
+        from bot.chat import registry
+        from bot.chat.framework import dispatch
+        m = FakeMessage(text, uid, username, **kw)
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies)
+
+    async def reset_pauses(*chat_ids):
+        marks = ", ".join(str(c) for c in chat_ids)
+        await db.execute(f"DELETE FROM ship_cooldowns WHERE chat_id IN ({marks})")
+        await db.execute(f"DELETE FROM ship_recent_pairs WHERE chat_id IN ({marks})")
+
+    # Общий чат: шипперство отвечает парой и не пингует.
+    for uid, uname in ((1003, "quiet"), (1004, "sunny")):
+        await record_message(db, msg(uid, -100, uname))
+    out = await say("бот шипирить")
+    assert "Совместимость:" in out and "tg://user?id=" not in out, out
+
+    # Выделенный чат с четырьмя известными игроками: детерминизм, разнообразие, пауза.
+    ids = {"petra1": 6001, "pavel2": 6002, "polina": 6003, "petya4": 6004}
+    for uname, uid in ids.items():
+        await record_message(db, msg(uid, -600, uname))
+    await reset_pauses(-600)
+
+    out = await say("бот шипирить", chat=-600)
+    shown = int(re.search(r"Совместимость: (\d+)%", out).group(1))
+    names = re.findall(r"@(\w+)", out)
+    assert len(names) == 2 and set(names) <= set(ids), out
+    assert shown == ship_core.compatibility_percent(*sorted(ids[name] for name in names)), (shown, names)
+
+    out = await say("бот шипирить", chat=-600)   # сразу второй раз — пауза
+    assert re.search(r"\d+ с", out) and "Совместимость" not in out, out
+
+    seen_pairs = set()
+    for _ in range(6):
+        await reset_pauses(-600)
+        out = await say("бот шипирить", chat=-600)
+        names = re.findall(r"@(\w+)", out)
+        if len(names) == 2:
+            seen_pairs.add(frozenset(names))
+    assert len(seen_pairs) >= 2, seen_pairs
+
+    # «шипирить меня»: пара для автора; себя в пару по @нику не поставить; не нашёл — честно.
+    await reset_pauses(-600)
+    out = await say("шипирить меня", uid=6001, username="petra1", chat=-600)
+    assert "Совместимость:" in out and "@petra1" in out, out
+    out = await say("шипирить @petra1", uid=6001, username="petra1", chat=-600)
+    assert "Себя в пару не поставить" in out, out
+    out = await say("бот шипирить, @ghost", chat=-600)
+    assert "Не нашёл" in out, out
+
+    # Личный отказ: отказавшийся не попадает в пары и не шиперится по @нику.
+    await reset_pauses(-600)
+    out = await say("не шипирить меня", uid=6003, username="polina", chat=-600)
+    assert "не выбирает" in out, out
+    out = await say("не шипирить меня", uid=6003, username="polina", chat_type="private")
+    assert "уже вне игры" in out, out
+    await reset_pauses(-600)
+    out = await say("бот шипирить, @polina", chat=-600)
+    assert "Совместимость" not in out and "@polina" in out, out   # пару не создали, виновник назван
+    for _ in range(5):
+        await reset_pauses(-600)
+        out = await say("бот шипирить", chat=-600)
+        assert "@polina" not in out, out
+    out = await say("шипирить меня разрешаю", uid=6003, username="polina", chat=-600)
+    assert "Снова в игре" in out, out
+
+    # Частые опечатки работают как команда и не мусорят в «бот помощь» (S21, вопрос владельца).
+    await reset_pauses(-600)
+    out = await say("шипирим", chat=-600)
+    assert "Совместимость:" in out, out
+    await reset_pauses(-600)
+    out = await say("Щипперим", chat=-600)
+    assert "Совместимость:" in out, out
+    await reset_pauses(-600)
+    out = await say("шипирим меня", uid=6001, username="petra1", chat=-600)
+    assert "Совместимость:" in out and "@petra1" in out, out
+    out = await say("не шиперим меня", uid=6003, username="polina", chat=-600)
+    assert "не выбирает" in out, out
+    out = await say("шипирить меня разрешаю", uid=6003, username="polina", chat=-600)
+    assert "Снова в игре" in out, out
+    from bot.chat import help as chat_help
+    social_text = chat_help.section_text("social")
+    assert "щипирим" not in social_text and "шипирим" not in social_text, "опечатки не видны в справке"
+
+    # Мало активных: честный ответ вместо выдуманной пары.
+    await record_message(db, msg(3001, -300, "lone"))
+    await reset_pauses(-300)
+    out = await say("бот шипирить", chat=-300)
+    assert "Совместимость" not in out and out.strip(), out
+
+    # Двое в чате: повтор единственной пары допустим (меньше четырёх кандидатов),
+    # и автор команды оказывается в паре — своя категория текстов.
+    await record_message(db, msg(8001, -500, "first"))
+    await record_message(db, msg(8002, -500, "second"))
+    await ship_v1.record_pair(db, -500, 8001, 8002)
+    await reset_pauses(-500)
+    out = await say("бот шипирить", uid=8001, username="first", chat=-500)
+    assert "@first" in out and "@second" in out, out
+    assert ("автор команды" in out or "заказчик" in out or "один из них" in out), out
+
+    # Выключатель владельца чата: «бот шипирить выкл/вкл» и запрет для тех без права.
+    await record_message(db, msg(8003, -700, "boss"))
+    await record_message(db, msg(8004, -700, "pleb"))
+    await ranks.set_owner(db, -700, 8003)
+    out = await say("бот шипирить выкл", uid=8004, username="pleb", chat=-700)
+    assert "тот, кто настраивает права" in out, out
+    out = await say("бот шипирить выкл", uid=8003, username="boss", chat=-700)
+    assert "выключен" in out, out
+    out = await say("бот шипирить", chat=-700)
+    assert "включить" in out and "Совместимость" not in out, out
+    out = await say("бот шипирить вкл", uid=8003, username="boss", chat=-700)
+    assert "включён" in out, out
+    out = await say("бот шипирить вкл", uid=8003, username="boss", chat=-700)
+    assert "уже" in out, out
+    # «выкл.» с точкой — тот же выключатель (norm снимает знаки).
+    out = await say("бот шипирить выкл.", uid=8003, username="boss", chat=-700)
+    assert "выключен" in out, out
+    out = await say("бот шипирить вкл", uid=8003, username="boss", chat=-700)
+    assert "включён" in out, out
+    await article_flow(db, bot)
+
+
+async def article_flow(db, bot):
+    """S22 «Моя статья»: статья дня, повтор, пауза, выключатель."""
+    import re
+    from infrastructure.repositories import article_v1
+    from bot.chat import ranks
+    from bot.chat.tracking import record_message
+
+    await article_v1.ensure_tables(db)
+    await article_v1.ensure_tables(db)   # повторный запуск безопасен
+
+    async def say(text, uid=9001, username="caseman", chat=-900, **kw):
+        from bot.chat import registry
+        from bot.chat.framework import dispatch
+        m = FakeMessage(text, uid, username, chat, **kw)
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies)
+
+    async def reset_articles(*chat_ids):
+        marks = ", ".join(str(c) for c in chat_ids)
+        await db.execute(f"DELETE FROM article_state WHERE chat_id IN ({marks})")
+
+    for uid, uname in ((9001, "caseman"), (9002, "clerk")):
+        await record_message(db, msg(uid, -900, uname))
+    await reset_articles(-900, -901)
+
+    # Первое дело: статья + описание + пометка пародии, без пингов.
+    out = await say("моя статья")
+    assert "Ст. " in out and "Пародия" in out and ">@caseman</a>" in out, out
+    assert "tg://user?id=" not in out, out
+    first = re.search(r"Ст\. (\d+(?:\.\d)?)", out).group(1)
+
+    # Сразу второй вызов — пауза.
+    out = await say("моя статья")
+    assert re.search(r"\d+ с", out) and "Ст. " not in out, out
+
+    # Остывшая пауза, дата та же — повтор даёт ту же статью.
+    await db.execute("UPDATE article_state SET last_at = NOW() - interval '1 hour' WHERE chat_id = -900")
+    out = await say("моя статья")
+    assert re.search(r"Ст\. (\d+(?:\.\d)?)", out).group(1) == first, out
+    assert ">@caseman</a>" in out, out
+
+    # Та же статья в другом чате того же дня (hash по игроку и дате, не по чату).
+    await record_message(db, msg(9001, -901, "caseman"))
+    await reset_articles(-901)
+    out = await say("моя статья", chat=-901)
+    assert re.search(r"Ст\. (\d+(?:\.\d)?)", out).group(1) == first, out
+
+    # Выключатель владельца чата: выкл -> честный отказ -> вкл.
+    await ranks.set_owner(db, -900, 9001)
+    out = await say("бот статья выкл", uid=9002, username="clerk")
+    assert "тот, кто настраивает права" in out, out
+    out = await say("бот статья выкл")
+    assert "выключена" in out, out
+    out = await say("моя статья")
+    assert "бот статья вкл" in out and "Ст. " not in out, out
+    out = await say("бот статья вкл")
+    assert "включена" in out, out
+    await reset_articles(-900)
 
 
 asyncio.run(main())

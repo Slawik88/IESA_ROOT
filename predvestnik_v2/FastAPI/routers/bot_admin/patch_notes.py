@@ -93,7 +93,7 @@ async def notes(user=Depends(creator), db=Depends(get_db)):
     return {"target": rules.UPDATES_URL, "topic_verified": await repo.topic_verified(db, rules.CHAT_ID, rules.THREAD_ID),
             "items": [_summary(r) for r in await repo.list_notes(db)], "problems": problems, "library": library,
             "buttons": [{"key": k, "label": v[0]} for k, v in rules.BUTTONS.items()],
-            "limits": {"message": rules.MAX_MESSAGE, "caption": rules.MAX_CAPTION, "images": rules.MAX_IMAGES},
+            "limits": {"message": rules.MAX_MESSAGE, "caption": rules.MAX_CAPTION, "post": rules.MAX_POST, "images": rules.MAX_IMAGES},
             "jargon": list(rules.JARGON)}
 
 

@@ -1,8 +1,8 @@
 // Higher priorities appear first. Stable IDs keep ordering independent of wording.
 const _NAV_PRIORITY = Object.freeze({
   groups: Object.freeze({management:100, help:95, community:90, collection:80, shop:60, account:50}),   // «Помощь» с Путеводителем — первой группой у игрока (S07)
-  items: Object.freeze({purge:110, admin:90, chats:100, top:90, inventory:100, chests:95, looks:90, promo:80,
-    guide:120, support:110, news:90, 'community-link':80, 'updates-link':70, refresh:10, wallet:100, zarniki:70, vip:60, settings:100})
+  items: Object.freeze({purge:110, admin:90, chats:100, promo:80,
+    guide:120, support:110, news:90, 'community-link':80, 'updates-link':70, refresh:10, zarniki:70, vip:60, settings:100})
 });
 function orderNavigation() {
   const sort = (parent, selector, priorities, key) => {
@@ -14,8 +14,49 @@ function orderNavigation() {
   const more = document.getElementById('pg-more');
   sort(more, '[data-nav-group]', _NAV_PRIORITY.groups, 'navGroup');
   more?.querySelectorAll('[data-nav-group]').forEach(group => sort(group, '[data-nav-key]', _NAV_PRIORITY.items, 'navKey'));
+  filterMoreNavigation();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', orderNavigation); else orderNavigation();
+
+function filterMoreNavigation() {
+  const more = document.getElementById('pg-more'); if (!more) return;
+  const query = (document.getElementById('more-search')?.value || '').trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
+  let found = false;
+  more.querySelectorAll('[data-nav-group]').forEach(group => {
+    let matches = false;
+    group.querySelectorAll('[data-nav-key]').forEach(row => {
+      const text = row.textContent.toLocaleLowerCase('ru').replace(/ё/g,'е');
+      const match = !query || text.includes(query);
+      row.classList.toggle('nav-filtered', !match);
+      if (match && !row.hidden) matches = true;
+    });
+    group.classList.toggle('nav-filtered', !matches);
+    if (matches && !group.hidden) found = true;
+  });
+  const empty = document.getElementById('more-search-empty'); if (empty && empty.hidden !== found) empty.hidden = found;
+}
+function updateDockScroll() {
+  const rail = document.querySelector('.nav-rail'), track = document.querySelector('.nav-scrollbar');
+  if (!rail || !track) return;
+  const ratio = Math.min(1, rail.clientWidth / Math.max(1, rail.scrollWidth));
+  track.classList.toggle('nav-scrollbar--off', ratio >= 1);
+  const thumb = track.firstElementChild; if (!thumb) return;
+  thumb.style.width = `${ratio * 100}%`;
+  thumb.style.transform = `translateX(${Math.max(0, rail.scrollLeft) / Math.max(1, rail.scrollWidth) * track.clientWidth}px)`;
+}
+function setupDockNavigation() {
+  document.getElementById('more-search')?.addEventListener('input', filterMoreNavigation);
+  const more = document.getElementById('pg-more'), rail = document.querySelector('.nav-rail');
+  rail?.addEventListener('scroll', updateDockScroll, {passive:true});
+  window.addEventListener('resize', updateDockScroll);
+  if (rail) {
+    new ResizeObserver(updateDockScroll).observe(rail);
+    new MutationObserver(updateDockScroll).observe(rail, {subtree:true, attributes:true, attributeFilter:['hidden']});
+  }
+  if (more) new MutationObserver(filterMoreNavigation).observe(more, {subtree:true, childList:true, attributes:true, attributeFilter:['hidden']});
+  updateDockScroll();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupDockNavigation); else setupDockNavigation();
 
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }  // setHeaderColor removed — deprecated in TG WebApp v6.0
@@ -190,13 +231,27 @@ function handleAuthRefusal(reason) {
 // server: a purchase, a transfer or any other change is never sent twice behind the player's back.
 // A change gets a longer deadline: giving up early would leave the player unsure whether it was saved.
 const API_TIMEOUT_MS=15000, API_CHANGE_TIMEOUT_MS=30000, API_GET_RETRY_DELAYS=[800,2500], API_RETRY_STATUSES=new Set([502,503,504]);
-function _apiFetch(path, opts) {
+async function _apiFetch(path, opts, skipBody) {
   const {timeout, ...init} = opts;
   const controller = init.signal || typeof AbortController !== 'function' ? null : new AbortController();
   const deadline = timeout || ((init.method || 'GET').toUpperCase() === 'GET' ? API_TIMEOUT_MS : API_CHANGE_TIMEOUT_MS);
+  const started = performance.now();
   const timer = controller ? setTimeout(() => controller.abort(), deadline) : 0;
-  return fetch(BASE+path,{...init,headers:{...hdrs(),...(init.headers||{})},...(controller?{signal:controller.signal}:{})})
-    .finally(() => clearTimeout(timer));
+  try {
+    const response = await fetch(BASE+path,{...init,headers:{...hdrs(),...(init.headers||{})},...(controller?{signal:controller.signal}:{})});
+    if (skipBody(response)) {
+      response.body?.cancel().catch(() => {});
+      return {response};
+    }
+    return {response, body:await response.text()};
+  } catch (error) {
+    if (controller?.signal.aborted) {
+      window.PVDiagnostics?.requestTimedOut?.(path, Math.round(performance.now()-started));
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function _apiNetworkError(error, method, ownSignal) {
   if (ownSignal) return error;   // the caller cancelled on purpose: keep its own error
@@ -208,35 +263,34 @@ function _apiNetworkError(error, method, ownSignal) {
 function api(path, opts={}) {
   const method=(opts.method||'GET').toUpperCase();
   let attempt=0, reauthorized=false;
-  const send=()=>_apiFetch(path,opts).then(r=>{
-    if(method==='GET' && API_RETRY_STATUSES.has(r.status) && attempt<API_GET_RETRY_DELAYS.length)
+  const retryBusy = response => method==='GET' && API_RETRY_STATUSES.has(response.status) && attempt<API_GET_RETRY_DELAYS.length;
+  const send=()=>_apiFetch(path,opts,r=>r.status===401 || retryBusy(r)).then(result=>{
+    if(retryBusy(result.response))
       return new Promise(done=>setTimeout(done,API_GET_RETRY_DELAYS[attempt++])).then(send);
-    return r;
+    return result;
   },error=>{
     // A timed-out read is not repeated: the server is already slow, another wait would only add load.
     if(method==='GET' && !opts.signal && error?.name!=='AbortError' && attempt<API_GET_RETRY_DELAYS.length)
       return new Promise(done=>setTimeout(done,API_GET_RETRY_DELAYS[attempt++])).then(send);
     return Promise.reject(_apiNetworkError(error,method,!!opts.signal));
   });
-  const handle=r=>{
-      if(r.status===401){
-        // Newer Telegram launch data may have arrived (SDK copy, return to the app): one more read with it.
-        if(method==='GET' && !reauthorized && refreshInitData()){ reauthorized=true; return send().then(handle); }
-        return Promise.reject(handleAuthRefusal(r.headers.get('x-auth-reason')||''));
-      }
-      // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
-      if(r.ok && method!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
-      return r.ok?r.json():r.text().then(t=>{
-        try{
-          const e=JSON.parse(t);
-          const d=e.detail;
-          const msg=typeof d==='string'?d:Array.isArray(d)?d.map(x=>x.msg||x).join('; '):(d?JSON.stringify(d):'Ошибка');
-          return Promise.reject(_humanErr(msg, r.status));
-        }catch{
-          try{ console.warn('API raw error hidden:', t.slice(0,300)); }catch(_){ }
-          return Promise.reject(r.status>=500?'Сервер прилёг отдохнуть. Попробуй через минуту.':'Ошибка сервера');
-        }
-      });
+  const handle=({response:r, body})=>{
+    if(r.status===401){
+      // Newer Telegram launch data may have arrived: one more read with it.
+      if(method==='GET' && !reauthorized && refreshInitData()){ reauthorized=true; return send().then(handle); }
+      return Promise.reject(handleAuthRefusal(r.headers.get('x-auth-reason')||''));
+    }
+    // Refresh other views after a successful change, excluding background analytics.
+    if(r.ok && method!=='GET' && !path.startsWith('/analytics') && !path.startsWith('/profile/me')) _scheduleReactiveRefresh();
+    if (r.ok) return JSON.parse(body);
+    try {
+      const {detail} = JSON.parse(body);
+      const message = typeof detail==='string' ? detail : Array.isArray(detail)
+        ? detail.map(item=>item.msg||item).join('; ') : detail ? JSON.stringify(detail) : 'Ошибка';
+      return Promise.reject(_humanErr(message, r.status));
+    } catch {
+      return Promise.reject(r.status>=500?'Сервер прилёг отдохнуть. Попробуй через минуту.':'Ошибка сервера');
+    }
   };
   return send().then(handle);
 }
@@ -294,13 +348,13 @@ function switchTgAccount(){
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-let _ws=null, _wsTries=0, _wsTimer=0, _balanceEventTimer=0, _pendingBalanceEvent=null;
+let _ws=null, _wsTries=0, _wsTimer=0, _balanceEventTimer=0, _pendingBalanceEvent=null, _wsPageAway=false;
 let _dynamicEventTimer=0;
 const _dynamicScopes=new Set();
 // События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
 // Первым сообщением сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
 function connectWS() {
-  if (_ws || !_uid || typeof WebSocket === 'undefined' || (!INIT_DATA && !sess())) return;
+  if (_wsPageAway || _ws || !_uid || typeof WebSocket === 'undefined' || (!INIT_DATA && !sess())) return;
   let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}`); } catch (e) { return; }
   _ws = ws;
   ws.onopen = () => {
@@ -314,8 +368,10 @@ function connectWS() {
     // read here closes the reconnect gap; a healthy connection never polls.
     if (event?.type === 'balance_stream_ready') {
       try { if(typeof refreshCurrBar==='function') refreshCurrBar(); } catch (_) {}
+      if(typeof moLive==='function') moLive(event);
       return;
     }
+    if (event?.type === 'mafia_room_changed') { if(typeof moLive==='function') moLive(event); return; }
     if (event?.type === 'app_version') { showAppUpdate(event.version); return; }
     if (event?.type === 'balance_changed') { queueLiveBalance(event); return; }
     if (event?.type === 'notification_pending') {
@@ -335,14 +391,37 @@ function connectWS() {
   };
   ws.onclose = (ev) => {
     window.PVDiagnostics?.record('websocket',{state:'closed',code:ev?.code||0});
-    if (_ws === ws) _ws = null;
+    if (_ws !== ws) return;
+    _ws = null;
     clearTimeout(_wsTimer);
+    if (_wsPageAway) return;
     if (ev && ev.code === 1008) return;   // account/credential not allowed: no reconnect loop; next visibility change retries once
     _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
   };
   ws.onerror = () => { window.PVDiagnostics?.record('websocket',{state:'error'}); try { ws.close(); } catch (e) { /* уже закрыт */ } };
 }
 setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
+window.addEventListener('pagehide', () => {
+  _wsPageAway = true;
+  clearTimeout(_wsTimer);
+  const socket = _ws; _ws = null;
+  if (socket) socket.close(1000, 'pagehide');
+});
+window.addEventListener('pageshow', event => {
+  _wsPageAway = false;
+  if (!event.persisted) return;
+  refreshInitData();
+  connectWS();
+  refreshCurrBar();
+  loadPendingNotifications();
+  queueDynamicRefresh('profile');
+  if (_activePage === 'arena') { _leagueAt = 0; loadActivitiesHub(); }
+  if (_activePage === 'pets') {
+    if (_sysFlags.pets_v2 === true) { _trPassAt = 0; _trPassLoad(); }
+    else refreshClassicPetPass();
+  }
+  _syncBackButton();
+});
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   refreshInitData();
@@ -444,30 +523,27 @@ function showWsNotif(event) {
 
 // Чек награды экспедиции: база + бонусы (питомцы/реликвии) + итого. Данные —
 // из WS-payload expedition_done (services/scheduler.py → expedition.calculate_reward).
+function _receiptRow(label, value, total) { return `<div class="v3-receipt-row${total ? ' v3-receipt-row--total' : ''}"><span>${label}</span><span>${value}</span></div>`; }
 function showExpeditionReceipt(e) {
   const bd = e.breakdown || [];
   const baseM = (e.base_mora != null) ? e.base_mora : e.mora;
   const baseX = (e.base_xp != null) ? e.base_xp : e.xp;
-  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px';
-  let rows = `<div style="${rs}"><span style="color:var(--muted)">🎒 Базовая добыча</span><span>+${fmt(baseM)} 🪙 · +${fmt(baseX)} XP</span></div>`;
+  let rows = _receiptRow('Базовая добыча', `+${fmt(baseM)} 🪙 · +${fmt(baseX)} XP`);
   bd.forEach(b => {
     const parts = [];
     if (b.mora)     parts.push(`+${fmt(b.mora)} 🪙`);
     if (b.xp)       parts.push(`+${fmt(b.xp)} XP`);
     if (b.diamonds) parts.push(`+${b.diamonds} 💎`);
-    if (b.extra)    parts.push(b.extra);
-    rows += `<div style="${rs};color:var(--gold)"><span>${esc(b.label || 'Бонус')}</span><span>${parts.join(' · ') || '—'}</span></div>`;
+    if (b.extra)    parts.push(esc(b.extra));
+    rows += _receiptRow(esc(b.label || 'Бонус'), parts.join(' · ') || '—');
   });
   const tp = [`+${fmt(e.mora)} 🪙`, `+${fmt(e.xp)} XP`];
   if (e.diamonds) tp.push(`+${e.diamonds} 💎`);
-  const earlyNote = e.early_finish
-    ? `<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:2px">⚡ Поход завершён досрочно (энергетик/кристалл) — награда −50%</div>` : '';
-  OM(`🎉 ${esc(e.pet || 'Питомец')} вернулся!`,
-    `<div style="margin-bottom:6px">${rows}
-       <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
-     </div>
-     <div style="font-size:10px;color:var(--green);text-align:center">✓ Награда уже зачислена</div>${earlyNote}`,
-    [{l:'🎁 Забрать', c:'primary', f:'CM();_nextModal()'}]);
+  const earlyNote = e.early_finish ? '<p class="v3-receipt-note">Поход закончился раньше срока, поэтому награда вдвое меньше.</p>' : '';
+  OM(`${esc(e.pet || 'Питомец')} вернулся!`,
+    `<div class="v3-receipt">${rows}${_receiptRow('Итого', tp.join(' · '), true)}</div>
+     <p class="v3-receipt-note">Награда уже на твоём счёте.</p>${earlyNote}`,
+    [{l:'Отлично', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Очередь модалок: если при входе ждут и подарки, и чеки походов — показываем
@@ -501,23 +577,18 @@ function showGiftBox(payloads) { v3GiftToast(payloads, () => _nextModal()); }
 function showWelcomeBack(items) {
   if (items.length === 1) { showExpeditionReceipt(items[0]); return; }
   let totM = 0, totX = 0, totD = 0;
-  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px';
   const rows = items.map(e => {
     totM += e.mora || 0; totX += e.xp || 0; totD += e.diamonds || 0;
     const parts = [`+${fmt(e.mora || 0)} 🪙`, `+${fmt(e.xp || 0)} XP`];
     if (e.diamonds) parts.push(`+${e.diamonds} 💎`);
-    const petLabel = (e.early_finish ? '⚡ ' : '🐾 ') + esc(e.pet || 'Питомец');
-    return `<div style="${rs}"><span>${petLabel}</span><span style="color:var(--gold)">${parts.join(' · ')}</span></div>`;
+    return _receiptRow(esc(e.pet || 'Питомец') + (e.early_finish ? ' · раньше срока' : ''), parts.join(' · '));
   }).join('');
   const tp = [`+${fmt(totM)} 🪙`, `+${fmt(totX)} XP`];
   if (totD) tp.push(`+${totD} 💎`);
-  OM('🎉 С возвращением!',
-    `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Пока тебя не было, питомцев вернулось: <b style="color:var(--bright)">${items.length}</b></div>
-     <div style="margin-bottom:6px">${rows}
-       <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
-     </div>
-     <div style="font-size:10px;color:var(--green);text-align:center">✓ Всё уже зачислено</div>`,
-    [{l:'🎁 Отлично!', c:'primary', f:'CM();_nextModal()'}]);
+  OM('С возвращением!',
+    `<div class="v3-receipt"><p>Пока тебя не было, вернулись питомцы: <b>${items.length}</b></p>${rows}${_receiptRow('Итого', tp.join(' · '), true)}</div>
+     <p class="v3-receipt-note">Всё уже на твоём счёте.</p>`,
+    [{l:'Отлично', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Левел-ап игрока (БЛОК 3): детект между загрузками профиля + торжественная модалка.
@@ -570,17 +641,20 @@ _overlayScrollObserver.observe(el('modal'), { attributes: true, attributeFilter:
 let _modalReturnFocus=null;
 // Кнопки подвала окна: primary / ghost / danger. Окна консоли и модерации ещё передают старые имена btn-gold / btn-ghost / btn-red: такой подвал рисуется по-старому целиком.
 const _MF_VARIANT={primary:'',ghost:' v3-pill--ghost',danger:' v3-pill--danger'};
-function OM(title,body,btns=[]) {
+function OM(title,body,btns=[],{navPage}={}) {
   _modalReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
   el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');
+  el('modal').dataset.navPage = navPage || '';
   el('mt').textContent=title;
-  el('mb').innerHTML=body;
+  el('mb').innerHTML=v3CurIn(body);                  // 🪙 💎 ✨ 💧 → рисованные валюты (app.50.js)
   // Кавычки в onclick-строке (JSON.stringify-аргументы и т.п.) рвали HTML-атрибут —
   // кнопка молча умирала (напр. «Да, начать» чистку с выбранными датами).
   const legacyFoot=btns.some(b=>/^btn-/.test(b.c||''));
-  el('mf').innerHTML=btns.map(b=>`<button class="${legacyFoot?`btn btn-sm ${b.c||'btn-ghost'}`:`v3-pill${_MF_VARIANT[b.c]??' v3-pill--ghost'}`}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
+  el('mf').innerHTML=btns.map(b=>`<button class="${legacyFoot?`btn btn-sm ${b.c||'btn-ghost'}`:`v3-pill${_MF_VARIANT[b.c]??' v3-pill--ghost'}`}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${v3CurIn(b.l)}</button>`).join('');
   el('modal').showModal();
   document.body.classList.add('modal-open');
+  _dockActive(navPage || _activePage);
+  _syncBackButton();
 }
 const CM=()=>{
   el('modal').close();el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');
@@ -594,6 +668,7 @@ const CM=()=>{
   requestAnimationFrame(()=>{if(returnFocus?.isConnected) returnFocus.focus();});
 };
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
+el('modal').addEventListener('close',()=>{if(!el('modal').open){_dockActive(_activePage);_syncBackButton();}});
 el('modal').addEventListener('cancel',()=>{el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);const returnFocus=_modalReturnFocus;_modalReturnFocus=null;requestAnimationFrame(()=>{if(returnFocus?.isConnected)returnFocus.focus();});});
 
 // EPIC6: базовый haptic на КАЖДОЙ кнопке .btn — один делегированный листенер
@@ -690,16 +765,12 @@ const _PAGE_TOPIC = { casino: 'casino' };   // закрытый раздел: «
 function _showMaintenance(pg) {
   const box = el('pg-'+pg); if(!box) return;
   const what = _PAGE_TOPIC[pg] ? `<button type="button" class="v3-link" onclick="openGuide('${_PAGE_TOPIC[pg]}')">Что это?</button>` : '';
-  box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:40vh;gap:12px;padding:32px 16px">
-    <div style="font-size:40px">🚧</div>
-    <div style="font-size:17px;font-weight:700;color:var(--bright)">Временно недоступно</div>
-    <div style="font-size:12px;color:var(--muted);text-align:center">Этот раздел сейчас выключен.<br>Загляни позже — прогресс не потеряется.</div>
-    ${what}
-  </div>`;
+  box.innerHTML=`<div class="v3-empty v3-closed" role="status"><b>Временно недоступно</b>Этот раздел сейчас выключен. Загляни позже — прогресс не потеряется.${what ? `<div>${what}</div>` : ''}</div>`;
 }
 
 function _dockReveal(button) {
-  const nav=button.parentElement;
+  const nav=button.closest('.nav-rail');
+  if(!nav)return;   // «Ещё» закреплено отдельно от ленты
   if(nav.scrollWidth<=nav.clientWidth)return;
   const left=Math.max(0,button.offsetLeft-(nav.clientWidth-button.offsetWidth)/2);
   nav.scrollTo({left,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
@@ -709,6 +780,8 @@ function _dockReveal(button) {
 // чтобы появление или исчезновение гейтнутой вкладки (флаги приходят позже диплинка) могло пересобрать
 // подсветку без перезагрузки: скрытая вкладка подсветку не ловит, её берёт «Ещё».
 function _dockActive(name) {
+  const modal = el('modal');
+  if(modal?.open && modal.dataset.navPage) name = modal.dataset.navPage;
   document.querySelectorAll('.nb').forEach(b=>{
     b.classList.remove('active');
     b.removeAttribute('aria-current');
@@ -765,7 +838,7 @@ function switchPage(name, _btn, _viaBack) {
 // ── Кнопка «Назад»: возвращает на предыдущую страницу без ручного поиска вкладки ──
 let _tgBackWired=false;
 function _syncBackButton(){
-  const has=_navStack.length>0;
+  const has=_navStack.length>0 || !!el('modal')?.open;
   // Нативную Telegram BackButton используем ТОЛЬКО реально внутри Telegram
   // (непустой initData): в обычном браузере объект tg.BackButton существует, но
   // не работает — там показываем свою кнопку-фолбэк.
@@ -790,6 +863,7 @@ function _syncBackButton(){
   if(btn) btn.classList.toggle('hidden', !has || inTg || suppressBrowserBack);
 }
 function navBack(){
+  if(el('modal')?.open){CM();return;}
   if(_backHooks.some(fn=>{ try{ return fn()===true; }catch(_){ return false; } })) return;   // подэкран внутри страницы (Тропа питомцев) сначала закрывает себя
   if(!_navStack.length) return;
   const prev=_navStack.pop();

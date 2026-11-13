@@ -359,12 +359,27 @@ async def cmd_propose(ctx: Ctx) -> None:
         [InlineKeyboardButton(text="✖️ Отозвать", callback_data=ProposalCB(pid=pid, act="x").pack())],
     ])
     me = ping(u.id, member_tags.with_tag(u.first_name, member_tags.of_message(ctx.message)[1]))
-    await ctx.reply(f"💍 {me} делает предложение {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))}!\n"
-                    "Ответить может только тот, кому предложили. Предложение действует сутки.", reply_markup=kb)
+    sent = await ctx.reply(f"💍 {me} делает предложение {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))}!\n"
+                           "Ответить может только тот, кому предложили. Предложение действует сутки.", reply_markup=kb)
+    await _tell_in_dm(ctx, target.user_id, f"proposal:{ctx.user_id}:{target.user_id}:{local_now().date().isoformat()}", getattr(sent, "message_id", None),
+                      "💍 <b>Тебе сделали предложение</b>\n{who} зовёт тебя в брак в чате {chat}. Ответить можно там: "
+                      "кнопки «Да» и «Нет» под сообщением. Предложение действует сутки.",
+                      invitation={"proposal_id": pid})
+
+
+async def _tell_in_dm(ctx: Ctx, user_id: int, key: str, message_id: int | None, template: str, *, invitation: dict) -> None:
+    """Приглашение в чате могло утонуть в ленте: «Люди» в личку тому, кого зовут, если он их включил."""
+    from bot.chat.notify import chat_name, social_event
+    u = ctx.message.from_user
+    who = html.escape("@" + u.username if u.username else u.full_name)
+    await social_event(ctx.db, user_id=user_id, dedup_key=key, chat=ctx.message.chat, message_id=message_id,
+                       text=template.format(who=who, chat=chat_name(ctx.message.chat)),
+                       invitation={**invitation, "until": (ctx.message.date + timedelta(hours=24)).timestamp()})
 
 
 @router.callback_query(ProposalCB.filter())
 async def on_proposal(call: CallbackQuery, callback_data: ProposalCB, db) -> None:
+    from services.dm_push_events import withdraw_invitation
     async with db.execute(
         "SELECT chat_id, proposer_id, target_id, status, expires_at > NOW() FROM marriage_proposals WHERE id = ?",
         (callback_data.pid,)) as cur:
@@ -384,6 +399,7 @@ async def on_proposal(call: CallbackQuery, callback_data: ProposalCB, db) -> Non
     if act in ("n", "x"):
         await db.execute("UPDATE marriage_proposals SET status = ? WHERE id = ? AND status = 'pending'",
                          ("declined" if act == "n" else "cancelled", callback_data.pid))
+        await withdraw_invitation(db, "proposal", proposer, target)
         text = (f"💔 {names[target]} отказывает {names[proposer]}." if act == "n"
                 else f"✖️ {names[proposer]} отзывает предложение.")
         await call.message.edit_text(text, parse_mode="HTML")
@@ -404,6 +420,7 @@ async def on_proposal(call: CallbackQuery, callback_data: ProposalCB, db) -> Non
     except MarriageConflict as exc:
         await call.answer(str(exc), show_alert=True)
         return
+    await withdraw_invitation(db, "proposal", proposer, target)
     await call.message.edit_text(
         f"💒 {names[proposer]} и {names[target]} теперь семья! Брак действует во всех чатах.\n"
         "Карточка семьи: <code>бот семья</code>", parse_mode="HTML")
@@ -557,8 +574,13 @@ async def cmd_adopt(ctx: Ctx) -> None:
         InlineKeyboardButton(text="🙅 Нет", callback_data=AdoptCB(**cb, act="n").pack()),
     ]])
     me = ping(u.id, member_tags.with_tag(u.first_name, member_tags.of_message(ctx.message)[1]))
-    await ctx.reply(f"👪 {me} зовёт {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))} "
-                    "в свою семью ребёнком. Согласны?", reply_markup=kb)
+    sent = await ctx.reply(f"👪 {me} зовёт {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))} "
+                           "в свою семью ребёнком. Согласны?", reply_markup=kb)
+    message_id = getattr(sent, "message_id", None)
+    await _tell_in_dm(ctx, target.user_id, f"adopt:{ctx.user_id}:{target.user_id}:{local_now().date().isoformat()}", message_id,
+                      "👪 <b>Тебя зовут в семью</b>\n{who} зовёт тебя в свою семью ребёнком в чате {chat}. Согласиться или "
+                      f"отказаться можно там, кнопками под сообщением. Приглашение действует {ADOPT_INVITE_HOURS} ч.",
+                      invitation={"marriage_id": fam.marriage_id, "inviter_id": ctx.user_id})
 
 
 async def _family_kin(db, fam: Family) -> set[int]:
@@ -571,6 +593,7 @@ async def _family_kin(db, fam: Family) -> set[int]:
 
 @router.callback_query(AdoptCB.filter())
 async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
+    from services.dm_push_events import withdraw_invitation
     cb = callback_data
     me = call.from_user.id
     if me not in (cb.t, cb.by):
@@ -578,6 +601,7 @@ async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
         return
     names = await labels(db, (cb.by, cb.t), call.message.chat.id if call.message else None)
     if cb.act == "n":
+        await withdraw_invitation(db, "adopt", cb.by, cb.t)
         # «Нет» от позвавшего — отзыв приглашения, от приглашённого — отказ
         text = (f"↩️ {names[cb.by]} отозвал(а) приглашение." if me == cb.by else f"🙅 {names[cb.t]} не хочет в семью.")
         await edit_or_send(call, text, parse_mode="HTML")
@@ -618,6 +642,7 @@ async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
     if problem:
         await call.answer(problem, show_alert=True)
         return
+    await withdraw_invitation(db, "adopt", cb.by, cb.t)
     await edit_or_send(call, f"🎉 {names[cb.t]} теперь в семье {names[cb.by]}!", parse_mode="HTML")
     await call.answer("Добро пожаловать в семью!")
 

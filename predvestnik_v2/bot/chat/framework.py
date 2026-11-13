@@ -119,6 +119,18 @@ class Registry:
                 self._by_name[key] = new
         self.register(new)
 
+    def hidden_alias(self, name: str, *aliases: str) -> None:
+        """Алиасы-опечатки: работают в parse, но в «бот помощь» не показываются.
+
+        Ключи указывают на ту же команду, поэтому счётчики, справка и выключатели видят её одну."""
+        old = self._by_name[" ".join(norm(w) for w in name.split())]
+        for alias in aliases:
+            key = " ".join(norm(w) for w in alias.split())
+            owner = self._by_name.get(key)
+            if owner is not None and owner is not old:
+                raise ValueError(f"скрытый алиас «{key}» уже занят: {owner.name}")
+            self._by_name[key] = old
+
     def command(self, name: str, **kw):
         def deco(fn):
             self.register(Command(name=name, handler=fn, **kw))
@@ -193,6 +205,8 @@ SYNONYMS: dict[str, tuple[str, ...]] = {
     "профиль": ("я",), "ачивки": ("достижения",), "задания": ("квесты",), "ссылка": ("сайт",),
     "приложение": ("сайт",), "апп": ("сайт",), "справочник": ("путеводитель",), "инструкция": ("путеводитель",), "новичок": ("путеводитель",), "предупреждение": ("варн",), "заткнуть": ("мут",),
     "выгнать": ("кик",), "забанить": ("бан",), "разбанить": ("снять бан",), "размутить": ("снять мут",),
+    "шипперим": ("шипирить",), "совместимость": ("шипирить",), "пара": ("шипирить",),
+    "статья": ("моя статья",), "кодекс": ("моя статья",), "судимость": ("моя статья",),
 }
 
 

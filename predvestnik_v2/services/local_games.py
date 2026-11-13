@@ -121,6 +121,7 @@ def replay_mine(packet: dict, actions: list[dict]) -> dict:
     first = packet["first_cell"]
     revealed, flags = set(row["revealed"]), set(row["flags"])
     elapsed = int(row.get("elapsed_ms") or 0)
+    layout = None   # fixed by (seed, spec, first, ruleset_version): built once, not per action
     for action in actions:
         cell, kind, at = action.get("cell"), action.get("kind"), action.get("elapsed_ms")
         if (row["status"] not in {"active", "awaiting_first_open"} or type(cell) is not int
@@ -131,8 +132,9 @@ def replay_mine(packet: dict, actions: list[dict]) -> dict:
             if kind != "open":
                 raise ValueError("Сначала открой клетку.")
             first = cell
-        layout = mine_rules.board(bytes.fromhex(packet["seed"]), spec, first,
-                                 ruleset_version=row.get("ruleset_version", mine_rules.LEGACY_RULESET_VERSION))
+        if layout is None:
+            layout = mine_rules.board(bytes.fromhex(packet["seed"]), spec, first,
+                                      ruleset_version=row.get("ruleset_version", mine_rules.LEGACY_RULESET_VERSION))
         row["opened_actions"] += int(kind == "open" and cell not in revealed and cell not in flags)
         revealed, flags, status, _ = mine_rules.apply_action(spec=spec, layout=layout, revealed=revealed, flags=flags, kind=kind, cell=cell)
         row["status"], row["revision"], elapsed = status, row["revision"]+1, at

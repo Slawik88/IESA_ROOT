@@ -31,7 +31,7 @@ assert "json.loads(raw_compensation)" in router
 assert "overflow-x:auto" not in css[css.index(".migration-card"):css.index("/* Pets are a collection first")]
 assert "prefers-reduced-motion:reduce" in css
 assert "bestiary_owned" in service and "PET_SPECIES" in service
-assert "showPetPanel('bestiary'" in pets and "Всё об этом питомце" in pets
+assert "showPetPanel('bestiary'" in pets and '<span>О питомце</span>' in pets and 'petDexOpen(' in pets
 assert "2026-09-20-profile-compensation-and-bestiary" in updates
 assert "2026-09-20-clearer-interface" in updates
 assert "help-hero" in index and "v3-title" in index
@@ -54,7 +54,8 @@ assert "_WN_ARCHIVE_BOUNDARY" in profile and "all.slice(0,archiveAt)" in profile
 for action in ("openSettingsModal()", "openWhatsNew()", "openChatTracker()"):
     assert action in index
 notification_block = constants[constants.index("NOTIFICATION_CATEGORIES:"):constants.index("# ── ИИ-помощник")]
-assert '"vip_expiry"' in notification_block
+dm_rules = (ROOT / "core/dm_push.py").read_text(encoding="utf-8")
+assert "NOTIFICATION_CATEGORIES" in notification_block and '"vip_expiry"' in dm_rules
 assert '"bp_reminder"' not in notification_block and '"bid_outbid_final"' not in notification_block
 
 print("OK: current profile, preserved compensation data and accessible pet bestiary are wired")

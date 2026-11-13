@@ -193,7 +193,7 @@ async def warn_limit_alert(bot: Bot, db, chat_id: int, chat_title, user_id: int,
     """Лимит варнов достигнут: в админ-чат уходит выбор, что делать дальше."""
     await send_admin(
         bot, db, chat_id,
-        f"🚨 <b>Лимит варнов превышен</b>\n{esc(label)} — {count}/{limit} в «{esc(chat_title or chat_id)}».\n"
+        f"🚨 <b>Лимит варнов превышен</b>\n{esc(label)} — {count}/{limit} в «{esc(chat_title or str(chat_id))}».\n"
         "Что сделать?",
         markup=warn_limit_kb(chat_id, user_id),
     )

@@ -3,15 +3,12 @@
 // CSS: fx-tiers-v3.css, документация: docs/SKINS_V3.md.
 const _V3_TIER_LIST = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const _V3_FX_CAP_KEY = 'v3_fx_cap', _V3_LITE_KEY = 'v3_lite', _V3_LOW_KEY = 'v3_low';
-// Пометка слабого телефона (лёгкий режим, экономный режим, сниженный потолок) хранится в localStorage и без этого держалась бы вечно, даже когда вид уже ускорили. После каждого ускорения
-// номер ревизии растёт, пометки сбрасываются, и телефон проверяется заново: если он всё ещё не тянет, замер кадров вернёт пометку через несколько секунд.
-const _V3_PERF_REV = '2026-10-12b';
+// Автоматическое снижение действует только до следующей загрузки документа. Старый медленный запуск не должен навсегда выключать движение.
+const _V3_PERF = { limits: { [_V3_FX_CAP_KEY]: 7, [_V3_LITE_KEY]: 0, [_V3_LOW_KEY]: 0 }, sequence: 0, activeKey: null, timer: 0, frame: 0 };
+const _V3_MIN_FPS = 28, _V3_MAX_FRAME_MS = 1000 / _V3_MIN_FPS;   // стабильные 30 кадров/с допустимы; ниже порога сохраняется поэтапная защита
 try {
-  if (localStorage.getItem('v3_perf_rev') !== _V3_PERF_REV) {
-    [_V3_FX_CAP_KEY, _V3_LITE_KEY, _V3_LOW_KEY].forEach(key => localStorage.removeItem(key));
-    localStorage.setItem('v3_perf_rev', _V3_PERF_REV);
-  }
-} catch (_) { /* без хранилища пометок и не было */ }
+  [_V3_FX_CAP_KEY, _V3_LITE_KEY, _V3_LOW_KEY, 'v3_perf_rev'].forEach(key => localStorage.removeItem(key));
+} catch (_) { /* старые пометки не читаются даже при недоступном хранилище */ }
 let _v3Skin = { css_class: '', tier: 'D' }, _v3FxLevel = 1, _v3Forced = false, _v3Watchdog = false, _v3PointerOn = false;
 
 function v3FxLevelNow() { return _v3FxLevel; }
@@ -28,21 +25,16 @@ function _v3HardwareCap() {
 }
 // Потолок эффектов = железо, а если замер кадров не выдержал даже экономный режим, то ещё и записанный замером потолок (он режет только образы с тиром выше потолка)
 function _v3DeviceCap() {
-  let cap = _v3HardwareCap();
-  try {
-    const stored = Number(localStorage.getItem(_V3_FX_CAP_KEY));
-    if (stored >= 1 && stored < 7) cap = Math.min(cap, stored);
-  } catch (_) { /* хранилище недоступно: остаётся оценка по железу */ }
-  return cap;
+  return Math.min(_v3HardwareCap(), _V3_PERF.limits[_V3_FX_CAP_KEY]);
 }
 // Класс устройства: low (слабый), mid (средний), high, по железу. Решает, сколько движения включать (app.31.js) и какой режим образов нужен. Записанный замером потолок класс не меняет:
 // иначе один тяжёлый образ, не выдержавший замер, отнимал бы полный вид у лёгких.
 // Режимов образов три: полный (high), лёгкий .ap-lite (mid: частиц вдвое меньше, без «акцентного» слоя сцены) и экономный .ap-low (low или замер кадров не выдержал:
 // фирменные детали и фон стоят на месте). Полный вид никогда не отключается «на всякий случай»: вниз ведёт только железо или замер кадров.
 function _v3Class() { const cap = _v3HardwareCap(); return cap <= 3 ? 'low' : cap <= 6 ? 'mid' : 'high'; }
-// Пометка «кадры не выдержал» хранит номер тира образа (1…7 = D…SSS), на котором это случилось, и действует на этот тир и выше: телефон, не тянущий SSS, лёгкие образы показывает полностью.
+// Пометка текущего запуска хранит номер тира (1…7 = D…SSS) и действует на этот тир и выше: телефон, не тянущий SSS, лёгкие образы показывает полностью.
 const _v3TierNo = () => _V3_TIER_LIST.indexOf(_v3Skin.tier) + 1;
-function _v3Mark(key) { try { return Math.max(0, Number(localStorage.getItem(key)) || 0); } catch (_) { return 0; /* без памяти: только оценка по железу */ } }
+function _v3Mark(key) { return _V3_PERF.limits[key] || 0; }
 function _v3Marked(key) { const from = _v3Mark(key); return from > 0 && _v3TierNo() >= from; }
 function _v3Lite() { return _v3Marked(_V3_LITE_KEY) || _v3Marked(_V3_LOW_KEY) || _v3Class() !== 'high'; }
 function _v3Low() { return _v3Marked(_V3_LOW_KEY) || _v3Class() === 'low'; }
@@ -219,31 +211,49 @@ function applySkinTier(skin, options = {}) {
 // раньше он шёл один раз за сеанс, и лёгкий образ при входе пропускал тяжёлый SSS, надетый позже; а замер без образа на экране не видел ничего.
 const _v3Measured = new Set();
 const _v3MeasureKey = () => `${document.body.dataset.skin || ''}:${_v3Skin.tier}`;
+function _v3StageShown(skin = document.body.dataset.skin || '', tier = _v3TierNo()) {
+  return [...document.querySelectorAll('.ap-stage:not(.ap-off)')].some(node => node.offsetHeight > 150 && node.dataset.sk === skin && node.classList.contains(`ap-t${tier}`));
+}
+function _v3CancelWatchdog() {
+  _V3_PERF.sequence++; _V3_PERF.activeKey = null; _v3Watchdog = false;
+  clearTimeout(_V3_PERF.timer); cancelAnimationFrame(_V3_PERF.frame); _V3_PERF.timer = _V3_PERF.frame = 0;
+}
 function _v3StartWatchdog(level) {
-  if (_v3Watchdog || _v3Forced || level < 3 || _v3Measured.has(_v3MeasureKey())) return; _v3Watchdog = true;
-  const stageShown = () => [...document.querySelectorAll('.ap-stage:not(.ap-off)')].some(n => n.offsetHeight > 150);   // сцена профиля, а не крошечные превью в списках
-  const measure = (done, toasts = 0, idle = 0) => setTimeout(() => {
-    if (document.hidden) { _v3Watchdog = false; return; }   // вкладка в фоне: замер повторится при следующем показе
+  const key = _v3MeasureKey(), skin = document.body.dataset.skin || '', tier = _v3TierNo();
+  if (_V3_PERF.activeKey && _V3_PERF.activeKey !== key) _v3CancelWatchdog();
+  if (_v3Forced || _v3Calm() || document.hidden || level < 3) { if (_V3_PERF.activeKey) _v3CancelWatchdog(); return; }
+  if (_v3Watchdog || _v3Measured.has(key)) return;
+  _v3Watchdog = true; _V3_PERF.activeKey = key;
+  const sequence = ++_V3_PERF.sequence;
+  const current = () => sequence === _V3_PERF.sequence && key === _v3MeasureKey();
+  const allowed = () => current() && !document.hidden && !_v3Calm() && !_v3Forced;
+  const cancel = () => { if (current()) _v3CancelWatchdog(); };
+  const measure = (done, toasts = 0, idle = 0) => { _V3_PERF.timer = setTimeout(() => {
+    if (!allowed()) { cancel(); return; }
+    _V3_PERF.timer = 0;
     if (document.querySelector('#toast.show, #gift-toast') && toasts < 4) { measure(done, toasts + 1, idle); return; }   // пока на экране тост: он сам тянет кадры, замер подождёт (до десяти секунд)
-    if (!stageShown()) { if (idle < 24) measure(done, toasts, idle + 1); else _v3Watchdog = false; return; }   // образа нет на экране: ждём до минуты, дальше замер повторится со следующим образом или показом вкладки
+    if (!_v3StageShown(skin, tier)) { if (idle < 24) measure(done, toasts, idle + 1); else cancel(); return; }
     const times = []; let last = performance.now(), count = 0;
     const tick = now => {
+      if (!allowed() || !_v3StageShown(skin, tier)) { cancel(); return; }
+      _V3_PERF.frame = 0;
       times.push(now - last); last = now;
-      if (++count < 90) { requestAnimationFrame(tick); return; }
+      if (++count < 90) { _V3_PERF.frame = requestAnimationFrame(tick); return; }
       const sorted = times.slice(5).sort((a, b) => a - b); done(sorted[Math.floor(sorted.length / 2)]);
     };
-    requestAnimationFrame(tick);
-  }, 2500);
-  const finish = () => { _v3Watchdog = false; _v3Measured.add(_v3MeasureKey()); };
+    _V3_PERF.frame = requestAnimationFrame(tick);
+  }, 2500); };
+  const finish = () => { if (current()) { cancel(); _v3Measured.add(key); } };
   const lower = median => {
-    if (median <= 30 || _v3FxLevel <= 2) return;
-    try { localStorage.setItem(_V3_FX_CAP_KEY, String(Math.max(2, _v3FxLevel - 2))); } catch (_) { /* не сохранится: сработает снова в следующем сеансе */ }
+    if (median <= _V3_MAX_FRAME_MS || _v3FxLevel <= 2) return;
+    _V3_PERF.limits[_V3_FX_CAP_KEY] = Math.max(2, _v3FxLevel - 2);
     applySkinTier(_v3Skin);
   };
   // Ступени вниз: полный вид -> лёгкий (.ap-lite) -> экономный (.ap-low) -> ниже потолок эффектов. Каждая ступень включается только если кадры правда медленные.
-  const mark = key => { try { const prev = _v3Mark(key); localStorage.setItem(key, String(prev ? Math.min(prev, _v3TierNo()) : _v3TierNo())); } catch (_) { /* не сохранится: сработает снова в следующем сеансе */ } };
+  const mark = limit => { const prev = _v3Mark(limit); _V3_PERF.limits[limit] = prev ? Math.min(prev, tier) : tier; };
   const step = median => {
-    if (median <= 26) { finish(); return; }
+    if (!allowed()) { cancel(); return; }
+    if (median <= _V3_MAX_FRAME_MS) { finish(); return; }
     if (!_v3Lite()) { mark(_V3_LITE_KEY); applySkinTier(_v3Skin); measure(step); return; }
     if (!_v3Low()) { mark(_V3_LOW_KEY); applySkinTier(_v3Skin); measure(step); return; }
     lower(median); finish();
@@ -251,7 +261,9 @@ function _v3StartWatchdog(level) {
   measure(step);
 }
 document.addEventListener('skinchange', e => applySkinTier(e.detail));
-document.addEventListener('visibilitychange', () => { document.body.classList.toggle('v3-paused', document.hidden); _v3FxRun(); if (!document.hidden) _v3StartWatchdog(_v3FxLevel); });
+document.addEventListener('visibilitychange', () => { document.body.classList.toggle('v3-paused', document.hidden); _v3FxRun(); if (document.hidden) _v3CancelWatchdog(); else _v3StartWatchdog(_v3FxLevel); });
+const _v3MotionPreference = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+_v3MotionPreference?.addEventListener?.('change', () => applySkinTier(_v3Skin));
 // Круг от касания: только на SSS
 document.addEventListener('pointerdown', e => {
   if (_v3FxLevel < 7) return;
@@ -269,7 +281,12 @@ window.v3SkinPreview = (cssClass, tier) => {
 // (fx-tiers-v3.css). Запас 120 px, чтобы движение уже шло, когда блок въезжает в экран. Строки списков не наблюдаются: их блики и так выключены.
 const _AP_WATCH = '.ap-stage, .ap-name, .ap-title';
 const _apIO = typeof IntersectionObserver === 'function'
-  ? new IntersectionObserver(list => list.forEach(e => e.target.classList.toggle('ap-off', !e.isIntersecting)), { rootMargin: '120px 0px' }) : null;
+  ? new IntersectionObserver(list => {
+    list.forEach(e => e.target.classList.toggle('ap-off', !e.isIntersecting));
+    if (list.some(e => e.target.matches('.ap-stage'))) {
+      if (_v3StageShown()) _v3StartWatchdog(_v3FxLevel); else if (_V3_PERF.activeKey) _v3CancelWatchdog();
+    }
+  }, { rootMargin: '120px 0px' }) : null;
 function _apWatch(node) {
   if (!_apIO || node.nodeType !== 1) return;
   if (node.matches(_AP_WATCH)) _apIO.observe(node);

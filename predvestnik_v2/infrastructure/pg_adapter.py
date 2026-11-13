@@ -280,6 +280,14 @@ class PGAdapter:
                 await self._tx.__aexit__(type(exc), exc, exc.__traceback__)
             self._tx = None
 
+    async def release_if_idle(self) -> bool:
+        """Give the pool connection back before a long non-SQL wait (Telegram, rendering).
+
+        Only LazyPGAdapter borrows its connection from the pool, so only it can release early;
+        a dedicated connection stays until its owner is done. Callers treat this as best-effort:
+        False just means the work continues on the connection it already has."""
+        return False
+
     async def _begin(self):
         """Start explicit transaction (called by BEGIN TRANSACTION handling)."""
         if self._tx is None:

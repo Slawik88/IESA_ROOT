@@ -25,7 +25,7 @@ var _V3_EMB = {
   chest: `<path d="M10 28c0-9 10-15 22-15s22 6 22 15v4H10z" fill="currentColor" fill-opacity=".55"/><rect x="10" y="30" width="44" height="22" rx="3" fill="currentColor"/><path d="M10 34h44M20 14v38M44 14v38" stroke="${_V3_GOLD}" stroke-width="2.4"/><rect x="27" y="28" width="10" height="11" rx="2" fill="${_V3_GOLD}"/>`,
 };
 // Какая эмблема у какой шапки (v3Head): Сундуки рисуют свою сцену с сундуком и эмблему не берут
-var _V3_HEAD_EMB = { 'Задания': 'quests', 'Достижения': 'medal', 'Инвентарь': 'bag', 'Питомцы': 'paw', 'Промокоды': 'ticket', 'Экипировка': 'anvil' };
+var _V3_HEAD_EMB = { 'Топ': 'trophy', 'Что нового': 'comet', 'Задания': 'quests', 'Достижения': 'medal', 'Инвентарь': 'bag', 'Питомцы': 'paw', 'Промокоды': 'ticket', 'Экипировка': 'anvil' };
 function v3Emblem(kind, cls = '') { return _V3_EMB && _V3_EMB[kind] ? `<span class="v3-emblem v3-emblem--${kind} ${cls}" aria-hidden="true"><svg viewBox="0 0 64 64">${_V3_EMB[kind]}</svg></span>` : ''; }
 // Созвездие за шапкой: статично, две звезды мерцают три раза только на сильном телефоне
 var V3_SKY = '<svg class="v3-sky" viewBox="0 0 360 120" preserveAspectRatio="xMaxYMid slice" aria-hidden="true" focusable="false"><path d="M196 30L232 18L270 40L300 26L332 52M270 40L262 78L298 96M232 18L214 62L262 78" fill="none" stroke="currentColor" stroke-opacity=".2" stroke-width=".8"/><g fill="currentColor"><circle cx="196" cy="30" r="1.3" opacity=".7"/><circle cx="232" cy="18" r="1.9"/><circle cx="270" cy="40" r="1.5" opacity=".85"/><circle cx="300" cy="26" r="1.2" opacity=".7"/><circle cx="332" cy="52" r="1.6" opacity=".8"/><circle cx="262" cy="78" r="2.1"/><circle cx="298" cy="96" r="1.2" opacity=".6"/><circle cx="214" cy="62" r="1.1" opacity=".6"/><circle cx="150" cy="16" r=".8" opacity=".4"/><circle cx="350" cy="12" r=".9" opacity=".4"/><circle class="v3-tw" cx="232" cy="18" r="3.2" opacity="0"/><circle class="v3-tw v3-tw2" cx="262" cy="78" r="3.4" opacity="0"/></g></svg>';
@@ -38,6 +38,16 @@ var _V3_CUR = {
   essence: '<path d="M16 3c5 7 9 11.5 9 17a9 9 0 0 1-18 0c0-5.5 4-10 9-17z" fill="#6fc3ff"/><path d="M16 3c5 7 9 11.5 9 17a9 9 0 0 1-9 9z" fill="#4a7dff" fill-opacity=".45"/><path d="M11.5 19a5 5 0 0 0 3 5" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.8" stroke-linecap="round"/>',
 };
 function v3Cur(kind, cls = '') { return _V3_CUR && _V3_CUR[kind] ? `<svg class="v3-cur v3-cur--${kind} ${cls}" viewBox="0 0 32 32" aria-hidden="true" focusable="false">${_V3_CUR[kind]}</svg>` : ''; }
+// Готовая разметка: 🪙 💎 ✨ 💧 в тексте → рисованные валюты. Атрибуты (aria-label, title) и <option>/<textarea>/<title> не трогаю: там нужен текст
+var _V3_CUR_EMOJI = { '🪙': 'mora', '💎': 'diamonds', '✨': 'zarniki', '💧': 'essence' };
+function v3CurIn(html) {
+  const src = String(html ?? ''); if (!/🪙|💎|✨|💧/u.test(src)) return src;
+  let raw = 0;
+  return src.split(/(<(?:[^>"']|"[^"]*"|'[^']*')*>)/).map(part => {
+    if (part[0] === '<') { const m = /^<(\/?)(option|textarea|title)\b/i.exec(part); if (m) raw += m[1] ? -1 : 1; return part; }
+    return raw > 0 ? part : part.replace(/🪙|💎|✨|💧/gu, e => v3Cur(_V3_CUR_EMOJI[e]) || e);
+  }).join('');
+}
 
 // Шапка-герой для экранов со своей разметкой (Топ, Магазин, Ещё, Настройки, Справка, Биржа…): эмблема, заголовок, подпись, созвездие
 function v3Hero(kind, title, sub = '', { eyebrow = '', end = '', stat = '' } = {}) {

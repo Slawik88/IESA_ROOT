@@ -34,6 +34,10 @@ _DEFAULTS = [
     ("coin_market_v2_shorts", "📉 Позиции на падение v2", False),
     # Видимость игры и финансовая выдача не могут быть одним переключателем.
     ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", False),
+    # Деньги владельца: выключено, пока владелец не включит в админке «Функции» (services/pass_race.py).
+    ("pass_race_v1", "🏁 Гонка за Пропуском: 50 ⭐ первым четверым", False),
+    # Живые карточки в личке для всех (core/widgets): до проверки создателем в настоящем Telegram их видит только он.
+    ("widgets_players_v1", "🧩 Виджеты в личке для всех: табло и Сапёр", False),
 ]
 
 _DEFAULT_ENABLED = {key: enabled for key, _label, enabled in _DEFAULTS}
@@ -73,6 +77,19 @@ async def is_enabled(db, key: str) -> bool:
     # Неизвестные исторические ключи сохраняют прежнее fail-open поведение.
     # Известный экспериментальный ключ остаётся fail-closed даже до ensure_table.
     return bool(row["enabled"]) if row else _DEFAULT_ENABLED.get(key, True)
+
+
+async def many_enabled(db, keys) -> dict[str, bool]:
+    """Пакет is_enabled одним запросом: у каждого ключа те же дефолты, что у одиночной проверки.
+    Для проверок нескольких флагов в одной процедуре — один round-trip вместо нескольких."""
+    wanted = list(dict.fromkeys(str(key) for key in keys))
+    if not wanted:
+        return {}
+    async with db.execute(
+        "SELECT key, enabled FROM system_flags WHERE key = ANY(?::text[])", (wanted,)
+    ) as c:
+        rows = {str(r["key"]): bool(r["enabled"]) for r in await c.fetchall()}
+    return {key: rows.get(key, _DEFAULT_ENABLED.get(key, True)) for key in wanted}
 
 
 async def set_flag(db, key: str, enabled: bool) -> bool:

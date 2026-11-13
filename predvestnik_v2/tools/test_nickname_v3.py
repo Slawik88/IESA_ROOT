@@ -18,15 +18,14 @@ STATIC = ROOT / 'FastAPI/static'
 looks = [look_payload(sid, tier) for sid in SKINS for tier in TIERS]
 shared = (STATIC / 'nickname-v3.js').read_text(encoding='utf-8')
 app = (STATIC / 'app.20.js').read_text(encoding='utf-8')
-game = (STATIC / 'game-board-v3.js').read_text(encoding='utf-8')
 fixtures = json.dumps(looks, ensure_ascii=False)
 source = "global.window={};const _profileEsc=v=>String(v).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\n"
-source += shared + '\n' + app + '\n' + game
+source += shared + '\n' + app + '\nconst v3MarkDot=()=>"";'
 source += '\nconst looks=' + fixtures + r''';
 for (const look of looks) {
   const raw='<img src=x onerror="alert(1)"> & «Игрок»', safe=_profileEsc(raw);
   const mini=apName(apFromLook(look),safe,raw);
-  const board=window.gameWhoV3({look,display_name:raw});
+  const board=apWho({look,name:raw});   // строка топа: Mini App и страницы игр (top-board.js)
   if (!mini.includes('ap-designed') || !board.includes('ap-designed')) throw Error(look.id);
   if (mini.includes('<img') || board.includes('<img')) throw Error('unescaped player name');
   const n=look.tier, ti=look.tier && ['D','C','B','A','S','SS','SSS'].indexOf(n)+1;
@@ -37,7 +36,7 @@ for (const look of looks) {
 if(window.skinNicknameV3({id:'__proto__'},'plain','plain')!=='plain')throw Error('prototype skin');
 const fn=window.skinNicknameV3;delete window.skinNicknameV3;
 if(apName(apFromLook(looks[0]),'plain')!=='plain')throw Error('network fallback');
-if(!window.gameWhoV3({look:looks[0],display_name:'plain'}).includes('plain'))throw Error('game fallback');
+if(!apWho({look:looks[0],name:'plain'}).includes('plain'))throw Error('board fallback');
 window.skinNicknameV3=fn;
 console.log('OK: '+looks.length+' actual skin/tier payloads, shared game renderer, escaping and missing-script fallback');
 '''
@@ -57,8 +56,8 @@ if '--browser' in sys.argv:
         browser = pw.chromium.launch(**({'executable_path':str(edge)} if edge.exists() else {}))
         page = browser.new_page()
         page.set_content('<style>body{margin:16px;background:#100d18;color:#fff;font:15px system-ui}.row{display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid #333;min-width:0}.tier{width:26px;flex:none;color:#999}.v3-who{flex:1;min-width:0}'+css+'</style><main id="rows"></main>')
-        page.add_script_tag(content=shared + '\n' + game)
-        page.evaluate('looks=>{document.querySelector("#rows").innerHTML=looks.map(look=>`<div class="row"><span class="tier">${look.tier}</span>${window.gameWhoV3({look,display_name:look.name+" · "+"ОченьДлинныйНик".repeat(5)})}</div>`).join("")}', looks)
+        page.add_script_tag(content=shared + '\n' + app + '\nconst v3MarkDot=()=>"";')
+        page.evaluate('looks=>{document.querySelector("#rows").innerHTML=looks.map(look=>`<div class="row"><span class="tier">${look.tier}</span>${apWho({look,name:look.name+" · "+"ОченьДлинныйНик".repeat(5)})}</div>`).join("")}', looks)
         for width in (320, 390, 430, 1280):
             page.set_viewport_size({'width':width,'height':900})
             result = page.evaluate('''() => ({overflow:document.documentElement.scrollWidth>innerWidth, names:[...document.querySelectorAll('.ap-nick-text')].every(e=>e.offsetWidth>5&&getComputedStyle(e).visibility!=='hidden')})''')
@@ -70,7 +69,7 @@ if '--browser' in sys.argv:
         page.set_viewport_size({'width':430,'height':900})
         page.screenshot(path=str(out/'mobile.png'))
         # Every motif must be distinct, including same-family lotus/sakura skins.
-        page.evaluate('looks=>{document.querySelector("#rows").innerHTML=looks.filter(l=>l.tier==="SSS").map(look=>`<div class="row">${window.gameWhoV3({look,display_name:look.name})}</div>`).join("")}', looks)
+        page.evaluate('looks=>{document.querySelector("#rows").innerHTML=looks.filter(l=>l.tier==="SSS").map(look=>`<div class="row">${apWho({look,name:look.name})}</div>`).join("")}', looks)
         paths = page.locator('.ap-nick-emblem path').evaluate_all('(es)=>es.map(e=>e.getAttribute("d"))')
         assert len(paths) == len(SKINS) and len(set(paths)) == len(SKINS)
         page.screenshot(path=str(out/'all-skin-names.png'),full_page=True)

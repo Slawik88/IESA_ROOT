@@ -37,7 +37,7 @@ args = parser.parse_args()
 if urlparse(args.dsn).hostname not in {"127.0.0.1", "localhost", "::1"}:
     raise SystemExit("only a loopback PostgreSQL DSN is allowed")
 os.environ["DATABASE_URL"] = args.dsn
-os.environ["DB_POOL_MAX_SIZE"] = "6"   # process total: 4 pooled + 2 direct (lock, LISTEN)
+os.environ["DB_POOL_MAX_SIZE"] = "7"   # process total: 4 pooled + 3 direct (lock, player/deadline LISTEN)
 os.environ["DB_ACQUIRE_TIMEOUT_SEC"] = "1"
 os.environ["DB_STATEMENT_TIMEOUT_MS"] = "1000"     # the advisory lock below must outlive it
 os.environ.setdefault("BOT_TOKEN", "1:pool-test")

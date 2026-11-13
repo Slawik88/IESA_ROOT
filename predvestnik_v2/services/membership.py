@@ -1,24 +1,24 @@
-# services/membership.py — сверка реального членства в чате с БД (is_left).
+# services/membership.py — кто сейчас в чате: user_chat_stats.is_left.
 #
-# Почему ghost-участники вообще появляются: Telegram шлёт push-апдейт chat_member
-# (кто-то вышел/кикнут) боту ТОЛЬКО если бот — администратор этого чата. В чатах,
-# где бот обычный участник, уходы проходят мимо бота полностью — is_left годами
-# остаётся FALSE, и ушедший игрок вечно висит в топах/списках чата.
-#
-# Фикс — не полагаться только на push: перед выводом любого списка «кто в чате»
-# (топ, чистка, список ресты и т.п.) сверяем РЕАЛЬНОЕ членство через getChatMember
-# (pull, работает для бота в любом статусе — не только для админов) для узкого
-# набора кандидатов, которые и так уже отобраны к показу. Найденных беглецов
-# помечаем is_left=TRUE — фикс самозакрепляется, повторно спрашивать Telegram
-# про них уже не придётся.
+# Telegram сообщает об уходе тремя путями, и ни один не надёжен в одиночку:
+#  - событие chat_member (bot/chat/members.py) приходит, только если бот — администратор чата;
+#  - служебное сообщение «X покинул группу» (observe_service) приходит и обычному боту,
+#    но его нет, если в чате скрыты сообщения о входе и выходе;
+#  - прямой вопрос getChatMember (services/member_tags.py: фоновый обход и проверка перед показом списка).
+# Раньше служебное «покинул группу» учитывалось как обычное сообщение ушедшего и снова ставило
+# is_left = FALSE, а обход, узнав «в чате нет», пометку не ставил. Так ушедшие оставались в топах и неактивах.
 import os
-import asyncio
 
-import httpx
+from services import chat_bots
 
-from infrastructure.repositories.moderation import set_user_left_status
+RECHECK_HOURS = 24   # кто молчит дольше суток, того фоновый обход переспрашивает у Telegram раз в сутки
 
-_API_URL = "https://api.telegram.org/bot{token}/{method}"
+# Строка daily_user_stats d принадлежит человеку, который всё ещё в этом чате (для топов и мест в рейтинге).
+PRESENT_DAILY = ("EXISTS (SELECT 1 FROM user_chat_stats p WHERE p.user_tg_id = d.user_id "
+                 "AND p.chat_tg_id = d.chat_id AND NOT COALESCE(p.is_left, FALSE))")
+# Человек d.user_id ещё состоит хотя бы в одной группе (для общего топа всех игроков).
+PRESENT_ANYWHERE_DAILY = ("EXISTS (SELECT 1 FROM user_chat_stats p WHERE p.user_tg_id = d.user_id "
+                          "AND p.chat_tg_id < 0 AND NOT COALESCE(p.is_left, FALSE))")
 
 
 def bot_tg_id() -> int | None:
@@ -37,45 +37,42 @@ def bot_tg_id() -> int | None:
         return None
 
 
-async def check_chat_members(
-    chat_id: int, user_ids: list[int], concurrency: int = 8
-) -> dict[int, bool]:
-    """{user_id: сейчас_в_чате}. User_id пропускается из результата (не False!),
-    если Telegram не смог ответить однозначно (сеть/рейт-лимит/деактивирован) —
-    вызывающий код не должен трактовать отсутствие как «ушёл»."""
-    token = os.getenv("BOT_TOKEN", "")
-    ids = list(dict.fromkeys(user_ids))  # dedupe, сохраняя порядок
-    if not token or not ids:
-        return {}
-
-    result: dict[int, bool] = {}
-    sem = asyncio.Semaphore(concurrency)
-
-    async def _check(client: httpx.AsyncClient, uid: int) -> None:
-        async with sem:
-            try:
-                r = await client.post(
-                    _API_URL.format(token=token, method="getChatMember"),
-                    json={"chat_id": chat_id, "user_id": uid},
-                )
-                data = r.json()
-            except Exception:
-                return
-            if data.get("ok"):
-                status = data["result"]["status"]
-                result[uid] = status not in ("left", "kicked")
-
-    async with httpx.AsyncClient(timeout=8) as client:
-        await asyncio.gather(*(_check(client, uid) for uid in ids))
-    return result
+async def mark_present(db, chat_id: int, user_id: int) -> None:
+    """Вошёл в чат (или вернулся). Без commit: вызывающий коммитит вместе со своими записями."""
+    await db.execute(
+        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, is_left) VALUES (?, ?, FALSE) "
+        "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET is_left = FALSE, "
+        "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
+        "ELSE user_chat_stats.rejoined_at END",
+        (user_id, chat_id))
 
 
-async def prune_ghosts(db, chat_id: int, user_ids: list[int]) -> set[int]:
-    """Сверяет кандидатов с Telegram и помечает реально ушедших is_left=TRUE.
-    Возвращает set user_id, которых нужно убрать из уже полученной выборки
-    (сама выборка была сделана ДО сверки и ghost'ов ещё содержит)."""
-    membership = await check_chat_members(chat_id, user_ids)
-    left_ids = {uid for uid, present in membership.items() if not present}
-    for uid in left_ids:
-        await set_user_left_status(db, chat_id, uid, True)
-    return left_ids
+async def mark_left(db, chat_id: int, user_id: int) -> None:
+    """Ушёл из чата. Строка и вся статистика остаются: вернётся — продолжит с того же места. Без commit."""
+    await db.execute(
+        "UPDATE user_chat_stats SET is_left = TRUE, membership_checked_at = NOW() "
+        "WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
+
+
+def is_service(message) -> bool:
+    """Служебное «вошёл» / «покинул группу». Это не сообщение игрока: в счётчики и топы оно не идёт."""
+    return getattr(message, "left_chat_member", None) is not None or bool(getattr(message, "new_chat_members", None))
+
+
+async def observe_service(db, message) -> bool:
+    """Отметить вход или уход по служебному сообщению. True — это было оно.
+
+    Отправитель служебного сообщения — сам ушедший или администратор, который его удалил. Поэтому участник
+    берётся из поля сообщения, а не из from_user."""
+    chat = getattr(message, "chat", None)
+    if getattr(chat, "type", None) not in ("group", "supergroup") or not is_service(message):
+        return False
+    gone = getattr(message, "left_chat_member", None)
+    joined = getattr(message, "new_chat_members", None) or []
+    if gone is not None and not chat_bots.is_bot(gone):
+        await mark_left(db, chat.id, gone.id)
+    for user in joined:
+        if not chat_bots.is_bot(user):
+            await mark_present(db, chat.id, user.id)
+    await db.commit()
+    return True

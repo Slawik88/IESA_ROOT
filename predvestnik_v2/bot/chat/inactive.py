@@ -19,7 +19,7 @@ from core.chat_inactivity import (
     DAY_SECONDS, DEFAULT_SECONDS, MAX_DAYS, MAX_PAGE, MAX_PERIOD_LENGTH,
     PAGE_SIZE, QUERY_TIMEOUT_SECONDS, QUICK_PERIODS, InactivePage,
 )
-from services import chat_inactivity, feature_switches, global_moderation
+from services import chat_inactivity, feature_switches, global_moderation, member_tags
 
 router = Router(name="chat_inactive")
 USAGE = "бот неактивы 7д"
@@ -97,9 +97,17 @@ def keyboard(uid: int, chat: int, seconds: int, result: InactivePage) -> InlineK
 
 
 async def build(db, bot, chat: int, seconds: int, page: int = 0) -> InactivePage:
-    async with asyncio.timeout(QUERY_TIMEOUT_SECONDS):
-        return await chat_inactivity.list_inactive(db, chat, seconds, page, bot_id=(await bot.me()).id,
-                                                  timezone_seconds=int(tz_delta().total_seconds()))
+    bot_id = (await bot.me()).id
+
+    async def read() -> InactivePage:
+        async with asyncio.timeout(QUERY_TIMEOUT_SECONDS):
+            return await chat_inactivity.list_inactive(db, chat, seconds, page, bot_id=bot_id,
+                                                      timezone_seconds=int(tz_delta().total_seconds()))
+    result = await read()
+    # Молчащие — первые кандидаты в ушедшие: тех, кого давно не сверяли, спрашиваем у Telegram и перечитываем без ушедших.
+    if await member_tags.ensure_fresh(bot, db, chat, [member.user_id for member in result.items]):
+        result = await read()
+    return result
 
 
 @registry.command(

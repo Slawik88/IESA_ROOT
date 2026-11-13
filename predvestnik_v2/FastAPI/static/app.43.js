@@ -88,9 +88,8 @@ function passHubRow(host) {
 
 // ── Страница ─────────────────────────────────────────────────────────────────────────
 function _spHead(cur) {
-  const eyebrow = cur ? `Сезон ${fmt(cur.season)} · до ${_spDate(cur.ends_at)}` : 'Сезон игр';
-  return `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="spBack()" aria-label="Назад">‹ Назад</button></div>
-    <header class="v3-screen-head"><span class="v3-eyebrow">${_profileEsc(eyebrow)}</span><h1 class="v3-title">Пропуск сезона${v3GlintMark('Пропуск сезона')}</h1><p class="v3-sub">Очки дают Ритм и Сапёр, награды Мора и Эссенция. Пропуск бесплатный.</p></header>`;
+  const season = cur ? `Сезон ${fmt(cur.season)} до ${_spDate(cur.ends_at)}. ` : '';
+  return v3Head('Пропуск сезона', { sub: `${season}Очки дают Ритм и Сапёр, Пропуск бесплатный.`, back: 'spBack()' });
 }
 function _spHero(s) {
   const done = s.level >= s.levels, inLevel = done ? s.points_per_level : s.points_per_level - s.points_to_next, p = Math.max(0, Math.min(1, inLevel / s.points_per_level));
@@ -163,7 +162,7 @@ function _spRender() {
   }
   // Прошлый сезон с наградами, которые скоро сгорят, стоит сразу под текущим «Забрать»; без наград это справка в конце страницы
   const old = _spPrev(prev, me), oldOpen = !!old && Number(prev.claimable_levels) > 0;
-  root.innerHTML = `${_spHead(cur)}${_sp.refreshNotice ? `<section class="sp-sec" role="status"><p>${_profileEsc(_sp.refreshNotice)}</p><button type="button" class="v3-pill v3-pill--full" onclick="loadSeasonPass()">Обновить данные</button></section>` : ''}${_spHero(cur)}<section class="sp-sec sp-take">${_spClaimBlock(cur, me, false)}${_spNext(cur)}</section>${oldOpen ? old : ''}${_spTrack(cur)}${_spHow()}${oldOpen ? '' : old}`;
+  root.innerHTML = v3CurIn(`${_spHead(cur)}${_sp.refreshNotice ? `<section class="sp-sec" role="status"><p>${_profileEsc(_sp.refreshNotice)}</p><button type="button" class="v3-pill v3-pill--full" onclick="loadSeasonPass()">Обновить данные</button></section>` : ''}${_spHero(cur)}<section class="sp-sec sp-take">${_spClaimBlock(cur, me, false)}${_spNext(cur)}</section>${oldOpen ? old : ''}${_spTrack(cur)}${_spHow()}${oldOpen ? '' : old}`);
   v3EnterSync(root);
 }
 // Всё, что рисуется из ответа: страница, строка в хабе, точка. Зовётся после каждого чтения
@@ -184,7 +183,7 @@ function loadSeasonPass() {
   v3EnterSync(box);
   _spLoad(true).then(() => { _sp.loading = false; _spRepaint(); }).catch(err => {
     _sp.loading = false;
-    box.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="spBack()" aria-label="Назад">‹ Назад</button></div><div class="v3-empty" role="alert"><b>Пропуск не загрузился</b><span>${_profileEsc(typeof err === 'string' && err ? err : _SP_OFFLINE)}</span> <button type="button" class="v3-link" onclick="loadSeasonPass()">Повторить</button></div>`;
+    box.innerHTML = v3CurIn(`<div class="eyebrow-row"><button type="button" class="v3-link" onclick="spBack()" aria-label="Назад">‹ Назад</button></div><div class="v3-empty" role="alert"><b>Пропуск не загрузился</b><span>${_profileEsc(typeof err === 'string' && err ? err : _SP_OFFLINE)}</span> <button type="button" class="v3-link" onclick="loadSeasonPass()">Повторить</button></div>`);
   });
 }
 

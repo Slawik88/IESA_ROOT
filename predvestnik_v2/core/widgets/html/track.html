@@ -1,0 +1,21 @@
+<style>
+.hero>div+div{flex:1;min-width:0}
+.st{text-align:right;font-size:.85em}
+#g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:300px;margin:12px auto 8px}
+#g button{aspect-ratio:1;margin:0;padding:0;border:1px solid var(--t);border-radius:14px;background:linear-gradient(160deg,var(--t),transparent),var(--s);color:var(--h);font-size:1.7em}
+#g .w{color:var(--bg);background:radial-gradient(closest-side,var(--p0),transparent),var(--s)}
+#g .c{border-color:transparent;background:var(--bg)}
+#g .f,#g .h{border:2px solid var(--a);background:radial-gradient(closest-side,var(--p2),var(--p1) 60%,var(--s))}
+.lg{color:var(--h);font-size:.8em;text-align:center}
+#pk{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+</style>
+<div class="card" id="cd"><div class="hero"><div class="halo">🔎</div><div><div class="nm">Выслеживание</div><div class="hs" id="nm"></div></div><div class="st"><div id="pt"></div><div class="hs" id="at"></div></div></div><div class="orn" id="dv"></div></div>
+<div id="g"></div>
+<div class="lg" id="lg">♨ — тайник рядом · ❄ — дальше · 🎁 — тайник</div>
+<div id="pk"></div>
+<div id="m"></div>
+<script>
+var KEY="track",LIVE=1,IC={w:"♨",c:"❄",f:"🎁",h:"🎁"};
+function draw(s){var g=$("g"),c=s.c||"",on=s.st=="o",pk=$("pk");$("nm").textContent=s.n||(s.a?"Выбери питомца":"Попытки на сегодня кончились");$("pt").textContent=on?"ходов: "+s.pt:"";$("at").textContent="попыток: "+(+s.a||0);g.hidden=!c;$("lg").hidden=!c;g.textContent="";for(var i=0;i<c.length;i++){var b=document.createElement("button"),v=c[i];b.className=v;b.textContent=IC[v]||(L.pt||"?");b.dataset.i=i;b.onclick=function(e){var i=e.currentTarget.dataset.i;if(S.st=="o"&&(S.c||"")[i]=="?")ask(KEY+":o:"+S.i+":"+i,1).then(function(o){if(o&&!o.e&&o.st!="o"&&T&&T.HapticFeedback)T.HapticFeedback.notificationOccurred(o.st=="w"?"success":"warning")})};g.appendChild(b)}pk.textContent="";(on?[]:s.p||[]).forEach(function(p){var b=document.createElement("button");b.className="btn";b.textContent="Искать: "+p[1];b.onclick=function(){ask(KEY+":b:"+p[0],1)};pk.appendChild(b)})}
+function start(){var d=$("dv");d.textContent=L.d;d.hidden=!L.d;if(L.q)$("cd").className+=" sh"}
+</script>

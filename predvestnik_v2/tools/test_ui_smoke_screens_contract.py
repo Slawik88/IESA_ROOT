@@ -19,7 +19,7 @@ html = (STATIC / "index.html").read_text(encoding="utf-8")
 defined = set(re.findall(r"function\s+([A-Za-z_$][\w$]*)\s*\(", js)) | set(re.findall(r"window\.([A-Za-z_$][\w$]*)\s*=", js)) | set(re.findall(r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function|\()", js))
 for name, opener in SCREENS:
     for call in re.findall(r"(?<![\w.$'\"])([A-Za-z_$][\w$]*)\(", opener):
-        if call in {"setTimeout", "typeof"} or call.startswith("lkView"):
+        if call in {"setTimeout", "typeof", "Number"} or call.startswith("lkView"):
             continue
         assert call in defined or call in {"querySelector"}, f"screen {name!r}: {call}() is not defined in the app script"
 

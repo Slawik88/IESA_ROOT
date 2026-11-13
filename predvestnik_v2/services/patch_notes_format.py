@@ -197,10 +197,6 @@ def validate(note) -> list[str]:
     for i, item in enumerate(items):
         errors += _check_item(f"items[{i}]", item)
     kinds = [i.get("kind") for i in items if isinstance(i, dict)]
-    if len([k for k in kinds if k != "fix"]) > rules.MAX_ITEMS:
-        errors.append(f"items: не больше {rules.MAX_ITEMS} новинок в посте, остальное в следующий")
-    if kinds.count("fix") > rules.MAX_FIXES:
-        errors.append(f"items: не больше {rules.MAX_FIXES} исправлений, мелочь объединяйте")
     photos = sum(bool(i.get("image")) + len(i.get("extra_images") or []) for i in items if isinstance(i, dict) and isinstance(i.get("extra_images") or [], list))
     if photos > rules.MAX_IMAGES:
         errors.append(f"в посте {photos} фото, Telegram берёт в альбом не больше {rules.MAX_IMAGES}")
@@ -209,8 +205,8 @@ def validate(note) -> list[str]:
     for skip in note.get("skipped") or []:
         if not isinstance(skip, dict) or not skip.get("id") or len(str(skip.get("why", ""))) < 8:
             errors.append("skipped: у каждой пропущенной записи нужны id и причина why")
-    if not errors and tg_len(plain_text(compose(note))) > rules.MAX_MESSAGE:
-        errors.append(f"пост длиннее {rules.MAX_MESSAGE} знаков: сократите пункты или перенесите часть в другой день")
+    if not errors and tg_len(plain_text(compose(note))) > rules.MAX_POST:
+        errors.append(f"пост длиннее {rules.MAX_POST} знаков: сократите пункты или перенесите часть в другой пост")
     return errors
 
 

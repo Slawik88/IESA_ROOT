@@ -8,7 +8,7 @@ from datetime import date
 
 from bot.chat.access import may_sanction
 from bot.chat.framework import Parsed, Registry, Unknown, parse
-from bot.chat.top import period_range
+from bot.chat.top import period_range, span
 
 async def _h(ctx): ...
 reg = Registry()
@@ -31,6 +31,7 @@ assert parse(reg, "бот njg").command.name == "топ"
 assert period_range("d", date(2026, 10, 8)) == ("2026-10-08", "2026-10-08")
 assert period_range("w", date(2026, 10, 8)) == ("2026-10-05", "2026-10-08")
 assert period_range("lw", date(2026, 10, 8)) == ("2026-09-28", "2026-10-04")
+assert span("2026-10-08", "2026-10-08") == "08.10" and span("2026-09-28", "2026-10-04") == "28.09–04.10"
 
 assert not may_sanction(1, 42, actor_has_right=True)    # на разработчика нельзя
 assert may_sanction(42, 7, actor_has_right=False)       # разработчик обходит права

@@ -30,7 +30,7 @@ args = parser.parse_args()
 if urlparse(args.dsn).hostname not in {"127.0.0.1", "localhost", "::1"}:
     raise SystemExit("only a loopback PostgreSQL DSN is allowed")
 os.environ["DATABASE_URL"] = args.dsn
-os.environ["DB_POOL_MAX_SIZE"] = "4"   # process total: 2 pooled + 2 direct (lock, LISTEN)
+os.environ["DB_POOL_MAX_SIZE"] = "5"   # process total: 2 pooled + 3 direct (lock, player/deadline LISTEN)
 os.environ.setdefault("BOT_TOKEN", "1:avatar-test")
 
 import httpx

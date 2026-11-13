@@ -13,6 +13,8 @@ STATEMENTS = (
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag TEXT",
     "ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS member_tag TEXT",
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag_checked_at TIMESTAMPTZ",
+    # Когда Telegram последний раз подтвердил, что человек в чате (или что ушёл): по ней обход сверяет участников; services/membership.py.
+    "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS membership_checked_at TIMESTAMPTZ",
     # Единственный владелец чата, синхронизируется с Telegram.
     "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS owner_id BIGINT",
     # Владелец, назначенный разработчиком бота командой «бот ранг, @ник владелец»; важнее телеграмного.
@@ -74,6 +76,26 @@ async def ensure_chat_schema() -> None:
                 logger.exception(f"{part.__name__} schema failed: {exc}")
         await global_moderation.ensure_schema(db)
         await admin_people.ensure_schema(db)
+        from infrastructure.repositories import dm_push as dm_push_repo
+        try:
+            await dm_push_repo.ensure_schema(db)   # очередь и настройки уведомлений в личку (S23)
+        except Exception as exc:   # уведомления не должны мешать запуску остального бота
+            from loguru import logger
+            logger.exception(f"dm push schema failed: {exc}")
+        from infrastructure.repositories import dm_tickets as dm_tickets_repo
+        try:
+            await dm_tickets_repo.ensure_schema(db)   # обращения игроков к администрации из лички (S23b)
+        except Exception as exc:
+            from loguru import logger
+            logger.exception(f"dm tickets schema failed: {exc}")
+        from infrastructure.repositories import business as business_repo
+        try:
+            await business_repo.ensure_schema(db)   # бот в личных переписках игрока, Telegram Business (S24, S29a)
+            from infrastructure.repositories import pair_games as pair_games_repo
+            await pair_games_repo.ensure_schema(db)   # игры вдвоём в переписке (S29a)
+        except Exception as exc:
+            from loguru import logger
+            logger.exception(f"business schema failed: {exc}")
         from services.promo_v2 import ensure_schema as ensure_promo
         await ensure_promo(db)
         from bot.chat.achievements import ensure_schema as ensure_achievements

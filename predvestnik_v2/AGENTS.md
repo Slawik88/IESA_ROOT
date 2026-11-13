@@ -1,13 +1,19 @@
 # Предвестник — правила для агентов
 
-**Проект:** Telegram-бот + FastAPI мини-приложение (игра). PostgreSQL, прод на DigitalOcean,
-деплой автоматом из основной ветки репозитория. Подробности устройства — в коде и документации
-проекта, здесь только то, что обязан знать каждый до первой правки.
+**Проект:** Telegram-бот + FastAPI мини-приложение (игра). С 2026-11-13 production —
+отдельный DigitalOcean Droplet `projects-fra1`, служба `predvestnik.service`,
+Python 3.11.14 и локальная PostgreSQL 17. **Пуш в master сам бота не обновляет**:
+автодеплой App Platform относится только к сайту IESA.
+Актуальные адрес, окружение, выпуск и копии —
+[`../docs/agent/03-hosting-and-deploy.md`](../docs/agent/03-hosting-and-deploy.md).
+Не возвращай `predvestnik-bot`/`scripts/run_bots.sh` в старый App Platform.
+На Droplet loopback-БД `predvestnik` — production, не тестовый стенд.
 
 ## Обязательное чтение (любой агент, любой вендор)
 
 | Когда | Документ |
 |---|---|
+| До деплоя, правок окружения, БД или резервных копий | [`../docs/agent/03-hosting-and-deploy.md`](../docs/agent/03-hosting-and-deploy.md) — текущая инфраструктура; имеет приоритет над историческими отчётами и шаблонами |
 | До первой правки кода | [`CLEAN_CODE.md`](CLEAN_CODE.md) — единый стандарт кода: принципы, дисциплина слоёв, анти-мусорный регламент, git-гигиена, Definition of Done |
 | До завершения любой задачи | [`AUTONOMOUS_AGENT_POLICY.md`](AUTONOMOUS_AGENT_POLICY.md) — как доказать, что изменение работает: матрица отказов, сквозная проверка |
 | В автономном режиме | [`AUTONOMOUS_MODE.md`](AUTONOMOUS_MODE.md) — протокол самостоятельного цикла работа → проверка → ревью |

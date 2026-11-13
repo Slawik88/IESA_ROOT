@@ -288,9 +288,9 @@ async def shown_everywhere(db, bot):
     assert f"🏷 <b>{tag_beta}</b>" in text, text
     text = await profile.card(db, 1002, target, 1001, False)
     assert "🏷" not in text, text
-    # Варп: тег автора берётся из его сообщения, тег цели из базы
+    # Варп: только имена, без тегов (владелец, 2026-11-11)
     out = await run(db, bot, "бот обнять, @beta", tag="Итто")
-    assert "[Итто]" in out and f"[{tag_beta}]" in out, out
+    assert "[" not in out and tag_beta not in out, out
     # Реплай-цель: тег из сообщения, на которое ответили, свежее базы
     out = await run(db, bot, "бот варн", reply_to=FakeMessage("x", 1003, "gamma", tag="Свежий"))
     assert "[Свежий]" in out, out
@@ -355,12 +355,15 @@ async def purge_flow(db, bot):
     assert "Забанены" in done and "[Свежий из Telegram]" in done and "Кикнуты" in done and f"@{ZW}talker" in done, done
     assert "Ждут решения" not in done and "Без решения</b>" in done and "[Новый у gamma]" in done, done   # кто остался без решения — тоже по именам
 
-    # Ушедший из чата: Telegram ответил «left» — тег в базе не затирается, досье всё равно уходит
+    # Ушедший из чата: Telegram ответил «left» — тег в базе не затирается, а досье нет: наказывать в чате некого
     bot.tags[2001] = "__left__"
     s_before = len(bot.sent)
     await run(db, bot, f"бот чистка, 10 {span}")
     await asyncio.sleep(1.5)
-    assert any("silent" in t and "Свежий из Telegram" in t for _, t, _ in bot.sent[s_before:]), [t[:60] for _, t, _ in bot.sent[s_before:]]
+    assert not any("silent" in t for _, t, _ in bot.sent[s_before:]), [t[:60] for _, t, _ in bot.sent[s_before:]]
+    assert await stored(db, 2001) == "Свежий из Telegram"
+    async with db.execute("SELECT is_left FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = 2001", (CHAT,)) as cur:
+        assert (await cur.fetchone())[0] is True, "ушедший помечен"
     await run(db, bot, "бот чистка стоп")
 
 

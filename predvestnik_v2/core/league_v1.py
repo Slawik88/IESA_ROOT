@@ -1,11 +1,12 @@
-"""Pure rules of the ranked League (early-access demo): level ladders, stars and pass experience.
+"""Pure rules of the ranked League: level ladders, stars and pass experience. PUBLIC for everyone since season 2 (25.10.2026).
 
 Both games are ladders of levels.  Every player gets their own board / rune order, but a level's
 conditions (size, mines, depth of logic; tempo, length, gift plan) are identical for everyone, and
 for Minesweeper the server proves each board can be cleared without a guess.  Progress resets every
-season.  Stars: 1 = level passed (opens the next one), 2 and 3 = how well.  Before season 2 only early
-access plays a demo whose experience is fake; from season 2 the League is public and its experience feeds
-the real season pass (core.league_pass).  Design: docs/SEASON_2_RATING_AND_PASS.md.
+season.  Stars: 1 = level passed (opens the next one), 2 and 3 = how well.  The League and its experience (the real
+season pass, core.league_pass) are open to everyone since season 2 (see is_public).  The early-access demo with fake
+experience (DEMO_SEASON) only existed before the launch; its code stays for the window before SEASON_TWO_START and for tests.
+Design: docs/SEASON_2_RATING_AND_PASS.md.
 """
 from __future__ import annotations
 
@@ -18,11 +19,18 @@ from typing import Final
 from core import rhythm_v2 as rhythm
 from core import seasons
 
-FLAG_KEY: Final = "feature:early_access"   # admin «Права»: from which role the early access is open
+FLAG_KEY: Final = "feature:early_access"   # admin «Права»: from which role the early access is open (today it opens nothing new: the League is public)
 DEMO_SEASON: Final = "demo-1"
 GAMES: Final = ("minesweeper", "rhythm")
 MAX_LEVEL: Final = 1000
-XP_BY_STARS: Final = {1: 60, 2: 80, 3: 100}   # pass experience for the best stars of a level, once per season
+XP_STAR_BASE: Final = {1: 60, 2: 80, 3: 100}   # the original star reward; the multiplier below scales it
+# Owner (05.11.2026, S28a): ranked play gives more pass experience.  Levels passed before the release were topped up to
+# the new table once (owner, 06.11: services.league_v1.topup_ranked_xp, tools/topup_ranked_pass_xp.py); an improvement adds
+# the difference of the current table.
+# The casual daily cap (core.league_pass.CASUAL_DAILY_CAP) stays: casual runs are timed on the phone, ranked ones
+# are replayed and checked on the server.  Variants and the model: docs/roadmap/sessions/S28-propusk-reyting-gonka.md.
+RANKED_XP_PCT: Final = 150
+XP_BY_STARS: Final = {stars: base * RANKED_XP_PCT // 100 for stars, base in XP_STAR_BASE.items()}   # once per level a season
 
 
 class LeagueRuleError(ValueError):
@@ -30,7 +38,7 @@ class LeagueRuleError(ValueError):
 
 
 def is_public(now: datetime) -> bool:
-    """The League opens to everyone with season 2; before that only early access plays the demo."""
+    """True since the start of season 2 (25.10.2026): the League and the new pass are public.  Before it only early access saw a demo."""
     return now >= seasons.SEASON_TWO_START
 
 

@@ -42,7 +42,7 @@ function v3Fly(from, currency, glyph = '✦', count = 5) {
   if (!b.width || (from.getBoundingClientRect && !a.width)) return;
   const x0 = a.left + a.width / 2, y0 = a.top + a.height / 2, x1 = b.left + b.width / 2, y1 = b.top + b.height / 2;
   for (let i = 0; i < count; i++) {
-    const spark = document.createElement('i'); spark.className = 'v3-fly'; spark.setAttribute('aria-hidden', 'true'); spark.textContent = glyph; document.body.appendChild(spark);
+    const spark = document.createElement('i'); spark.className = 'v3-fly'; spark.setAttribute('aria-hidden', 'true'); if (typeof currency === 'string' && v3Cur(currency)) spark.innerHTML = v3Cur(currency); else spark.textContent = glyph; document.body.appendChild(spark);
     const bend = (i - (count - 1) / 2) * 34;
     spark.animate([
       { transform: `translate(${x0}px, ${y0}px) scale(.4)`, opacity: 0 },

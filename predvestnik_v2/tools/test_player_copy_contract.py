@@ -124,14 +124,38 @@ for item in guide["faq"]:
     assert_plain("вопросы", item["a"] + ("" if item["q"] == "Куда делась Лига?" else " " + item["q"]))
 assert "Рейтинг" in {x["w"] for x in guide["glossary"]} and "Мора" in {x["w"] for x in guide["glossary"]}, "ключевые слова в словаре"
 
-for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/inactive.py"):
+for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/inactive.py", "bot/chat/tickets.py", "services/dm_tickets.py",
+                 "bot/chat/business.py", "bot/chat/business_remote.py", "bot/chat/pair_cards.py",
+                 "services/dm_plan.py", "bot/chat/report_cards.py",
+                 "bot/chat/ship.py", "bot/chat/ship_texts/announce.py", "bot/chat/ship_texts/compat.py",
+                 "bot/chat/ship_texts/self_pair.py", "bot/chat/ship_texts/author_included.py",
+                 "bot/chat/ship_texts/nobody.py", "bot/chat/ship_texts/cooldown.py",
+                 "bot/chat/ship_texts/opted_out.py", "bot/chat/text_banks.py",
+                 "bot/chat/article.py", "bot/chat/article_texts/articles.py", "bot/chat/article_texts/descriptions.py",
+                 "bot/chat/article_texts/intro.py", "bot/chat/article_texts/verdict.py", "bot/chat/article_texts/repeat.py",
+                 "bot/chat/article_texts/cooldown.py", "bot/chat/article_texts/disabled.py", "bot/chat/article_texts/service.py"):
     tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"[А-Яа-яЁё]", node.value):
             assert_plain(relative, node.value)
 word_copy = json.dumps(topics["words"], ensure_ascii=False)
-for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS):
+for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS, word_chain.SOLO_PLAIN_MINUTES):
     assert str(value) in word_copy, f"words: число {value} расходится с правилами"
+from core import dm_push as dm_push_rules, dm_tickets
+support_copy = json.dumps(topics["support"], ensure_ascii=False)
+for value in (dm_tickets.MIN_TEXT, dm_tickets.MAX_TEXT):
+    assert str(value) in support_copy, f"support: число {value} расходится с правилами"
+assert dm_tickets.DAILY_LIMIT == 3 and "Три в сутки" in support_copy and dm_tickets.OPEN_LIMIT == 2 and "два твоих обращения" in support_copy, "support: лимиты обращений расходятся с правилами"
+staff_tickets = json.dumps(next(t for t in json.loads((ROOT / "FastAPI/static/bot-admin/guide-admin.json").read_text(encoding="utf-8"))["topics"]
+                                if t["id"] == "tickets"), ensure_ascii=False)
+assert f"Не больше {dm_tickets.CARDS_PER_HOUR} карточек в час" in staff_tickets and f"по {dm_tickets.LIST_LIMIT}" in staff_tickets, \
+    "справка администрации «Обращения игроков»: предел карточек или размер страницы расходятся с core/dm_tickets.py"
+dm_copy = json.dumps(topics["dm"], ensure_ascii=False)
+assert dm_push_rules.DIGEST_FROM_HOUR == 9 and dm_push_rules.DIGEST_TO_HOUR == 12 and "с 9 до 12" in dm_copy, "dm: часы утреннего плана расходятся с правилами"
+for relative in ("services/season_report.py", "services/dm_push_events.py", "core/dm_push.py", "bot/chat/report_cards.py"):
+    source = re.sub(r'""".*?"""', '', (ROOT / relative).read_text(encoding="utf-8"), flags=re.S)
+    for line in re.findall(r'"([^"\n]*[А-Яа-яЁё][^"\n]*)"', source):
+        assert_plain(relative, line)
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # ── Дары: Путеводитель показывает ровно то, что видит игрок в игре ──────────────────────────────────────────────────────
@@ -289,6 +313,11 @@ for name in ("rhythm-v2.html", "minesweeper-v2.html", "rhythm-v2.js", "minesweep
              "league-result.js", "league-pass.js", "league-mines.js", "league-demo.js", "app.47.js", "app.57.js", "app.04.js", "game-board-v3.js", "game-shell-v3.js", "game-shell-v3.html"):
     for line in ui_strings(name):
         assert_plain(name, line)
+# Виджеты в личке (S30b): шаблоны и тексты, которые бот кладёт в пульт и Сапёр
+for path in [*sorted((ROOT / "core" / "widgets" / "html").glob("*.html")), ROOT / "services" / "widgets" / "hub.py",
+             ROOT / "services" / "widgets" / "mines.py", ROOT / "services" / "widgets" / "track.py", ROOT / "bot" / "chat" / "widgets.py"]:
+    for line in re.findall(r'"([^"\n]*[А-Яа-яЁё][^"\n]*)"', path.read_text(encoding="utf-8")):
+        assert_plain(path.name, line)
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # league-help.js: числа в карточках «Как копить опыт» и «Как играть» = числа в коде

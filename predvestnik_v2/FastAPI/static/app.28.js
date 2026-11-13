@@ -22,7 +22,7 @@ function toast(msg, ok = true, opts) {
   t.setAttribute('role', kind === 'err' ? 'alert' : 'status');
   const ms = Math.min(6500, 2400 + text.length * 35);
   t.style.setProperty('--tv-ms', `${ms}ms`);
-  t.innerHTML = `<span class="tv-ic" aria-hidden="true">${_profileEsc(glyph)}</span><span class="tv-body">${o.title ? `<b class="tv-title">${_profileEsc(o.title)}</b>` : ''}<span class="tv-tx">${_profileEsc(text)}</span></span><i class="tv-time" aria-hidden="true"></i>${ap && ap.k.frame === 'dash' ? '<i class="tv-dash" aria-hidden="true"></i>' : ''}`;   // пунктир рамки: дочерний элемент, а не outline (outline каждый кадр перерисовывается в главном потоке)
+  t.innerHTML = `<span class="tv-ic" aria-hidden="true">${v3CurIn(_profileEsc(glyph))}</span><span class="tv-body">${o.title ? `<b class="tv-title">${_profileEsc(o.title)}</b>` : ''}<span class="tv-tx">${v3CurIn(_profileEsc(text))}</span></span><i class="tv-time" aria-hidden="true"></i>${ap && ap.k.frame === 'dash' ? '<i class="tv-dash" aria-hidden="true"></i>' : ''}`;   // пунктир рамки: дочерний элемент, а не outline (outline каждый кадр перерисовывается в главном потоке)
   t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
   clearTimeout(t._tid); t._tid = setTimeout(() => t.classList.remove('show'), ms);
 }
@@ -55,7 +55,7 @@ function v3GiftToast(payloads, onDone) {
   const rows = shown.map((g, i) => {
     const [em, name] = _tgSplit(g.label), n = Number(g.amount), glyph = g.kind === 'mark' ? g.glyph || '🏷' : em || (g.kind === 'skin' ? '🎀' : '✦');
     const val = g.kind === 'skin' || g.kind === 'mark' ? '<em>новое</em>' : Number.isFinite(n) ? `+<span data-to="${n}">${fmt(n)}</span>${g.unit ? ` ${_profileEsc(g.unit)}` : ''}` : '';
-    return `<li style="--i:${i}"><span class="tg-g" aria-hidden="true">${_profileEsc(glyph)}</span><span class="tg-l">${_profileEsc(name)}</span><b class="tg-n">${val}</b></li>`;
+    return `<li style="--i:${i}"><span class="tg-g" aria-hidden="true">${v3CurIn(_profileEsc(glyph))}</span><span class="tg-l">${_profileEsc(name)}</span><b class="tg-n">${val}</b></li>`;
   }).join('') + (more > 0 ? `<li class="tg-more" style="--i:${shown.length}"><span></span><span class="tg-l">и ещё ${more}</span><b></b></li>` : '');
   const mark = ap ? _tvGlyph(ap.k.pt) : '✦', count = moves ? _TG_BURST[ti] : 0;
   const burst = Array.from({ length: count }, (_, i) => `<i style="--a:${Math.round(i / count * 360 + (i % 2 ? 11 : -11))}deg;--d:${66 + (i * 37) % 74}px;--x:${Math.round((i + .5) / count * 100)}%;--s:${(.8 + (i * 53 % 7) / 10).toFixed(1)}">${_profileEsc(mark)}</i>`).join('');
@@ -98,13 +98,13 @@ function v3Confirm(spec) {
   return new Promise(resolve => {
     document.getElementById('cf-sheet')?.remove(); if (_cfKeys) document.removeEventListener('keydown', _cfKeys, true);
     const host = document.createElement('div'); host.id = 'cf-sheet'; host.className = 'lk-sheet-back';
-    const visual = /^[<]/.test(String(s.visual || '')) ? s.visual : `<span class="cf-ico" aria-hidden="true">${_profileEsc(s.visual || '✨')}</span>`;
+    const visual = /^[<]/.test(String(s.visual || '')) ? s.visual : `<span class="cf-ico" aria-hidden="true">${v3CurIn(_profileEsc(s.visual || '✨'))}</span>`;
     host.innerHTML = `<section class="lk-sheet cf-sheet" role="alertdialog" aria-modal="true" aria-labelledby="cf-title" tabindex="-1">
       <h2 id="cf-title" class="cf-title">${_profileEsc(s.title || 'Подтвердите покупку')}</h2>
-      <div class="cf-item">${visual}<div><b>${_profileEsc(s.name || '')}</b>${s.sub ? `<small>${_profileEsc(s.sub)}</small>` : ''}</div></div>
-      <dl class="cf-rows">${rows.map(([k, v, strong]) => `<div${strong ? ' class="is-total"' : ''}><dt>${_profileEsc(k)}</dt><dd>${_profileEsc(v)}</dd></div>`).join('')}</dl>
+      <div class="cf-item">${visual}<div><b>${v3CurIn(_profileEsc(s.name || ''))}</b>${s.sub ? `<small>${_profileEsc(s.sub)}</small>` : ''}</div></div>
+      <dl class="cf-rows">${rows.map(([k, v, strong]) => `<div${strong ? ' class="is-total"' : ''}><dt>${_profileEsc(k)}</dt><dd>${v3CurIn(_profileEsc(v))}</dd></div>`).join('')}</dl>
       ${s.note ? `<p class="cf-note">${_profileEsc(s.note)}</p>` : ''}
-      <div class="cf-actions"><button type="button" class="v3-pill cf-ok">${_profileEsc(s.cta || 'Подтвердить')}</button><button type="button" class="v3-pill v3-pill--ghost cf-no">Отмена</button></div></section>`;
+      <div class="cf-actions"><button type="button" class="v3-pill cf-ok">${v3CurIn(_profileEsc(s.cta || 'Подтвердить'))}</button><button type="button" class="v3-pill v3-pill--ghost cf-no">Отмена</button></div></section>`;
     let settled = false;
     const opener = document.activeElement, parent = (typeof el === 'function' && el('modal')?.open) ? el('modal') : document.body;
     const done = ok => {

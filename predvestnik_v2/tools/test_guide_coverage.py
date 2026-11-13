@@ -27,11 +27,11 @@ STATIC = ROOT / "FastAPI" / "static"
 guide = json.loads((STATIC / "guide-v3.json").read_text(encoding="utf-8"))
 topics = {t["id"]: t for t in guide["topics"]}
 
-# ── Нижняя полоса: data-page → тема (у «Кошелька» нет data-page, он сверен отдельно) ───────────────────────────────────────
+# ── Нижняя полоса: data-page → тема (Кошелёк — лист с собственным активным состоянием) ────────────────────────────────────
 TABS = {"profile": "profile", "arena": "games", "exchange-v1": "market", "pets": "pets", "questlog": "quests", "looks": "looks", "chests": "keys",
-        "inventory": "inventory", "top": "profile", "more": "map"}
+        "inventory": "inventory", "top": "profile", "wallet": "wallet", "more": "map"}
 # ── «Ещё»: data-nav-key → тема или причина, почему темы нет ───────────────────────────────────────────────────────────────
-MORE = {"chats": "profile", "top": "profile", "inventory": "inventory", "chests": "keys", "looks": "looks", "promo": "promo", "wallet": "wallet",
+MORE = {"chats": "profile", "promo": "promo",
         "zarniki": "zarniki", "vip": "vip", "settings": "settings", "purge": "chat-admin", "guide": "",
         "support": "", "news": "", "community-link": "", "updates-link": "", "refresh": "", "admin": ""}
 MORE_EXCEPT = {"guide": "это и есть Путеводитель", "support": "окно жалобы объясняет себя само", "news": "«Что нового» — лента обновлений, а не механика",
@@ -44,12 +44,17 @@ SECTION_TOPIC = {"basic": "bot", "stats": "profile", "profile": "profile", "fami
 GROUP_SECTIONS = {"moderation", "purge", "settings", "pets"}
 COMMAND_TOPIC = {"перевод": "transfers", "стрик": "streak", "вип": "vip", "промокод": "promo", "достижения": "ach", "тег": "chat-admin", "теги": "chat-admin",
                  "отменить удаление": "settings", "восстановить аккаунт": "settings", "баланс": "wallet", "мафия": "mafia", "мафия онлайн": "mafia-online",
-                 "слова": "words", "слово": "words", "ритм": "rhythm", "квесты": "quests", "неактивы": "bot", "18+": "warps"}
+                 "слова": "words", "слово": "words", "ритм": "rhythm", "квесты": "quests", "неактивы": "bot", "18+": "warps",
+                 "шипирить": "ship", "шипирить меня": "ship", "не шипирить меня": "ship", "шипирить меня разрешаю": "ship",
+                 "моя статья": "article", "пропуск": "pass",
+                 "обменять зарники": "dm-rewards", "подарок фортуны": "dm-rewards",
+                 "бизнес": "business", "предлагать мне": "business", "табло": "board", "сапёр": "board"}
 # ── Выключатели: ключ → тема или причина ──────────────────────────────────────────────────────────────────────────────────────
 FLAGS = {"tab_economy": "transfers", "tab_purge": "chat-admin", "tab_cosmetics": "looks", "tab_quests": "quests", "game_rhythm_v2": "rhythm",
          "game_minesweeper_v2": "mines", "game_mafia_v1": "mafia", "game_casino_v1": "casino", "game_mafia_online": "mafia-online", "content_chests_v1": "keys",
          "star_dust_v1": "dust", "pets_v2": "trail", "pets_level_up_v1": "pet-growth", "pets_route_rewards_v1": "trail", "shop_v1": "keys", "season_pass_v1": "pass",
-         "economy_player_exchange_v1": "market", "economy_player_exchange_shorts_v1": "market", "coin_market_v2": "market", "coin_market_v2_shorts": "market"}
+         "economy_player_exchange_v1": "market", "economy_player_exchange_shorts_v1": "market", "coin_market_v2": "market", "coin_market_v2_shorts": "market",
+         "pass_race_v1": "pass-race", "widgets_players_v1": "board"}
 FLAG_EXCEPT = {"tab_bp": "прежний Боевой пропуск, экрана нет (его место занял Пропуск сезона)", "tab_zoo": "прежний Зоопарк, экрана нет",
                "tab_market": "прежний рынок с гачей, экрана нет", "tab_auction": "прежний аукцион, экрана нет",
                "game_reconstruction_v1": "игра в разработке, игрокам не показана", "reconstruction_real_settlement_v1": "служебный выключатель той же игры",

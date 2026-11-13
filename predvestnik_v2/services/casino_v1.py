@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import secrets
+from datetime import date
 from uuid import uuid4
 
 from core import casino_v1 as rules
@@ -52,9 +53,11 @@ async def achievements(db, user_id: int) -> list[dict]:
     return rules.badge_progress(await repo.achievement_stats(db, user_id))
 
 
-async def claim_gift(db, user_id: int) -> dict:
+async def claim_gift(db, user_id: int, *, expected_day: date | None = None) -> dict:
     async with db.connection.transaction():
         row = await repo.lock_wallet(db, user_id)
+        if expected_day is not None and row["today"] != expected_day:
+            raise CasinoError("Эта кнопка на прошлый день. Напиши «бот подарок фортуны», чтобы открыть новую.")
         if row["gift_day"] == row["today"]:
             raise CasinoError("Подарок уже получен сегодня. Новый — завтра.")
         await repo.claim_gift(db, user_id, rules.DAILY_GIFT)

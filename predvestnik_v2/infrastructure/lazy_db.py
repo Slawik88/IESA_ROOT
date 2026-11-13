@@ -14,20 +14,33 @@ ends: that is the only state code may rely on across statements. Session-level s
 locks) must not span a Telegram call — wrap such work in a transaction instead.
 Only the task that took the connection may release it early: a background task copied from the handler's
 context sees the same adapter and must not pull the connection out from under it.
+
+Every hold (acquire → give-back) is timed as the ``pool_hold`` metric and ``held_connections()`` reports
+how many connections each source holds right now; both feed the admin health panel without extra SQL.
 """
 from __future__ import annotations
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from typing import AsyncIterator
 
 import asyncpg
 
+from core import ops_metrics
 from infrastructure.database import acquire_connection
 from infrastructure.pg_adapter import PGAdapter, _Execute
 
 _current: ContextVar["LazyPGAdapter | None"] = ContextVar("lazy_db_current", default=None)
+
+# How many pool connections the adapters of this process hold right now, per source ("http", "bot", …).
+# Sampled by ops_health alongside pool_busy, so the panel can attribute busy connections to their users.
+_held: dict[str, int] = {}
+
+
+def held_connections() -> dict[str, int]:
+    return dict(_held)
 
 
 class LazyPGAdapter(PGAdapter):
@@ -40,6 +53,7 @@ class LazyPGAdapter(PGAdapter):
         self._pins = 0               # open transactions started through .connection.transaction()
         self._owner: asyncio.Task | None = None
         self._closed = False
+        self._held_since = 0.0       # perf_counter of the current acquire, for the pool_hold metric
 
     # ── connection lifecycle ────────────────────────────────────────────────
     async def _ensure(self) -> asyncpg.Connection:
@@ -50,6 +64,8 @@ class LazyPGAdapter(PGAdapter):
                 if self._conn is None:
                     self._conn = await acquire_connection(self._pool, self._source)
                     self._owner = asyncio.current_task()
+                    _held[self._source] = _held.get(self._source, 0) + 1
+                    self._held_since = time.perf_counter()
         return self._conn
 
     @asynccontextmanager
@@ -65,19 +81,32 @@ class LazyPGAdapter(PGAdapter):
     def holds_connection(self) -> bool:
         return self._conn is not None
 
+    def _give_back(self) -> asyncpg.Connection | None:
+        """Detach the connection (if any) and record how long this hold lasted."""
+        conn, self._conn = self._conn, None
+        if conn is not None:
+            ops_metrics.observe("pool_hold", self._source, (time.perf_counter() - self._held_since) * 1000)
+            left = _held.get(self._source, 0) - 1
+            if left > 0:
+                _held[self._source] = left
+            else:
+                _held.pop(self._source, None)
+        return conn
+
     async def release_if_idle(self) -> bool:
         """Give the connection back if nothing uses it now. True when it was released."""
         if self._conn is None or self._busy or self._pins or self._tx is not None:
             return False
         if asyncio.current_task() is not self._owner:
             return False
-        conn, self._conn = self._conn, None
+        conn = self._give_back()
         await self._pool.release(conn)
         return True
 
     async def close(self) -> None:
         """End of the update or request: always give the connection back (an open transaction is rolled back)."""
-        conn, self._conn, self._tx = self._conn, None, None
+        conn = self._give_back()
+        self._tx = None
         self._closed = True
         if conn is not None:
             await self._pool.release(conn)

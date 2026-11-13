@@ -9,14 +9,13 @@
 .cg-conn { color: var(--lg-ok); font-size: 12px; font-weight: 650; }
 .cg-conn[data-state="off"], .cg-conn[data-state="wait"] { color: var(--lg-gold); }
 
-/* Таблица лидеров: подиум 1–3 (общие классы Лиги .lgl-podium), дальше строки; своя строка выделена слева */
-.cg-board { margin-top: 4px; }
-.cg-board .lgl-pod a { display: block; min-width: 0; max-width: 100%; color: inherit; text-align: center; text-decoration: none; }
-.cg-board .lgl-pod .lgl-nick { max-width: 100%; overflow: hidden; font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.cg-board .lg-top li { grid-template-columns: 34px minmax(0, 1fr) auto; }
-.cg-board .lg-top li a { display: block; min-width: 0; min-height: 44px; overflow: hidden; color: var(--lg-ink); line-height: 44px; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
-.cg-board .lg-top li.is-me { position: static; background: var(--lg-surf); box-shadow: inset 3px 0 0 var(--v3-acc); border-radius: 10px; }
-.cg-board .lg-top li.is-empty { display: block; padding: 12px 0; color: var(--lg-dim); text-align: center; }
+/* Таблица лидеров — тот же топ, что в Mini App (top-board-v3.css + top-board.js): подиум и строки берут токены приложения.
+   Страница игры их не задаёт (у неё палитра Лиги), поэтому здесь они выводятся из палитры страницы; образ игрока (skin-runtime-v3.js) задаёт свои. */
+.cg-board { --v3-ink: var(--lg-ink); --v3-dim: var(--lg-dim); --v3-faint: var(--lg-faint); --v3-track: var(--lg-surf2); --v3-bg: var(--lg-bg);
+  --v3-vip: #f1cf7e; --v3-ease: var(--lg-ease); margin-top: 4px; }
+.cg-board .v3-top-list { margin-top: 6px; }
+.cg-board :is(.v3-rowbtn, .v3-pod-btn):disabled { opacity: 1; cursor: default; }   /* строка без профиля не «выключена», как и в Mini App (league-demo.css гасит disabled) */
+.cg-board .v3-top-list li.is-empty { padding: 12px 0; color: var(--lg-dim); text-align: center; }
 .cg-more { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
 .cg-more:empty { display: none; }
 .cg-more button { min-height: 40px; padding: 4px 14px; background: transparent; color: var(--lg-dim); }

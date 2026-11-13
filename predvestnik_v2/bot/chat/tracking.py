@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 from aiogram.types import Message
 
 from bot.config import config
-from services import chat_bots, member_tags, name_history
+from services import chat_bots, member_tags, membership, name_history
 
 
 def tz_delta() -> timedelta:
@@ -93,15 +93,21 @@ async def _claim_username(db, user_id: int, username: str | None) -> None:
     _username_seen[user_id] = key
 
 
-async def record_message(db, message: Message) -> None:
+async def record_message(db, message: Message, *, receipt=None) -> bool | None:
     user = message.from_user
     chat = message.chat
     if not user or chat.type not in ("group", "supergroup"):
         return
+    # «X вошёл» / «X покинул группу»: отправитель — сам ушедший или удаливший его админ. Это не сообщение игрока,
+    # и раньше оно снова записывало ушедшего в участники чата. Вход и уход отмечает on_message (membership.observe_service).
+    if membership.is_service(message):
+        return
     if chat_bots.is_bot(user):   # боты и служебные аккаунты Telegram не участники: в топы и чистку не попадают, но признак запоминаем
         await chat_bots.observe(db, user)
         return
-    day = local_now().strftime("%Y-%m-%d")
+    sent_at = _naive_utc(getattr(message, "date", None)) or datetime.now(timezone.utc).replace(tzinfo=None)
+    # Telegram can deliver a message after the local day (or week) has changed.
+    day = (sent_at + tz_delta()).date()
     # Identity rows are rewritten only when the nick, name or title really changed (S04): an UPDATE that sets the same
     # nick still fired users_live_profile_v1, and every chat message made the author's open Mini App reload the profile.
     await db.execute(
@@ -120,23 +126,34 @@ async def record_message(db, message: Message) -> None:
         "WHERE chat_settings.chat_title IS DISTINCT FROM EXCLUDED.chat_title OR chat_settings.bot_left_at IS NOT NULL",
         (chat.id, chat.title),
     )
-    await db.execute(
-        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, user_messages_count_all_time, is_left) "
-        "VALUES (?, ?, 1, FALSE) "
-        "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET "
-        "user_messages_count_all_time = user_chat_stats.user_messages_count_all_time + 1, "
-        "last_message_at = NOW(), is_left = FALSE, "
-        "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
-        "ELSE user_chat_stats.rejoined_at END",
-        (user.id, chat.id),
-    )
+    async with db.connection.transaction():
+        if receipt is not None and not await receipt.claim(db):
+            receipt.complete()  # A previous transaction already committed this message.
+            return False
+        await db.execute(
+            "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, user_messages_count_all_time, last_message_at, is_left) "
+            "VALUES (?, ?, 1, ?, FALSE) "
+            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET "
+            "user_messages_count_all_time = user_chat_stats.user_messages_count_all_time + 1, "
+            "last_message_at = CASE WHEN user_chat_stats.user_messages_count_all_time > 0 "
+            "THEN GREATEST(user_chat_stats.last_message_at, EXCLUDED.last_message_at) ELSE EXCLUDED.last_message_at END, "
+            "is_left = CASE WHEN user_chat_stats.membership_checked_at > EXCLUDED.last_message_at "
+            "THEN user_chat_stats.is_left ELSE FALSE END, "
+            "rejoined_at = CASE WHEN user_chat_stats.is_left AND "
+            "(user_chat_stats.membership_checked_at IS NULL OR user_chat_stats.membership_checked_at <= EXCLUDED.last_message_at) "
+            "THEN EXCLUDED.last_message_at "
+            "ELSE user_chat_stats.rejoined_at END",
+            (user.id, chat.id, sent_at),
+        )
+        await db.execute(
+            "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (?, ?, ?, 1) "
+            "ON CONFLICT (user_id, chat_id, date) DO UPDATE SET "
+            "message_count = daily_user_stats.message_count + 1",
+            (user.id, chat.id, day.isoformat()),
+        )
+    if receipt is not None:
+        receipt.complete()
     await member_tags.observe_message(db, message)   # тег автора приходит в каждом сообщении; пишем, только если он сменился
-    await db.execute(
-        "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (?, ?, ?, 1) "
-        "ON CONFLICT (user_id, chat_id, date) DO UPDATE SET "
-        "message_count = daily_user_stats.message_count + 1",
-        (user.id, chat.id, day),
-    )
     await touch_streak(db, user.id)
     commit = getattr(db, "commit", None)
     if commit:

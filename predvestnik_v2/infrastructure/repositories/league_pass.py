@@ -149,12 +149,14 @@ async def add_day(db, *, user_id: int, day: date, bucket: str, xp: int) -> None:
     )
 
 
-async def add_xp(db, *, user_id: int, season: int, xp: int) -> None:
-    await db.execute(
+async def add_xp(db, *, user_id: int, season: int, xp: int) -> int:
+    """Add experience; returns the season total after it."""
+    async with db.execute(
         "INSERT INTO league_pass_progress(user_id,season,xp) VALUES (?,?,?) "
-        "ON CONFLICT (user_id,season) DO UPDATE SET xp=league_pass_progress.xp+EXCLUDED.xp, updated_at=NOW()",
+        "ON CONFLICT (user_id,season) DO UPDATE SET xp=league_pass_progress.xp+EXCLUDED.xp, updated_at=NOW() RETURNING xp",
         (int(user_id), int(season), int(xp)),
-    )
+    ) as cursor:
+        return int((await cursor.fetchone())[0])
 
 
 async def receipt(db, *, user_id: int, source: str, event_id: str) -> int | None:

@@ -67,6 +67,24 @@ async def run():
         async with db.execute("SELECT COUNT(*) FROM bot_admin_actions WHERE action = 'grant' AND actor_id = 1001") as cur:
             assert (await cur.fetchone())[0] == 4   # изменения: ban 3, metrics 2, ban 4, сброс ban
 
+        from FastAPI.routers.bot_admin import access, people
+        listed = {i["key"]: i for i in access._items()}
+        for action in ("global_ban", "global_unban"):
+            key = f"action:{action}"
+            assert listed[key]["default"] == 5
+            assert [r["rank"] for r in listed[key]["roles"]] == [5, 6]
+            await acc.set_grant(db, creator, key, 6)
+            grants = await acc.load_grants(db)
+            assert people._min(acc.staff_principal(2002, 5, grants), action) == 6
+            try:
+                await acc.set_grant(db, creator, key, 4)
+            except HTTPException as exc:
+                assert exc.status_code == 400
+            else:
+                raise AssertionError("global bans cannot be delegated below their previous floor")
+            await acc.set_grant(db, creator, key, None)
+            assert people._min(acc.staff_principal(2002, 5, await acc.load_grants(db)), action) == 5
+
 
 def main():
     loop = asyncio.new_event_loop()

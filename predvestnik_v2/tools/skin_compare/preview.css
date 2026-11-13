@@ -1,0 +1,13 @@
+@font-face { font-family:Onest; src:url('fonts/Onest-400.ttf'); font-weight:100 499; font-display:block; }
+@font-face { font-family:Onest; src:url('fonts/Onest-500.ttf'); font-weight:500 599; font-display:block; }
+@font-face { font-family:Onest; src:url('fonts/Onest-700.ttf'); font-weight:600 900; font-display:block; }
+html { margin:0; background:var(--v3-bg); }
+*,*::before,*::after { transition:none!important; }
+html:not([data-live="yes"]) *,html:not([data-live="yes"]) *::before,html:not([data-live="yes"]) *::after { animation-play-state:paused!important; }
+body { margin:0!important; padding:0!important; min-height:340px!important; max-width:none!important; font-family:Onest,sans-serif; }
+#lab-root { box-sizing:border-box; width:100%; padding:44px 20px 24px; position:relative; }
+#lab-root .page { display:block; padding:0; }
+#lab-root .ap-stage { margin:0; }
+.lab-nick { padding:30px 0; }
+.lab-nick .v3-name { font-size:34px; }
+.lab-card { width:100%; height:auto; display:block; }

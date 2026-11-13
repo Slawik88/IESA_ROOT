@@ -29,9 +29,10 @@ _SCHEMA = "predvestnik"
 APP_NAME = "predvestnik"
 
 
-# Long-lived connections outside the pool: the bot's single-instance advisory lock and the LISTEN for live
-# player events (connect_direct). They used to sit in the pool for good; the process total stays the same.
-DIRECT_CONNECTIONS = 2
+# Long-lived connections outside the pool: the bot's single-instance advisory lock,
+# player-event LISTEN and online-Mafia deadline LISTEN. Reserve all three inside
+# the same process total, rather than adding a connection to the managed cluster.
+DIRECT_CONNECTIONS = 3
 
 
 def _pool_max_size() -> int:
@@ -63,8 +64,16 @@ def _acquire_timeout_sec() -> float:
         return 10.0
 
 
+DB_CONNECTION_ERRORS = (
+    asyncpg.PostgresConnectionError,
+    asyncpg.AdminShutdownError,
+    asyncpg.CannotConnectNowError,
+    asyncpg.TooManyConnectionsError,
+)
+
+
 class PoolBusy(RuntimeError):
-    """No free pool connection within DB_ACQUIRE_TIMEOUT_SEC: the caller answers «busy» instead of hanging."""
+    """The caller could not obtain or keep a database connection for this operation."""
 
 
 async def acquire_connection(pool: asyncpg.Pool, source: str) -> asyncpg.Connection:
@@ -76,6 +85,8 @@ async def acquire_connection(pool: asyncpg.Pool, source: str) -> asyncpg.Connect
     except asyncio.TimeoutError:
         ops_metrics.count("pool_timeout", source)
         raise PoolBusy(f"no free database connection within {timeout:.0f} s ({source})") from None
+    except (OSError, *DB_CONNECTION_ERRORS) as exc:
+        raise PoolBusy(f"database connection unavailable ({source})") from exc
     finally:
         ops_metrics.observe("pool_wait", source, (time.perf_counter() - started) * 1000)
 
@@ -244,11 +255,13 @@ async def _set_schema(conn: asyncpg.Connection):
 async def server_connection_usage(conn: asyncpg.Connection) -> dict:
     """Connections open on the whole database server (all databases and apps), ours, and the limit for
     ordinary roles. When ``total`` reaches ``limit`` the server refuses new connections
-    ("remaining connection slots are reserved ...") to everyone, the site included."""
+    ("remaining connection slots are reserved ...") to everyone, the site included.
+    Only client backends take a slot: background workers (pg_cron, walsender, TimescaleDB launcher, ...)
+    also have a row in pg_stat_activity but are not counted against max_connections."""
     row = await conn.fetchrow(
         """
-        SELECT count(*) FILTER (WHERE usesysid IS NOT NULL) AS total,
-               count(*) FILTER (WHERE usesysid IS NOT NULL AND application_name = $1) AS ours,
+        SELECT count(*) FILTER (WHERE backend_type = 'client backend') AS total,
+               count(*) FILTER (WHERE backend_type = 'client backend' AND application_name = $1) AS ours,
                current_setting('max_connections')::int
                  - current_setting('superuser_reserved_connections')::int
                  - COALESCE(current_setting('reserved_connections', true), '0')::int AS limit

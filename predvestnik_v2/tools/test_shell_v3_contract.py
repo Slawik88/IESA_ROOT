@@ -43,7 +43,12 @@ assert "overscroll-behavior: none" in css and "touch-action: manipulation" in cs
 assert "input, textarea" in css and "user-select: text" in css
 
 # Navigation and honest copy.
-assert index.count('type="button" class="nb') == 11
+assert index.count('type="button" class="nb') == 11, "10 familiar destinations in the rail + pinned More"
+assert 'class="nav-rail"' in index and index.index('class="nav-scrollbar"') < index.index('id="nb-more"')
+assert 'class="nb" data-page="wallet" aria-haspopup="dialog"' in index
+more_html = index.split('<div id="pg-more"', 1)[1].split('<!-- ═══ НИЖНИЙ ДОК', 1)[0]
+assert not any(f'data-nav-key="{key}"' in more_html for key in ('top','inventory','chests','looks','wallet')), "More does not repeat the rail"
+assert 'id="more-search"' in more_html and 'font-size:11px' in css.split('.nb {',1)[1].split('}',1)[0]
 assert index.index('id="cc-exchange-v1"') < index.index('class="nb" data-page="pets"'), "exchange stays in the first visible dock destinations"
 assert ':not([hidden])' in app, "a dock tab hidden by its feature flag must not keep the active highlight"
 for page in ('looks', 'chests', 'top'):

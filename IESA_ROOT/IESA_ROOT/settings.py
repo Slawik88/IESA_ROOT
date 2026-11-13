@@ -1,5 +1,8 @@
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
+
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения из .env
@@ -96,6 +99,7 @@ if DEBUG:
 
 # Наше кастомное Middleware для обновления статуса пользователя
 MIDDLEWARE = [
+    'users.middleware.RealClientIPMiddleware',  # REMOTE_ADDR = do-connecting-ip (XFF is client-spoofable)
     'users.middleware.BlockScannerMiddleware',  # Silence .php/.wp scanner spam
     'IESA_ROOT.security_middleware.SecurityHeadersMiddleware',  # audit v5: CSP + Permissions-Policy
     'django.middleware.security.SecurityMiddleware',
@@ -167,8 +171,10 @@ if 'DATABASE_URL' in os.environ:
     # "remaining connection slots are reserved for superuser" errors.
     # If not set, falls back to the direct DATABASE_URL (port 25060).
     _db_url = os.getenv('DATABASE_POOL_URL') or os.environ['DATABASE_URL']
-    DATABASES['default'] = dj_database_url.config(
-        default=_db_url,
+    # parse(), not config(default=...): config() reads os.environ['DATABASE_URL']
+    # first and only falls back to `default`, so the pool URL was never used.
+    DATABASES['default'] = dj_database_url.parse(
+        _db_url,
         conn_max_age=_CONN_MAX_AGE,
         ssl_require=True,
         conn_health_checks=True,
@@ -284,25 +290,32 @@ if DEBUG:
 else:
     MEDIA_ROOT = None  # Not used with S3 storage
 
-# DigitalOcean Spaces configuration for media files
-# В production используем Spaces вместо локального хранилища
+# S3-compatible media storage (DigitalOcean Spaces or Cloudflare R2).
+# Keep the existing SPACES_* names so a provider switch does not lose credentials.
 spaces_key = os.getenv('SPACES_KEY')
 spaces_secret = os.getenv('SPACES_SECRET')
 spaces_bucket = os.getenv('SPACES_BUCKET')
 
 if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
-    # AWS S3 settings (DigitalOcean Spaces совместим с S3 API)
     AWS_ACCESS_KEY_ID = spaces_key
     AWS_SECRET_ACCESS_KEY = spaces_secret
     AWS_STORAGE_BUCKET_NAME = spaces_bucket
     AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com')
-    AWS_S3_REGION_NAME = 'fra1'
+    _is_r2 = (urlsplit(AWS_S3_ENDPOINT_URL).hostname or '').endswith('.r2.cloudflarestorage.com')
+    AWS_S3_REGION_NAME = os.getenv('SPACES_REGION', 'auto' if _is_r2 else 'fra1')
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=31536000',
     }
-    AWS_DEFAULT_ACL = 'public-read'  # Make all uploaded files public by default
+    # R2 has bucket-level access and does not implement object ACLs.
+    AWS_DEFAULT_ACL = None if _is_r2 else 'public-read'
     AWS_QUERYSTRING_AUTH = False  # Don't use query string auth for public files
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
+    AWS_S3_CUSTOM_DOMAIN = os.getenv('SPACES_PUBLIC_DOMAIN', '').strip()
+    if not AWS_S3_CUSTOM_DOMAIN:
+        if _is_r2:
+            raise ImproperlyConfigured('R2 media storage requires SPACES_PUBLIC_DOMAIN.')
+        AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
+    if urlsplit('https://' + AWS_S3_CUSTOM_DOMAIN).netloc != AWS_S3_CUSTOM_DOMAIN:
+        raise ImproperlyConfigured('SPACES_PUBLIC_DOMAIN must be a hostname without a scheme or path.')
     # IMPORTANT: Do NOT use AWS_LOCATION - models use upload_to='media/...'
     # AWS_LOCATION would add extra prefix and break URLs
     
@@ -312,7 +325,7 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
             "BACKEND": "IESA_ROOT.storage.MediaOptimizationStorage",
             "OPTIONS": {
                 "file_overwrite": True,   # django-cleanup replaces old files by name
-                "default_acl": "public-read",
+                "default_acl": AWS_DEFAULT_ACL,
             },
         },
         # Explicitly use Whitenoise here — Django 5.x ignores the deprecated

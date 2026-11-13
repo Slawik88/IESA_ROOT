@@ -231,27 +231,14 @@
     $('r-place').textContent='#'+p.place;$('r-best').textContent=num(p.best_score);$('r-place-note').textContent=knownTotal?'место из '+knownTotal:'место в сезоне';note.textContent='';
   }
   // По умолчанию видна пятёрка лидеров; «Весь топ» листает всех игроков сезона страницами (boardPage = номер страницы)
-  const profileLink=player=>{const a=document.createElement('a');a.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!a.innerHTML)a.textContent=player.display_name||'Игрок';a.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');a.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));return a};
-  function podiumItem(row){
-    const item=document.createElement('li'),medal=document.createElement('span'),name=profileLink(row.player||{}),score=document.createElement('small'),pillar=document.createElement('i');
-    item.className='lgl-pod is-p'+row.place+(row.is_me?' is-me':'');medal.className='lgl-medal-ico is-p'+row.place;medal.textContent=row.place;name.className='lgl-nick';score.textContent=num(row.best_score);pillar.setAttribute('aria-hidden','true');
-    item.append(medal,name,score,pillar);return item;
-  }
-  function listItem(row){
-    const item=document.createElement('li'),place=document.createElement('span'),score=document.createElement('b');
-    place.textContent='#'+row.place;score.textContent=num(row.best_score);if(row.is_me)item.className='is-me';
-    item.append(place,profileLink(row.player||{}),score);return item;
-  }
   function list(data){
     if(data.season&&boardPage===null)renderSeason(data);
     const rows=boardPage===null?data.top.slice(0,5):data.items,target=$('leaderboard-list'),podium=$('leaderboard-podium');
     target.replaceChildren();podium.replaceChildren();
     if(!rows.length)empty('Пока нет завершённых забегов.');
     else{
-      const high=boardPage===null||boardPage===0?rows.filter(row=>row.place<=3):[],low=rows.filter(row=>!high.includes(row));
-      [high.find(r=>r.place===2),high.find(r=>r.place===1),high.find(r=>r.place===3)].filter(Boolean).forEach(row=>podium.append(podiumItem(row)));
-      low.forEach(row=>target.append(listItem(row)));
-      if(low.length)target.setAttribute('start',String(low[0].place));
+      // тот же подиум и те же строки, что «Топ» в Mini App (top-board.js)
+      gameTopBoardV3(podium,target,rows.map(gameTopRowV3),r=>num(r.raw.best_score),{podium:boardPage===null||boardPage===0});
     }
     personal(data.personal);more(data);
   }

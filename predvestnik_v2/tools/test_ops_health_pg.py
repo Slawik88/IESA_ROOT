@@ -255,6 +255,30 @@ async def main(dsn: str) -> None:
 
     logger.remove(sink)
     await pool.close()
+    from unittest.mock import patch
+
+    async def unavailable_pool():
+        await asyncio.Event().wait()
+
+    headers = {"x-init-data": _init_data({"id": 990_200_001, "first_name": "Ops"})}
+    with (patch("FastAPI.deps.create_pool", unavailable_pool),
+          patch("FastAPI.deps._DB_BOOT_HTTP_TIMEOUT_SEC", 0.05),
+          patch("FastAPI.main.create_pool", unavailable_pool),
+          patch("FastAPI.main.readiness.startup_complete", return_value=True),
+          patch.object(ops_health, "DB_HEALTH_TIMEOUT_SEC", 0.05)):
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            liveness, readiness, profile, change = await asyncio.wait_for(asyncio.gather(
+                client.get("/api/health"),
+                client.get("/api/ready"),
+                client.get("/profile/me", headers=headers),
+                client.post("/analytics/tab", headers=headers, json={"tab": "profile", "session_id": "health-fault"}),
+            ), 2)
+            assert liveness.status_code == 200
+            assert readiness.status_code == 503
+            assert profile.status_code == 503 and profile.headers["retry-after"] == "2"
+            assert change.status_code == 503 and "retry-after" not in change.headers
+            assert "сохранилось ли действие" in change.json()["detail"]
+
     print("OK: health panel metrics, 401 reasons, telemetry limits and retention on PostgreSQL")
 
 

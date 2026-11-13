@@ -461,7 +461,7 @@ async def buy_offer(
 
 async def prepare_free_open(
     db, *, user_id: int, action_id: str, requested_catalog_version: str,
-    requested_catalog_digest: str, key_tier: int = 1,
+    requested_catalog_digest: str, key_tier: int = 1, grant_id: str | None = None,
 ) -> dict:
     """Consume one key of ``key_tier`` and persist one sealed outcome in the same transaction."""
     await repo.assert_delivery_ready(db)
@@ -475,6 +475,8 @@ async def prepare_free_open(
     }
     if key_tier != 1:  # tier-1 requests keep their pre-tier hash, so old retries still replay
         request["key_tier"] = key_tier
+    if grant_id is not None:
+        request["grant_id"] = grant_id
     request_hash = canonical_snapshot_fingerprint(request)
     async with db.connection.transaction():
         await repo.lock_user(db, int(user_id))
@@ -497,6 +499,8 @@ async def prepare_free_open(
         )
         if not grant:
             raise ChestKeyConflict("Нет ключа этого уровня.")
+        if grant_id is not None and str(grant["id"]) != grant_id:
+            raise ChestKeyConflict("Этот ключ сейчас недоступен. Открой «Сундуки», чтобы использовать следующий ключ.")
         vip_ids: tuple[str, ...] = ()
         if await vip.is_vip_active(db, int(user_id)):
             vip_ids = tuple(await repo.vip_cosmetic_candidates(
@@ -518,6 +522,30 @@ async def prepare_free_open(
         if not row:
             raise RuntimeError("Chest open receipt was not persisted.")
         return _prepared(row)
+
+
+async def open_with_grant(db, *, user_id: int, grant_id: str) -> dict:
+    """Open the key named by the notification. A retry resumes the same sealed reward."""
+    action_id = f"dm-chest:{grant_id}"
+    previous = await repo.find_open_by_action(db, user_id=user_id, action_id=action_id)
+    if previous is None:
+        source = await repo.unspent_grant_source(db, user_id=user_id, grant_id=grant_id)
+        if source is None:
+            # A concurrent click may have used the key and sealed the reward since the first read.
+            previous = await repo.find_open_by_action(db, user_id=user_id, action_id=action_id)
+            if previous is None:
+                raise ChestKeyConflict("Этот ключ уже использован или недоступен.")
+    if previous is None:
+        previous = await prepare_free_open(
+            db, user_id=user_id, action_id=action_id, grant_id=grant_id, key_tier=tier_for_source(source),
+            requested_catalog_version=CATALOG_VERSION, requested_catalog_digest=catalog_digest(),
+        )
+        open_id = previous["open_id"]
+    else:
+        if previous["key_grant_id"] != grant_id:
+            raise ChestKeyConflict("Этот ключ уже использован или недоступен.")
+        open_id = previous["id"]
+    return await reveal(db, user_id=user_id, open_id=open_id)
 
 
 async def reveal(db, *, user_id: int, open_id: str) -> dict:

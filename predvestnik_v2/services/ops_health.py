@@ -4,10 +4,14 @@ Sources (all in-process, see ``core/ops_metrics.py``):
   http           request time per route template (FastAPI/ops_middleware.py), http_4xx / http_5xx counters
   pool_wait      waiting for a database connection: http (FastAPI/deps.get_db), bot (bot/middlewares/db.py)
   pool_busy      busy connections, sampled every POOL_SAMPLE_EVERY seconds
+  pool_hold      how long one lazy adapter kept a connection (acquire → give-back), per source (infrastructure/lazy_db.py)
+  pool_held      connections held right now per source, sampled every POOL_SAMPLE_EVERY seconds
   db_server      connections open on the whole database server (total, ours, limit), every DB_SERVER_SAMPLE_EVERY s;
                  db_refused counts samples the server refused for lack of free connections
   loop_lag       event-loop delay, sampled every second
   throttle_wait  waiting for the outbound Telegram throttler, per Bot API method
+  telegram_delivery  message age when aiogram starts processing it, by chat type
+  telegram_api       Bot API round trip per method, excluding local queue and flood retry sleeps
   auth_401       why the Mini App refused a request (FastAPI/deps.py, AUTH_REASONS)
   client         anonymous events from the Mini App (POST /telemetry), stored per event for 14 days
   bot_error      exceptions in aiogram handlers, per handler and exception type (bot/dispatcher.py)
@@ -30,10 +34,12 @@ from loguru import logger
 
 from core import ops_metrics
 from infrastructure.repositories import ops_telemetry as repo
+from infrastructure.repositories import update_receipts
 
 SAMPLE_EVERY = 1.0
 POOL_SAMPLE_EVERY = 10.0
 DB_SERVER_SAMPLE_EVERY = 60.0
+DB_HEALTH_TIMEOUT_SEC = 2.0
 BUFFER_FLUSH_EVERY = 10.0
 FLUSH_EVERY = 300
 CLEANUP_EVERY = 3600.0
@@ -63,6 +69,10 @@ HTTP_5XX_MIN = 20
 HTTP_5XX_SHARE = 0.05
 CLIENT_ERRORS_MIN = 50
 BOT_ERRORS_MIN = 10
+TELEGRAM_DELIVERY_SLOW_MS = 10_000
+DELIVERY_ALERT_MIN = 3
+POLL_ERROR_ALERT_MIN = 3
+CLIENT_TIMEOUT_ALERT_MIN = 3
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _FRAME = re.compile(r"[\w.-]{1,80}\.js:\d{1,7}:\d{1,7}")
@@ -161,6 +171,8 @@ def accept_client_events(ip: str, payload: dict) -> tuple[int, bool]:
         _limits.global_minute += 1
         event = _client_event(raw, common, now)
         ops_metrics.count("client", event["type"])
+        if event["type"] == "fetch_fail" and (event["detail"] or {}).get("timeout"):
+            ops_metrics.count("client_timeout", "request")
         accepted += 1
         if _limits.stored_today >= STORED_PER_DAY:
             ops_metrics.count("client_dropped", "daily_cap")
@@ -283,8 +295,11 @@ async def _sample_loop() -> None:
             next_pool = loop.time() + POOL_SAMPLE_EVERY
             try:
                 from infrastructure.database import get_pool
+                from infrastructure import lazy_db
                 pool = get_pool()
                 ops_metrics.observe("pool_busy", "connections", pool.get_size() - pool.get_idle_size())
+                for source, count in lazy_db.held_connections().items():
+                    ops_metrics.observe("pool_held", source, count)
             except RuntimeError:   # pool not created yet
                 pass
 
@@ -324,6 +339,7 @@ async def _flush_loop(db_factory, bot) -> None:
                 if loop.time() >= next_cleanup:
                     next_cleanup = loop.time() + CLEANUP_EVERY
                     await repo.cleanup(db)
+                    await update_receipts.cleanup(db)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -354,7 +370,7 @@ def alerts_for(window: ops_metrics.Window) -> list[tuple[str, str]]:
     if refused or (total and limit and total.peak >= limit.peak - DB_SERVER_SPARE):
         ours = window.timings.get(("db_server", "ours"))
         busy = f"занято до {total.peak:.0f} из {limit.peak:.0f}, из них Предвестник — {ours.peak if ours else 0:.0f}" if total and limit else "сервер базы отказал в соединении"
-        found.append(("db_server", f"На сервере базы кончаются соединения: {busy}. Остальные держат другие подключения к той же базе (сайт IESA)."))
+        found.append(("db_server", f"На сервере базы кончаются соединения: {busy}. Остальные — сайт IESA, Домовой и служебные подключения самой базы."))
     requests = sum(s.count for (kind, _), s in window.timings.items() if kind == "http")
     errors_5xx = sum(c for (kind, _), c in window.counters.items() if kind == "http_5xx")
     if errors_5xx >= HTTP_5XX_MIN and errors_5xx >= HTTP_5XX_SHARE * max(requests, 1):
@@ -362,6 +378,18 @@ def alerts_for(window: ops_metrics.Window) -> list[tuple[str, str]]:
     client = sum(c for (kind, name), c in window.counters.items() if kind == "client" and name in CLIENT_ERROR_TYPES)
     if client >= CLIENT_ERRORS_MIN:
         found.append(("client", f"Всплеск ошибок у игроков в приложении: {client} за 5 минут."))
+    delayed = window.counters.get(("telegram_delayed", "message"), 0)
+    if delayed >= DELIVERY_ALERT_MIN:
+        found.append(("telegram_delayed", f"Telegram: {delayed} сообщений ждали обработки больше 10 с за 5 минут."))
+    poll_errors = window.counters.get(("telegram_api_error", "GetUpdates"), 0)
+    if poll_errors >= POLL_ERROR_ALERT_MIN:
+        found.append(("telegram_poll", f"Telegram: {poll_errors} сетевых ошибок при получении обновлений за 5 минут."))
+    receipt_retries = window.counters.get(("telegram_receipt_retry", "get_updates"), 0)
+    if receipt_retries >= POLL_ERROR_ALERT_MIN:
+        found.append(("telegram_receipts", f"Очередь Telegram ждёт записи в базу: {receipt_retries} повторов за 5 минут."))
+    client_timeouts = window.counters.get(("client_timeout", "request"), 0)
+    if client_timeouts >= CLIENT_TIMEOUT_ALERT_MIN:
+        found.append(("client_timeout", f"Приложение: {client_timeouts} запросов у игроков превысили время ожидания за 5 минут."))
     bot_errors = {name: c for (kind, name), c in window.counters.items() if kind == "bot_error"}
     if sum(bot_errors.values()) >= BOT_ERRORS_MIN:
         top = max(bot_errors, key=bot_errors.get)
@@ -433,10 +461,21 @@ async def dashboard(db, hours: int) -> dict:
         "loop_lag": _stat(lag),
         "pool_wait": [{"name": n, **_stat(s)} for n, s in sorted(by_kind("pool_wait").items())],
         "pool_busy": {"avg": round(busy.total / busy.count, 1) if busy.count else 0, "max": round(busy.peak)},
+        "pool_hold": [{"name": n, **_stat(s)} for n, s in sorted(by_kind("pool_hold").items())],
+        "pool_held": [{"name": n, "avg": round(s.total / s.count, 1) if s.count else 0, "max": round(s.peak)}
+                      for n, s in sorted(by_kind("pool_held").items())],
+        "cache_flights": counts("cache_flight"),
         "db_server": {name: round(timings.get(("db_server", name), ops_metrics.Series()).peak)
                       for name in ("total", "ours", "limit")} | {"refused": sum(counts("db_refused").values())},
         "throttle": sorted(({"method": n, **_stat(s)} for n, s in by_kind("throttle_wait").items()),
                            key=lambda r: (r["p95"], r["count"]), reverse=True)[:6],
+        "telegram_delivery": {n: _stat(s) for n, s in by_kind("telegram_delivery").items()},
+        "telegram_delayed": sum(counts("telegram_delayed").values()),
+        "telegram_receipt_retries": sum(counts("telegram_receipt_retry").values()),
+        "telegram_api": {n: _stat(s) for n, s in by_kind("telegram_api").items()
+                         if n == "GetUpdates" or n.startswith(("Send", "Edit", "AnswerCallback"))},
+        "telegram_api_errors": counts("telegram_api_error"),
+        "client_timeouts": sum(counts("client_timeout").values()),
         "routes": routes[:12],
         "http_total": sum(r["count"] for r in routes), "http_5xx": sum(e5.values()), "http_4xx": sum(e4.values()),
         "auth_401": sorted(({"reason": n, "count": c} for n, c in counts("auth_401").items()),
@@ -449,15 +488,16 @@ async def dashboard(db, hours: int) -> dict:
     }
 
 
-async def deep_check(timeout: float = 2.0) -> tuple[int, dict]:
+async def deep_check(timeout: float = DB_HEALTH_TIMEOUT_SEC) -> tuple[int, dict]:
     """/api/health/deep: a bounded database ping plus whether the metrics sampler is alive."""
     from infrastructure.database import create_pool
     started = time.perf_counter()
     body: dict = {"status": "ok"}
     try:
-        pool = await asyncio.wait_for(create_pool(), timeout)
-        async with pool.acquire(timeout=timeout) as conn:
-            await asyncio.wait_for(conn.fetchval("SELECT 1"), timeout)
+        async with asyncio.timeout(timeout):
+            pool = await create_pool()
+            async with pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
         body["database"] = {"ok": True, "ms": round((time.perf_counter() - started) * 1000, 1)}
     except Exception as exc:
         body["status"] = "down"

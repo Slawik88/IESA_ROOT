@@ -14,7 +14,7 @@ async def person(db, user, seat):
         return " ".join("".join(c for c in str(value or "") if c in "\t\n\r" or ord(c) >= 32).split())[:60]
     name = clean(" ".join(str(user.get(k) or "") for k in ("first_name", "last_name")))
     name = name or clean(user.get("username")) or clean(await repo.profile_name(db, int(user["id"]))) or f"Игрок {seat}"
-    return {"id": int(user["id"]), "name": name, "seat": seat, "role": None,
+    return {"id": int(user["id"]), "name": name, "seat": seat, "role": None, "is_bot": bool(user.get("is_bot", False)),
             "alive": True, "left": False, "muted": False, "checks": [], "seen": await repo.now(db)}
 
 
@@ -235,7 +235,7 @@ async def control(db, room_id, uid, command, phase_number=None, nonce=None, expe
             elif command == "pause" and state["phase"] in ("night", "discussion", "voting"):
                 full_deadline = state.get("phase_deadline", state["phase_started"] + rules.phase_seconds(state["tempo"], state["phase"]))
                 state["phase_remaining"] = max(1, full_deadline - now)
-                state.update(paused=state["phase"], remaining=max(1, state["deadline"] - now), phase="paused", deadline=now + 1200)
+                state.update(paused=state["phase"], paused_at=now, remaining=max(1, state["deadline"] - now), phase="paused", deadline=now + 1200)
                 await engine.notice(db, state, "Хозяин поставил игру на паузу.")
             elif command == "resume" and state["phase"] == "paused":
                 state["phase_deadline"] = now + state.pop("phase_remaining", state["remaining"])

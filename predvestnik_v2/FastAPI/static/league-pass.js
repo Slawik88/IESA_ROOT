@@ -41,6 +41,20 @@
       <span class="lgp-art">${r.art}</span><b>${L().esc(r.short)}</b>${badge}</div>`;
   }
 
+  // «Гонка за Пропуском» (S28): тонкая полоса под опытом — второстепенная к Пропуску, без ячеек ленты. Справа места 1–4
+  // звёздами: золотая — свободно, тусклая — занято. Только пока гонка идёт; правила — тема Путеводителя «pass-race».
+  function raceBlock(s, me) {
+    const race = s.current && me.race && me.race.running ? me.race : null;
+    if (!race) return '';
+    const taken = race.places - race.left;
+    const seats = Array.from({length: race.places}, (_, i) => A().icon('star', `lgp-race-seat ${i < taken ? 'is-taken' : 'is-free'}`)).join('');
+    const left = race.left ? `Свободно ${race.left} из ${race.places}` : 'Все места заняты';
+    return `<div class="lgp-race" role="note" aria-label="Гонка за Пропуском: по ${race.prize_stars} Telegram Stars первым ${race.places}, кто закроет ${race.level}-й уровень. ${left}.">
+      <span class="lgp-race-flag">${A().icon('flag')}</span>
+      <p aria-hidden="true"><b>Гонка: по ${race.prize_stars} ⭐ Telegram Stars</b><small>первым ${race.places}, кто закроет ${race.level}-й уровень</small></p>
+      <span class="lgp-race-seats ${race.left ? '' : 'is-full'}" aria-hidden="true"><span>${seats}</span><small>${race.left ? `${race.left} из ${race.places}` : 'заняты'}</small></span></div>`;
+  }
+
   function season(s, me) {
     const ready = s.track.reduce((n, r) => n + (r.free.state === 'ready') + (r.vip.state === 'ready'), 0) + Number(!!(s.current && s.repeat?.ready)), can = ready && me.account.eligible;
     const max = s.level >= s.levels, into = max ? s.xp_per_level : s.xp_per_level - s.xp_to_next;
@@ -48,6 +62,7 @@
       <span class="lgp-num">${r.level}</span>${cell(r.level, 'free', r.free)}${cell(r.level, 'vip', r.vip)}</li>`).join('');
     const why = !me.account.eligible ? `Забрать награды можно, когда аккаунту исполнится ${me.account.min_days} дней. Опыт копится уже сейчас.`
       : '';
+    const raceLine = raceBlock(s, me);
     return `<section class="lgp" data-season="${s.season}" aria-label="Пропуск сезона ${s.season}">
       <div class="lgp-head"><div>${s.current ? '' : `<small class="lg-eyebrow">Пропуск сезона ${s.season} · закончился</small>`}
         <p class="lgp-lvl">Уровень <b data-count="pass-${s.season}">${s.level}</b><small> из ${s.levels}</small></p></div>
@@ -56,7 +71,7 @@
         <i style="transform:scaleX(${(into / s.xp_per_level).toFixed(3)})"></i></div>
         <small>${max ? `Все уровни открыты · ${s.xp} опыта` : `${into}/${s.xp_per_level} до уровня ${s.level + 1} · ${s.current ? `до ${date(s.ends_at)}` : `забрать до ${date(s.claim_until)}`}`}</small></div>
       ${can ? `<button type="button" class="lg-cta lgp-claim" data-claim="${s.season}"><span class="lgp-chest">${A().icon('chest')}</span>Забрать награды · ${ready}</button>` : ''}
-      ${why ? `<p class="lg-rules">${why}</p>` : ''}<p class="lg-error" role="alert" id="lp-err-${s.season}"></p>
+      ${why ? `<p class="lg-rules">${why}</p>` : ''}${raceLine}<p class="lg-error" role="alert" id="lp-err-${s.season}"></p>
       <div class="lgp-ribbon" tabindex="0" aria-label="Награды по уровням, листай вбок"><div class="lgp-rows" aria-hidden="true"><span>Бесплатно</span><span>VIP от 1 месяца</span></div>
         <ol role="list">${cols}${repeat(s, me)}</ol></div></section>`;
   }

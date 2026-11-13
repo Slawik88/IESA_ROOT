@@ -75,7 +75,7 @@
 
 .v3-id.has-look .v3-name { background: none; -webkit-text-fill-color: initial; }   /* золотой VIP-градиент имени не перекрывает цвет скина */
 .v3-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
-.v3-who .ap-title { font-size: 10.5px; padding: 1px 7px; }
+.v3-who .ap-title { display: inline-block; max-width: 100%; font-size: 10.5px; padding: 1px 7px; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }   /* длинный титул — многоточием в своей колонке */
 .v3-who .ap-name, .v3-who .ap-title, .v3-who .ap-title::after { animation: none !important; }   /* в списках блики не бегают: двадцать строк с живыми слоями дороги, а в строке они не нужны */
 .v3-who .ap-gl { display: none !important; }
 

@@ -4,7 +4,6 @@ import asyncio
 from datetime import datetime, timezone
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from loguru import logger
 
 from infrastructure import lazy_db
@@ -20,8 +19,9 @@ async def player_exchange_match_task() -> None:
         try:
             from infrastructure.repositories import player_exchange_v1 as repo, system_flags
             from services import player_exchange_v1 as exchange
-            async with get_pool().acquire() as conn:
-                db = PGAdapter(conn)
+            # Lazy: the slot is taken per market and given back between them
+            # (one fill per transaction inside match_market), not for the whole round.
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
                 if not await system_flags.is_enabled(db, "economy_player_exchange_v1"):
                     continue
                 for coin_id in await repo.active_market_ids(db):
@@ -31,6 +31,7 @@ async def player_exchange_match_task() -> None:
                         logger.exception(
                             f"Player exchange market {coin_id} failed: {market_error}"
                         )
+                    await db.release_if_idle()
         except Exception as exc:
             logger.exception(f"Player exchange matcher error: {exc}")
 
@@ -40,8 +41,8 @@ async def coin_market_v2_task() -> None:
     while True:
         await asyncio.sleep(15)
         try:
-            async with get_pool().acquire() as conn:
-                await maintenance(PGAdapter(conn))
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
+                await maintenance(db)
         except Exception:
             logger.exception('Coin market v2 maintenance failed; stale trading stays closed')
 
@@ -126,6 +127,7 @@ async def maintenance_task(bot: Bot) -> None:
                         settlement.get("coin_id"), settlement.get("success"),
                         settlement.get("sold_units"),
                     )
+                await db.release_if_idle()   # короткие порции: слот пула свободен между группами
                 for emission in await execute_due_emissions(db, limit=20):
                     if emission.get("error"):
                         logger.error("Player exchange emission failed: {}", emission)
@@ -143,6 +145,7 @@ async def maintenance_task(bot: Bot) -> None:
                         logger.error("Short risk maintenance failed: {}", short_result)
                     elif short_result.get("marked"):
                         logger.warning("Short risk marked for player liquidation: {}", short_result)
+                await db.release_if_idle()   # и перед сезонными итогами: дальше только свои порции
                 try:   # итоги сезонов: снимок мест и выплаты порциями (возобновляемо, повтор безопасен)
                     from services import game_seasons, rhythm_v2
                     season_summary = await game_seasons.settle_due(
@@ -156,22 +159,21 @@ async def maintenance_task(bot: Bot) -> None:
                     await onboarding.send_reminders(bot, db)
                 except Exception as onboarding_error:
                     logger.warning(f"onboarding reminders failed: {onboarding_error}")
-                from services.vip import daily_reminder_candidates, record_daily_reminder_sent
-                for user_id in await daily_reminder_candidates(db):
-                    try:
-                        await bot.send_message(
-                            user_id,
-                            "✦ VIP-поручение ещё ждёт: заверши одну игру сегодня. "
-                            "Прогресс серии не сгорит, если пропустишь день.",
-                        )
-                        await record_daily_reminder_sent(db, user_id=user_id)
-                        await db.commit()
-                    except Exception as reminder_error:
-                        if isinstance(reminder_error, (TelegramBadRequest, TelegramForbiddenError)):
-                            from infrastructure.repositories import vip_v2 as vip_v2_repo
-                            await vip_v2_repo.mark_private_contact_unreachable(db, user_id=user_id)
-                            await db.commit()
-                        logger.warning(f"VIP reminder {user_id} failed: {reminder_error}")
+                try:   # игры вдвоём в переписках: брошенные на сутки закрыть и вернуть жетоны (S29a)
+                    from bot.chat import pair_cards
+                    await pair_cards.expire(bot, db)
+                except Exception as pair_error:
+                    logger.warning(f"pair games expiry failed: {pair_error}")
+                try:   # «Гонка за Пропуском»: место, о котором владельцу ещё не написали (запасной путь к фоновой отправке)
+                    from services import pass_race
+                    await pass_race.announce_pending(db)
+                except Exception as race_error:
+                    logger.warning(f"pass race announce failed: {race_error}")
+                try:   # напоминание про VIP-поручение: в общую очередь уведомлений (согласие, тихие часы, лимит, пауза)
+                    from services import dm_push_events
+                    await dm_push_events.vip_daily_reminders(db)
+                except Exception as reminder_error:
+                    logger.warning(f"VIP reminders failed: {reminder_error}")
         except Exception as exc:
             logger.error(f"Ошибка в задаче обслуживания: {exc}")
             await asyncio.sleep(30)
@@ -196,3 +198,31 @@ async def mafia_phase_task(bot: Bot) -> None:
             await mafia_tick(bot)
         except Exception as exc:
             logger.exception(f"Mafia phase scheduler error: {exc}")
+
+
+async def dm_push_task(bot: Bot) -> None:
+    """Уведомления в личку: раз в 5 минут собрать события согласившихся игроков, раз в минуту доставить очередь."""
+    from bot.chat.notify import markup_for
+    from services import dm_push, dm_push_events
+    logger.info("Доставка уведомлений в личку запущена.")
+    tick = 0
+    while True:
+        wait = 60
+        try:
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
+                if tick % 5 == 0:
+                    collected = await dm_push_events.collect(db)
+                    if any(collected.values()):
+                        logger.info(f"dm push: события в очередь {collected}")
+                stats = await dm_push.deliver_due(bot, db, markup=markup_for)
+                if stats["sent"] or stats["unreachable"] or stats["failed"]:
+                    logger.info(f"dm push: {stats}")
+                wait = max(wait, stats["retry_after"])   # Telegram попросил притормозить — ждём, не повторяем сразу
+                if tick % 1440 == 0:
+                    from infrastructure.repositories import dm_push as dm_push_repo
+                    await dm_push_repo.gc(db)
+                    await db.commit()
+        except Exception as exc:
+            logger.warning(f"dm push loop error: {type(exc).__name__}: {exc}")
+        tick += 1
+        await asyncio.sleep(wait)

@@ -3,7 +3,7 @@
 // (что это · шаги · что даёт · слова · совет · где найти), «Читать по порядку», словарь и частые вопросы. Правила текстов — docs/PLAYER_COPY.md.
 // Ссылка на тему: ?startapp=guide_<id> или guide_<id>_<номер блока> (app.02.js), из подсказок и игр — openGuide('<id>'). Стили: guide-v3.css (префикс gv-).
 // Тема, открытая с другого экрана (💡, профиль, ссылка), помнит это: «Назад» сразу возвращает туда, а не на главную Путеводителя (_GV.ext).
-const _GV = { data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, origin: null, block: 0, missTimer: 0, missSent: new Set() };
+const _GV = { data: null, raw: null, flagKey: '', pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, vocab: null, history: [], offline: false, ext: false, origin: null, block: 0, missTimer: 0, missSent: new Set() };
 const _GV_STORE = 'pv_guide_v1';
 const _GV_LAST = 'pv_guide_last';
 const _GV_STOP = new Set(['как', 'где', 'что', 'это', 'для', 'мне', 'меня', 'мой', 'мои', 'моя', 'мою', 'его', 'или', 'такое', 'такой', 'почему', 'взять', 'найти', 'получить', 'дают', 'даются', 'видно', 'хочу', 'могу', 'ли', 'если', 'делать']);
@@ -30,12 +30,13 @@ function _gvBot() {
   const link = 'https://t.me/' + name;
   if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(link); else window.open(link, '_blank', 'noopener');
 }
-// Игры живут на своих страницах: показываем «Открываем…», а «‹» в игре вернёт в эту же тему (pv_back читает game-shell-v3.html).
+// Игры живут на своих страницах: показываем «Открываем…», а общая оболочка игры
+// хранит тему возврата и по «‹» восстанавливает её в приложении.
 function _gvLeave(path, what) {
   try { if (_GV.view === 'topic' && _GV.topic) sessionStorage.setItem('pv_back', 'guide_' + _GV.topic); } catch (_) {}
   const root = el('pg-help');
   if (root) root.innerHTML = `<div class="gv-scope">${v3Head(what, { sub: 'Открываем…' })}<div class="sk" style="height:220px;border-radius:18px"></div><p class="gv-sub">Кнопка «‹» в игре вернёт тебя в эту тему Путеводителя.</p></div>`;
-  location.href = BASE + path;
+  leaveForGame(path, _GV.view === 'topic' && _GV.topic ? 'guide_' + _GV.topic : 'games');
 }
 const _gvRating = () => _gvLeave('/league?game=rhythm', 'Рейтинг');
 const _gvNorm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/18\s*\+/g, ' 18plus ').replace(/[^a-zа-я0-9 ]+/g, ' ');   // «18+» — одно слово поиска
@@ -74,14 +75,32 @@ function _gvCrumbs(t) {
 const _gvSearchBox = (handler, value = '') => `<div class="gv-search"><input id="gv-q" class="v3-field" type="search" placeholder="Что ищешь? Например: мора" value="${esc(value)}" oninput="${handler}(this)" autocomplete="off" enterkeyhint="search" aria-label="Поиск по Путеводителю"></div>`;
 const _gvHubButton = t => `${_gvCrumbs(t)}${_gvSearchBox('gvSearchFrom')}${_GV.view === 'topic' ? '<nav class="gv-tools"><button type="button" class="v3-link gv-all" data-gv-key="dictionary" onclick="gvView(\'terms\')">Словарь</button></nav>' : ''}`;
 
+// Тема с «flag» видна, только когда этот модуль включён (событие, которое включает владелец: «Гонка за Пропуском»).
+// Пока профиль не загружен, флаги неизвестны: тему не прячем (ссылка из лички открывает её сразу), после загрузки — пересчёт.
+const _gvFlags = () => typeof _profileData !== 'undefined' && _profileData && typeof _sysFlags === 'object' && _sysFlags ? _sysFlags : null;
+function _gvVisible(d) {
+  const flags = _gvFlags();
+  const hidden = new Set(flags ? d.topics.filter(t => t.flag && flags[t.flag] !== true).map(t => t.id) : []);
+  if (!hidden.size) return d;
+  const keep = id => !hidden.has(id);
+  return { ...d, topics: d.topics.filter(t => keep(t.id)).map(t => t.next ? { ...t, next: t.next.filter(keep) } : t),
+    groups: d.groups.map(g => ({ ...g, topics: g.topics.filter(keep) })), glossary: d.glossary.filter(g => keep(g.t)), faq: d.faq.filter(f => keep(f.t)) };
+}
+// Загруженные данные храним целиком, видимое пересчитываем, когда изменились флаги (профиль догрузился, модуль включили).
+function _gvApply() {
+  const flags = _gvFlags(), key = flags ? JSON.stringify(_GV.raw.topics.filter(t => t.flag).map(t => flags[t.flag] === true)) : '?';
+  if (_GV.data && _GV.flagKey === key) return _GV.data;
+  _GV.flagKey = key; _GV.data = _gvVisible(_GV.raw); _GV.index = null; _GV.vocab = null;
+  return _GV.data;
+}
 function gvLoad() {
-  if (_GV.data) return Promise.resolve(_GV.data);
+  if (_GV.data && _GV.raw) return Promise.resolve(_gvApply());   // _GV.data = null — прочитать заново
   if (_GV.pending) return _GV.pending;
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 8000);
   _GV.pending = fetch(BASE + '/guide-v3.json', { cache: 'no-cache', signal: controller.signal }).then(r => { if (!r.ok) throw new Error('guide'); return r.json(); })
     .then(d => { if (!_gvValid(d)) throw new Error('guide'); _GV.offline = false; try { localStorage.setItem(_GV_STORE, JSON.stringify(d)); } catch (_) {} return d; })
     .catch(() => { try { const d = JSON.parse(localStorage.getItem(_GV_STORE)); if (_gvValid(d)) { _GV.offline = true; return d; } } catch (_) {} throw new Error('guide'); })
-    .then(d => { _GV.data = d; _GV.index = null; _GV.vocab = null; return d; })
+    .then(d => { _GV.raw = d; _GV.data = null; return _gvApply(); })
     .finally(() => { clearTimeout(timer); _GV.pending = null; });
   return _GV.pending;
 }
@@ -185,7 +204,7 @@ function gvSearch(input) {
   _GV.q = input.value.trim();
   const out = el('gv-results'), home = el('gv-home'); if (!out || !home) return;
   out.hidden = !_GV.q; home.hidden = !!_GV.q;
-  out.innerHTML = _GV.q ? _gvResults(_GV.q) : '';
+  out.innerHTML = v3CurIn(_GV.q ? _gvResults(_GV.q) : '');
   // Поиск доступен и внизу списка: первые результаты должны оказаться перед глазами.
   if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'instant' });
 }
@@ -278,7 +297,7 @@ function gvPaint(position) {
   const root = el('pg-help'), d = _GV.data; if (!root || !d) return;
   const t = _GV.view === 'topic' && d.topics.find(x => x.id === _GV.topic);
   const missing = _GV.view === 'topic' && !t ? `${v3Head('Тема не найдена', { back: 'navBack()' })}<p class="gv-lead">Эта ссылка устарела. Найди ответ среди всех тем.</p>${_gvCrumbs({ id: '', title: 'Тема не найдена' })}${_gvSearchBox('gvSearchFrom')}` : '';
-  root.innerHTML = `<div class="gv-scope">${missing || (t ? _gvTopic(d, t) : _GV.view === 'terms' ? _gvTerms(d) : _GV.view === 'faq' ? _gvFaq(d) : _gvHub(d))}</div>`;
+  root.innerHTML = v3CurIn(`<div class="gv-scope">${missing || (t ? _gvTopic(d, t) : _GV.view === 'terms' ? _gvTerms(d) : _GV.view === 'faq' ? _gvFaq(d) : _gvHub(d))}</div>`);
   if (_GV.offline) root.firstElementChild.insertAdjacentHTML('afterbegin', '<p class="gv-offline" role="status">Нет связи. Показана сохранённая версия: правила могли измениться. <button type="button" class="v3-link" onclick="gvReload()">Обновить</button></p>');
   if (_GV.view === 'hub' && _GV.q) gvSearch(el('gv-q'));
   if (position && el('gv-filter')) { el('gv-filter').value = position.filter || ''; gvFilter(el('gv-filter'), _GV.view === 'terms' ? 'term' : 'q'); }
@@ -330,7 +349,7 @@ function gvBack() {
   if (_GV.view === 'hub' || _GV.ext) return false;
   gvHome(); return true;
 }
-function gvReload() { _GV.data = null; return gvShow(); }
+function gvReload() { _GV.data = null; _GV.raw = null; return gvShow(); }
 function gvGo(key) { _haptic('select'); if (_GV_GO[key]) _GV_GO[key](); }
 function gvShow() {
   const root = el('pg-help'); if (!root) return Promise.resolve();
@@ -351,3 +370,5 @@ function openGuide(id, block, returnTo) {
 _backHooks.push(() => _activePage === 'help' && gvBack());
 // Возврат из игры системным «Назад» достаёт страницу из памяти браузера с экраном «Открываем…» (_gvLeave): рисуем тему заново.
 addEventListener('pageshow', e => { if (e.persisted && _activePage === 'help' && _GV.data) gvPaint(); });
+
+window.pvFinishBoot?.();

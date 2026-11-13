@@ -296,9 +296,10 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 .tr-outing-choice:disabled{opacity:.5;cursor:default}
 .tr-outing-log{padding-left:20px}.tr-outing-log li{padding:8px 0}.tr-outing-log span{display:block;color:var(--muted,#aaa4b8);font-size:12px}
 /* Pets workspace: actions and preparation stay close to the decisions they inform. */
-.tr-nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin:14px 0 18px; padding:4px; border-radius:16px; background:var(--v3-faint); }
-.tr-nav button { min-height:44px; padding:8px 5px; border:0; border-radius:12px; color:var(--v3-dim); background:none; font:600 13px/1.3 var(--v3-font); cursor:pointer; }
-.tr-nav button[aria-current] { background:var(--v3-acc); color:var(--v3-on-acc); }
+/* разделы — общие вкладки .v3-tabs (как Инвентарь, Достижения, Топ), не своя плашка */
+.tr-nav { margin:10px 0 14px; }
+.tr-nav .v3-tab { font-size:13px; }
+.tr-nav .v3-tab.on::after { background:var(--v3-ink); }   /* залитый акцент остаётся у главной кнопки экрана */
 .tr-daily { border-bottom:1px solid var(--v3-faint); padding-bottom:12px; }
 .tr-daily > summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; cursor:pointer; color:var(--v3-dim); font-size:13px; list-style:none; }
 .tr-daily > summary b { color:var(--v3-ink); font:600 14px/1.3 var(--v3-font); }
@@ -327,7 +328,8 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 .tr-mode:first-child > small { grid-column:3; grid-row:1; }
 .tr-resume { margin-top:16px; padding:0 12px; border:1px solid color-mix(in srgb,var(--v3-acc) 35%,transparent); border-radius:16px; }
 .tr-camp-notice { margin-top:20px; padding:12px 0; min-height:44px; width:100%; border:0; border-top:1px solid var(--v3-faint); text-align:left; background:none; color:var(--v3-dim); font:500 13px/1.5 var(--v3-font); cursor:pointer; }
-.tr-vitals { margin-top:16px; padding:16px; background:var(--v3-faint); border-radius:16px; }
+/* силы питомца — раздел экрана под чертой, без своей карточки */
+.tr-vitals { margin-top:16px; padding-top:16px; border-top:1px solid var(--v3-faint); }
 .tr-vitals-top { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; color:var(--v3-dim); font-size:13px; }
 .tr-vitals-top b { color:var(--v3-ink); font:600 28px/1 var(--v3-font); font-variant-numeric:tabular-nums; }
 .tr-vitals-top b small { color:var(--v3-dim); font-size:13px; font-weight:400; }
@@ -383,7 +385,7 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 .tr-selected span { color:var(--v3-dim); font-size:11.5px; }
 .tr-quote { margin:6px 0 0; color:var(--v3-ink); font:600 13px/1.3 var(--v3-font); }
 .tr-draft { position:sticky; bottom:calc(76px + var(--v3-safe-b)); display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px; border:1px solid var(--v3-faint); border-radius:16px; background:var(--v3-sheet); font-size:12px; box-shadow:0 4px 16px rgba(0,0,0,.2); }
-#pg-pets :is(.tr-nav button,.tr-filters button,.tr-mode,.tr-loadout button,.tr-context-actions button,.tr-camp-notice):focus-visible { outline:2px solid var(--v3-acc); outline-offset:3px; }
+#pg-pets :is(.tr-filters button,.tr-mode,.tr-loadout button,.tr-context-actions button,.tr-camp-notice):focus-visible { outline:2px solid var(--v3-acc); outline-offset:3px; }
 @media (min-width:700px) { .tr-modes { grid-template-columns:repeat(3,minmax(0,1fr)); } .tr-mode:first-child { grid-column:auto; display:flex; min-height:156px; } .tr-gear-options { grid-template-columns:repeat(2,minmax(0,1fr)); } .tr-loadout { max-width:500px; } }
 @media (max-width:350px) { .tr-modes { grid-template-columns:minmax(0,1fr); } .tr-mode { min-height:132px; } .tr-mode:first-child { grid-column:auto; } .tr-loadout { gap:4px; } .tr-loadout small { font-size:10px; } .tr-launch > .v3-pill { width:100%; } .tr-slot { column-gap:8px; } .tr-slot .tr-ic { width:36px; height:36px; } .tr-slot { grid-template-columns:36px minmax(0,1fr); } .tr-slot > .tr-end { grid-column:2; justify-content:start; } .tr-outing-pet { grid-template-columns:36px minmax(0,1fr); } .tr-outing-pet > .v3-pill { grid-column:2; justify-self:start; } }
 
@@ -394,7 +396,6 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 .tr-sheet .tr-chips--3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
 
 /* The sole filled accent belongs to the primary action; selection remains readable in ink. */
-.tr-nav button[aria-current] { color:var(--v3-ink); background:color-mix(in srgb,var(--v3-ink) 8%,transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--v3-ink) 35%,transparent); }
 .tr-mode:first-child { background:color-mix(in srgb,var(--v3-ink) 5%,transparent); border-color:var(--v3-faint); }
 .tr-mode-icon { color:var(--v3-ink); }
 .tr-mode > small { color:var(--v3-dim); }

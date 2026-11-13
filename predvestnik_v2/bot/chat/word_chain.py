@@ -30,7 +30,17 @@ REACTIONS = ("Мой ответ готов!", "Хорошее слово, про
              "Есть такое! Лови следующее.", "Цепочка растёт!", "А я отвечу вот так.")
 
 
-def prompt(state: dict) -> str:
+SOLO_HELP = ("🔤 <b>Слова один на один</b> — ты и я, без чата.\n\n"
+             "1. Начни: <code>слова</code>.\n"
+             "2. Ход: просто напиши слово на нужную букву. Или ответь на моё сообщение — как удобнее.\n"
+             "3. Если я промолчу на слово, напиши <code>бот слово, арбуз</code>.\n\n"
+             "Ё = Е. В конце пропускаем Ь, Ъ, Ы и Й. Слова партии не повторяем. Между своими ходами — 3 секунды.\n"
+             "При опечатке предложу близкие слова: выбери своё кнопкой.\n\n"
+             "<code>бот слова, подсказка</code> · <code>бот слова, счёт</code> · <code>бот слова, стоп</code>\n"
+             "После суток без ходов можно начать заново. Очков и наград игра не даёт: это просто для удовольствия.")
+
+
+def prompt(state: dict, private: bool = False) -> str:
     word = state.get("bot_word") or state.get("last_word") or ""
     if state.get("paused"):
         return f"🔤 Партия на паузе: чат закрыт или идёт Мафия.\nПоследнее слово: <b>{html.escape(word)}</b>.\nСлова и счёт сохранятся."
@@ -41,8 +51,9 @@ def prompt(state: dict) -> str:
         opening = ("Играем!" if state.get("created") else "Продолжаем!")+f" Моё слово: <b>{html.escape(word)}</b>."
     tail = f"В цепочке уже {state['turns']} слов игроков!" if state["turns"] and state["turns"] % 10 == 0 else f"Ходов: {state['turns']}"
     ending = f"\nВ конце «{word[-1].upper()}» пропускаем." if word and word[-1] in rules.SKIP_ENDINGS else ""
-    return (f"🔤 {opening}{ending}\nТеперь тебе на <b>{state['letter'].upper()}</b>.\n"
-            f"Ход: <code>бот слово, СЛОВО</code> или ответ одним словом на это сообщение.\n<i>{tail}</i>")
+    how = ("Просто напиши слово — или ответь на это сообщение." if private
+           else "Ход: <code>бот слово, СЛОВО</code> или ответ одним словом на это сообщение.")
+    return f"🔤 {opening}{ending}\nТеперь тебе на <b>{state['letter'].upper()}</b>.\n{how}\n<i>{tail}</i>"
 
 
 def word_input(state: dict) -> ForceReply | None:
@@ -84,22 +95,24 @@ async def error_reply(db, message, bot, value: str, error: Exception) -> tuple[s
     if state["candidates"]:
         return text+"\n\nВозможно, опечатка? Выбери своё слово ниже. Ход будет от твоего исходного сообщения.",correction_keyboard(state,message,bot)
     if state["active"]:
-        return text+"\n\n"+prompt(state),word_input(state)
+        return text+"\n\n"+prompt(state,is_solo(message)),word_input(state)
     return text,None
 
 
-@registry.command("слова", aliases=("игра в слова",), private=False, section="games",
+@registry.command("слова", aliases=("игра в слова",), private=True, section="games",
                   usage="бот слова [правила | счёт | подсказка | стоп]",
                   summary="Слова против бота: ход командой «бот слово, арбуз» или ответом на сообщение игры.")
 async def command(ctx: Ctx) -> None:
     scope = dict(chat_id=ctx.message.chat.id,topic_id=topic_of(ctx.message) or 0)
+    solo = is_solo(ctx.message)
     arg = rules.normalize(ctx.args)
     try:
         if arg in {"правила","помощь"}:
-            await ctx.reply(HELP)
+            await ctx.reply(SOLO_HELP if solo else HELP)
             return
         if arg in {"стоп","закончить","завершить"}:
-            state = await game.stop(ctx.db,**scope,actor=ctx.user_id,can_moderate=await ranks.can(ctx.db,scope["chat_id"],ctx.user_id,"write_closed"))
+            can_moderate = solo or await ranks.can(ctx.db,scope["chat_id"],ctx.user_id,"write_closed")
+            state = await game.stop(ctx.db,**scope,actor=ctx.user_id,can_moderate=can_moderate)
             await ctx.reply(f"🔤 Партия завершена · принято слов: {state['turns']}\n"+score(state))
             return
         if arg in {"счет","статус","подсказка"}:
@@ -108,30 +121,36 @@ async def command(ctx: Ctx) -> None:
                 text = f"Последняя партия · принято слов: {state['turns']}\n"+score(state) if state.get("last_round") else "Игра сейчас не идёт."
                 await ctx.reply("🔤 "+text+"\nНачать: <code>бот слова</code>.")
                 return
-            text = prompt(state)+"\n\n<b>Счёт этой партии</b>\n"+score(state)
+            text = prompt(state,solo)+"\n\n<b>Счёт этой партии</b>\n"+score(state)
             if arg=="подсказка":
                 text += "\n\nМожно: "+", ".join(state["hints"])
             await ctx.reply(text,reply_markup=word_input(state))
             return
         if arg and arg not in {"начать","старт"}:
-            await ctx.reply(HELP)
+            await ctx.reply(SOLO_HELP if solo else HELP)
             return
         state = await game.start(ctx.db,**scope,actor=ctx.user_id)
-        await ctx.reply(prompt(state),reply_markup=word_input(state))
+        await ctx.reply(prompt(state,solo),reply_markup=word_input(state))
     except game.WordChainError as error:
         await ctx.reply("🔤 "+html.escape(str(error)))
 
 
-@registry.command("слово", private=False, section="games", usage="бот слово, арбуз",
+@registry.command("слово", private=True, section="games", usage="бот слово, арбуз",
                   summary="Ход в словах: бот слово, арбуз. Можно и одним словом в ответ на сообщение игры.")
 async def word(ctx: Ctx) -> None:
     await play_message(ctx.db,ctx.bot,ctx.message,ctx.args)
 
 
-def turn_reply(state: dict) -> tuple[str, ForceReply | None]:
+def is_solo(message) -> bool:
+    """Личка с ботом: играет один человек, партия — его собственная."""
+    return getattr(message.chat, "type", "") == "private"
+
+
+def turn_reply(state: dict, solo: bool = False) -> tuple[str, ForceReply | None]:
     if state["finished"]:
-        return (f"🔤 Вот это цепочка! Принято слов: {state['turns']}.\n"+score(state)+"\nНовая партия: <code>бот слова</code>.",None)
-    return prompt(state),word_input(state)
+        again = "<code>слова</code>" if solo else "<code>бот слова</code>"
+        return (f"🔤 Вот это цепочка! Принято слов: {state['turns']}.\n"+score(state)+f"\nНовая партия: {again}.",None)
+    return prompt(state,solo),word_input(state)
 
 
 async def play_message(db, bot, message, value: str) -> None:
@@ -140,7 +159,7 @@ async def play_message(db, bot, message, value: str) -> None:
                                actor=message.from_user.id,message_id=message.message_id,value=value)
         if state["replayed"]:
             return
-        text,markup = turn_reply(state)
+        text,markup = turn_reply(state,is_solo(message))
     except game.WordChainError as error:
         text,markup = await error_reply(db,message,bot,value,error)
     await message.reply(text,parse_mode="HTML",reply_markup=markup)
@@ -151,6 +170,27 @@ def is_reply(bot, message) -> bool:
     return bool(reply and reply.from_user and message.from_user and not message.from_user.is_bot
                 and reply.from_user.id == bot.id and (reply.text or "").startswith("🔤")
                 and message.text is not None)
+
+
+async def on_plain_word(db, bot, message) -> bool:
+    """Личка: в партии, где только что ходили, просто слово — это ход. Названия команд («баланс», «помощь») ходом не считаются."""
+    text = (message.text or "").strip()
+    if not is_solo(message) or not text or not message.from_user or message.from_user.is_bot:
+        return False
+    if not rules.WORD_RE.fullmatch(rules.normalize(text)):
+        return False
+    me = await bot.me()
+    if parse(registry, text, me.username, True) is not None:
+        return False
+    try:
+        if not await game.solo_turn_open(db,chat_id=message.chat.id,topic_id=topic_of(message) or 0):
+            return False
+    except game.WordChainError:
+        return False
+    if await feature_switches.disabled(db, feature_switches.command_features("слово", "games", None), message.chat.id) is not None:
+        return True
+    await play_message(db, bot, message, text)
+    return True
 
 
 async def on_reply(db, bot, message) -> bool:
@@ -168,7 +208,7 @@ async def on_reply(db, bot, message) -> bool:
 
 @router.callback_query(WordFixCB.filter())
 async def confirm_spelling(cb: CallbackQuery, callback_data: WordFixCB, bot, db) -> None:
-    if not isinstance(cb.message,Message) or cb.message.chat.id >= 0:
+    if not isinstance(cb.message,Message) or cb.message.chat.id == 0:
         await cb.answer("Открой подсказку в исходном чате.",show_alert=True)
         return
     cid,topic,actor = cb.message.chat.id,topic_of(cb.message) or 0,cb.from_user.id
@@ -195,7 +235,7 @@ async def confirm_spelling(cb: CallbackQuery, callback_data: WordFixCB, bot, db)
         if state["replayed"]:
             await cb.answer("Этот ход уже учтён.")
             return
-        text,markup = turn_reply(state)
+        text,markup = turn_reply(state,is_solo(cb.message))
         await cb.answer("Исправление принято!")
     except game.WordChainError as error:
         text,markup = await error_reply(db,original,bot,word,error)

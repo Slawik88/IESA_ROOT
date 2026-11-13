@@ -148,16 +148,18 @@ def _balanced_sample(definitions: list[dict], count: int) -> list[dict]:
 
 async def available_sources(db, *, user_id: int, now: datetime | None = None) -> frozenset[str]:
     """Live assignment eligibility; Mafia also requires prior participation."""
+    flags = await system_flags.many_enabled(
+        db, ('game_rhythm_v2', 'game_minesweeper_v2', 'game_mafia_v1', 'content_chests_v1', 'pets_v2'))
     sources = set()
-    if await system_flags.is_enabled(db, 'game_rhythm_v2'):
+    if flags['game_rhythm_v2']:
         sources.add('rhythm')
-    if await system_flags.is_enabled(db, 'game_minesweeper_v2'):
+    if flags['game_minesweeper_v2']:
         sources.add('minesweeper')
-    if await system_flags.is_enabled(db, 'game_mafia_v1'):
+    if flags['game_mafia_v1']:
         async with db.execute('SELECT 1 FROM mafia_v1_players WHERE user_id=? LIMIT 1', (int(user_id),)) as cursor:
             if await cursor.fetchone():
                 sources.add('mafia')
-    if await system_flags.is_enabled(db, 'content_chests_v1') and await chest_repo.openable_balance(
+    if flags['content_chests_v1'] and await chest_repo.openable_balance(
             db, int(user_id), catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
     ) > 0:
         # A chest quest is assigned only when the player already owns a free or
@@ -166,7 +168,7 @@ async def available_sources(db, *, user_id: int, now: datetime | None = None) ->
     owned_pets = await pets_repo.list_owned_pets(db, int(user_id))
     if owned_pets:
         sources.add('pets')
-        if await system_flags.is_enabled(db, 'pets_v2'):
+        if flags['pets_v2']:
             from infrastructure.repositories import pets_v2 as pet_v2_repo
             from core import pets_v2 as pet_rules
             owned_v2 = await pet_v2_repo.list_owned_pets(db, int(user_id))

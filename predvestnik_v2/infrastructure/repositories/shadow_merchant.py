@@ -193,10 +193,10 @@ async def buy_shadow_relic(
                 "INSERT INTO user_shadow_relics (user_id, relic_id) VALUES (?, ?)",
                 (user_id, relic_id),
             )
-    except ValueError as e:
-        return False, str(e)
     except InsufficientBalance:
         return False, f"Недостаточно Тёмной Моры: нужно {price:.0f} 🌑."
     except IdempotencyConflict:
         return False, "Этот запрос уже использован для другой покупки."
+    except ValueError as e:
+        return False, str(e)
     return True, f"{relic['name']} — ваша! Списано {price:.0f} 🌑, ваучер погашен."

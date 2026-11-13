@@ -7,15 +7,21 @@
 Ключи:
     all                  весь бот в чатах
     section:<раздел>     раздел «бот помощь» (games, social, moderation…)
-    group:<набор>        набор команд (group:warps — все варп-команды)
+    group:<набор>        набор команд (group:warps — все варп-команды; group:business — бот в личных переписках игроков)
+    business:<функция>   часть бота в переписках (business:games, business:bets) — только глобально
+    group:widgets        HTML-виджеты в личке с ботом (services/widgets) — только глобально
     cmd:<команда>        одна команда («cmd:перевод»)
     notice:achievements  объявления о новых уровнях достижений
     site                 весь сайт (мини-приложение)
     site:<область>       часть сайта (site:rhythm, site:skins…) — только глобально
+    event:<событие>      событие за звёзды владельца (event:pass_race) — наоборот, ВЫКЛЮЧЕНО, пока его не включат;
+                         только глобально и только создатель; состояние хранит само событие (services/pass_race.py)
 """
 from __future__ import annotations
 
 import time
+
+from loguru import logger
 
 GLOBAL = 0
 TTL = 15.0   # сек; запись из админки сбрасывает кэш сразу (бот и сайт — один процесс)
@@ -40,7 +46,13 @@ SITE_AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
 SITE_ALWAYS_OPEN = ("/bot-admin", "/auth", "/legal", "/support", "/api/health", "/api/ready", "/static", "/manifest.json",
                     "/telemetry")   # ошибки игроков нужны именно тогда, когда сайт выключен
 NOTICES = {"achievements": "🏆 Объявления о новых уровнях достижений"}
-GROUPS = {"warps": "🤗 Все варп-команды (обнять, погладить…)", "pets": "🐾 Управление питомцами", "star_dust": "🌠 Звёздная пыль"}
+GROUPS = {"warps": "🤗 Все варп-команды (обнять, погладить…)", "pets": "🐾 Управление питомцами", "star_dust": "🌠 Звёздная пыль",
+          "ship": "💞 Шипперим: случайные пары по команде «шипирить»",
+          "article": "⚖️ Моя статья: пародийная статья про игрока",
+          "business": "💼 Бизнес-режим: бот в личных переписках игроков",
+          "widgets": "🧩 Виджеты в личке: живые карточки прямо в сообщениях бота"}
+EVENTS = {"pass_race": ("🏁 Гонка за Пропуском: 50 ⭐ первым четверым",
+                        "Выключено, пока не включите. Включение — старт гонки этого сезона; выплата вручную")}
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS bot_feature_switches (
@@ -127,6 +139,10 @@ def site_area(path: str, root: str = "") -> str | None | bool:
 
 
 async def set_switch(db, chat_id: int, feature: str, enabled: bool, *, actor_id: int, reason: str = "") -> None:
+    if feature == "event:pass_race":
+        from services import pass_race
+        await pass_race.set_enabled(db, enabled=enabled, actor_id=actor_id)
+        return
     if enabled:
         await db.execute("DELETE FROM bot_feature_switches WHERE chat_id = ? AND feature = ?", (chat_id, feature))
     else:
@@ -154,14 +170,22 @@ def catalog() -> list[dict]:
         chat.append({"key": f"section:{key}", "title": title, "hint": "Весь раздел", "items": by_section[key]})
     chat.append({"key": "group:warps", "title": GROUPS["warps"], "hint": "122 команды разом"})
     chat.append({"key":"group:star_dust","title":GROUPS["star_dust"],"hint":"Звездопад и VIP за пыль"})
+    chat.append({"key": "group:ship", "title": GROUPS["ship"], "hint": "Команды «шипирить» и личные отказы"})
+    chat.append({"key": "group:article", "title": GROUPS["article"], "hint": "Команда «моя статья»"})
     chat.append({"key": "group:pets", "title": GROUPS["pets"], "hint": "Все команды и кнопки питомцев"})
+    chat.append({"key": "group:business", "title": GROUPS["business"], "hint": "Telegram для бизнеса: команды «бот …» игрока в его переписках",
+                 "items": [{"key": "business:games", "title": "🎮 Игры вдвоём в переписках", "hint": "Камень-ножницы-бумага, кубики, крестики-нолики"},
+                           {"key": "business:bets", "title": "🎰 Игры на жетоны в переписках", "hint": "Ставки жетонами казино; без них игры остаются"}]})
+    chat.append({"key": "group:widgets", "title": GROUPS["widgets"], "hint": "Только личка с ботом; выключаются только везде"})
     if other:
         chat.append({"key": "", "title": "Прочие команды", "items": other})
     for key, title in NOTICES.items():
         chat.append({"key": f"notice:{key}", "title": title, "hint": "Уровни считаются, но в чат не пишутся"})
     site = [{"key": "site", "title": "🌐 Весь сайт", "hint": "Мини-приложение отвечает «временно закрыто»"}]
     site += [{"key": f"site:{k}", "title": t, "hint": ", ".join(p)} for k, (t, p) in SITE_AREAS.items()]
-    return [{"scope": "chat", "title": "Чат-бот", "items": chat}, {"scope": "site", "title": "Сайт", "items": site}]
+    events = [{"key": f"event:{k}", "title": t, "hint": h} for k, (t, h) in EVENTS.items()]
+    return [{"scope": "chat", "title": "Чат-бот", "items": chat}, {"scope": "site", "title": "Сайт", "items": site},
+            {"scope": "events", "title": "События за звёзды", "items": events}]
 
 
 async def state(db, chat_id: int) -> dict:
@@ -174,4 +198,12 @@ async def state(db, chat_id: int) -> dict:
     for r in rows:
         scope = "global" if int(r[0]) == GLOBAL else "chat"
         out[scope][str(r[1])] = {"reason": r[2] or "", "at": r[3].isoformat() if r[3] else None}
+    from services import pass_race   # события наоборот: «выключено», пока не идёт
+    try:
+        on = await pass_race.running(db)
+    except Exception as exc:   # таблиц гонки ещё нет или база занята: раздел «Функции» не ломаем, событие считается выключенным
+        logger.warning(f"pass race state unavailable: {type(exc).__name__}: {exc}")
+        on = None
+    if not on:
+        out["global"]["event:pass_race"] = {"reason": "", "at": None}
     return out

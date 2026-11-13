@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+os.environ.setdefault('ACTIVITY_GRAPH_INPROCESS', '1')
 os.environ.setdefault('BOT_TOKEN', '1:offline')
 os.environ.setdefault('DATABASE_URL', 'postgresql://offline@127.0.0.1:1/offline')
 from bot.chat import activity_graph as g
@@ -21,7 +22,9 @@ async def main():
     @asynccontextmanager
     async def transaction():
         yield
-    db=SimpleNamespace(connection=SimpleNamespace(transaction=transaction))
+    async def release_if_idle():
+        return False
+    db=SimpleNamespace(connection=SimpleNamespace(transaction=transaction), release_if_idle=release_if_idle)
     def render(counts, start, **kwargs):
         calls.append(list(counts))
         time.sleep(.05)

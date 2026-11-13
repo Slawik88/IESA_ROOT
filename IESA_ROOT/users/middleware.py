@@ -1,3 +1,4 @@
+import ipaddress
 import re
 from datetime import timedelta
 
@@ -6,6 +7,41 @@ from django.db.models import Q
 from django.http import HttpResponseNotFound
 from django.utils import timezone
 from django.utils import translation
+
+
+class RealClientIPMiddleware:
+    """Put the real client IP into REMOTE_ADDR before any rate limit reads it.
+
+    daphne --proxy-headers takes the FIRST X-Forwarded-For value, and DigitalOcean passes the
+    client's own header through, so `X-Forwarded-For: 1.2.3.4` used to reset every per-IP limit
+    (registration, login, password reset, search). App Platform sets `do-connecting-ip` itself
+    (docs.digitalocean.com: "client IP address of a request connecting to my app"); a client
+    cannot override it. Locally the header is absent and REMOTE_ADDR stays as is.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        ip = self._do_connecting_ip(request)
+        if ip:
+            request.META['REMOTE_ADDR'] = ip
+        return self.get_response(request)
+
+    @staticmethod
+    def _do_connecting_ip(request):
+        # Read the exact header from the ASGI scope: META merges 'do-connecting-ip' with a client-sent
+        # 'do_connecting_ip' into one key. If a value was appended to a client's own, the proxy's is last.
+        scope = getattr(request, 'scope', None)
+        if scope is not None:
+            values = [v.decode('latin-1') for k, v in scope.get('headers', []) if k.lower() == b'do-connecting-ip']
+        else:
+            values = [request.META.get('HTTP_DO_CONNECTING_IP', '')]
+        raw = ','.join(values).split(',')[-1].strip()
+        try:
+            return str(ipaddress.ip_address(raw)) if raw else ''
+        except ValueError:
+            return ''
 
 
 class BlockScannerMiddleware:
@@ -109,10 +145,7 @@ class BlockScannerMiddleware:
         # сами проверки не тянули новые DB connections.
         try:
             from django.core.cache import caches
-            ip = (
-                request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-                or request.META.get('REMOTE_ADDR', '')
-            )
+            ip = request.META.get('REMOTE_ADDR', '')   # real IP, see RealClientIPMiddleware
             if ip:
                 k = f'scan_hits:{ip}'
                 rl_cache = caches['ratelimit']

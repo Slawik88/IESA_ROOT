@@ -42,7 +42,7 @@ ACTION_TITLES = {
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
     "promo_create": "Промокод создан", "promo_update": "Промокод изменён", "promo_active": "Промокод включён или выключен",
     "promo_bulk": "Пачка промокодов создана",
-    "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб", "digest_settings": "Ежедневный отчёт владельцу",
+    "switch": "Выключатель", "pass_race": "Гонка за Пропуском: место", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб", "digest_settings": "Ежедневный отчёт владельцу",
     "note_add": "Заметка об игроке", "note_remove": "Заметка убрана",
     "watch_add": "Игрок поставлен на контроль", "watch_remove": "Игрок снят с контроля",
     "sessions_revoke": "Завершены сессии админки", "grant": "Права ролей изменены", "owner_access": "Вход владельцев чатов", "owner_block": "Доступ владельца отозван или возвращён",
@@ -50,6 +50,7 @@ ACTION_TITLES = {
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена или отменена",
     "broadcast_resume": "Рассылка продолжена", "broadcast_template": "Шаблон рассылки",
     "journal_export": "Выгрузка журнала", "dm": "Сообщение в личку", "skin_grant": "Выдан образ", "skin_revoke": "Забран образ", "purge_start": "Чистка начата", "purge_finish": "Чистка закончена", "purge_reconcile": "Чистка: решение сверено с Telegram",
+    "widget_test": "Пробный виджет себе в личку",
 }
 
 
@@ -525,11 +526,12 @@ FEED_KINDS = {
                            "dm", "skin_grant", "skin_revoke")),
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
-    "switches": ("Функции", ("switch",)),
+    "switches": ("Функции", ("switch", "pass_race")),
     "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke", "grant", "owner_access", "owner_block", "journal_export")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
     "purge": ("Чистка", ("purge_start", "purge_finish", "purge_reconcile")),
+    "widgets": ("Виджеты", ("widget_test",)),
 }
 FEED_DAYS_MAX = 90
 EXPORT_MAX_ROWS = 5000
