@@ -1,4 +1,4 @@
-"""Админка на фикстурах: 8 экранов × 3 ширины × 8 образов, строгая тема и отказы листов.
+"""Админка на фикстурах: 11 экранов × 3 ширины × 8 образов, строгая тема и отказы листов.
 
 Запуск через ui_smoke.py --only admin-search,admin-player,admin-reports,admin-journal,admin-broadcast,admin-access.
 Не использует Telegram, прод или базу. Новый экран добавляется в ADMIN_SCREENS и OPENERS.
@@ -17,7 +17,7 @@ from core.skins_v3_catalog import SKINS
 from ui_smoke_checks import ADMIN_SCREENS
 LOOKS = ("forest", "dune", "frost", "hanami", "void", "aurora", "solar", "crimson_dark")
 OPENERS = {"admin-purge": f"purgeView(document.querySelector('#main'), {CHAT['id']}, 'Тестовый чат')","admin-search": "open('people')", "admin-player": "playerView(document.querySelector('#main'), 5000)",
-           **{f"admin-{tab}": f"open('{tab}')" for tab in ("reports", "journal", "broadcast", "access", "metrics")}}
+           **{f"admin-{tab}": f"open('{tab}')" for tab in ("reports", "journal", "broadcast", "access", "metrics", "health", "settings", "diagnostics")}}
 PROBE = """() => {
   const fails = [], w = innerWidth;
   const native = document.createElement('button'); document.body.append(native);

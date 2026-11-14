@@ -574,3 +574,98 @@ main { padding-bottom: calc(112px + var(--v3-safe-b) + var(--admin-undo-height, 
 .page-head h2 span { color: var(--v3-ink); }
 
 a { color: var(--v3-ink); }
+
+/* ═══ S11b · проще и ровнее: одна шкала размеров, один маркер раскрытия, спокойные плитки и выбор,
+   маленькие галочки в зоне 44 px. Геометрия и опасная пара цветов по-прежнему не зависят от образа. ═══ */
+body { --fs-cap: 11.5px; --fs-sub: 13px; --fs-sec: 17px; --fs-title: 24px; }
+
+/* Заголовок вкладки — крупно и без значка; одна строка пояснения. */
+.page-head { margin: 4px 0 16px; }
+.page-head h2 { font-size: var(--fs-title); font-weight: 700; line-height: 1.15; letter-spacing: -.02em; }
+.page-head p { margin-top: 4px; font-size: var(--fs-sub); line-height: 1.4; }
+
+/* Группы: один размер подзаголовка, одна подпись-капитель для мелких разделов. */
+.sec-h { font-size: var(--fs-sec); font-weight: 650; }
+summary.sec-h { color: var(--v3-ink); }
+.card h3, h3.sec, .sec-title, .day-h { font-size: var(--fs-cap); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--v3-dim); }
+.section { margin-top: 18px; padding-top: 10px; }
+.sub, .note, .cap { font-size: var(--fs-sub); }
+
+/* Раскрытие: один шеврон справа (раньше «›» слева и «▾» справа одновременно). */
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before, details[open] > summary::before { content: none; }
+details > summary::after, details.section > summary::after, details.section:not([open]) > summary::after {
+  content: ""; flex: none; width: 7px; height: 7px; margin: 0 4px 0 auto; color: inherit;
+  border: solid var(--v3-dim); border-width: 0 1.6px 1.6px 0; transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
+details[open] > summary::after, details.section[open] > summary::after { transform: translateY(2px) rotate(225deg); }
+details.sw-group > summary > .sw-row { flex: 1; min-width: 0; }
+
+/* Свёрнутые пояснения и подробности: строка-приглашение того же вида на всех вкладках. */
+.fold-note, .more-d, .rep-more { margin: 6px 0; }
+.fold-note > summary, .more-d > summary, .rep-more > summary { min-height: 44px; font-size: var(--fs-sub); font-weight: 500; color: var(--v3-dim); }
+.fold-note > .sub { padding: 0 0 10px; line-height: 1.45; }
+.more-d[open] > summary, .rep-more[open] > summary { color: var(--v3-ink); }
+
+/* Плитки: цифра крупно, подпись мелко; тревога — только цветом цифры, без рамок вокруг плитки. */
+.kpi.bad, .kpi.warn, .kpi.ok { box-shadow: none; }
+.kpi.warn b { color: var(--v3-ink); }
+.kpi b { font-size: 22px; font-weight: 650; }
+.kpi.sm b { font-size: 19px; }
+
+/* Текущий выбор в переключателях периода и вида — спокойная плашка, а не залитая акцентом кнопка:
+   акцент остаётся одной главной кнопке экрана (MINIAPP_DESIGN_RULES, п. 1). */
+.scope .btn.small.primary { background: var(--v3-dock-on); color: var(--v3-ink); border-color: color-mix(in srgb, var(--v3-acc) 55%, var(--v3-faint)); font-weight: 650; }
+
+/* Галочки и переключатели-радио: квадрат 20 px внутри прежней зоны нажатия 44 px (раньше квадрат был размером с зону). */
+input[type="checkbox"], input[type="radio"] { appearance: none; -webkit-appearance: none; position: relative; width: 44px; height: 44px; min-height: 44px; margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: none; cursor: pointer; flex: none; vertical-align: middle; }
+input[type="checkbox"]::before, input[type="radio"]::before { content: ""; position: absolute; inset: 12px; border: 1.6px solid var(--v3-dim); border-radius: 6px; transition: background .15s, border-color .15s; }
+input[type="radio"]::before { border-radius: 50%; }
+input[type="checkbox"]:checked::before, input[type="radio"]:checked::before { background: var(--v3-acc); border-color: var(--v3-acc); }
+input[type="checkbox"]:checked::after { content: ""; position: absolute; left: 18px; top: 15px; width: 5px; height: 10px; border: solid var(--v3-on-acc); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+input[type="radio"]:checked::after { content: ""; position: absolute; inset: 18px; border-radius: 50%; background: var(--v3-on-acc); }
+input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .45; cursor: not-allowed; }
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outline-offset: -8px; }
+.field.switch { display: flex; align-items: center; gap: 2px; }
+.field.switch > input[type="checkbox"] { margin-left: -12px; }
+
+/* Жалоба: шапка с галочкой справа, два решения, остальное — под «Ещё действия». */
+.rep-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+.rep-head .pick { margin: -11px 0; }
+.rep-who { margin-top: 8px; }
+.rep-acts { margin-top: 12px; }
+.rep-more { margin-bottom: 0; }
+.rep-more > .actions { padding-bottom: 4px; }
+
+/* Журнал: чат отдельной короткой строкой под действием. */
+.log-chat { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sub); color: var(--v3-dim); }
+.log-chat a { flex: 0 1 auto; min-width: 0; font-weight: 500; }
+
+/* Настройки: строка темы как обычная строка настройки. */
+.theme-row { border-bottom: 1px solid var(--v3-faint); margin-bottom: 4px; }
+
+/* «Проблемы приложения» на общих примитивах: счётчики как плитки, обращения как строки-карточки. */
+.support-admin { gap: 12px; }
+.support-admin-counts { gap: 8px; }
+.support-admin-counts > button.card, .support-admin-counts > div { flex: 1 1 0; min-width: 0; padding: 10px 0; border: 0; border-bottom: 1px solid var(--v3-faint); border-radius: 0; background: none; text-align: left; }
+.support-admin-counts b { font-size: 22px; font-weight: 650; }
+.support-admin-counts span { color: var(--v3-dim); font-size: 12px; }
+.support-admin .fold-note .support-admin-counts { flex-wrap: wrap; }
+.support-admin .fold-note .support-admin-counts > div { flex: 1 1 96px; }
+.support-admin .card.support-admin-row { padding: 14px; border: 0; border-radius: var(--v3-admin-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--surface-line); }
+.support-admin .pill { flex: none; padding: 3px 10px; border-radius: 99px; background: var(--v3-dock-on); color: var(--v3-ink); }
+.support-admin-filters label { flex: 1 1 140px; color: var(--v3-dim); font-size: var(--fs-sub); }
+.support-admin-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+/* Одинаковые скругления у всех «коробок». */
+.alert, .confirm, .mark-tile, .card.rep, .skin, .ag-toc, .ag-where { border-radius: var(--v3-admin-radius); }
+.jfilters { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* «Что» и «Кто» рядом даже на телефоне: короткие значения */
+.sec-h .cnt { white-space: nowrap; }
+/* Люди в мета-строке журнала: зона нажатия остаётся 44 px, но не раздвигает строку (у строчного блока высоту строки
+   задаёт внешний край, отрицательные поля его сжимают). В жалобах и у чатов не применяется: длинное имя там переносится. */
+.log > .sub a[href="#"] { margin-block: -10px; }
+.log > .sub { margin-top: 2px; }
+/* Карточка игрока: раскрывашки одного вида; редкое (ники, теги, связи, образы, кошелёк) — под ними. */
+.player-extra > summary, .player-more > summary { min-height: 48px; font-size: 14.5px; font-weight: 600; color: var(--v3-ink); }
+.player-more[open] > summary { margin-bottom: 4px; }

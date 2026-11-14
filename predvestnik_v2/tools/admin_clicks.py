@@ -47,6 +47,9 @@ NEW = {
     "Бан во всех чатах": ("card", [("tap", "#pacts"), ("tap", '[data-act="global_ban"]'), ("keys", "#fconfirm", str(UID)), ("tap", "#sok"),
                                    ("expect", f"/player/{UID}/action", "action", "global_ban")]),
     "Чистка чата": ("chat", [("tap", "[data-purge]"), ("seen", "#purgeview .meter")]),
+    # S11b: под жалобой видны два решения, наказание — под «Ещё действия» (одно касание сверх прежнего).
+    "Жалоба: наказать": ("people", [("tap", '#tabs [data-tab="reports"]'), ("tap", '[data-card="100"] .rep-more > summary'),
+                                    ("tap", '[data-punish="mute"][data-rid="100"]'), ("tap", "#sok"), ("expect", "/reports/100/punish", "action", "mute")]),
 }
 # Проверки поведения, не замер: «Отменить» не отправляет ничего; решение в «Чистке» уходит на общий сервер после отсчёта.
 CHECKS = {

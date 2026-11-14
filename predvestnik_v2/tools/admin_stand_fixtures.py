@@ -332,3 +332,15 @@ ROUTES["/widgets"] = {"items": [
     {"key": "ttt", "icon": "❌", "title": "Крестики-нолики", "hint": "Партия с ботом прямо в сообщении", "size": 2500},
 ], "off": False, "limit": 4096}
 ROUTES["/widgets/send"] = {"ok": True, "message": "Отправлено вам в личку."}
+
+# S11b: «Проблемы приложения» и «Патч-ноуты» тоже снимаются стендом (раньше их ответа не было, раздел падал в ошибку).
+ROUTES["/diagnostics"] = {"page": 0, "total": 2, "counts": {"new": 1, "investigating": 1, "resolved": 0},
+                          "monitor": {"totals": {"requests": 1234, "errors_5xx": 3, "auth_401": 12, "slow": 4, "avatar_miss": 1}},
+                          "items": [{"id": "0b6f3c0e-0000-4000-8000-000000000001", "code": "PV-7K2Q", "category": "avatar", "status": "new",
+                                     "created_at": "2026-10-12T09:00:00+00:00", "user_id": 5000, "comment": "Не видно фото в профиле после смены образа " + "x" * 60},
+                                    {"id": "0b6f3c0e-0000-4000-8000-000000000002", "code": "PV-9M1D", "category": "games", "status": "investigating",
+                                     "created_at": "2026-10-11T09:00:00+00:00", "user_id": 5001, "comment": ""}]}
+ROUTES["/patch-notes"] = {"target": "https://t.me/predvestnik_news/2", "topic_verified": True, "problems": [],
+                          "items": [{"note_id": "2026-10-12", "title": "Питомцы и новые образы", "note_date": "2026-10-12", "status": "draft", "images": 2},
+                                    {"note_id": "2026-10-05", "title": "Пропуск сезона", "note_date": "2026-10-05", "status": "sent", "images": 1, "edited": True}]}
+SECTIONS.extend([{"key": "diagnostics", "title": "Проблемы приложения"}, {"key": "patchnotes", "title": "Патч-ноуты"}])

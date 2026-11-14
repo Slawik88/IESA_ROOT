@@ -665,7 +665,8 @@ async function peopleSearch(main, query = '') {
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя, тег или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div class="chips filters" id="pplf" role="group" aria-label="Фильтры — листай в сторону"></div>
-    <div class="field"><label for="pplmarks">Регалии</label><select id="pplmarks"><option value="">Все регалии</option></select></div>
+    <details class="more-d" id="pplmarksd" ${/^(?:marked|missing):|_marks$/.test(PEOPLE.filter) ? 'open' : ''}><summary>Фильтр по регалиям</summary>
+      <div class="field"><label for="pplmarks">Регалии</label><select id="pplmarks"><option value="">Все регалии</option></select></div></details>
     <div id="pplbulk"></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
@@ -720,7 +721,7 @@ async function peopleSearch(main, query = '') {
     if (!data) return;
     const {players, chats, total} = data;
     const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1] || data.filter_title || $('#pplmarks')?.selectedOptions[0]?.textContent || 'Регалии';
-    const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
+    const listTitle = q.trim() ? 'Игроки' : PEOPLE.filter ? title : 'Недавно активные';
     const showAttn = !q.trim() && !PEOPLE.filter;
     const pins = showAttn ? PREFS.get('pinned', []) : [];
     const recent = showAttn ? PREFS.get('recent', []).filter(r => !pins.some(x => x.id === r.id)) : [];
@@ -729,9 +730,9 @@ async function peopleSearch(main, query = '') {
     const recentHtml = pinsHtml + (recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
       `<button type="button" class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</button>`).join('')}</div>` : '');
     const linkedHead = /^linked:/.test(PEOPLE.filter) ? `<div class="chips"><span class="chip ok">🔗 ${esc(title)}</span><button type="button" class="btn small" id="pplnolink">✕ Убрать</button></div>` : '';
-    $('#pplres').innerHTML = recentHtml + linkedHead + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + head + `
+    $('#pplres').innerHTML = recentHtml + linkedHead + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
+        <span>${esc(listTitle)} · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
       <div class="list">${players.map(p => `<div class="prow" data-player="${p.id}">
         ${ava(p)}
@@ -1032,9 +1033,7 @@ async function playerView(main, id, push = true, from = null) {
     ${marksCard}
     ${reportsCard}
     ${notesCard}
-    ${namesCard}
-    ${tagsCard}
-    ${linkedCard}
+    ${namesCard || tagsCard || linkedCard ? `<details class="player-more"><summary>Прежние ники, теги и связи</summary>${namesCard}${tagsCard}${linkedCard}</details>` : ''}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -1345,9 +1344,12 @@ document.addEventListener('toggle', e => {
   if (d.matches && d.matches('details.section[data-sec]')) FOLD.set(d.dataset.sec, d.open);
 }, true);
 
-const pageHead = (icon, title, sub) => `<header class="page-head"><h2><span aria-hidden="true">${icon}</span> ${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
+// Значок раздела живёт в доке; в заголовке он повторялся разными стилями (эмодзи и символы), поэтому не выводится (S11b).
+const pageHead = (icon, title, sub) => `<header class="page-head"><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
 const kpi = (label, value, extra = '', cls = '') => `<div class="kpi ${cls}"><span>${label}</span><b>${value}</b>${extra}</div>`;
 const alertBox = (kind, html) => `<div class="alert ${kind}" role="status">${html}</div>`;
+// Пояснение длиннее двух строк не стоит в основном потоке: свёрнуто под одной строкой «как это работает» (MINIAPP_DESIGN_RULES, п. 3).
+const foldNote = (title, html) => `<details class="fold-note"><summary>${esc(title)}</summary><div class="sub">${html}</div></details>`;
 // Свёрнутая секция помнит выбор человека; без ключа или без fold это обычная открытая группа.
 function section(key, title, body, {fold = false, open = true, count = null} = {}) {
   const cnt = count == null ? '' : ` <small class="cnt">· ${count}</small>`;
@@ -1439,33 +1441,33 @@ async function metricsView(main, days = 1) {
     <div class="scope">${Object.entries(period).map(([d, t]) =>
       `<button class="btn small ${+d === m.days ? 'primary' : ''}" data-days="${d}">${t}</button>`).join('')}
       <span class="sub">${m.days === 1 ? dmy(m.until) : dmy(m.since) + ' — ' + dmy(m.until)}</span>
-      <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица CSV</button></div>
+      <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица</button></div>
     <div class="kpis hero">
       ${kpi('👤 Уникальных людей', num(m.everyone), metricTrend(m.everyone, cmp.everyone))}${kpi('📱 В приложении', num(s.visitors), metricTrend(s.visitors, cmp.visitors))}
       ${kpi('🤖 Команд бота', num(b.commands), metricTrend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages))}</div>
-    <p class="sub note">В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
+    ${foldNote('Как считаются цифры', `В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
       в чате с ботом. ${m.days === 1 ? 'Сегодняшний день ещё не завершён (UTC); проценты к полным прошлым суткам не показываем.' : `Стрелки — сравнение с предыдущими ${m.days} днями. Текущий период включает незавершённый день (UTC).`}
-      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель, тестеры): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}</p>
+      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель, тестеры): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}`)}
     ${section('m-app', '📱 Мини-приложение', `<div class="kpis">
       ${kpi('Посетителей', num(s.visitors), metricTrend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
       ${kpi('Время всего', dur(s.seconds), '', 'sm')}${kpi('На человека', dur(s.avg_seconds_per_visitor), '', 'sm')}</div>
       ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
-      ${s.pages.length ? tbl(['Вкладка', 'Открытий', 'Людей', 'Время', 'Среднее'],
-        s.pages.map(p => [esc(p.title), num(p.visits), num(p.users), dur(p.seconds), dur(p.avg_seconds)]))
+      ${s.pages.length ? `<details class="more-d"><summary>По вкладкам · ${s.pages.length}</summary>${tbl(['Вкладка', 'Открытий', 'Людей', 'Время', 'Среднее'],
+        s.pages.map(p => [esc(p.title), num(p.visits), num(p.users), dur(p.seconds), dur(p.avg_seconds)]))}</details>`
         : '<div class="sub" style="margin-top:8px">За период никто не открывал.</div>'}
-      ${s.subpages.length ? `<details class="more-d"><summary class="sub">Разделы внутри вкладок · ${s.subpages.length}</summary>
+      ${s.subpages.length ? `<details class="more-d"><summary>Разделы внутри вкладок · ${s.subpages.length}</summary>
         ${tbl(['Вкладка', 'Открытий', 'Людей'], s.subpages.map(p => [esc(p.tab), num(p.visits), `${num(p.users)} чел.`]))}</details>` : ''}`)}
     ${section('m-bot', '🤖 Команды бота', `<div class="kpis">
       ${kpi('Команд', num(b.commands), metricTrend(b.commands, cmp.commands), 'sm')}${kpi('В чатах', num(b.commands_group), '', 'sm')}${kpi('В личке', num(b.commands_private), '', 'sm')}
       ${kpi('Людей', num(b.users), metricTrend(b.users, cmp.bot_users), 'sm')}${kpi('Людей в чатах', num(b.users_group), '', 'sm')}${kpi('Людей в личке', num(b.users_private), '', 'sm')}</div>
       ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
-      ${b.top.length ? tbl(['Команда', 'В чатах', 'В личке', 'Всего'], b.top.map(x => [`бот ${esc(x.command)}`, num(x.group), num(x.private), num(x.total)]))
-        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
-      ${b.top_includes_staff ? '<p class="sub note">Рейтинг команд считается без разбивки по людям, поэтому в нём остаются и команды аккаунтов команды. Плитки выше их не включают.</p>' : ''}`)}
+      ${b.top.length ? `<details class="more-d"><summary>Популярные команды · ${b.top.length}</summary>${tbl(['Команда', 'В чатах', 'В личке', 'Всего'], b.top.map(x => [`бот ${esc(x.command)}`, num(x.group), num(x.private), num(x.total)]))}
+        ${b.top_includes_staff ? '<p class="sub note">Рейтинг команд считается без разбивки по людям, поэтому в нём остаются и команды аккаунтов команды. Плитки выше их не включают.</p>' : ''}</details>`
+        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}`)}
     ${section('m-chats', '💬 Чаты', `<div class="kpis">
       ${kpi('Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages), 'sm')}${kpi('Писали', num(c.users) + ' чел.', metricTrend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
       ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
-      ${c.top.length ? tbl(['Чат', 'Сообщений', 'Писали'], c.top.map(x => [ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title), num(x.messages), num(x.users)])) : ''}`)}
+      ${c.top.length ? `<details class="more-d"><summary>Самые активные чаты · ${c.top.length}</summary>${tbl(['Чат', 'Сообщений', 'Писали'], c.top.map(x => [ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title), num(x.messages), num(x.users)]))}</details>` : ''}`)}
     ${economyCard(m.economy)}${retentionCard(m.retention)}${funnelCard(m.funnel)}`;
   $('#mexport').onclick = async e => {
     e.target.disabled = true;
@@ -1615,24 +1617,25 @@ async function broadcastView(main) {
         <button class="btn small danger" id="btpldel" hidden>Удалить шаблон</button></div></div>
       <div class="field"><label>Кому</label><select id="bkind">${data.audiences.map(a =>
         `<option value="${a.key}" ${a.key === BC.kind ? 'selected' : ''}>${esc(a.title)} · всего ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
-      <div id="bseg"></div>
+      <details class="more-d" id="bsegd" ${BC.chats.length || BC.players.length || BC.active || BC.chatKind || BC.vip || BC.newDays || BC.minMsg ? 'open' : ''}><summary>Уточнить получателей</summary><div id="bseg"></div></details>
       <div class="card" id="bcount" style="margin:8px 0">Считаем получателей…</div>
       <div class="field"><label for="btext" id="btextlbl">Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
       <div class="field switch"><input type="checkbox" id="bhtml"/><label for="bhtml" style="margin:0">HTML-разметка Telegram</label></div>
-      <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
-      <div class="field" style="margin-top:8px"><label>Картинка (необязательно)</label>
+      <details class="fold-note" id="bhelp"><summary>Какие теги можно</summary><div class="sub">&lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div></details>
+      <details class="more-d" id="bextra" ${BC.mediaId || BC.btnText || BC.btnUrl ? 'open' : ''}><summary>Картинка и кнопка</summary>
+      <div class="field" style="margin-top:8px"><label>Картинка</label>
         <input type="file" id="bimg" accept="image/jpeg,image/png,image/webp" hidden/>
         <div class="actions"><button type="button" class="btn small" id="bimgpick">🖼 Выбрать картинку</button>
           <button type="button" class="btn small danger" id="bimgdel" hidden>Убрать картинку</button></div>
         <div class="sub">JPEG, PNG или WebP до ${BC_MEDIA_MB} МБ. С картинкой текст становится подписью к ней — до ${BC_CAPTION} знаков.</div></div>
       <div class="grid2" style="margin-top:8px">
         <div class="field"><label>Кнопка под сообщением: подпись</label><input id="bbtext" maxlength="64" placeholder="Например: Играть"/></div>
-        <div class="field"><label>Ссылка кнопки</label><input id="bburl" maxlength="512" placeholder="https://t.me/…"/></div></div>
-      <div class="sub" style="margin-top:6px">Предпросмотр</div>
+        <div class="field"><label>Ссылка кнопки</label><input id="bburl" maxlength="512" placeholder="https://t.me/…"/></div></div></details>
+      <div class="sub" id="bprevlbl" style="margin-top:6px">Предпросмотр</div>
       <div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
       <div class="field switch"><input type="checkbox" id="blater"/><label for="blater" style="margin:0">Отправить позже</label></div>
       <div class="field" id="batwrap" hidden><label>Когда (по вашему времени)</label><input type="datetime-local" id="bat"/></div>
-      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется. Получателей отложенной рассылки бот считает в момент отправки.</div>
+      ${foldNote('Кому рассылка не дойдёт', 'В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется. Получателей отложенной рассылки бот считает в момент отправки.')}
       <div class="actions" style="margin-top:10px"><button class="btn" id="btest">✉️ Отправить себе в личку</button>
         <button class="btn primary" id="bgo">Проверить и отправить</button></div>
       <div class="sub" id="bbusy" style="margin-top:6px" hidden>Сейчас идёт другая рассылка: дождитесь её или остановите.</div>
@@ -1688,6 +1691,7 @@ async function broadcastView(main) {
     $('#bimgdel').hidden = !BC.mediaId; $('#bimgpick').textContent = BC.mediaId ? '🖼 Заменить картинку' : '🖼 Выбрать картинку';
     $('#bprev').innerHTML = bcImg(BC.mediaUrl) + (BC.html ? tgHtml : esc)(BC.text) + (bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText || '…')}</span></div>` : '');
     $('#bhelp').hidden = !BC.html;
+    $('#bprev').hidden = $('#bprevlbl').hidden = !(BC.text.trim() || BC.mediaUrl || bcButton());   // пустая рамка предпросмотра не нужна
     $('#batwrap').hidden = !BC.later;
     $('#bgo').textContent = BC.later ? 'Проверить и запланировать' : 'Проверить и отправить';
   };
@@ -2378,7 +2382,7 @@ function reportSettingsCard(data) {
   const select = (id, value, list, offTitle) => `<select id="${id}">${offTitle ? `<option value="0" ${!value ? 'selected' : ''}>${offTitle}</option>` : ''}
     ${list.map(x => `<option value="${x.value}" ${x.value === value ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>`;
   return `<div class="card" id="repset"><h3>Жалобы</h3>
-    <div class="sub" style="margin-bottom:6px">Жалоба анонимна: игроки в чате и нарушитель не видят, кто пожаловался. Бот убирает команду из чата (нужно право удалять сообщения) и отвечает автору в личку.</div>
+    ${foldNote('Как работает жалоба', 'Жалоба анонимна: игроки в чате и нарушитель не видят, кто пожаловался. Бот убирает команду из чата (нужно право удалять сообщения) и отвечает автору в личку.')}
     <div class="sw-row ${r.to_admin_chat ? '' : 'off'}"><div class="t"><b>Отчёт в админ-чат</b><div class="sub">Если к чату привязан админ-чат, жалоба приходит туда без имени автора.</div></div>
       <label class="toggle"><input type="checkbox" id="rs-admin" ${r.to_admin_chat ? 'checked' : ''}/><span></span></label></div>
     <div class="field"><label>Отчёт в личку модераторам чата — с ранга в чате</label>${select('rs-chat', r.dm_chat_rank, o.chat_ranks, 'Не писать в личку')}</div>
@@ -2400,8 +2404,8 @@ function bindReportSettings(main, data) {
 
 function securityCard() {
   return `<div class="card" id="secset"><h3>🔐 Безопасность</h3>
-    <div class="sub" style="margin-bottom:8px">Если потеряли телефон или вошли с чужого устройства, завершите сессии: админку придётся открыть заново через Telegram.
-      Опасные действия (бан во всех чатах, смена роли, крупная выдача) просят ввести ID игрока, а при необычной активности владельцам приходит сообщение в личку.</div>
+    <div class="sub" style="margin-bottom:4px">Потеряли телефон или вошли с чужого устройства — завершите сессии.</div>
+    ${foldNote('Что ещё защищает админку', 'После выхода админку придётся открыть заново через Telegram. Опасные действия (бан во всех чатах, смена роли, крупная выдача) просят ввести ID игрока, а при необычной активности владельцам приходит сообщение в личку.')}
     <div class="actions"><button class="btn" id="revself">Выйти на всех моих устройствах</button>
       ${ME.creator ? '<button class="btn danger" id="revall">Завершить сессии всех сотрудников</button>' : ''}</div></div>`;
 }
@@ -2418,8 +2422,8 @@ function bindSecurityCard(main) {
 async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
-  main.innerHTML = `<div class="actions"><button type="button" class="btn" data-admin-theme>Тема админки</button></div>
-    ${pageHead('⚙', 'Настройки', 'Переводы, жалобы и безопасность')}
+  main.innerHTML = `${pageHead('⚙', 'Настройки', 'Переводы, жалобы и безопасность')}
+    <div class="sw-row theme-row"><div class="t"><b>Тема админки</b><div class="sub">Как у меня или строгая</div></div><button type="button" class="btn small" data-admin-theme>Сменить</button></div>
     <div class="card"><h3>Переводы между игроками</h3>
       <div class="sub" style="margin-bottom:6px">Какие валюты можно отправить командой «бот перевод».</div>
       ${data.transfer.map(c => `<div class="sw-row ${c.enabled ? '' : 'off'}">
@@ -2461,31 +2465,31 @@ async function healthView(main) {
     <div class="kpis hero">
       ${kpi('🤖 Telegram', tg ? (tg.ok ? 'работает' : 'не отвечает') : '—', tg && tg.ok ? `<small> ${tg.ms} мс</small>` : '', tg ? (tg.ok ? 'ok' : 'bad') : '')}
       ${kpi('🗄 База', `${h.database.ms} мс`)}${kpi('⏱ Работает', duration(h.process.uptime_seconds))}${kpi('⚠️ Ошибок за сутки', num(h.errors.count_24h))}</div>
-    <p class="sub note">Ошибки и время работы считаются с последнего перезапуска: каждый выкат новой версии обнуляет их, поэтому «0» сразу после выката ничего не доказывает.</p>
+    ${foldNote('Почему после выката ошибок «0»', 'Ошибки и время работы считаются с последнего перезапуска: каждый выкат новой версии обнуляет их, поэтому «0» сразу после выката ничего не доказывает.')}
     <div id="h-ops"><div class="sub">Загружаем «Здоровье»…</div></div>
-    <section class="section" data-sec="h-bot"><h3 class="sec-h">🤖 Бот</h3>
+    <details class="section" data-sec="h-bot" ${(FOLD.has('h-bot') ? FOLD.get('h-bot') : false) ? 'open' : ''}><summary class="sec-h">🤖 Бот</summary><div class="sec-body">
       ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
       ${row('Работает', duration(h.process.uptime_seconds), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
       ${row('База данных', `${h.database.ms} мс`, h.database.pool && h.database.pool.size != null ? `соединений занято ${h.database.pool.size - h.database.pool.idle} из ${h.database.pool.size} (максимум ${h.database.pool.max})` : '')}
-    </section>
-    <section class="section" data-sec="h-err"><h3 class="sec-h">⚠️ Ошибки за сутки <small class="cnt">· ${num(h.errors.count_24h)}</small></h3>
+    </div></details>
+    <details class="section" data-sec="h-err" ${(FOLD.has('h-err') ? FOLD.get('h-err') : h.errors.count_24h > 0) ? 'open' : ''}><summary class="sec-h">⚠️ Ошибки за сутки <small class="cnt">· ${num(h.errors.count_24h)}</small></summary><div class="sec-body">
       ${h.errors.recent.length ? h.errors.recent.map(e => `<div class="log"><div>${esc(e.text)}</div><div class="sub">${when(e.at)}</div></div>`).join('')
         : '<div class="sub">Ошибок нет. Считаются с последнего перезапуска.</div>'}
       ${h.errors.count_24h > h.errors.recent.length ? `<div class="sub">Показаны последние ${h.errors.recent.length}.</div>` : ''}
-    </section>
-    <section class="section" data-sec="h-chats"><h3 class="sec-h">💬 Чаты и игроки</h3>
+    </div></details>
+    <details class="section" data-sec="h-chats" ${(FOLD.has('h-chats') ? FOLD.get('h-chats') : h.chats.no_rights > 0) ? 'open' : ''}><summary class="sec-h">💬 Чаты и игроки</summary><div class="sec-body">
       ${row('Чатов с ботом', num(h.chats.active))}
       ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают. <a href="#" data-attn="left">Какие чаты</a>' : '')}
       ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают. <a href="#" data-attn="no_rights">Какие чаты</a>' : '')}
       ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet), h.chats.quiet ? '<a href="#" data-attn="quiet">Какие чаты</a>' : '')}
       ${row('Игроков', num(h.players.total))}
       ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
-    </section>
-    <section class="section" data-sec="h-queues"><h3 class="sec-h">📬 Очереди</h3>
+    </div></details>
+    <details class="section" data-sec="h-queues" ${(FOLD.has('h-queues') ? FOLD.get('h-queues') : false) ? 'open' : ''}><summary class="sec-h">📬 Очереди</summary><div class="sec-body">
       ${row('Рассылок идёт', num(h.queues.broadcasts_running))}
       ${row('Рассылок запланировано', num(h.queues.broadcasts_scheduled))}
       ${row('Открытых жалоб', num(h.queues.reports_open))}
-    </section>
+    </div></details>
     <details class="section" data-sec="h-digest" ${FOLD.get('h-digest') ? 'open' : ''}><summary class="sec-h">🌅 Итоги дня владельцу</summary><div class="sec-body">
       <div class="sub" style="margin-bottom:8px">Раз в сутки бот пишет владельцу в личку: новые игроки, сообщения, команды, жалобы, ошибки, чаты без прав.</div>
       <div class="field switch"><input type="checkbox" id="dgon" ${dg.enabled ? 'checked' : ''} ${dg.can_edit ? '' : 'disabled'}/><label for="dgon" style="margin:0">Присылать итоги дня</label></div>
@@ -2677,8 +2681,7 @@ async function ownersAccessCard(main) {
   const box = document.createElement('div');
   box.className = 'card'; box.id = 'ownacc';
   box.innerHTML = `<h3>🧑‍💼 Владельцы чатов</h3>
-    <div class="sub" style="margin-bottom:6px">Если включить, владельцы групп с ботом смогут входить в админку и управлять только своими чатами (не больше ${st.max_chats} на человека).
-      Владение проверяется по Telegram при каждом входе.</div>
+    ${foldNote('Что это даёт', `Если включить, владельцы групп с ботом смогут входить в админку и управлять только своими чатами (не больше ${st.max_chats} на человека). Владение проверяется по Telegram при каждом входе.`)}
     <div class="sw-row"><div class="t"><b>Вход владельцев чатов</b><div class="sub">${st.enabled ? 'Открыт' : 'Закрыт'}</div></div>
       <label class="toggle"><input type="checkbox" id="own-on" ${st.enabled ? 'checked' : ''}/><span></span></label></div>
     <div class="sub" style="margin:10px 0 4px">Доступ отозван</div>
@@ -2720,8 +2723,8 @@ async function accessView(main) {
         `<option value="${r.rank}" ${r.rank === i.current ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>
       ${i.changed ? `<button type="button" class="btn small" data-areset="${esc(i.key)}">Сбросить</button>` : ''}</div>`;
   const group = g => d.items.filter(i => i.group === g).map(row).join('');
-  main.innerHTML = `${pageHead('🛡', 'Права', 'С какой роли доступно каждое право. Меняется только то, что перечислено ниже')}
-    ${alertBox('info', 'Роль выше или равная выбранной получает право. Выдать можно только то, что здесь перечислено: деньги, роли, рассылки, промокоды, переключатели и настройки закреплены за разработчиком и создателем. Действие над игроком с равной или высшей ролью остаётся закрытым.')}
+  main.innerHTML = `${pageHead('🛡', 'Права', 'С какой роли доступно каждое право')}
+    ${foldNote('Как устроены права', 'Роль выше или равная выбранной получает право. Выдать можно только то, что здесь перечислено: деньги, роли, рассылки, промокоды, переключатели и настройки закреплены за разработчиком и создателем. Действие над игроком с равной или высшей ролью остаётся закрытым.')}
     ${section('a-sec', '🗂 Разделы', group('section'))}
     ${section('a-mod', '🛡 Модерация', group('moderation'))}
     ${section('a-feat', '🧪 Ранний доступ', alertBox('info', 'Новый контент до публичного запуска: сейчас это демо нового сезона (Лига Сапёра и Ритма). Награды в демо ненастоящие.') + group('feature'))}`;

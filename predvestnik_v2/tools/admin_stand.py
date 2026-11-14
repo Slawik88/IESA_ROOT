@@ -1,6 +1,8 @@
 """Стенд админки: открывает bot-admin на фикстурах (без входа и сервера) и снимает вкладки на 320/390/430 в двух темах.
 
-    python tools/admin_stand.py [--out DIR] [--tabs metrics,health]
+    python tools/admin_stand.py [--out DIR] [--tabs metrics,health] [--widths 390] [--themes own,strict] [--look hanami]
+
+Темы — те же, что у переключателя «Тема админки»: own (цвета надетого образа --look) и strict (Обсидиан).
 
 Запросы /bot-admin/api/* подменяются данными из admin_stand_fixtures.py, внешние адреса (шрифты, telegram-web-app.js) блокируются.
 Выходной код 1, если на какой-то ширине страница шире экрана: админка режет лишнее (overflow-x: clip), и без этой проверки
@@ -17,12 +19,14 @@ from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(__file__))
 from admin_stand_fixtures import OWNER_ROUTES, ROUTES, PURGE_VIEW  # noqa: E402
+# Снимаемые вкладки: player и purge открываются своими экранами, остальные — как раздел дока.
+ALL_TABS = "people,player,reports,journal,metrics,broadcast,promo,switches,settings,health,diagnostics,access,patchnotes,widgets,purge,guide"
 
 STATIC = os.path.join(os.path.dirname(__file__), "..", "FastAPI", "static", "bot-admin")
 HOST = "http://stand.local"
 SHARED = {"shell-v3.css": "../shell-v3.css", "appearance-ring-v3.css": "../appearance-ring-v3.css", "appearance-core.js": "../app.20.js"}
 WIDTHS = (320, 390, 430)
-THEMES = ("dark", "light")
+THEMES = ("own", "strict")
 OVERFLOW_JS = """() => {
   const w = document.documentElement.clientWidth, bad = [];
   document.querySelectorAll('main *').forEach(el => {
@@ -47,11 +51,19 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--static", default=STATIC, help="папка bot-admin для снимков базовой ревизии")
     ap.add_argument("--out", default="admin-stand-out")
-    ap.add_argument("--tabs", default="metrics,health")
+    ap.add_argument("--tabs", default="metrics,health", help=f"через запятую или all ({ALL_TABS})")
+    ap.add_argument("--widths", default=",".join(map(str, WIDTHS)))
+    ap.add_argument("--themes", default=",".join(THEMES))
+    ap.add_argument("--look", default="hanami", help="образ администратора для темы own")
     ap.add_argument("--owner", action="store_true", help="войти как владелец чата (вкладка mychats)")
     args = ap.parse_args()
     STATIC = args.static
-    tabs = [t for t in args.tabs.split(",") if t]
+    tabs = [t for t in (ALL_TABS if args.tabs == "all" else args.tabs).split(",") if t]
+    widths = [int(w) for w in args.widths.split(",") if w]
+    themes = [t for t in args.themes.split(",") if t]
+    from core.skins_v3_catalog import SKINS
+    skin = SKINS[args.look]
+    look = {"id": args.look, "tier": "SSS", "tokens": skin["tokens"], "pal": list(skin["pal"]), "kinds": skin["kinds"]}
     os.makedirs(args.out, exist_ok=True)
     from playwright.sync_api import sync_playwright
 
@@ -68,6 +80,8 @@ def main() -> int:
             routes = OWNER_ROUTES if args.owner else ROUTES
             if key in routes:
                 status, body = routes[key] if isinstance(routes[key], tuple) else (200, routes[key])
+                if key in ("/me", "/owner/me") and status == 200:
+                    body = {**body, "look": look}
                 return route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
             return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
         if path.startswith("/purge-v1/chats/"):
@@ -84,10 +98,10 @@ def main() -> int:
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH") or None)
-        for theme in THEMES:
-            for width in WIDTHS:
+        for theme in themes:
+            for width in widths:
                 ctx = browser.new_context(viewport={"width": width, "height": 800}, device_scale_factor=1)
-                ctx.add_init_script(f"localStorage.setItem('pv_admin_prefs', JSON.stringify({{theme: '{theme}'}}))")
+                ctx.add_init_script(f"localStorage.setItem('pv_admin_prefs', JSON.stringify({{'admin.look': '{theme}'}}))")
                 ctx.route("**/*", handle)
                 page = ctx.new_page()
                 errors: list[str] = []
@@ -101,7 +115,8 @@ def main() -> int:
                         page.evaluate("purgeView(document.querySelector('#main'), -100, 'Тестовый чат')")
                     else:
                         page.evaluate(f"open('{tab}')")
-                    page.wait_for_function("() => !document.querySelector('.admin-load')", timeout=8000)
+                    # Ошибка раздела — тоже готовый экран: его снимок показывает состояние «не загрузилось».
+                    page.wait_for_function("() => !document.querySelector('.admin-load:not(.load-failed)')", timeout=8000)
                     page.wait_for_timeout(350)
                     page.screenshot(path=os.path.join(args.out, f"{tab}-{theme}-{width}.png"), full_page=True)
                     res = page.evaluate(OVERFLOW_JS)

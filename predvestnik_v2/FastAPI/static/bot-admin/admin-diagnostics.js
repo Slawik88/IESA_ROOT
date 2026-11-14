@@ -12,20 +12,20 @@
     if (!data || CURRENT !== 'diagnostics') return;
     page = data.page;
     const totals = data.monitor?.totals || {};
-    main.innerHTML = `<div class="support-admin"><div class="section-head"><h1>Проблемы приложения</h1><button class="btn" data-support-refresh>Обновить</button></div>
-      <p class="sub">Обращения игроков · хранятся 30 дней · полный отчёт доступен в карточке.</p>
+    main.innerHTML = `${pageHead('', 'Проблемы приложения', 'Обращения игроков за 30 дней. Нажмите обращение, чтобы открыть отчёт.')}<div class="support-admin">
       <div class="support-admin-counts">${Object.entries(labels).map(([key,title]) => `<button class="card" data-status="${key}"><b>${num(data.counts[key]||0)}</b><span>${title}</span></button>`).join('')}</div>
-      <details class="card"><summary>Работа сервиса за последний час</summary><p class="sub">Текущий процесс; после перезапуска счётчики начинают собираться заново.</p><div class="support-admin-counts">${[['requests','Запросы'],['errors_5xx','Ошибки 5xx'],['auth_401','Без авторизации'],['slow','Дольше 3 секунд'],['avatar_miss','Не получено фото']].map(([key,title]) => `<div><b>${num(totals[key]||0)}</b><span>${title}</span></div>`).join('')}</div></details>
+      <details class="fold-note"><summary>Работа сервиса за последний час</summary><p class="sub">Текущий процесс; после перезапуска счётчики начинают собираться заново.</p><div class="support-admin-counts">${[['requests','Запросы'],['errors_5xx','Ошибки 5xx'],['auth_401','Без авторизации'],['slow','Дольше 3 секунд'],['avatar_miss','Не получено фото']].map(([key,title]) => `<div><b>${num(totals[key]||0)}</b><span>${title}</span></div>`).join('')}</div></details>
       <div class="support-admin-filters"><label>Статус<select data-support-status>${options(labels,status,'Все статусы')}</select></label><label>Проблема<select data-support-category>${options(categories,category,'Все виды')}</select></label></div>
-      <p class="sub">Обращений: ${num(data.total)}</p><div class="support-admin-list">${data.items.length ? data.items.map(item => `<button type="button" class="card support-admin-row" data-report="${esc(item.id)}"><span><b>${esc(item.code)}</b> · ${esc(categories[item.category]||item.category)}<small>${esc(when(item.created_at))} · Telegram ID ${esc(item.user_id)}</small><span>${esc(item.comment.slice(0,150)||'Без описания — сведения приложены в карточке')}</span></span><span class="pill">${esc(labels[item.status]||item.status)}</span></button>`).join('') : '<div class="empty">Таких обращений пока нет.</div>'}</div>
-      <div class="support-admin-pages"><button class="btn" data-support-prev ${page===0?'disabled':''}>Назад</button><span>${page+1}</span><button class="btn" data-support-next ${(page+1)*30>=data.total?'disabled':''}>Дальше</button></div></div>`;
+      <div class="support-admin-total"><span class="sub">Обращений: ${num(data.total)}</span><button class="btn small" data-support-refresh>↻ Обновить</button></div><div class="support-admin-list">${data.items.length ? data.items.map(item => `<button type="button" class="card support-admin-row" data-report="${esc(item.id)}"><span><b>${esc(item.code)}</b> · ${esc(categories[item.category]||item.category)}<small>${esc(when(item.created_at))} · Telegram ID ${esc(item.user_id)}</small><span>${esc(item.comment.slice(0,150)||'Без описания — сведения приложены в карточке')}</span></span><span class="pill">${esc(labels[item.status]||item.status)}</span></button>`).join('') : '<div class="empty">Таких обращений пока нет.</div>'}</div>
+      ${data.total > 30 ? `<div class="support-admin-pages"><button class="btn" data-support-prev ${page===0?'disabled':''}>Назад</button><span>${page+1}</span><button class="btn" data-support-next ${(page+1)*30>=data.total?'disabled':''}>Дальше</button></div>` : ''}</div>`;
     main.querySelector('[data-support-refresh]').onclick = () => list(main);
     main.querySelector('[data-support-status]').onchange = event => { status=event.target.value;page=0;list(main); };
     main.querySelector('[data-support-category]').onchange = event => { category=event.target.value;page=0;list(main); };
     for (const button of main.querySelectorAll('[data-status]')) button.onclick = () => { status=button.dataset.status;page=0;list(main); };
     for (const button of main.querySelectorAll('[data-report]')) button.onclick = () => detail(button.dataset.report,main);
-    main.querySelector('[data-support-prev]').onclick = () => { page--;list(main); };
-    main.querySelector('[data-support-next]').onclick = () => { page++;list(main); };
+    const prev = main.querySelector('[data-support-prev]'), next = main.querySelector('[data-support-next]');   // листалка только если страниц больше одной
+    if (prev) prev.onclick = () => { page--;list(main); };
+    if (next) next.onclick = () => { page++;list(main); };
   }
   function rows(events) {
     return events.slice(-100).reverse().map(event => `<tr><td>${esc(when(event.at))}</td><td>${esc(event.kind)}</td><td><code>${esc(JSON.stringify(event.data))}</code></td></tr>`).join('');

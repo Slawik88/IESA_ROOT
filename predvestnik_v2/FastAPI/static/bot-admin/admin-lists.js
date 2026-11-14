@@ -52,9 +52,9 @@ async function journalView(main, more = '') {
     const chatTitle = x.chat ? String(x.chat.title || x.chat.id) : '';
     const chat = chatTitle ? (canPeople ? `<a href="#" data-chat="${x.chat.id}">${esc(chatTitle)}</a>` : esc(chatTitle)) : '';
     // В описании переключателя чат уже назван словами — второй раз его не показываем.
-    const where = chat && !String(x.text || '').includes(chatTitle) ? ` в чате «${chat}»` : '';
+    const where = chat && !String(x.text || '').includes(chatTitle) ? `<div class="log-chat">💬 ${chat}</div>` : '';
     const reason = x.reason ? ` · причина: ${esc(x.reason)}` : '';
-    return `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b>${x.text ? ' ' + esc(x.text) : ''}${where}</div>
+    return `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b>${x.text ? ' ' + esc(x.text) : ''}</div>${where}
       <div class="sub">${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''} · ${when(x.at)}${reason}</div></div>`;
   }).join('');
   const body = rows || (more ? '' : '<div class="empty">За этот период действий нет.</div>');
@@ -70,7 +70,7 @@ async function journalView(main, more = '') {
         <div class="field"><label>Кто</label><select id="jactor"><option value="0">Все</option>${data.actors.map(a =>
           `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
       ${JOURNAL.scope ? `<div class="chips jscope"><span class="chip ok">${JOURNAL.scope.user_id ? '👤' : '💬'} ${esc(JOURNAL.scope.title)}</span><button type="button" class="btn small" id="jscopeoff">✕ Весь журнал</button></div>` : ''}
-      <div class="actions jexport"><button type="button" class="btn small" id="jexport">⬇️ ${INIT ? 'Прислать таблицу в личку' : 'Скачать таблицу'} (CSV) за ${JOURNAL.days} дн.</button></div>
+      <div class="actions jexport"><button type="button" class="btn small" id="jexport">⬇ ${INIT ? 'Прислать таблицу в личку' : 'Скачать таблицу'} за ${JOURNAL.days} дн.</button></div>
       <section class="section" id="jlist"><h3 class="sec-h">Действия персонала</h3>${body}</section>`;
     bindJournalTabs(main);
     main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); journalView(main); });
@@ -135,7 +135,7 @@ async function reportsView(main, kind = 'open') {
     <div class="kpis rep-counts">${kpi('Новых', num(c.new), '', c.new ? 'sm warn' : 'sm')}${kpi('В работе', num(c.in_work), '', 'sm')}${kpi('Закрыто', num(c.resolved + c.rejected), '', 'sm')}</div>
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
-    <div class="sub note">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
+    ${foldNote('Кто видит автора жалобы', `Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}`)}
     ${data.repeat && data.repeat.length ? `<section class="section" data-sec="r-repeat"><h3 class="sec-h">🔁 Повторные нарушители <small class="cnt">· ${data.repeat.length}</small></h3>
       <div class="sub note">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
       ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person(x)}
@@ -143,19 +143,20 @@ async function reportsView(main, kind = 'open') {
         ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</section>` : ''}
     ${kind === 'open' && data.items.length > 1 ? '<div id="repbulk"></div>' : ''}
     ${data.items.length ? data.items.map(r => `<div class="card rep ${r.status}" data-card="${r.id}">
-      <div>${kind === 'open' && data.items.length > 1 ? '<input type="checkbox" class="pick" data-pickrep="' + r.id + '" aria-label="Выбрать жалобу"/> ' : ''}<span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
-        <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
-      <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
+      <div class="rep-head"><div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
+        <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>${kind === 'open' && data.items.length > 1 ? '<input type="checkbox" class="pick" data-pickrep="' + r.id + '" aria-label="Выбрать жалобу"/>' : ''}</div>
+      <div class="rep-who">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
         <span class="sub">${r.reporter ? 'от ' + person(r.reporter) : '· автор скрыт'}</span></div>
       <div class="rep-why"><b>Причина:</b> ${esc(r.reason)}</div>
       ${r.message_text ? `<blockquote class="rep-msg">${esc(r.message_text)}</blockquote>` : ''}
       ${r.handled_by ? `<div class="sub" style="margin-top:6px">${pinline(r.handled_by)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
-      ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
+      ${kind === 'open' ? `<div class="actions rep-acts">
+        <button class="btn small" data-rep="${r.id}" data-act="resolve">✅ Нарушение</button>
+        <button class="btn small" data-rep="${r.id}" data-act="reject">✖️ Отклонить</button></div>
+        <details class="rep-more"><summary>Ещё действия</summary><div class="actions">
         ${canPeople ? `<button class="btn small" data-player="${r.target.id}">👤 Карточка</button>` : ''}
-        ${(data.punish || []).map(a => `<button class="btn small danger" data-punish="${a.key}" data-rid="${r.id}">${esc(a.title)}</button>`).join('')}
         ${r.status === 'new' ? `<button class="btn small" data-rep="${r.id}" data-act="take">🙋 Взять</button>` : ''}
-        <button class="btn small primary" data-rep="${r.id}" data-act="resolve">✅ Нарушение</button>
-        <button class="btn small" data-rep="${r.id}" data-act="reject">✖️ Отклонить</button></div>` : ''}
+        ${(data.punish || []).map(a => `<button class="btn small danger" data-punish="${a.key}" data-rid="${r.id}">${esc(a.title)}</button>`).join('')}</div></details>` : ''}
     </div>`).join('') : `<div class="empty">${kind === 'open' ? 'Очередь пуста.' : 'Закрытых жалоб пока нет.'}</div>`}`;
   main.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => reportsView(main, b.dataset.kind));
   main.querySelectorAll('[data-player]').forEach(a => a.onclick = e => {

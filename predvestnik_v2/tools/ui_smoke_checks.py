@@ -147,7 +147,8 @@ SCREENS = [
 ]
 
 # Отдельная SPA админки: собственный стенд без базы, тот же общий запуск ui_smoke.py.
-ADMIN_SCREENS = ("admin-search", "admin-player", "admin-reports", "admin-journal", "admin-broadcast", "admin-access", "admin-purge", "admin-metrics")
+ADMIN_SCREENS = ("admin-search", "admin-player", "admin-reports", "admin-journal", "admin-broadcast", "admin-access", "admin-purge", "admin-metrics",
+                 "admin-health", "admin-settings", "admin-diagnostics")   # S11b: свёрнутые группы «Состояния», строка темы, «Проблемы приложения»
 SCREENS += [(name, "") for name in ADMIN_SCREENS]
 
 # Standalone pages outside the single-page app (no dock): the two games and the public legal pages.
