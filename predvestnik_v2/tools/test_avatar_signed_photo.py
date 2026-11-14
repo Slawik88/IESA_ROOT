@@ -78,6 +78,7 @@ class FakePool:
 
 
 async def main():
+    real_lookup = telegram_photo.current_photo
     app = FastAPI()
     app.include_router(profile.router)
     repo = MemoryRepo()
@@ -86,6 +87,18 @@ async def main():
 
     def handler(request):
         requests.append(request.url)
+        if state.get("botapi"):
+            method = request.url.path.rsplit("/", 1)[-1]
+            if method == "getUserProfilePhotos":
+                return httpx.Response(200, json={"ok": True, "result": {"total_count": 0, "photos": []}})
+            if method == "getChat":
+                return httpx.Response(200, json={"ok": True, "result": {"photo": {
+                    "small_file_id": "chat-file", "small_file_unique_id": "chat-unique"}}})
+            if method == "getFile":
+                assert request.url.params["file_id"] == "chat-file"
+                return httpx.Response(200, json={"ok": True, "result": {"file_path": "photos/chat.png"}})
+            assert request.url.path.endswith("/photos/chat.png")
+            return httpx.Response(200, content=PNG)
         return httpx.Response(state["status"], content=state["body"])
     refs = {OWN_REF: 1, OTHER_REF: 2}
     logs = []
@@ -126,6 +139,20 @@ async def main():
                 # A viewer's authenticated photo never becomes someone else's.
                 other = await api.get(f"/profile/avatar?profile_ref={OTHER_REF}", headers={"x-init-data": auth})
                 assert other.json() == {"avatar": None, "vip": True, "avatar_state": "absent"} and len(requests) == before
+                # The report's exact case: no signed photo and an empty profile list, but getChat has a photo.
+                repo.rows.clear()
+                state["botapi"] = True
+                with patch.object(telegram_photo, "current_photo", real_lookup):
+                    response = await api.get("/profile/avatar", headers={"x-init-data": signed({"id": 1, "first_name": "QA"})})
+                body = response.json()
+                assert body["avatar_state"] == "ready" and repo.rows[1][0] == "chat-unique", body
+                image = await api.get(body["avatar"])
+                assert image.status_code == 200 and image.headers["content-type"] == "image/webp"
+                with Image.open(BytesIO(image.content)) as shown:
+                    assert shown.format == "WEBP" and shown.size == (telegram_photo.SIDE, telegram_photo.SIDE)
+                assert len(requests) == before + 4, 'profile list -> chat photo -> file path -> bounded download'
+                state["botapi"] = False
+                before = len(requests)
                 # The VIP rule holds on the direct address too, checked on every request.
                 profile.is_vip_active.return_value = False
                 assert (await api.get("/profile/avatar", headers={"x-init-data": auth})).json() == {"avatar": None, "vip": False, "avatar_state": "vip_only"}
