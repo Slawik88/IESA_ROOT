@@ -57,7 +57,51 @@ def reset():
     avatar_photos._failed_at.clear()
 
 
+async def negative_cache_recovers():
+    """A former miss is pending across readers until the shared refresh finishes."""
+    reset()
+    repo = MemoryRepo()
+    now = datetime.now(timezone.utc)
+    repo.rows[9] = (None, None, now - timedelta(minutes=20))
+    repo.rows[10] = (None, None, now)
+    release = asyncio.Event()
+
+    async def found(uid):
+        await release.wait()
+        return telegram_photo.PhotoRef(f'photo-{uid}', f'file-{uid}')
+
+    with patch.object(avatar_photos, 'repo', repo), patch.object(avatar_photos, '_with_db', run_db), \
+         patch.object(telegram_photo, 'current_photo', found), \
+         patch.object(telegram_photo, 'download_file', AsyncMock(return_value=b'jpeg')), \
+         patch.object(telegram_photo, 'shrink', AsyncMock(return_value=WEBP)):
+        pending = await avatar_photos.views(None, {9: 'r' * 16, 10: 's' * 16})
+        assert pending[9].state == 'loading', 'an old negative row must not stop profile/leaderboard hydration'
+        assert pending[10].state == 'absent' and 10 not in avatar_photos._inflight
+        first = avatar_photos._inflight[9]
+        assert (await avatar_photos.view(None, 9, 'r' * 16, vip_active=True)).state == 'loading'
+        assert avatar_photos._inflight[9] is first, 'all readers share the in-flight lookup'
+        with patch.object(avatar_photos.time, 'time', return_value=now.timestamp() + 61):
+            assert (await avatar_photos.view(None, 10, 's' * 16, vip_active=True)).state == 'loading'
+        second = avatar_photos._inflight[10]
+        release.set()
+        await asyncio.gather(first, second)
+        shown = await avatar_photos.views(None, {9: 'r' * 16, 10: 's' * 16})
+        assert all(item.state == 'ready' and item.avatar for item in shown.values())
+        assert repo.saves == 2
+        repo.rows[12] = (None, None, now - timedelta(minutes=2))
+        assert await avatar_photos.image_for_admin(12) == WEBP, 'admin images also wait for recovery of an old miss'
+        # A failed recheck of a miss remains pending, with the existing retry pause.
+        repo.rows[11] = (None, None, now - timedelta(minutes=2))
+        with patch.object(telegram_photo, 'current_photo', AsyncMock(side_effect=telegram_photo.TelegramUnavailable('offline'))):
+            assert (await avatar_photos.view(None, 11, 't' * 16, vip_active=True)).state == 'loading'
+            await avatar_photos._inflight[11]
+            assert (await avatar_photos.view(None, 11, 't' * 16, vip_active=True)).state == 'loading'
+            assert 11 not in avatar_photos._inflight and avatar_photos.refresh(11) is None
+    reset()
+
+
 async def main():
+    await negative_cache_recovers()
     repo = MemoryRepo()
     old = datetime.now(timezone.utc) - timedelta(days=2)
     photo = telegram_photo.PhotoRef(version='uniq-1', file_id='f1')

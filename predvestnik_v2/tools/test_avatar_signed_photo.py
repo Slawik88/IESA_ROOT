@@ -6,6 +6,7 @@ cross-user isolation, the VIP rule on the direct address, host/redirect/size/SVG
 """
 import asyncio
 from contextlib import ExitStack
+from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 from io import BytesIO
@@ -141,6 +142,7 @@ async def main():
                 assert other.json() == {"avatar": None, "vip": True, "avatar_state": "absent"} and len(requests) == before
                 # The report's exact case: no signed photo and an empty profile list, but getChat has a photo.
                 repo.rows.clear()
+                repo.rows[1] = (None, None, datetime.now(timezone.utc) - timedelta(minutes=2))
                 state["botapi"] = True
                 with patch.object(telegram_photo, "current_photo", real_lookup):
                     response = await api.get("/profile/avatar", headers={"x-init-data": signed({"id": 1, "first_name": "QA"})})

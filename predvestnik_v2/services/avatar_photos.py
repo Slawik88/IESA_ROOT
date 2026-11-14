@@ -31,7 +31,7 @@ from services.support_diagnostics import recent as support_diagnostics
 
 AvatarState = Literal["ready", "loading", "absent", "vip_only"]
 PHOTO_TTL = 24 * 3600     # a stored photo is re-checked daily (one Bot API call; downloaded again only if it changed)
-MISS_TTL = 30 * 60        # "no photo" is re-checked after half an hour
+MISS_TTL = 60             # a newly available photo must not stay hidden behind an old miss
 FAILURE_PAUSE = 60        # after a Telegram failure the same player is not retried sooner
 BUDGET_SEC = 8.0          # one whole refresh: lookup + download + shrink
 _SIGNED_PREFIX = "u:"     # version of a photo taken from the owner's signed Mini App URL
@@ -140,11 +140,12 @@ async def views(db, players: dict[int, str], *, photo_urls: dict[int, str] | Non
     result = {}
     for uid, ref in players.items():
         row = stored.get(uid)
-        if row is None or _stale(row):
+        needs_refresh = row is None or _stale(row)
+        if needs_refresh:
             refresh(uid, (photo_urls or {}).get(uid))
         if row and row.has_image:
             result[uid] = AvatarView(avatar_path(ref, row.version), "ready")
-        elif row is None:
+        elif needs_refresh or uid in _inflight:
             result[uid] = AvatarView(None, "loading")   # being fetched, or retried after a Telegram failure
         else:
             result[uid] = AvatarView(None, "absent")
@@ -173,7 +174,7 @@ async def image_for_admin(user_id: int) -> bytes | None:
     row = (await _with_db(lambda db: repo.stored(db, [uid]))).get(uid)
     if row is None or _stale(row):
         refresh(uid)
-        if row is None:
+        if row is None or not row.has_image:
             await wait_for_refresh(uid)
     stored = await _with_db(lambda db: repo.image(db, uid))
     return stored[1] if stored else None
