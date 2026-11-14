@@ -14,7 +14,7 @@
   HTTPS — Let's Encrypt, автоматическое продление через `certbot.timer`.
 - Службы `predvestnik.service`, `domovoy.service`; общий Python
   `/opt/iesa/venv311/bin/python`. Предвестник — выпуск
-  `/opt/iesa/releases/014e4bbef0a815214540fbf515ff6ca41df15e6e` (фото VIP, 2026-11-14),
+  `/opt/iesa/releases/d51ee0592fe228496e8b37350f7939efe15980a2` (восстановление фото VIP, 2026-11-14),
   Домовой — `/opt/iesa/releases/3a8fd4f8ec145f98c204142f14ec91375d1eb04e`.
   Автоматического деплоя из GitHub на Droplet пока нет.
 - Telegram хранит два независимых адреса запуска: меню чата (`setChatMenuButton`,
