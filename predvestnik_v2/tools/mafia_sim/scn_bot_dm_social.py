@@ -50,7 +50,7 @@ async def dm_social_events_need_consent_and_link_to_the_chat(h: Harness) -> None
     ok(first.text == "Готово", f"the transfer goes through: {first}")
     await h.click(groom, chat, stale, "Мора")   # the same tap twice: the money moves once, the letter is queued once
     rows = [r for r in await pending(bride) if r["category"] == "social"]
-    ok(len(rows) == 1 and "Перевод от игрока" in rows[0]["text"] and "25" in rows[0]["text"] and "Мора" in rows[0]["text"],
+    ok(len(rows) == 1 and "Перевод тебе: 25" in rows[0]["text"] and "Мора" in rows[0]["text"],
        f"one transfer letter for the consenting receiver: {rows}")
     # Also cover ordinary groups, which do not have private message links.
     ok(message_url(SimpleNamespace(id=-1001234567890, username=None), 7) == "https://t.me/c/1234567890/7"
@@ -86,7 +86,7 @@ async def dm_social_events_need_consent_and_link_to_the_chat(h: Harness) -> None
         start = len(h.world.calls)
         await deliver(h, db, datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0) + timedelta(days=1))
     letters = " ".join(str(p["text"]) for p in to_player(h, bride, start))
-    ok("Перевод от игрока" in letters and "переводит тебе" in letters and "зовёт тебя в брак" not in letters,
+    ok("Перевод тебе" in letters and "уже на твоём балансе" in letters and "предложение" not in letters,
        f"the transfer arrives, the already accepted proposal is withdrawn: {letters[:400]!r}")
 
 

@@ -4,6 +4,7 @@
     python tools/ui_smoke.py                          # every screen x widths 320/390/430, the persona wears Void at SSS
     python tools/ui_smoke.py --skins                  # every look at D and SSS x widths 320/430: profile, seven dock tabs, Looks
     python tools/ui_smoke.py --only profile,top --widths 390 --shots /tmp/shots
+    python tools/ui_smoke.py --only reminder-chests --oled --shots /tmp/oled   # the same screens on the black OLED background
 
 A run FAILS on: a JS error, an unexpected HTTP error, a widened layout viewport, horizontal overflow, a dock that is not pinned inside the screen,
 a screen opener that throws, a browser-default grey button, a currency emoji left as text (🪙 💎 ✨ 💧 are drawn by v3Cur). Reported as warnings (fail with --strict): controls under 32px, card-around-everything shells.
@@ -299,9 +300,13 @@ def main() -> int:
     parser.add_argument("--shots", help="directory for full-page screenshots (screens mode)")
     parser.add_argument("--flags", choices=("on", "off"), default="on", help="game/economy modules switched on (every screen shows its real content) or off (the closed state)")
     parser.add_argument("--strict", action="store_true", help="warnings fail the run too")
+    parser.add_argument("--oled", action="store_true", help="the black OLED background from «Настройки › Внешний вид» (the second look of every screen)")
     parser.add_argument("--port", type=int, default=8403)
     parser.add_argument("--dsn", default=os.getenv("DATABASE_URL", DEFAULT_DSN))
     args = parser.parse_args()
+    if args.oled:
+        global INIT
+        INIT += ";localStorage.setItem('pv_oled','1')"
     args.widths = args.widths or ([320, 430] if args.skins else [320, 390, 430])
     if args.shots:
         Path(args.shots).mkdir(parents=True, exist_ok=True)

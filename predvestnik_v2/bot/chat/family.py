@@ -362,8 +362,7 @@ async def cmd_propose(ctx: Ctx) -> None:
     sent = await ctx.reply(f"💍 {me} делает предложение {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))}!\n"
                            "Ответить может только тот, кому предложили. Предложение действует сутки.", reply_markup=kb)
     await _tell_in_dm(ctx, target.user_id, f"proposal:{ctx.user_id}:{target.user_id}:{local_now().date().isoformat()}", getattr(sent, "message_id", None),
-                      "💍 <b>Тебе сделали предложение</b>\n{who} зовёт тебя в брак в чате {chat}. Ответить можно там: "
-                      "кнопки «Да» и «Нет» под сообщением. Предложение действует сутки.",
+                      "💍 <b>{who} делает тебе предложение</b>\nОтветь в чате {chat} кнопкой «Да» или «Нет» — у тебя сутки.",
                       invitation={"proposal_id": pid})
 
 
@@ -578,8 +577,8 @@ async def cmd_adopt(ctx: Ctx) -> None:
                            "в свою семью ребёнком. Согласны?", reply_markup=kb)
     message_id = getattr(sent, "message_id", None)
     await _tell_in_dm(ctx, target.user_id, f"adopt:{ctx.user_id}:{target.user_id}:{local_now().date().isoformat()}", message_id,
-                      "👪 <b>Тебя зовут в семью</b>\n{who} зовёт тебя в свою семью ребёнком в чате {chat}. Согласиться или "
-                      f"отказаться можно там, кнопками под сообщением. Приглашение действует {ADOPT_INVITE_HOURS} ч.",
+                      "👪 <b>{who} зовёт тебя в семью ребёнком</b>\nОтветь в чате {chat} кнопкой под сообщением — "
+                      f"у тебя {ADOPT_INVITE_HOURS} ч.",
                       invitation={"marriage_id": fam.marriage_id, "inviter_id": ctx.user_id})
 
 

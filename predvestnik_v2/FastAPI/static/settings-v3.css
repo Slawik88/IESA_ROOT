@@ -39,6 +39,7 @@
 .st-seg button:active { transform: scale(.97); }
 .st-hint { margin: 8px 4px 0; color: var(--v3-dim); font-size: 12.5px; line-height: 1.45; }
 .st-hint--in { margin: 10px 14px 12px; }
+.st-open-bot { display: block; margin: -10px 10px 4px; color: var(--v3-ink); }
 .st-note { margin: 12px 14px 0; font-size: 13px; color: var(--v3-acc); } .st-note--warn { color: var(--v3-err, #ff8a8a); }
 .st-card .v3-empty { padding: 14px; }
 .st-id { display: block; width: 100%; min-height: 44px; margin-top: 24px; padding: 0; border: 0; background: none; color: var(--v3-dim); font: 12px var(--v3-font); text-align: center; cursor: pointer; }

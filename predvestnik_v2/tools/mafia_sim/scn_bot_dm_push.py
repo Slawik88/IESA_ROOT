@@ -298,8 +298,9 @@ async def dm_push_collectors_find_events_and_the_button_arrives(h: Harness) -> N
         sent = await deliver(h, db, at(8, 1))
         message = to_player(h, user, start)
         ok(len(message) == 1, f"the pet message is delivered, once: {sent}")
-        ok(message[0]["reply_markup"] and "miniapp.example" in str(message[0]["reply_markup"]),
-           f"with its «К питомцам» button that opens the app: {message[0].get('reply_markup')}")
+        ok(message[0]["reply_markup"] and "miniapp.example" in str(message[0]["reply_markup"]) and "Забрать добычу" in str(message[0]["reply_markup"])
+           and str(message[0]["text"]).count(chr(10)) == 1,
+           f"two lines with the «Забрать добычу» button that opens the app: {message[0].get('reply_markup')}")
         from core import seasons
         end = seasons.season_bounds(seasons.season_number(now))[1]
         near = await dm_push_events.collect(db, end - timedelta(days=2))
@@ -471,7 +472,7 @@ async def dm_chest_button_opens_only_its_own_key_once(h: Harness) -> None:
             # More than one grant can merge into a digest. Exercise the exact same callback on its source notification.
             pending = await repo.get_balance(db, user.id)
             ok(pending >= 1, "the user has a key")
-            message = last_message(h, user.id, "Ключ от сундука")
+            message = last_message(h, user.id, "ключ от сундука")
             foreign = await h.click(other, other.id, message, "Открыть за 1 ключ")
             ok("недоступен" in foreign.text, "a forwarded callback cannot open somebody else's key")
             first = await h.click(user, user.id, message, "Открыть за 1 ключ")

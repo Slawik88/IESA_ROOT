@@ -53,20 +53,27 @@ async def pass_ready(db, user_id: int, now: datetime) -> bool:
         return False
 
 
+async def _pets_and_pass(db, user_id: int, now: datetime) -> list[str]:
+    """Общие строки утреннего плана и вечерней сводки. Строка — одно дело и что сделать (docs/PLAYER_COPY.md)."""
+    lines = []
+    pets = await pets_state(db, user_id)
+    if pets is not None and pets[0]:
+        lines.append(f"🐾 Вернулись питомцы: {pets[0]} — забери добычу.")
+    if await pass_ready(db, user_id, now):
+        lines.append("🏆 В Пропуске ждёт награда.")
+    return lines
+
+
 async def evening_text(db, user_id: int, now: datetime) -> str | None:
     lines = []
     quests = await quests_state(db, user_id)
     if quests is not None and (daily := quests["daily"]["quests"]):
         done = sum(q["completed"] for q in daily)
         if done:
-            lines.append(f"📋 Задания дня: сделано {done} из {len(daily)}.")
+            lines.append("📋 Все задания дня сделаны." if done == len(daily) else f"📋 Задания дня: сделано {done} из {len(daily)}.")
         if any(reward["claimable"] for reward in quests["rewards"]["items"].values()):
-            lines.append("🎁 Награды за задания ещё ждут тебя.")
-    pets = await pets_state(db, user_id)
-    if pets is not None and pets[0]:
-        lines.append(f"🐾 Питомцы вернулись: {pets[0]} — добыча ждёт.")
-    if await pass_ready(db, user_id, now):
-        lines.append("🏆 В Пропуске есть награда, которую можно забрать.")
+            lines.append("🎁 Награда за задания ждёт — забери.")
+    lines += await _pets_and_pass(db, user_id, now)
     return "🌙 <b>Итоги дня</b>\n" + "\n".join(lines) if lines else None
 
 
@@ -79,14 +86,10 @@ async def morning_text(db, user_id: int, now: datetime) -> str | None:
         done = sum(1 for q in quests["daily"]["quests"] if q["completed"])
         ready = [k for k, v in quests["rewards"]["items"].items() if v["claimable"]]
         if ready:
-            lines.append("🎁 Награда за задания " + ", ".join(QUEST_KINDS[k] for k in ready if k in QUEST_KINDS) + " ждёт тебя.")
+            lines.append("🎁 Награда за задания " + ", ".join(QUEST_KINDS[k] for k in ready if k in QUEST_KINDS) + " ждёт — забери.")
         if done < total:
-            lines.append(f"📋 Задания дня: сделано {done} из {total}.")
-    pets = await pets_state(db, user_id)
-    if pets is not None and pets[0]:
-        lines.append(f"🐾 Питомцы вернулись: {pets[0]} — добыча ждёт.")
-    if await pass_ready(db, user_id, now):
-        lines.append("🏆 В Пропуске есть награда, которую можно забрать.")
+            lines.append(f"📋 Новые задания дня: {total}." if not done else f"📋 Задания дня: осталось {total - done} из {total}.")
+    lines += await _pets_and_pass(db, user_id, now)
     if not lines:
         return None
     return "☀️ <b>План на сегодня</b>\n" + "\n".join(lines)

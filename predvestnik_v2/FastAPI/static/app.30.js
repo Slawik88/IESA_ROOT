@@ -224,11 +224,19 @@ function _svBadge(v) {
   if (!v.active) return '';
   const pr = v.preferences || {}, badge = (v.badges || []).find(b => b.id === pr.badge_id) || (v.badges || [])[0] || { id: 'spark', symbol: '✦' }, pos = pr.badge_position || 'left';
   const name = String(_profileData?.display_name || 'Игрок');
+  const category = typeof _remindRow === 'function' ? _remindRow('vip_expiry') : null, remind = pr.reminder_enabled !== false && category?.enabled !== false;
+  if (typeof _remindSync === 'function') setTimeout(_remindSync, 0);
   return `<div class="sv-sec"><span class="v3-eyebrow">Значок у ника</span><small class="sv-saved${_sv.saved ? ' is-on' : ''}" role="status">${_sv.saved ? 'Сохранено ✓' : ''}</small></div>
     <p class="sv-preview" aria-label="Так выглядит ник"><span>${_profileEsc(vipName(name, true, badge.symbol, pos))}</span></p>
     <div class="sv-glyphs" role="radiogroup" aria-label="Значок">${(v.badges || []).map(b => `<button type="button" role="radio" aria-checked="${b.id === badge.id}" aria-label="${_profileEsc(b.id)}" class="sv-g${b.id === badge.id ? ' is-on' : ''}" onclick="svBadgeSet('badge_id','${_profileEsc(b.id)}')">${_profileEsc(b.symbol)}</button>`).join('')}</div>
     <div class="sv-pos" role="radiogroup" aria-label="Положение значка">${_SV_POS.map(([k, t]) => `<button type="button" role="radio" aria-checked="${pos === k}" class="${pos === k ? 'is-on' : ''}" onclick="svBadgeSet('badge_position','${k}')">${t}</button>`).join('')}</div>
-    <button type="button" class="sv-switch" role="switch" aria-checked="${pr.reminder_enabled !== false}" onclick="svBadgeSet('reminder_enabled',${pr.reminder_enabled === false})"><span><b>Напоминать о поручении дня</b><small>Если оно не выполнено, вечером бот напишет в личные сообщения. Диалог с ботом нужно открыть один раз</small></span><i aria-hidden="true"></i></button>`;
+    <button type="button" class="sv-switch" role="switch" data-reminder-also="vip_expiry" data-self="${pr.reminder_enabled !== false ? 1 : 0}" aria-checked="${remind}" onclick="svVipRemind(this.getAttribute('aria-checked') !== 'true')"><span><b>Напоминать о поручении дня</b><small>Вечером напишу в личку, если поручение ещё не выполнено.</small></span><i aria-hidden="true"></i></button>`;
+}
+// Письмо о поручении уходит, только если включена и категория «VIP» в уведомлениях (S23cw): включение здесь включает и её,
+// а выключение гасит только поручение — письмо за 3 дня до конца срока остаётся, пока игрок не выключит «VIP» в настройках.
+function svVipRemind(on) {
+  svBadgeSet('reminder_enabled', on);
+  if (on && typeof _remindEnsure === 'function') _remindEnsure('vip_expiry');
 }
 let _svSaveTimer = 0;
 function svBadgeSet(field, value) {

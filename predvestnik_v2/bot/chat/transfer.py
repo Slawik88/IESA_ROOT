@@ -143,8 +143,8 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
         sender = call.from_user
         try:
             await call.bot.send_message(
-                cb.to, f"💸 Вам перевели <b>{fmt(amount)}</b> {spec.icon} {spec.label} от "
-                       f"{html.escape('@' + sender.username if sender.username else sender.full_name)}", parse_mode="HTML")
+                cb.to, f"💸 Перевод тебе: <b>{fmt(amount)}</b> {spec.icon} {spec.label} от "
+                       f"{html.escape('@' + sender.username if sender.username else sender.full_name)}. Уже на твоём балансе.", parse_mode="HTML")
         except Exception:
             pass   # игрок не открывал диалог с ботом — уведомить некуда
     else:   # в группе получатель мог не заметить перевод: «Люди» в личку, если он их включил
@@ -153,8 +153,8 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
         name = html.escape("@" + sender.username if sender.username else sender.full_name)
         await social_event(
             db, user_id=cb.to, dedup_key=f"transfer:{key}", chat=call.message.chat, message_id=call.message.message_id,
-            text=f"💸 <b>Перевод от игрока</b>\n{name} переводит тебе <b>{fmt(amount)}</b> {spec.icon} {spec.label} "
-                 f"в чате {chat_name(call.message.chat)}. Деньги уже на твоём балансе.")
+            text=f"💸 <b>Перевод тебе: {fmt(amount)} {spec.icon} {spec.label}</b>\n"
+                 f"От {name} в чате {chat_name(call.message.chat)} — уже на твоём балансе.")
     from bot.chat import achievements
     u = call.from_user
     await achievements.after_transfer(db, call.message, cb.uid, achievements.quiet_name(u.username, u.full_name))

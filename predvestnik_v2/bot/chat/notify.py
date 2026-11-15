@@ -52,22 +52,23 @@ async def markup_for(button: dict | None, bot) -> InlineKeyboardMarkup | None:
 # ── настройки ───────────────────────────────────────────────────────────────
 
 def _offset_label(offset: int) -> str:
-    return "по Москве" if offset == 3 else f"пояс {offset:+d}"
+    return "по Москве" if offset == 3 else f"(пояс {offset:+d})"
 
 
 async def settings_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     on = await repo.consented(db, user_id)
     state = await repo.get_settings(db, user_id)
+    chosen = ", ".join(c.label.split(" ", 1)[1] for c in rules.CATEGORIES if c.live and c.key in on)
     lines = ["🔔 <b>Уведомления в личку</b>",
-             "Бот пишет только о том, что ты включил. Сейчас включено: "
-             + (", ".join(c.label.split(" ", 1)[1] for c in rules.CATEGORIES if c.live and c.key in on) or "ничего") + ".",
+             f"Пишу только о том, что ты включишь. Сейчас включено: {chosen}." if chosen
+             else "Пишу только о том, что ты включишь. Сейчас не включено ничего — выбери ниже.",
              "",
-             f"• Не больше {rules.DAILY_CAP} сообщений в сутки: если событий много, соберу их в одно.",
-             f"• Ночью не пишу: с {rules.QUIET_START_HOUR}:00 до {rules.QUIET_END_HOUR:02d}:00 ({_offset_label(state['tz_offset'])}; поменять: «бот уведомления пояс +5»)."
+             f"• Не больше {rules.DAILY_CAP} сообщений в сутки — если событий много, соберу их в одно.",
+             f"• Ночью молчу: с {rules.QUIET_START_HOUR}:00 до {rules.QUIET_END_HOUR:02d}:00 {_offset_label(state['tz_offset'])}. Другой пояс: «бот уведомления пояс +5»."
              if state["quiet_enabled"] else "• Тихие часы выключены: пишу в любое время.",
-             "• Нажми на название, чтобы включить или выключить."]
+             "• Нажми на строку ниже, чтобы включить или выключить."]
     if state["paused_at"] is not None:
-        lines += ["", "⏸ Ты давно не отвечал, поэтому я замолчал. Напиши мне что угодно — и я продолжу."]
+        lines += ["", "⏸ Ты давно не отвечал, и я замолчал. Напиши мне что угодно — и я продолжу."]
     rows = [[_btn(("✅ " if c.key in on else "▫️ ") + c.label, f"dn:t:{c.key}")] for c in rules.CATEGORIES if c.live]
     rows.append([_btn("🌙 Тихие часы: " + ("вкл" if state["quiet_enabled"] else "выкл"), "dn:q")])
     rows.append([_btn("📋 План дня", "dn:plan")])
@@ -96,7 +97,7 @@ async def social_event(db, *, user_id: int, dedup_key: str, text: str, chat=None
     Кнопка ведёт к сообщению в чате, где можно ответить. Ошибки не мешают самому действию в чате.
     Только участнику этого чата: @ник ищется по всем игрокам, а чужому человеку название закрытого чата знать незачем."""
     url = message_url(chat, message_id) if chat is not None else None
-    button = {"kind": "url", "url": url, "label": "💬 Открыть сообщение"} if url else None
+    button = {"kind": "url", "url": url, "label": "💬 Ответить в чате" if invitation else "💬 Открыть сообщение"} if url else None
     if invitation:
         button = {**(button or {"kind": "none"}), "invitation": invitation}
     return await dm_push_events.social(db, user_id=user_id, dedup_key=dedup_key, text=text, button=button,

@@ -159,7 +159,20 @@ dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; b
 .v3-pill:active { transform: scale(.95); }
 .v3-link { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--v3-dim); font: 500 13px/1 var(--v3-font); cursor: pointer; }
 .v3-link:active { opacity: .6; }
-.v3-reminder { display: block; margin-inline-start: auto; }
+/* «Напоминать о …» (S23cw): тихий переключатель под шапкой — колокольчик, подпись, маленький тумблер. Без акцента: он у главной кнопки экрана */
+.v3-remind { position: relative; display: flex; width: max-content; max-width: 100%; align-items: center; gap: 8px; min-height: 36px; margin: -4px 0 14px; padding: 0 10px 0 9px; border: 0; border-radius: 99px; background: var(--v3-faint); color: var(--v3-ink); font: 500 13px/1.2 var(--v3-font); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.v3-remind::after { content: ""; position: absolute; inset: -4px 0; }   /* зона нажатия 44 px при видимых 36 */
+.v3-remind[hidden] { display: none; }
+.v3-remind svg { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--v3-dim); stroke-width: 1.7; stroke-linejoin: round; }
+.v3-remind i { position: relative; flex: none; width: 28px; height: 16px; margin-inline-start: 2px; border-radius: 99px; background: var(--v3-track); transition: background .2s; }
+.v3-remind i::after { content: ""; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--v3-ink); opacity: .7; transition: transform .2s var(--v3-ease), opacity .2s; }
+.v3-remind[aria-checked="true"] svg { stroke: var(--v3-ink); }
+.v3-remind[aria-checked="true"] i { background: var(--v3-ink); }
+.v3-remind[aria-checked="true"] i::after { transform: translateX(12px); background: var(--v3-on-acc); opacity: 1; }
+.v3-remind[data-state="wait"] i { opacity: .45; }
+.v3-remind[aria-busy="true"] { opacity: .6; }
+.v3-remind:active { transform: scale(.97); }
+.v3-remind:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }
 .v3-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 0; border: 0; background: none; color: var(--v3-ink); font: 500 15px/1.3 var(--v3-font); text-align: left; cursor: pointer; transition: opacity .15s; }
 .v3-row + .v3-row { box-shadow: 0 -1px 0 var(--v3-faint); }
 .v3-row > svg:first-child { color: var(--v3-dim); }
@@ -305,3 +318,5 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 .v3-guide-ic { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: var(--v3-faint); color: var(--v3-ink); font-size: 19px; line-height: 1; cursor: pointer; }
 .v3-guide-ic:active { opacity: .55; }
 .v3-guide-ic:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }
+/* Узкий телефон (S23cw): в шапке с эмблемой «Подсказки» сжимается, чтобы не наезжать на заголовок («Питомцы» на 320 px) */
+@media (max-width: 340px) { .v3-head--hero > .v3-pill--sm { padding: 0 10px; font-size: 12px; } }

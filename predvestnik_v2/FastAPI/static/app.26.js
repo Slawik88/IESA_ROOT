@@ -43,7 +43,7 @@ function openSettingsModal() {
 function _stLoad(key) {
   const calls = { presence: ['/presence-v1/settings', 'Настройки приватности'], notif: ['/profile/notification-prefs', 'Уведомления'], warps: ['/profile/warp-prefs', 'Варпы'], account: ['/account/deletion-status', 'Настройки аккаунта'] };
   _ST.failed[key] = false; _stRender();
-  return api(calls[key][0]).then(d => { _ST[key] = d; }).catch(() => { _ST.failed[key] = true; }).finally(_stRender);
+  return api(calls[key][0]).then(d => { _ST[key] = d; if (key === 'notif') { _remind.prefs = d; _remind.at = Date.now(); } }).catch(() => { _ST.failed[key] = true; }).finally(_stRender);
 }
 
 function _stLook() {
@@ -63,7 +63,7 @@ function _stNotif() {
   if (_ST.failed.notif) return _stFail('notif', 'Уведомления');
   if (!_ST.notif) return _stLine(3);
   const list = _ST.notif.categories || [];
-  const note = _ST.notif.dm_ready === false ? '<p class="st-hint st-hint--in">Чтобы я мог написать, открой чат с ботом и нажми «Старт» (или отправь любое сообщение).</p>' : '';
+  const note = _ST.notif.dm_ready === false ? '<p class="st-hint st-hint--in">Чтобы я мог написать, открой чат с ботом и нажми «Старт».</p><button type="button" class="v3-link st-open-bot" onclick="_gvBot()">Открыть чат с ботом ›</button>' : '';
   return list.length ? note + list.map(c => _stSwitch('bell', _profileEsc(String(c.label).replace(/^[^\p{L}\p{N}]+/u, '')), _profileEsc(c.hint || 'Личные сообщения от бота'), !!c.enabled, `_stNotifSet('${_profileEsc(c.key)}',this.checked)`)).join('') : '<div class="v3-empty">Категорий уведомлений пока нет.</div>';
 }
 function _stWarps() {
@@ -115,42 +115,98 @@ function _stSetPresence(level) {
 function _stNotifSet(key, on) {
   _haptic('select');
   api('/profile/notification-prefs', { method: 'POST', body: JSON.stringify({ category: key, enabled: on }) })
-    .then(() => { const row = (_ST.notif?.categories || []).find(c => c.key === key); if (row) row.enabled = on; toast(on ? 'Включено' : 'Выключено'); })
+    .then(() => { const row = (_ST.notif?.categories || []).find(c => c.key === key); if (row) row.enabled = on; _remindMark(key, on); toast(on ? 'Включено' : 'Выключено'); })
     .catch(e => { toast(e, false); _stLoad('notif'); });
 }
-function v3ReminderButton(key) {
-  return `<button type="button" class="v3-link v3-reminder" data-reminder="${key}" onclick="_stOpenReminder(this)">Напоминать</button>`;
-}
 
-async function _stOpenReminder(button) {
-  if (button.disabled) return;
-  button.disabled = true;
+// ── «Напоминать о …» на игровых экранах (S23cv, S23cw) ─────────────────────────────
+// Под шапкой «Сундуков», «Заданий», «Питомцев» и «Биржи» — один тихий переключатель: колокольчик, подпись, маленький тумблер.
+// Нажатие сразу включает или выключает то же согласие, что «Настройки › Уведомления» (тихие часы и предел в сутки — общие, на сервере).
+// Включил, а чат с ботом ещё не открыт — лист с одной кнопкой «Открыть чат». Состояние — один запрос на 30 секунд для всех экранов.
+const _REMIND_WHAT = { chests: 'о ключах', quests: 'о заданиях', pets: 'о питомцах', market: 'о заявках' };
+const _REMIND_TTL = 30000;
+const _remind = { prefs: null, at: 0, load: null, busy: {} };
+const _remindRow = key => (_remind.prefs?.categories || []).find(c => c.key === key) || null;
+function v3ReminderButton(key) {
+  setTimeout(_remindSync, 0);
+  const row = _remindRow(key);
+  return `<button type="button" class="v3-remind" role="switch" data-reminder="${key}" aria-checked="${!!row?.enabled}"${row ? '' : ' data-state="wait"'} onclick="_remindTap(this)"><svg viewBox="0 0 24 24" aria-hidden="true">${_ST_ICO.bell}</svg><span>Напоминать ${_REMIND_WHAT[key] || ''}</span><i aria-hidden="true"></i></button>`;
+}
+function _remindLoad(force) {
+  if (!force && _remind.prefs && Date.now() - _remind.at < _REMIND_TTL) return Promise.resolve(_remind.prefs);
+  if (_remind.load) return _remind.load;
+  _remind.load = api('/profile/notification-prefs')
+    .then(d => { _remind.prefs = d; _remind.at = Date.now(); return d; })
+    .finally(() => { _remind.load = null; });
+  return _remind.load;
+}
+// Перерисовать все переключатели на странице: подпись не меняется, только тумблер. Нет такой категории — переключатель прячется.
+function _remindPaint() {
+  document.querySelectorAll('[data-reminder]').forEach(b => {
+    const row = _remindRow(b.dataset.reminder);
+    if (!_remind.prefs) return;
+    b.hidden = !row;
+    b.setAttribute('aria-checked', String(!!row?.enabled));
+    b.removeAttribute('data-state');
+  });
+  document.querySelectorAll('[data-reminder-also]').forEach(b => {   // VIP: «Напоминать о поручении дня» горит, только если включена и категория
+    const row = _remindRow(b.dataset.reminderAlso);
+    if (row) b.setAttribute('aria-checked', String(b.dataset.self === '1' && row.enabled));
+  });
+}
+function _remindSync() {
+  if (!document.querySelector('[data-reminder],[data-reminder-also]')) return;
+  _remindLoad().then(_remindPaint).catch(() => {});   // не загрузилось — переключатель просто ждёт, нажатие спросит ещё раз
+}
+function _remindMark(key, on) {
+  const row = _remindRow(key); if (row) row.enabled = on;
+  const own = (_ST.notif?.categories || []).find(c => c.key === key); if (own) own.enabled = on;
+  _remindPaint();
+}
+async function _remindSet(key, on) {
+  await api('/profile/notification-prefs', { method: 'POST', body: JSON.stringify({ category: key, enabled: on }) });
+  _remindMark(key, on);
+}
+function _remindOpenChat(key) {
+  const off = key ? {l: 'Выключить', c: 'ghost', f: `CM();_remindSet('${key}',false).then(()=>toast('Напоминание выключено.')).catch(e=>toast(e,false))`} : {l: 'Позже', c: 'ghost', f: 'CM()'};
+  OM('Осталось открыть чат с ботом',
+    '<p>Напоминания приходят в личку. Открой чат с ботом и нажми «Старт» — после этого я смогу писать.</p>',
+    [off, {l: 'Открыть чат', c: 'primary', f: 'CM();_gvBot()'}]);
+}
+async function _remindTap(button) {
+  const key = button.dataset.reminder;
+  if (_remind.busy[key]) return;
+  _remind.busy[key] = true;
   button.setAttribute('aria-busy', 'true');
   const page = _activePage;
-  const key = button.dataset.reminder;
   try {
-    const prefs = await api('/profile/notification-prefs');
-    if (!button.isConnected || _activePage !== page || el('modal').open) return;
-    const row = (prefs.categories || []).find(item => item.key === key);
-    if (!row) {
-      toast('Это напоминание сейчас недоступно.', false);
-      return;
-    }
-    const ready = prefs.dm_ready === false ? '<p>Чтобы получать напоминания, открой чат с ботом и нажми «Старт».</p>' : '';
-    button.disabled = false;
-    button.focus({preventScroll: true});
-    OM('Напоминания от бота',
-      `<p>${esc(row.hint)}</p><p>Сейчас ${row.enabled ? 'включено' : 'выключено'}.</p>${ready}`,
-      [
-        {l: 'Назад', c: 'ghost', f: 'CM()'},
-        {l: row.enabled ? 'Выключить' : 'Включить', c: 'primary', f: `CM();_stNotifSet('${key}',${!row.enabled})`},
-      ]);
+    const prefs = await _remindLoad(_remind.prefs?.dm_ready === false);   // после «Старт» в боте состояние должно обновиться сразу
+    const row = _remindRow(key);
+    if (!row) { toast('Это напоминание сейчас недоступно.', false); _remindPaint(); return; }
+    if (row.enabled && prefs.dm_ready === false) { _remindOpenChat(key); return; }   // включено, но писать некуда: выключить или открыть чат
+    const on = !row.enabled;
+    await _remindSet(key, on);
+    _haptic('select');
+    if (!button.isConnected || _activePage !== page) return;
+    if (on && prefs.dm_ready === false) _remindOpenChat();
+    else if (on) toast(row.hint, true, {title: 'Напоминание включено'});
+    else toast('Напоминание выключено.');
   } catch (error) {
-    if (button.isConnected && _activePage === page) toast('Не удалось проверить настройки. Попробуй ещё раз.', false);
+    if (button.isConnected && _activePage === page) toast('Не получилось сохранить. Попробуй ещё раз.', false);
   } finally {
-    button.disabled = false;
+    delete _remind.busy[key];
     button.removeAttribute('aria-busy');
   }
+}
+// Включение со стороны другого переключателя (VIP «Напоминать о поручении дня»): включить категорию, если она выключена
+async function _remindEnsure(key) {
+  try {
+    const prefs = await _remindLoad(true);
+    const row = _remindRow(key);
+    if (!row) return;
+    if (!row.enabled) await _remindSet(key, true);
+    if (prefs.dm_ready === false) _remindOpenChat();
+  } catch (error) { toast('Не получилось включить напоминание. Попробуй ещё раз.', false); }
 }
 
 function _stInactivity(days) {

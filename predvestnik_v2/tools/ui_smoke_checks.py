@@ -18,6 +18,17 @@ def _pass_screen(edit: str) -> str:
 _PASS_ALL = "s.points = 9400; s.level = 30; s.points_to_next = 0; "
 
 
+def _reminder(opener: str, edit: str = "", press: bool = True) -> str:
+    """«Напоминать о …» (S23cv/S23cw): the screen with its reminder switch; `edit` changes the real /profile/notification-prefs answer
+    (`d`) on the spot. `press` taps the switch as soon as it is drawn (no idle gap for the settle step to stop on): with the chat
+    closed that opens the «open the chat» sheet; the stand's consent row really changes, nothing else is saved."""
+    hook = ("const realApi = api; window.api = (p, o) => p === '/profile/notification-prefs' && !o ? realApi.call(null, p, o).then(d => { "
+            "d = JSON.parse(JSON.stringify(d)); " + edit + " return d; }) : realApi.call(null, p, o); ") if edit else ""
+    tap = ("; const t0 = Date.now(), t = setInterval(() => { const b = document.querySelector('[data-reminder]'); "
+           "if (b || Date.now() - t0 > 8000) { clearInterval(t); if (b) b.click(); } }, 50)") if press else ""
+    return hook + opener + tap
+
+
 def _purge_screen(view: str, after: str = "") -> str:
     """«Чистка» on a fixed answer: the stand has no Telegram to confirm admin rights, so the page's two readers return
     a ready chat list and the given view (JS object literal). Nothing is sent to the server."""
@@ -91,6 +102,9 @@ SCREENS = [
     ("store-zarniki", "openStoreV3('zarniki')"),
     ("store-vip", "openStoreV3('vip')"),
     ("exchange", "openPlayerExchangeV1()"),
+    # «Напоминать о …» (S23cv/S23cw): включил, а чат с ботом не открыт — лист «Открыть чат»; включено и чат открыт — тумблер горит
+    ("reminder-chests", _reminder("openChestsV1()", "d.dm_ready = false; d.categories.forEach(c => { c.enabled = false; });")),
+    ("reminder-quests", _reminder("openQuestsV1()", "d.dm_ready = true; d.categories.forEach(c => { c.enabled = true; });", press=False)),
     ("casino", "openCasino()"),
     ("casino-wheel", "openCasino().then(() => casinoGame('wheel'))"),
     ("casino-dice", "openCasino().then(() => casinoGame('dice'))"),

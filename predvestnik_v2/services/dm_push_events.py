@@ -46,8 +46,8 @@ async def _pets(db, now: datetime) -> int:
     for run_id, user_id in rows:
         sent += await dm_push.enqueue(
             db, user_id=int(user_id), category="pets", dedup_key=f"pet_run:{run_id}",
-            text="🐾 <b>Питомец вернулся</b>\nДобыча ждёт тебя — забери её, пока не пропала.",
-            button={"kind": "app", "section": "pets", "label": "🐾 К питомцам"},
+            text="🐾 <b>Питомец вернулся с добычей</b>\nЗабери её и отправь его в новый путь.",
+            button={"kind": "app", "section": "pets", "label": "🐾 Забрать добычу"},
         )
     return sent
 
@@ -68,14 +68,14 @@ async def _quests(db, now: datetime) -> int:
     for (user_id,) in rows:
         sent += await dm_push.enqueue(
             db, user_id=int(user_id), category="quests", dedup_key=key,
-            text="📋 <b>Новые задания дня</b>\nВыполни их и забери награду.",
-            button={"kind": "app", "section": "quests", "label": "📋 К заданиям"},
+            text="📋 <b>Новые задания дня уже ждут</b>\nСделай их — и забери награду дня.",
+            button={"kind": "app", "section": "quests", "label": "📋 Открыть задания"},
         )
     return sent
 
 
 async def _market(db, now: datetime) -> int:
-    """Ордер на бирже исполнен (только если биржа включена)."""
+    """Заявка на бирже исполнена целиком (только если биржа включена)."""
     if not await _has_table(db, "player_coin_orders_v1") or not await system_flags.is_enabled(db, "economy_player_exchange_v1"):
         return 0
     async with db.execute(
@@ -86,13 +86,16 @@ async def _market(db, now: datetime) -> int:
         rows = await c.fetchall()
     sent = 0
     for order_id, user_id, side in rows:
-        what = "на покупку" if side == "buy" else "на продажу"
         sent += await dm_push.enqueue(
             db, user_id=int(user_id), category="market", dedup_key=f"order:{order_id}",
-            text=f"📈 <b>Ордер исполнен</b>\nТвой ордер {what} на бирже выполнен целиком.",
-            button={"kind": "app", "section": "exchange", "label": "📈 На биржу"},
+            text=_MARKET_BUY if side == "buy" else _MARKET_SELL,
+            button={"kind": "app", "section": "exchange", "label": "📈 Открыть биржу"},
         )
     return sent
+
+
+_MARKET_BUY = "📈 <b>Покупка на бирже прошла</b>\nЗаявка исполнена целиком — монеты уже в твоём портфеле."
+_MARKET_SELL = "📈 <b>Продажа на бирже прошла</b>\nЗаявка исполнена целиком — Мора уже на твоём балансе."
 
 
 async def _season(db, now: datetime) -> int:
@@ -116,8 +119,8 @@ async def _season(db, now: datetime) -> int:
     for (user_id,) in rows:
         sent += await dm_push.enqueue(
             db, user_id=int(user_id), category="season", dedup_key=key,
-            text=f"🏁 <b>Сезон скоро закончится</b>\nОсталось {days} {word}. Загляни в «Игры»: место в рейтинге ещё можно улучшить.",
-            button={"kind": "app", "section": "games", "label": "🎮 В игры"},
+            text=f"🏁 <b>До конца сезона {days} {word}</b>\nЕщё можно подняться в рейтинге — сыграй пару партий.",
+            button={"kind": "app", "section": "games", "label": "🎮 Сыграть"},
         )
     return sent
 
@@ -171,9 +174,8 @@ def _holiday_text(season_id: str, end: datetime, missing: list[str], now: dateti
     from core.skins_v3_catalog import SEASONS
     days = max(1, -(-int((end - now).total_seconds()) // 86400))
     word = "день" if days == 1 else "дня"
-    return (f"{_HOLIDAY_ICON.get(season_id, '🎁')} <b>Праздничные образы скоро уйдут</b>\n"
-            f"«{SEASONS[season_id]['name']}» в магазине образов ещё {days} {word}. Пока не твои: {', '.join(missing)}.\n"
-            "Потом эти образы вернутся только через год.")
+    return (f"{_HOLIDAY_ICON.get(season_id, '🎁')} <b>«{SEASONS[season_id]['name']}» в магазине ещё {days} {word}</b>\n"
+            f"Пока не твои: {', '.join(missing)}. Потом — только через год.")
 
 
 async def holiday_notice(db, user_id: int, key: str, now: datetime) -> str | None:
@@ -223,7 +225,7 @@ async def _holiday_looks(db, now: datetime) -> int:
             sent += await dm_push.enqueue(
                 db, user_id=int(user_id), category="events", dedup_key=key,
                 text=_holiday_text(season_id, end, missing, now),
-                button={"kind": "app", "section": "looks", "label": "🎨 К образам"},
+                button={"kind": "app", "section": "looks", "label": "🎨 Посмотреть образы"},
             )
     return sent
 
@@ -284,7 +286,7 @@ async def _vip(db, now: datetime) -> int:
     for user_id, expires_at in rows:
         sent += await dm_push.enqueue(
             db, user_id=int(user_id), category="vip_expiry", dedup_key=f"vip_end:{expires_at.date().isoformat()}",
-            text=f"⏳ <b>VIP скоро закончится</b>\nСрок идёт до {expires_at.strftime('%d.%m')}. Продлить можно в магазине.",
+            text=f"⏳ <b>VIP закончится {expires_at.strftime('%d.%m')}</b>\nПродли заранее, чтобы не потерять удобства.",
             button={"kind": "app", "section": "vip", "label": "⭐ Продлить VIP"},
         )
     return sent
@@ -331,7 +333,7 @@ async def _pass(db, now: datetime) -> int:
             continue
         sent += await dm_push.enqueue(
             db, user_id=int(user_id), category="pass", dedup_key=key,
-            text="🏆 <b>В Пропуске есть награда</b>\nМожно забрать прямо здесь.",
+            text="🏆 <b>В Пропуске ждёт награда</b>\nЗабери её прямо здесь, одной кнопкой.",
             button={"kind": "cb", "data": "dn:claim:pass", "label": "🎁 Забрать награды"},
         )
     return sent
@@ -410,11 +412,11 @@ async def _chests(db, now: datetime) -> int:
         rows = await c.fetchall()
     sent = 0
     for grant_id, user_id, source_kind in rows:
-        key_name = KEY_TIER_NAMES[tier_for_source(source_kind)]
+        key_name = KEY_TIER_NAMES[tier_for_source(source_kind)].lower()
         sent += await dm_push.enqueue(
             db, user_id=int(user_id), category="chests", dedup_key=f"chest_key:{grant_id}",
-            text="🎁 <b>Ключ от сундука ждёт тебя</b>\nОткрой «Сундуки», чтобы забрать награду.",
-            button={"kind": "cb", "data": f"dn:chest:{grant_id}", "label": f"🎁 Открыть за 1 ключ · {key_name}"},
+            text=f"🎁 <b>Новый ключ от сундука: {key_name}</b>\nСундук можно открыть прямо здесь.",
+            button={"kind": "cb", "data": f"dn:chest:{grant_id}", "label": "🎁 Открыть за 1 ключ"},
         )
     return sent
 
@@ -428,8 +430,8 @@ async def vip_daily_reminders(db, now: datetime | None = None) -> int:
     for user_id in await daily_reminder_candidates(db, now=now):
         if await dm_push.enqueue(
             db, user_id=user_id, category="vip_expiry", dedup_key=f"vip_daily:{today}",
-            text="✦ <b>VIP-поручение ещё ждёт</b>\nЗаверши одну игру сегодня. Прогресс серии не сгорит, если пропустишь день.",
-            button={"kind": "app", "section": "vip", "label": "⭐ К VIP"},
+            text="✦ <b>VIP-поручение на сегодня ещё ждёт</b>\nДоиграй одну любую игру до конца — и оно выполнено.",
+            button={"kind": "app", "section": "games", "label": "🎮 Сыграть"},
         ):
             await record_daily_reminder_sent(db, user_id=user_id, now=now)
             queued += 1

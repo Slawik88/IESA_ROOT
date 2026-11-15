@@ -156,6 +156,46 @@ for relative in ("services/season_report.py", "services/dm_push_events.py", "cor
     source = re.sub(r'""".*?"""', '', (ROOT / relative).read_text(encoding="utf-8"), flags=re.S)
     for line in re.findall(r'"([^"\n]*[А-Яа-яЁё][^"\n]*)"', source):
         assert_plain(relative, line)
+
+
+# Уведомления в личку (S23cw): заголовок и одна строка «что сделать», короткая кнопка-действие. Итог сезона — отчёт, он отдельно.
+def _literal(node) -> str:
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else ""
+    return "".join(v.value if isinstance(v, ast.Constant) else "{}" for v in node.values) if isinstance(node, ast.JoinedStr) else ""
+
+
+def _letters(tree) -> list:
+    """Что уходит игроку письмом: text= у enqueue/social_event, шаблон _tell_in_dm, константы и _holiday_text, которые туда попадают."""
+    consts = {t.id: n.value for n in tree.body if isinstance(n, ast.Assign) for t in n.targets if isinstance(t, ast.Name)}
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "_holiday_text":
+            found += [n.value for n in ast.walk(node) if isinstance(n, ast.Return)]
+        if not isinstance(node, ast.Call):
+            continue
+        name = getattr(node.func, "attr", getattr(node.func, "id", ""))
+        if name in {"enqueue", "social_event", "social"}:
+            found += [kw.value for kw in node.keywords if kw.arg == "text"]
+            found += [kw.value for kw in node.keywords if kw.arg == "button"]
+        elif name == "_tell_in_dm" and len(node.args) > 4:
+            found.append(node.args[4])
+    out = []
+    for root in found:
+        for n in ast.walk(root):
+            out.append(consts.get(n.id, n) if isinstance(n, ast.Name) else n)
+    return out
+
+
+for relative in ("services/dm_push_events.py", "bot/chat/family.py", "bot/chat/transfer.py"):
+    for node in _letters(ast.parse((ROOT / relative).read_text(encoding="utf-8"))):
+        plain = re.sub(r"<[^>]+>", "", _literal(node))
+        if "\n" in plain and (len(plain.split("\n")) > 2 or len(plain) > 120):
+            PROBLEMS.append(f"{relative}: письмо в личку длиннее двух коротких строк: {plain!r}")
+        if isinstance(node, ast.Dict):
+            for key, value in zip(node.keys, node.values):
+                if isinstance(key, ast.Constant) and key.value == "label" and len(_literal(value)) > 24:
+                    PROBLEMS.append(f"{relative}: кнопка письма длиннее 24 знаков: {_literal(value)!r}")
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # ── Дары: Путеводитель показывает ровно то, что видит игрок в игре ──────────────────────────────────────────────────────
