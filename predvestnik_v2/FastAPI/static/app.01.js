@@ -749,7 +749,12 @@ const _PAGE_LOADERS = {
 const _PAGE_FLAG = { casino: 'game_casino_v1' };
 let _sysFlags = {};  // заполняется из /profile/me (system_flags) при loadProfile()
 function _applySysFlags(flagsList) {
+  const previous = _sysFlags;
   _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
+  try {
+    if (previous.shop_v1 !== _sysFlags.shop_v1) { _shopOn = null; _shop.me = null; _shopSyncEntries(); }
+    if (previous.gifts_v2 !== _sysFlags.gifts_v2) { _giftsOn = null; _gifts.me = null; giftsShelfRender(); }
+  } catch (_) {}
   try { syncPlayerExchangeEntry(); } catch (_) {}
   try { if (el('game-hub')?.childElementCount) loadActivitiesHub(); } catch (_) {}   // флаги пришли позже первого показа центра игр
 }

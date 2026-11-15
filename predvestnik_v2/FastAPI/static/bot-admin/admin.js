@@ -2547,7 +2547,7 @@ async function healthView(main) {
 const AUTH_REASONS = {no_header: 'нет данных входа (приложение открыто без Telegram или SDK не загрузился)', stale_auth_date: 'вход старше суток (приложение долго висело свёрнутым)',
   bad_hash: 'неверная подпись Telegram', malformed: 'испорченные данные входа', user_missing: 'в данных входа нет игрока',
   bad_session: 'неверная сессия браузера', expired_session: 'сессия браузера истекла', no_bot_token: 'на сервере нет токена бота'};
-const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился Telegram SDK', boot_timing: 'замеры запуска', guide_miss: 'в Путеводителе не нашлось'};
+const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился Telegram SDK', browser_open: 'открытие в обычном браузере (без ошибки)', boot_timing: 'замеры запуска', guide_miss: 'в Путеводителе не нашлось'};
 const ms = v => v >= 1000 ? `${(v / 1000).toLocaleString('ru-RU', {maximumFractionDigits: 1})} с` : `${num(Math.round(v))} мс`;
 
 async function healthOpsView(box, hours) {
@@ -2562,12 +2562,17 @@ async function healthOpsView(box, hours) {
   const lagBad = o.loop_lag.p95 > 1000, poolBad = o.pool_wait.some(p => p.p95 > 1000);
   const SOURCE_NAMES = {http: 'приложение', bot: 'бот', background: 'фон'};
   const c = o.client, be = o.bot_errors;
-  const clientErrors = c.by_type.filter(t => !['boot_timing', 'guide_miss'].includes(t.type)).reduce((a, t) => a + t.count, 0);
+  const clientErrors = c.by_type.filter(t => !['boot_timing', 'guide_miss', 'browser_open'].includes(t.type)).reduce((a, t) => a + t.count, 0);
+  const fresh = o.fresh || {};
+  const freshnessBad = fresh.sample_fresh === false || fresh.writer_fresh === false;
+  const telegramMethods = [...new Set([...Object.keys(o.telegram_api || {}), ...Object.keys(o.telegram_api_errors || {})])].sort();
   const none = text => `<div class="sub">${text}</div>`;
   box.innerHTML = `
     <div class="scope">${Object.entries(period).map(([h, t]) =>
       `<button class="btn small ${+h === o.hours ? 'primary' : ''}" data-hours="${h}">${t}</button>`).join('')}
       <span class="sub">Хранится 14 дней, перезапуск не обнуляет.</span></div>
+    ${freshnessBad ? alertBox('warn', 'Сбор или запись показателей задерживаются. Отсутствие новых ошибок пока не подтверждает исправность.') : ''}
+    <div class="sub" role="status">Последний замер: ${fresh.sampled_seconds_ago == null ? 'ещё нет' : `${ms(fresh.sampled_seconds_ago * 1000)} назад`} · запись: ${fresh.written_seconds_ago == null ? (fresh.collecting ? 'собираем первые 5 минут' : 'ещё нет') : `${ms(fresh.written_seconds_ago * 1000)} назад`}.</div>
     <div class="kpis hero">
       ${kpi('🐢 Лаг сервера (p95)', ms(o.loop_lag.p95), '', lagBad ? 'bad' : '')}
       ${kpi('🗄 Ожидание базы (p95)', ms(Math.max(0, ...o.pool_wait.map(p => p.p95))), '', poolBad ? 'bad' : '')}
@@ -2579,14 +2584,17 @@ async function healthOpsView(box, hours) {
       <div class="log"><div>Задержка обработки <b>p95 ${ms(o.loop_lag.p95)}</b> · максимум ${ms(o.loop_lag.max)}</div><div class="sub">Больше секунды подряд — сервер не успевает, игроки видят «зависания».</div></div>
       <div class="log"><div>Соединений с базой занято <b>в среднем ${o.pool_busy.avg}</b> · максимум ${o.pool_busy.max}</div>
         ${(o.pool_held || []).length ? `<div class="sub">Из них в среднем держат: ${(o.pool_held || []).map(h => `${esc(SOURCE_NAMES[h.name] || h.name)} ${h.avg} (до ${h.max})`).join(' · ')}</div>` : ''}</div>
-      ${o.db_server && o.db_server.limit ? `<div class="log"><div>Всего соединений на сервере базы <b>до ${o.db_server.total} из ${o.db_server.limit}</b> · Предвестник до ${o.db_server.ours}</div><div class="sub">Общий лимит с сайтом IESA: когда он кончается, база отказывает всем${o.db_server.refused ? ` · отказов: <b>${num(o.db_server.refused)}</b>` : ''}.</div></div>` : ''}
-      ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
+      ${o.db_server && o.db_server.limit ? `<div class="log"><div>Всего соединений на сервере базы <b>до ${o.db_server.total} из ${o.db_server.limit}</b> · Предвестник до ${o.db_server.ours}</div><div class="sub">Лимит этого сервера: другие приложения и служебные подключения тоже занимают соединения${o.db_server.refused ? ` · отказов: <b>${num(o.db_server.refused)}</b>` : ''}.</div></div>` : ''}
+      ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
       ${(o.pool_hold || []).map(p => `<div class="log"><div>Удержание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} циклов «взял — сделал запрос — отдал»</div></div>`).join('')}
       ${Object.keys(o.cache_flights || {}).length ? `<div class="sub">Загрузок топов, разделённых с параллельными запросами: ${Object.entries(o.cache_flights).map(([k, v]) => `${k === 'boards' ? 'таблицы' : 'места'} ${num(v)}`).join(' · ')}</div>` : ''}
       ${Object.entries(o.telegram_delivery || {}).map(([name, t]) => `<div class="log"><div>До обработки сообщения (${esc(name)}) <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} сообщений</div></div>`).join('')}
       ${o.telegram_delayed ? `<div class="log">Дольше 10 с до обработки: <b>${num(o.telegram_delayed)}</b></div>` : ''}
       ${o.telegram_receipt_retries ? `<div class="log">Очередь ждала записи в базу: <b>${num(o.telegram_receipt_retries)} повторов</b></div>` : ''}
-      ${Object.entries(o.telegram_api || {}).map(([name, t]) => `<div class="log"><div>Ответ Telegram: ${esc(name)} <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} вызовов · ${num(o.telegram_api_errors?.[name] || 0)} сетевых ошибок</div></div>`).join('')}
+      ${telegramMethods.map(name => {
+        const t = o.telegram_api?.[name];
+        return `<div class="log"><div>Ответ Telegram: ${esc(name)} ${t ? `<b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b>` : ''}</div><div class="sub">${t ? `${num(t.count)} вызовов · ` : ''}сетевых ошибок: ${num(o.telegram_api_errors?.[name] || 0)}${name === 'GetUpdates' ? ' · долгое ожидание новых сообщений — обычный режим опроса Telegram; это не время ответа игроку' : ''}</div></div>`;
+      }).join('')}
       ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram: ${esc(t.method)} <b>p95 ${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
     ${section('h-ops-routes', '🌐 Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'p50', 'p95', 'p99', '4xx / 5xx'],
       o.routes.map(r => [esc(r.route), num(r.count), ms(r.p50), ms(r.p95), ms(r.p99), `${num(r.e4)} / ${r.e5 ? `<b>${num(r.e5)}</b>` : 0}`])) : none('Запросов не было.'), {fold: true, open: false, count: num(o.http_total)})}

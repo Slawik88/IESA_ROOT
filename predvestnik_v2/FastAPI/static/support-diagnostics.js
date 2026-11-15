@@ -121,7 +121,14 @@
       dom_ms: nav ? Math.round(nav.domContentLoadedEventEnd) : undefined, load_ms: nav ? Math.round(nav.loadEventEnd) : undefined});
   }
   setTimeout(() => sendBootTiming(undefined), 20000);   // the profile never arrived: timing without "ready"
-  if (!window.Telegram?.WebApp) telemetry.send('sdk_missing', {message: /tgWebApp(Data|Platform|Version)=/.test(location.hash + location.search) ? 'opened in Telegram' : 'browser'});
+  function checkTelegramSDK() {
+    if (window.Telegram?.WebApp) return;
+    let telegramLaunch = /tgWebApp(Data|Platform|Version)=/.test(location.hash + location.search);
+    try { telegramLaunch ||= !!JSON.parse(sessionStorage.getItem('__telegram__initParams') || '{}').tgWebAppData; } catch (_) {}
+    if (telegramLaunch) telemetry.send('sdk_missing', {message: 'opened in Telegram'});
+  }
+  if (document.readyState === 'complete') checkTelegramSDK();
+  else addEventListener('load', checkTelegramSDK, {once: true});
   function errorData(error, file, line, column) {
     const name = error?.name || 'Error';
     const frames = [...String(error?.stack || '').matchAll(/(?:https?:\/\/[^\s)]+\/)?([A-Za-z0-9_.-]{1,80}\.js)(?:\?[^\s):]*)?:(\d+):(\d+)/g)].slice(0,8).map(m => `${m[1]}:${m[2]}:${m[3]}`);

@@ -25,13 +25,19 @@ function _shopHours(sec) { return Math.max(1, Math.ceil((Number(sec) || 0) / 360
 
 // Вход в магазин: строка в профиле и кнопка в окне валют. Узнаём флаг одним GET /shop-v1/me на сессию (страница перечитывает сама).
 function shopProbe() {
+  if (!_isFeatureEnabled('shop_v1')) { _shopOn = false; _shop.me = null; _shopSyncEntries(); return; }
   if (_shopOn !== null || _shop.loading) return;
+  const flag = _sysFlags.shop_v1;
   _shop.loading = true;
-  api('/shop-v1/me').then(d => { _shop.me = d; _shopOn = true; }).catch(e => { if (typeof e === 'string') _shopOn = false; })
-    .finally(() => { _shop.loading = false; _shopSyncEntries(); });
+  api('/shop-v1/me').then(d => { if (flag === _sysFlags.shop_v1) { _shop.me = d; _shopOn = true; } })
+    .catch(e => { if (flag === _sysFlags.shop_v1 && typeof e === 'string') _shopOn = false; })
+    .finally(() => {
+      _shop.loading = false; _shopSyncEntries();
+      if (flag !== _sysFlags.shop_v1 && _isFeatureEnabled('shop_v1')) shopProbe();
+    });
 }
 function _shopSyncEntries() {
-  document.querySelectorAll('[data-shop-entry]').forEach(node => { node.hidden = _shopOn !== true; });
+  document.querySelectorAll('[data-shop-entry]').forEach(node => { node.hidden = _shopOn !== true || !_isFeatureEnabled('shop_v1'); });
 }
 function shopEntryRow() {
   if (_shopOn === null) setTimeout(shopProbe, 0);
