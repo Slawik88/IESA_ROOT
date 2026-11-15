@@ -5,6 +5,8 @@ import html
 from bisect import bisect_left
 
 from aiogram import Router
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
+from loguru import logger
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyParameters
 
@@ -13,6 +15,7 @@ from bot.chat import ranks
 from core import word_chain as rules
 from services import feature_switches, global_moderation
 from services import word_chain as game
+from infrastructure.repositories import word_chain as repo
 
 router = Router(name="word_chain")
 HELP = ("🔤 <b>Слова</b> — игра против бота, одному или вместе.\n\n"
@@ -25,9 +28,7 @@ HELP = ("🔤 <b>Слова</b> — игра против бота, одному
         "Принимаю настоящие русские слова и их формы.\n\n"
         "Твои сообщения идут в обычную норму; ответы бота и кнопки новых сообщений нормы не дают.\n\n"
         "<code>бот слова, подсказка</code> · <code>бот слова, счёт</code> · <code>бот слова, стоп</code>\n"
-        "После суток без ходов можно начать заново. В каждой теме своя партия.")
-REACTIONS = ("Мой ответ готов!", "Хорошее слово, продолжаем!", "Принимаю! Теперь мой ход.",
-             "Есть такое! Лови следующее.", "Цепочка растёт!", "А я отвечу вот так.")
+        "Без ходов 15 минут — партия завершится. В чате остаются 7 последних сообщений игры от бота. В каждой теме своя партия.")
 
 
 SOLO_HELP = ("🔤 <b>Слова один на один</b> — ты и я, без чата.\n\n"
@@ -37,23 +38,45 @@ SOLO_HELP = ("🔤 <b>Слова один на один</b> — ты и я, бе
              "Ё = Е. В конце пропускаем Ь, Ъ, Ы и Й. Слова партии не повторяем. Между своими ходами — 3 секунды.\n"
              "При опечатке предложу близкие слова: выбери своё кнопкой.\n\n"
              "<code>бот слова, подсказка</code> · <code>бот слова, счёт</code> · <code>бот слова, стоп</code>\n"
-             "После суток без ходов можно начать заново. Очков и наград игра не даёт: это просто для удовольствия.")
+             "Без ходов 15 минут — партия завершится. Остаются 7 последних сообщений игры от бота. Очков и наград игра не даёт.")
 
 
 def prompt(state: dict, private: bool = False) -> str:
     word = state.get("bot_word") or state.get("last_word") or ""
     if state.get("paused"):
         return f"🔤 Партия на паузе: чат закрыт или идёт Мафия.\nПоследнее слово: <b>{html.escape(word)}</b>.\nСлова и счёт сохранятся."
-    if state.get("word"):
-        phrase = REACTIONS[(state["turns"]+sum(map(ord,state["word"]))) % len(REACTIONS)]
-        opening = f"{phrase}\nТвоё <b>{html.escape(state['word'])}</b> → моё <b>{html.escape(word)}</b>."
-    else:
-        opening = ("Играем!" if state.get("created") else "Продолжаем!")+f" Моё слово: <b>{html.escape(word)}</b>."
-    tail = f"В цепочке уже {state['turns']} слов игроков!" if state["turns"] and state["turns"] % 10 == 0 else f"Ходов: {state['turns']}"
-    ending = f"\nВ конце «{word[-1].upper()}» пропускаем." if word and word[-1] in rules.SKIP_ENDINGS else ""
-    how = ("Просто напиши слово — или ответь на это сообщение." if private
-           else "Ход: <code>бот слово, СЛОВО</code> или ответ одним словом на это сообщение.")
-    return f"🔤 {opening}{ending}\nТеперь тебе на <b>{state['letter'].upper()}</b>.\n{how}\n<i>{tail}</i>"
+    text = f"🔤 <b>{html.escape(word)}</b>\nТебе на <b>{state['letter'].upper()}</b>."
+    if state.get("created"):
+        how = "Напиши слово." if private else "Ответь словом или напиши <code>бот слово, СЛОВО</code>."
+        text += f"\n{how}\nБез ходов 15 минут — конец игры. Оставляю 7 своих сообщений."
+    return text
+
+
+async def clean_messages(db, bot, *, chat_id: int | None = None, topic_id: int = 0) -> None:
+    for chat_id, topic_id, message_id in await repo.stale_messages(db, chat_id, topic_id):
+        release = getattr(db, "release_if_idle", None)
+        if release:
+            await release()
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=message_id)
+        except TelegramBadRequest as error:
+            if not any(reason in error.message.lower() for reason in ("message to delete not found", "message can't be deleted")):
+                logger.warning("Word game deletion refused: chat={} message={} error={}", chat_id, message_id, error.message)
+                continue
+        except TelegramAPIError as error:
+            logger.warning("Word game deletion will retry: chat={} message={} error={}", chat_id, message_id, type(error).__name__)
+            continue
+        await repo.forget_message(db, chat_id, topic_id, message_id)
+
+
+async def remember_reply(db, bot, sent) -> None:
+    await game.remember_message(db, chat_id=sent.chat.id, topic_id=topic_of(sent) or 0, message_id=sent.message_id)
+    await clean_messages(db, bot, chat_id=sent.chat.id, topic_id=topic_of(sent) or 0)
+
+
+async def reply(ctx: Ctx, text: str, **kwargs) -> None:
+    sent = await ctx.reply(text, **kwargs)
+    await remember_reply(ctx.db, ctx.bot, sent)
 
 
 def word_input(state: dict) -> ForceReply | None:
@@ -93,9 +116,9 @@ async def error_reply(db, message, bot, value: str, error: Exception) -> tuple[s
     state = await game.spelling_help(db,chat_id=message.chat.id,topic_id=topic_of(message) or 0,value=value)
     text = "🔤 "+html.escape(str(error))
     if state["candidates"]:
-        return text+"\n\nВозможно, опечатка? Выбери своё слово ниже. Ход будет от твоего исходного сообщения.",correction_keyboard(state,message,bot)
+        return text+"\nВыбери исправление:",correction_keyboard(state,message,bot)
     if state["active"]:
-        return text+"\n\n"+prompt(state,is_solo(message)),word_input(state)
+        return text+f"\nТебе на <b>{state['letter'].upper()}</b>.",word_input(state)
     return text,None
 
 
@@ -108,31 +131,33 @@ async def command(ctx: Ctx) -> None:
     arg = rules.normalize(ctx.args)
     try:
         if arg in {"правила","помощь"}:
-            await ctx.reply(SOLO_HELP if solo else HELP)
+            await reply(ctx,SOLO_HELP if solo else HELP)
             return
         if arg in {"стоп","закончить","завершить"}:
             can_moderate = solo or await ranks.can(ctx.db,scope["chat_id"],ctx.user_id,"write_closed")
             state = await game.stop(ctx.db,**scope,actor=ctx.user_id,can_moderate=can_moderate)
-            await ctx.reply(f"🔤 Партия завершена · принято слов: {state['turns']}\n"+score(state))
+            await reply(ctx,f"🔤 Партия завершена · принято слов: {state['turns']}\n"+score(state))
             return
         if arg in {"счет","статус","подсказка"}:
             state = await game.status(ctx.db,**scope,hint=arg=="подсказка")
             if not state["active"]:
                 text = f"Последняя партия · принято слов: {state['turns']}\n"+score(state) if state.get("last_round") else "Игра сейчас не идёт."
-                await ctx.reply("🔤 "+text+"\nНачать: <code>бот слова</code>.")
+                await reply(ctx,"🔤 "+text+"\nНачать: <code>бот слова</code>.")
                 return
-            text = prompt(state,solo)+"\n\n<b>Счёт этой партии</b>\n"+score(state)
+            text = prompt(state,solo)
             if arg=="подсказка":
-                text += "\n\nМожно: "+", ".join(state["hints"])
-            await ctx.reply(text,reply_markup=word_input(state))
+                text += "\nМожно: "+", ".join(state["hints"])
+            else:
+                text += "\n\n<b>Счёт</b>\n"+score(state)
+            await reply(ctx,text,reply_markup=word_input(state))
             return
         if arg and arg not in {"начать","старт"}:
-            await ctx.reply(SOLO_HELP if solo else HELP)
+            await reply(ctx,SOLO_HELP if solo else HELP)
             return
         state = await game.start(ctx.db,**scope,actor=ctx.user_id)
-        await ctx.reply(prompt(state,solo),reply_markup=word_input(state))
+        await reply(ctx,prompt(state,solo),reply_markup=word_input(state))
     except game.WordChainError as error:
-        await ctx.reply("🔤 "+html.escape(str(error)))
+        await reply(ctx,"🔤 "+html.escape(str(error)))
 
 
 @registry.command("слово", private=True, section="games", usage="бот слово, арбуз",
@@ -162,7 +187,8 @@ async def play_message(db, bot, message, value: str) -> None:
         text,markup = turn_reply(state,is_solo(message))
     except game.WordChainError as error:
         text,markup = await error_reply(db,message,bot,value,error)
-    await message.reply(text,parse_mode="HTML",reply_markup=markup)
+    sent = await message.reply(text,parse_mode="HTML",reply_markup=markup)
+    await remember_reply(db, bot, sent)
 
 
 def is_reply(bot, message) -> bool:
@@ -241,5 +267,6 @@ async def confirm_spelling(cb: CallbackQuery, callback_data: WordFixCB, bot, db)
         text,markup = await error_reply(db,original,bot,word,error)
         await cb.answer("Цепочка обновилась — смотри текущую букву.")
     mention = f'<a href="tg://user?id={actor}">{html.escape(cb.from_user.first_name)}</a>'
-    await cb.message.answer(text.replace("🔤 ",f"🔤 {mention}, ",1),parse_mode="HTML",reply_markup=markup,
+    sent = await cb.message.answer(text.replace("🔤 ",f"🔤 {mention}, ",1),parse_mode="HTML",reply_markup=markup,
                             reply_parameters=ReplyParameters(message_id=mid,allow_sending_without_reply=True))
+    await remember_reply(db, bot, sent)

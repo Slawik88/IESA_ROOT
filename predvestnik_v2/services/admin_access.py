@@ -30,7 +30,7 @@ GLOBAL_FLOORS = {
     "action:skin_grant": 6, "action:skin_revoke": 6,
     "action:mark_grant": 5, "action:mark_revoke": 5, "action:revoke_sessions": 6,
     "section:broadcast": 5, "section:promo": 5, "section:switches": 5, "section:settings": 5,
-    "section:diagnostics": 5, "section:access": 6, "section:patchnotes": 6, "section:widgets": 6,
+    "section:diagnostics": 5, "section:access": 6, "section:patchnotes": 6,
 }
 CONFIGURABLE = frozenset({
     "section:people", "section:reports", "section:metrics", "section:journal", "section:health",

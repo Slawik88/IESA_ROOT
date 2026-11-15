@@ -13,8 +13,9 @@
   Это бесплатный адрес sslip.io, связанный с IP сервера; при смене IP меняется адрес.
   HTTPS — Let's Encrypt, автоматическое продление через `certbot.timer`.
 - Службы `predvestnik.service`, `domovoy.service`; общий Python
-  `/opt/iesa/venv311/bin/python`. Предвестник — выпуск
-  `/opt/iesa/releases/2555cbe258c2a45428cf6d15b81ba3581a25ce79` (исправления «Здоровья», 2026-11-15),
+  `/opt/iesa/venv311/bin/python`. Точный текущий выпуск Предвестника —
+  `systemctl show predvestnik -p WorkingDirectory -p Environment`: каталог
+  `/opt/iesa/releases/<SOURCE_COMMIT>/predvestnik_v2` (отдельная выкладка после проверок),
   Домовой — `/opt/iesa/releases/3a8fd4f8ec145f98c204142f14ec91375d1eb04e`.
   Автоматического деплоя из GitHub на Droplet пока нет.
 - Служба Предвестника получает `SOURCE_COMMIT` проверенного выпуска через unit:

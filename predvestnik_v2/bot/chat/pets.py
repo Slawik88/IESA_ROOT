@@ -189,12 +189,8 @@ async def open_menu(ctx, screen='home', **data):
 async def cmd_pets(ctx: Ctx): await open_menu(ctx)
 
 
-def register_menu(name, screen, summary, aliases=(), target=None, widget=None):
+def register_menu(name, screen, summary, aliases=(), target=None):
     async def command(ctx):
-        if widget and ctx.message.chat.type == 'private':   # в личке — живое поле в сообщении, если оно подходит (bot/chat/widgets.py)
-            from bot.chat import widgets
-            if await widgets.show(ctx.bot, ctx.db, ctx.user_id, widget):
-                return
         await open_menu(ctx, screen, **({'target':target} if target else {}))
     registry.command(name, aliases=aliases,section='pets',group='pets',summary=summary,example='бот '+name)(command)
 
@@ -203,7 +199,7 @@ register_menu('отправить питомца','choose','Выбрать пу�
 register_menu('покормить питомца','choose','Выбрать питомца и лакомство.',('кормить питомца',), 'feed')
 register_menu('лагерь','camp','Улучшения лагеря.')
 register_menu('вылазка','choose','Приключение с развилками.',target='outing')
-register_menu('выслеживание','choose','Поиск тайника на поле 3×3.',target='track',widget='track')
+register_menu('выслеживание','choose','Поиск тайника на поле 3×3.',target='track')
 register_menu('испытание питомцев','trial','Испытание недели.',('испытание недели',))
 register_menu('бестиарий','bestiary','Коллекция видов питомцев.')
 

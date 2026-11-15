@@ -17,16 +17,11 @@ from bot.middlewares.db import DbReleaseMiddleware, db_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.middlewares.polling_delivery import PollingDelivery
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
-from bot.middlewares.widget_query import widget_payload, widget_query_middleware
-from core import widgets
 from services import ops_health
 
 
 def update_kind(update: Update) -> str:
-    """Тип обновления для счётчиков; запрос виджета aiogram 3.24 не знает, и event_type на нём бросает исключение."""
-    found = widget_payload(update)
-    if found is not None:
-        return found[0]
+    """Тип обновления для счётчиков."""
     try:
         return update.event_type
     except LookupError:
@@ -34,8 +29,8 @@ def update_kind(update: Update) -> str:
 
 
 def allowed_updates(dp: Dispatcher) -> list[str]:
-    """Что просить у Telegram: всё, на что есть обработчики, плюс запросы виджетов (у них нет обработчиков aiogram)."""
-    return sorted({*dp.resolve_used_update_types(), *widgets.UPDATE_TYPES})
+    """Запрашивать обновления, для которых есть обработчики."""
+    return sorted(dp.resolve_used_update_types())
 
 
 async def note_handler_error(event: ErrorEvent):
@@ -69,7 +64,6 @@ def build_dispatcher(delivery: PollingDelivery | None = None) -> Dispatcher:
     dp.update.middleware(db_middleware)
     if delivery is not None:
         dp.update.middleware(delivery.admit)
-    dp.update.middleware(widget_query_middleware)   # после учёта доставки: повтор того же запроса не обработается дважды
     dp.update.middleware(measure_update_delivery)
     dp.errors.register(note_handler_error)
     dp.include_router(main_router)

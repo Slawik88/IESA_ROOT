@@ -1,10 +1,10 @@
 """Durable word-chain rounds, receipts and per-round scores."""
 import json
-from core.word_chain import IDLE_HOURS
+from core.word_chain import BOT_MESSAGES_KEPT, IDLE_MINUTES
 
 
 async def ensure_tables(db) -> None:
-    async with db.execute("SELECT to_regclass('word_chain_rounds') IS NOT NULL AND to_regclass('word_chain_words') IS NOT NULL AND to_regclass('word_chain_moves') IS NOT NULL") as cur:
+    async with db.execute("SELECT to_regclass('word_chain_rounds') IS NOT NULL AND to_regclass('word_chain_words') IS NOT NULL AND to_regclass('word_chain_moves') IS NOT NULL AND to_regclass('word_chain_messages') IS NOT NULL") as cur:
         if (await cur.fetchone())[0]:
             return
     async with db.connection.transaction():
@@ -14,14 +14,33 @@ async def ensure_tables(db) -> None:
         await db.execute("CREATE TABLE IF NOT EXISTS word_chain_words (round_id BIGINT NOT NULL REFERENCES word_chain_rounds(id),word TEXT NOT NULL,PRIMARY KEY(round_id,word))")
         await db.execute("CREATE TABLE IF NOT EXISTS word_chain_moves (round_id BIGINT NOT NULL REFERENCES word_chain_rounds(id),message_id BIGINT NOT NULL,user_id BIGINT NOT NULL,word TEXT NOT NULL,reply_json JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT CLOCK_TIMESTAMP(),PRIMARY KEY(round_id,message_id))")
         await db.execute("CREATE INDEX IF NOT EXISTS word_chain_player_moves ON word_chain_moves(round_id,user_id,created_at DESC)")
+        await db.execute("CREATE TABLE IF NOT EXISTS word_chain_messages (chat_id BIGINT NOT NULL,topic_id BIGINT NOT NULL,message_id BIGINT NOT NULL,PRIMARY KEY(chat_id,topic_id,message_id))")
 
 
 async def lock(db, chat_id: int, topic_id: int) -> None:
     await db.execute("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", (f"word-chain:{chat_id}:{topic_id}",))
 
 
+async def idle_scopes(db) -> list[tuple[int, int]]:
+    async with db.execute("SELECT chat_id,topic_id FROM word_chain_rounds WHERE status='active' AND updated_at<=CLOCK_TIMESTAMP()-make_interval(mins=>?) ORDER BY updated_at LIMIT 1000", (IDLE_MINUTES,)) as cur:
+        return [(int(row[0]), int(row[1])) for row in await cur.fetchall()]
+
+
+async def remember_message(db, chat_id: int, topic_id: int, message_id: int) -> None:
+    await db.execute("INSERT INTO word_chain_messages(chat_id,topic_id,message_id) VALUES (?,?,?) ON CONFLICT DO NOTHING", (chat_id,topic_id,message_id))
+
+
+async def stale_messages(db, chat_id: int | None = None, topic_id: int = 0) -> list[tuple[int, int, int]]:
+    async with db.execute("SELECT chat_id,topic_id,message_id FROM (SELECT chat_id,topic_id,message_id,ROW_NUMBER() OVER (PARTITION BY chat_id,topic_id ORDER BY message_id DESC) AS position FROM word_chain_messages WHERE (?::bigint IS NULL OR (chat_id=? AND topic_id=?))) m WHERE position>? ORDER BY chat_id,topic_id,message_id LIMIT 1000", (chat_id,chat_id,topic_id,BOT_MESSAGES_KEPT)) as cur:
+        return [(int(row[0]), int(row[1]), int(row[2])) for row in await cur.fetchall()]
+
+
+async def forget_message(db, chat_id: int, topic_id: int, message_id: int) -> None:
+    await db.execute("DELETE FROM word_chain_messages WHERE chat_id=? AND topic_id=? AND message_id=?", (chat_id,topic_id,message_id))
+
+
 async def active(db, chat_id: int, topic_id: int) -> dict | None:
-    async with db.execute("SELECT *, updated_at<CLOCK_TIMESTAMP()-make_interval(hours=>?) AS expired FROM word_chain_rounds WHERE chat_id=? AND topic_id=? AND status='active'", (IDLE_HOURS,chat_id,topic_id)) as cur:
+    async with db.execute("SELECT *, updated_at<=CLOCK_TIMESTAMP()-make_interval(mins=>?) AS expired FROM word_chain_rounds WHERE chat_id=? AND topic_id=? AND status='active'", (IDLE_MINUTES,chat_id,topic_id)) as cur:
         row = await cur.fetchone()
     return dict(row) if row else None
 

@@ -23,6 +23,7 @@ from services.scheduler import (
     dm_push_task,
     player_exchange_match_task,
     coin_market_v2_task,
+    word_chain_task,
 )
 
 # Unique advisory lock key for this bot (arbitrary fixed integer).
@@ -172,8 +173,7 @@ async def _configure_telegram_profile(bot: Bot) -> None:
             BotCommand(command="help", description="Все команды бота"),
             BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
             BotCommand(command="guide", description="Путеводитель: как играть и ответы на вопросы"),
-            BotCommand(command="plan", description="Табло: день, задания, Пропуск и питомцы"),
-            BotCommand(command="mines", description="Сапёр прямо в чате"),
+            BotCommand(command="plan", description="План дня: задания, Пропуск и питомцы"),
             BotCommand(command="notify", description="Уведомления: что бот присылает тебе в личку"),
             BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
         ], scope=BotCommandScopeAllPrivateChats())
@@ -344,6 +344,7 @@ async def main():
         background_tasks.extend([
             _spawn_supervised("mafia-online-phases", run_mafia_online(), failed=background_failed),
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
+            _spawn_supervised("word-chain", word_chain_task(bot), failed=background_failed),
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
             _spawn_supervised("coin-market-v2", coin_market_v2_task(), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),

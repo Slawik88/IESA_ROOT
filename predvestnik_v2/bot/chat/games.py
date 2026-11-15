@@ -9,7 +9,6 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from core.miniapp_links import miniapp_url
 from services.formatting import safe_html
-from bot.chat import widgets as widgets_chat
 from bot.chat.framework import Ctx, registry
 from bot.chat.modules import module_disabled_reason
 
@@ -125,8 +124,6 @@ def render_pass(view: dict) -> str:
                   summary="Твой Пропуск сезона: уровень, опыт до следующего и откуда его взять.")
 async def cmd_pass(ctx: Ctx) -> None:
     from services import league_pass
-    if ctx.message.chat.type == "private" and await widgets_chat.show(ctx.bot, ctx.db, ctx.user_id, "hub", "pass"):
-        return
     view = await league_pass.status(ctx.db, user_id=ctx.user_id)
     url = miniapp_url("pass")
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🎫 Открыть Пропуск", url=url)]]) if url else None
@@ -176,8 +173,6 @@ def render_quest_overview(view: dict) -> str:
                   summary="Ваши задания на день и неделю.")
 async def cmd_quests(ctx: Ctx) -> None:
     if await _module_off(ctx, "module_quests"):
-        return
-    if ctx.message.chat.type == "private" and await widgets_chat.show(ctx.bot, ctx.db, ctx.user_id, "hub", "q"):
         return
     from infrastructure.repositories.quests_v1 import ensure_tables
     from services import quests_v1

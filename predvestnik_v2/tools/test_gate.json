@@ -197,6 +197,10 @@
    "db": true,
    "s": 5.1
   },
+  "test_chat_text_menus.py": {
+   "db": false,
+   "s": 5.0
+  },
   "test_chat_top_privacy_pg.py": {
    "db": true,
    "s": 0.5
@@ -917,10 +921,6 @@
    "db": false,
    "s": 0.3
   },
-  "test_telegram_widgets_contract.py": {
-   "db": false,
-   "s": 4.0
-  },
   "test_text_banks.py": {
    "db": false,
    "s": 11.1
@@ -944,6 +944,10 @@
   "test_whatsnew_v3_contract.py": {
    "db": false,
    "s": 3.1
+  },
+  "test_word_chain_lifecycle_pg.py": {
+   "db": true,
+   "s": 5.0
   },
   "test_word_chain_pg.py": {
    "db": true,
