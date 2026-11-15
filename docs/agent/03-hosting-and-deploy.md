@@ -14,9 +14,12 @@
   HTTPS — Let's Encrypt, автоматическое продление через `certbot.timer`.
 - Службы `predvestnik.service`, `domovoy.service`; общий Python
   `/opt/iesa/venv311/bin/python`. Предвестник — выпуск
-  `/opt/iesa/releases/d51ee0592fe228496e8b37350f7939efe15980a2` (восстановление фото VIP, 2026-11-14),
+  `/opt/iesa/releases/2555cbe258c2a45428cf6d15b81ba3581a25ce79` (исправления «Здоровья», 2026-11-15),
   Домовой — `/opt/iesa/releases/3a8fd4f8ec145f98c204142f14ec91375d1eb04e`.
   Автоматического деплоя из GitHub на Droplet пока нет.
+- Служба Предвестника получает `SOURCE_COMMIT` проверенного выпуска через unit:
+  версия видна в админке «Состояние». «Здоровье» отдельно проверяет свежесть
+  замеров и записи метрик; просроченная запись даёт `degraded` в deep health.
 - Telegram хранит два независимых адреса запуска: меню чата (`setChatMenuButton`,
   обновляется ботом из `MINIAPP_URL`) и «Открыть приложение» в профиле
   (BotFather → карточка бота → Mini Apps → Main App → поле URL → Save).
