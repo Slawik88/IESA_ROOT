@@ -94,7 +94,7 @@ function agTopicView(main, t) {
     ? `<button type="button" class="btn primary" data-ag-open="${esc(t.section)}">${esc(t.where.label)}</button>` : '';
   const more = (t.next || []).map(agTopic).filter(Boolean);
   main.innerHTML = `<div class="bar"><button type="button" class="btn small" id="ag-back">← Назад</button></div>
-    <nav class="ag-crumbs" aria-label="Где ты в справке"><button type="button" class="ag-link" data-ag-home="1">Справка</button>${group ? ` › <button type="button" class="ag-link" data-ag-group="${esc(group.id)}">${esc(group.title)}</button>` : ''}</nav>
+    <nav class="ag-crumbs" aria-label="Где вы в справке"><button type="button" class="ag-link" data-ag-home="1">Справка</button>${group ? ` › <button type="button" class="ag-link" data-ag-group="${esc(group.id)}">${esc(group.title)}</button>` : ''}</nav>
     ${pageHead(t.icon, t.title, t.lead)}${agSearchBox()}${toc}
     ${t.blocks.map((b, i) => `<div class="ag-b" id="ag-b-${i}">${(AG_BLOCK[b.t] || (() => ''))(b)}</div>`).join('')}
     <section class="ag-where"><div><small>Где это</small><b>${esc(t.where.path)}</b></div>${go}</section>

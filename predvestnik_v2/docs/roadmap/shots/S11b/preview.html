@@ -10,6 +10,8 @@ section{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}figure{margi
 <li>Под жалобой два решения: «Нарушение» и «Отклонить»; наказание, «Взять» и карточка — в «Ещё действия».</li>
 <li>Плитки без цветных рамок, выбор периода — спокойной плашкой; галочки обычного размера в той же зоне нажатия.</li>
 <li>«Проблемы приложения» на общих элементах и без вылезания текста на 320–430.</li>
+<li>«Состояние» вдвое короче: сверху плитки, ошибки и чаты; техника — одной свёрнутой группой «Подробно для разработчика», подписи словами вместо p95 и 5xx.</li>
+<li>Карточка игрока: одна залитая кнопка, редкое (образы, кошелёк, прежние ники, теги, связи) — одной группой внизу. «Действия/Входы» и «Очередь/Закрытые» — вкладками, период — плашками.</li>
 </ul>
 <label>Экран <select id="tab"></select></label>
 <label>Справа <select id="mode"><option value="after">После · образ</option><option value="after-strict">После · строгая тема</option></select></label>
@@ -18,7 +20,7 @@ section{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}figure{margi
 <script>
 const TABS = {people:'Игроки',player:'Карточка игрока',reports:'Жалобы',journal:'Журнал',metrics:'Метрики',broadcast:'Рассылка',promo:'Промокоды',switches:'Функции',
   settings:'Настройки',health:'Состояние',diagnostics:'Проблемы приложения',access:'Права',patchnotes:'Патч-ноуты',widgets:'Виджеты',purge:'Чистка',guide:'Справка'};
-const WIDE = ['reports','journal','metrics','health','broadcast','player'];
+const WIDE = ['reports','journal','metrics','health','broadcast','player','switches','settings'];
 const tab = document.getElementById('tab'), mode = document.getElementById('mode'), width = document.getElementById('width');
 tab.innerHTML = Object.entries(TABS).map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
 function draw() {
@@ -27,7 +29,7 @@ function draw() {
   b.hidden = t === 'widgets'; b.src = t === 'widgets' ? '' : `before-${t}-390.webp`;
   document.getElementById('bcap').textContent = t === 'widgets' ? 'До: раздела не было в ветке S11' : 'До (S11) · 390';
   document.getElementById('after').src = `${mode.value}-${t}-${w}.webp`;
-  document.getElementById('acap').textContent = `После · ${mode.value === 'after' ? 'образ' : 'строгая тема'} · ${w}${w !== width.value ? ' (другие ширины — у шести главных экранов)' : ''}`;
+  document.getElementById('acap').textContent = `После · ${mode.value === 'after' ? 'образ' : 'строгая тема'} · ${w}${w !== width.value ? ' (другие ширины — у восьми главных экранов)' : ''}`;
 }
 [tab, mode, width].forEach(el => el.onchange = draw); draw();
 </script>

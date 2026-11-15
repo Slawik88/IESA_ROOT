@@ -15,8 +15,9 @@ function openJournalFor(scope) {
 const journalScopeQs = () => JOURNAL.scope ? (JOURNAL.scope.user_id ? `&user_id=${JOURNAL.scope.user_id}` : `&chat_id=${JOURNAL.scope.chat_id}`) : '';
 const saveJournal = () => { PREFS.set('journal.kind', JOURNAL.kind); PREFS.set('journal.days', JOURNAL.days); PREFS.set('journal.view', JOURNAL.view); };
 // Создатель видит ещё и входы в админку (адрес и устройство): остальным этой вкладки нет.
-const journalTabs = () => !ME.creator ? '' : `<div class="scope" style="margin-bottom:8px">${[['actions', 'Действия'], ['logins', 'Входы']].map(([k, t]) =>
-  `<button class="btn small ${k === JOURNAL.view ? 'primary' : ''}" data-jview="${k}">${t}</button>`).join('')}</div>`;
+// Вид (что смотрим) — вкладки с подчёркиванием; период ниже — плашки: два уровня управления не путаются.
+const journalTabs = () => !ME.creator ? '' : `<div class="chips filters view-tabs" role="group" aria-label="Что показать">${[['actions', 'Действия'], ['logins', 'Входы']].map(([k, t]) =>
+  `<button type="button" class="chip ${k === JOURNAL.view ? 'ok' : ''}" data-jview="${k}" aria-pressed="${k === JOURNAL.view}">${t}</button>`).join('')}</div>`;
 const bindJournalTabs = main => main.querySelectorAll('[data-jview]').forEach(b =>
   b.onclick = () => { JOURNAL.view = b.dataset.jview; saveJournal(); journalView(main); });
 async function loginsView(main) {
@@ -54,8 +55,9 @@ async function journalView(main, more = '') {
     // В описании переключателя чат уже назван словами — второй раз его не показываем.
     const where = chat && !String(x.text || '').includes(chatTitle) ? `<div class="log-chat">💬 ${chat}</div>` : '';
     const reason = x.reason ? ` · причина: ${esc(x.reason)}` : '';
+    // Автор, цель и время — отдельные куски строки: у каждой ссылки своя зона нажатия, они не наезжают друг на друга.
     return `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b>${x.text ? ' ' + esc(x.text) : ''}</div>${where}
-      <div class="sub">${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''} · ${when(x.at)}${reason}</div></div>`;
+      <div class="sub jmeta">${x.actor && x.actor.id ? person(x.actor) : '<span>бот</span>'}${x.user ? '<span aria-hidden="true">→</span>' + person(x.user) : ''}<span>· ${when(x.at)}${reason}</span></div></div>`;
   }).join('');
   const body = rows || (more ? '' : '<div class="empty">За этот период действий нет.</div>');
   if (more) {
@@ -129,18 +131,16 @@ async function reportsView(main, kind = 'open') {
   const canPeople = ME.sections.some(z => z.key === 'people');
   const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${pinline(p)}</a>` : pinline(p)) + tagSfx(p.tag) : '—';
   const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
+  // «Ещё действия» показываем, только когда в них что-то есть (у сотрудника без «Игроков» и наказаний их может не быть).
+  const moreActs = r => [canPeople ? `<button class="btn small" data-player="${r.target.id}">👤 Карточка</button>` : '',
+    r.status === 'new' ? `<button class="btn small" data-rep="${r.id}" data-act="take">🙋 Взять</button>` : '',
+    ...(data.punish || []).map(a => `<button class="btn small danger" data-punish="${a.key}" data-rid="${r.id}">${esc(a.title)}</button>`)].join('');
   main.innerHTML = `
     ${pageHead('⚑', 'Жалобы', 'Что прислали игроки и что с этим решили')}
     <button type="button" class="btn small" onclick="mafiaOnlineReports(document.getElementById('main'))">Межчатовая Мафия ›</button>
     <div class="kpis rep-counts">${kpi('Новых', num(c.new), '', c.new ? 'sm warn' : 'sm')}${kpi('В работе', num(c.in_work), '', 'sm')}${kpi('Закрыто', num(c.resolved + c.rejected), '', 'sm')}</div>
-    <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
-      <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
-    ${foldNote('Кто видит автора жалобы', `Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}`)}
-    ${data.repeat && data.repeat.length ? `<section class="section" data-sec="r-repeat"><h3 class="sec-h">🔁 Повторные нарушители <small class="cnt">· ${data.repeat.length}</small></h3>
-      <div class="sub note">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
-      ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person(x)}
-        <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
-        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</section>` : ''}
+    <div class="chips filters view-tabs" role="group" aria-label="Какие жалобы показать">${[['open', 'Очередь'], ['closed', 'Закрытые']].map(([k, t]) =>
+      `<button type="button" class="chip ${kind === k ? 'ok' : ''}" data-kind="${k}" aria-pressed="${kind === k}">${t}</button>`).join('')}</div>
     ${kind === 'open' && data.items.length > 1 ? '<div id="repbulk"></div>' : ''}
     ${data.items.length ? data.items.map(r => `<div class="card rep ${r.status}" data-card="${r.id}">
       <div class="rep-head"><div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
@@ -153,11 +153,14 @@ async function reportsView(main, kind = 'open') {
       ${kind === 'open' ? `<div class="actions rep-acts">
         <button class="btn small" data-rep="${r.id}" data-act="resolve">✅ Нарушение</button>
         <button class="btn small" data-rep="${r.id}" data-act="reject">✖️ Отклонить</button></div>
-        <details class="rep-more"><summary>Ещё действия</summary><div class="actions">
-        ${canPeople ? `<button class="btn small" data-player="${r.target.id}">👤 Карточка</button>` : ''}
-        ${r.status === 'new' ? `<button class="btn small" data-rep="${r.id}" data-act="take">🙋 Взять</button>` : ''}
-        ${(data.punish || []).map(a => `<button class="btn small danger" data-punish="${a.key}" data-rid="${r.id}">${esc(a.title)}</button>`).join('')}</div></details>` : ''}
-    </div>`).join('') : `<div class="empty">${kind === 'open' ? 'Очередь пуста.' : 'Закрытых жалоб пока нет.'}</div>`}`;
+        ${moreActs(r) ? `<details class="rep-more"><summary>Ещё действия</summary><div class="actions">${moreActs(r)}</div></details>` : ''}` : ''}
+    </div>`).join('') : `<div class="empty">${kind === 'open' ? 'Очередь пуста.' : 'Закрытых жалоб пока нет.'}</div>`}
+    ${data.repeat && data.repeat.length ? section('r-repeat', 'Повторные нарушители', `
+      <div class="sub note">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
+      ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person(x)}
+        <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
+        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}`, {fold: true, open: false, count: data.repeat.length}) : ''}
+    ${foldNote('Кто видит автора жалобы', `Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}`)}`;
   main.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => reportsView(main, b.dataset.kind));
   main.querySelectorAll('[data-player]').forEach(a => a.onclick = e => {
     e.preventDefault(); tabs('people'); PEOPLE.stack = []; playerView(main, +a.dataset.player);
@@ -228,9 +231,10 @@ async function reportsView(main, kind = 'open') {
   const titles = {take: 'Взять жалобу в работу', resolve: 'Нарушение подтверждено', reject: 'Отклонить жалобу'};
   main.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => {
     const act = b.dataset.act;
+    // «Нарушение» только закрывает жалобу: наказания лежат здесь же, под «Ещё действия» (если они доступны роли).
+    const punishHint = act !== 'resolve' ? '' : (data.punish || []).length ? ' Это только закроет жалобу, нарушитель не будет наказан. Чтобы наказать — «Ещё действия» под жалобой.' : ' Это только закроет жалобу, нарушитель не будет наказан.';
     const body = act === 'take' ? '<div class="sub">Жалоба будет помечена как ваша.</div>'
-      : `<div class="sub" style="margin-bottom:8px">Автору жалобы бот напишет в личку, чем всё закончилось.
-         Наказать нарушителя можно кнопкой «Наказать» (карточка игрока).</div>
+      : `<div class="sub" style="margin-bottom:8px">Автору жалобы бот напишет в личку, чем всё закончилось.${punishHint}</div>
          <div class="field"><label>Комментарий (необязательно)</label><input id="fnote" maxlength="300"/></div>`;
     sheet(titles[act], body, 'Готово', async () => {
       const res = await api(`/reports/${b.dataset.rep}`, {method: 'POST',
@@ -248,7 +252,7 @@ async function mafiaOnlineReports(main, closed = false, before = 0) {
   if (!d) return;
   main.innerHTML = `<button class="btn small" id="mfo-reports-back">‹ Жалобы</button>
     ${pageHead('⚑', 'Межчатовая Мафия', 'Сообщения, на которые пожаловались игроки')}
-    <div class="scope"><button class="btn small ${closed?'':'primary'}" id="mfo-open">Открытые</button><button class="btn small ${closed?'primary':''}" id="mfo-closed">Решённые</button></div>
+    <div class="chips filters view-tabs" role="group" aria-label="Какие жалобы показать"><button type="button" class="chip ${closed?'':'ok'}" id="mfo-open" aria-pressed="${!closed}">Открытые</button><button type="button" class="chip ${closed?'ok':''}" id="mfo-closed" aria-pressed="${closed}">Решённые</button></div>
     ${d.items.map(m => `<div class="card"><div class="sub">Город #${m.room_id} · ${esc(({table:'Стол',mafia:'Мафия',afterlife:'Выбывшие'})[m.channel] || '')} · жалоб ${num(m.reports)}</div>
       <p><b>${esc(m.name)}</b></p><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(m.body)}</p>
       <p class="sub">${esc(m.reasons.join(' · '))}</p><div class="actions">

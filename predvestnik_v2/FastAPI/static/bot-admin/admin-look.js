@@ -46,6 +46,11 @@ function applyTheme() {
   const bg = getComputedStyle(document.body).getPropertyValue('--v3-bg').trim();
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', bg); paintTmaShell(bg);
 }
+// Строка «Тема админки» в Настройках: какая тема включена на самом деле (свой образ мог не пройти проверку читаемости).
+function adminThemeNow() {
+  if (document.body.dataset.adminLook === 'own') return 'Сейчас: цвета вашего образа';
+  return adminOwnTheme() && adminThemeFallback ? 'Сейчас: строгая — цвета образа плохо читаются' : 'Сейчас: строгая';
+}
 function themeSheet() {
   const own = adminOwnTheme();
   sheet('Тема админки', `<div class="go-list">
@@ -57,6 +62,7 @@ function themeSheet() {
     PREFS.set('admin.look', button.dataset.look); applyTheme();
     $('#sheet').querySelectorAll('[data-look]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
     $('#look-fallback').hidden = !adminThemeFallback;
+    document.querySelectorAll('[data-admin-theme-now]').forEach(el => { el.textContent = adminThemeNow(); });
   });
 }
 function adminCloseSheet() {

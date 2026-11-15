@@ -663,10 +663,11 @@ async function peopleSearch(main, query = '') {
   }
   rootBack();
   main.innerHTML = `
+    ${pageHead('', 'Игроки', 'Найдите игрока или чат и откройте карточку')}
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя, тег или название чата" value="${esc(query)}" autocomplete="off"/></div>
-    <div class="chips filters" id="pplf" role="group" aria-label="Фильтры — листай в сторону"></div>
-    <details class="more-d" id="pplmarksd" ${/^(?:marked|missing):|_marks$/.test(PEOPLE.filter) ? 'open' : ''}><summary>Фильтр по регалиям</summary>
-      <div class="field"><label for="pplmarks">Регалии</label><select id="pplmarks"><option value="">Все регалии</option></select></div></details>
+    <div class="chips filters" id="pplf" role="group" aria-label="Фильтры — листайте в сторону"></div>
+    <details class="more-d" id="pplmarksd" ${/^(?:marked|missing):|_marks$/.test(PEOPLE.filter) ? 'open' : ''}><summary>Регалии</summary>
+      <div class="field"><select id="pplmarks" aria-label="Фильтр по регалиям"><option value="">Все</option></select></div></details>
     <div id="pplbulk"></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
@@ -686,7 +687,7 @@ async function peopleSearch(main, query = '') {
   drawFilters();
   api('/marks').then(catalog => {
     const select = $('#pplmarks'); if (!select) return;
-    select.innerHTML = '<option value="">Все регалии</option><option value="manual_marks">Есть ручные регалии</option><option value="no_manual_marks">Нет ручных регалий</option>' +
+    select.innerHTML = '<option value="">Все</option><option value="manual_marks">Есть ручные регалии</option><option value="no_manual_marks">Нет ручных регалий</option>' +
       catalog.items.map(m => `<optgroup label="${esc(m.title)}"><option value="marked:${esc(m.id)}">Есть: ${esc(m.glyph)} ${esc(m.title)}</option><option value="missing:${esc(m.id)}">Нет: ${esc(m.glyph)} ${esc(m.title)}</option></optgroup>`).join('');
     select.value = [...select.options].some(o => o.value === PEOPLE.filter) ? PEOPLE.filter : '';
     select.onchange = () => {
@@ -723,6 +724,8 @@ async function peopleSearch(main, query = '') {
     const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1] || data.filter_title || $('#pplmarks')?.selectedOptions[0]?.textContent || 'Регалии';
     const listTitle = q.trim() ? 'Игроки' : PEOPLE.filter ? title : 'Недавно активные';
     const showAttn = !q.trim() && !PEOPLE.filter;
+    // Листалка нужна, только когда страниц больше одной; тогда счёт «1–5 из 137» стоит в ней, а не второй раз в заголовке.
+    const paged = data.offset !== undefined && (offset > 0 || data.next_offset != null);
     const pins = showAttn ? PREFS.get('pinned', []) : [];
     const recent = showAttn ? PREFS.get('recent', []).filter(r => !pins.some(x => x.id === r.id)) : [];
     const pinsHtml = pins.length ? `<div class="chips recent pins"><span class="sub">★ Закреплённые:</span>${pins.map(r =>
@@ -732,7 +735,7 @@ async function peopleSearch(main, query = '') {
     const linkedHead = /^linked:/.test(PEOPLE.filter) ? `<div class="chips"><span class="chip ok">🔗 ${esc(title)}</span><button type="button" class="btn small" id="pplnolink">✕ Убрать</button></div>` : '';
     $('#pplres').innerHTML = recentHtml + linkedHead + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
-        <span>${esc(listTitle)} · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
+        <span>${esc(listTitle)}${paged ? '' : ' · ' + players.length}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
       <div class="list">${players.map(p => `<div class="prow" data-player="${p.id}">
         ${ava(p)}
@@ -740,24 +743,25 @@ async function peopleSearch(main, query = '') {
           <div class="pmeta">${p.username ? who(p.id, p.username) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
           ${p.tags && p.tags.length ? `<div class="chips tags">${p.tags.map(t => `<span class="chip tag">🏷 ${esc(t)}</span>`).join('')}</div>` : ''}</div></div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
+      <div id="pplpager"></div>
       ${PEOPLE.filter ? '' : `<h3 class="sec">Чаты · ${chats.length}</h3>
       <div class="list">${chats.map(c => `<div class="prow" data-chat="${c.id}">
         <span class="ava chat" aria-hidden="true"><b>#</b></span>
         <div class="pmain"><div class="pname">${esc(c.title)}</div>
           <div class="pmeta">${num(c.members)} участников · ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div></div>`).join('')
         || '<div class="sub">Ничего</div>'}</div>`}`;
-    if (data.offset !== undefined) {
+    if (paged) {
       const pager = document.createElement('div'); pager.className = 'actions';
       pager.innerHTML = `<span class="sub">${total ? offset + 1 : 0}–${offset + players.length} из ${num(total)}</span><button class="btn small" data-prev ${offset ? '' : 'disabled'}>Назад</button><button class="btn small" data-next ${data.next_offset == null ? 'disabled' : ''}>Дальше</button>`;
       pager.querySelector('[data-prev]').onclick = () => load(q, Math.max(0, offset - data.limit));
       pager.querySelector('[data-next]').onclick = () => load(q, data.next_offset);
-      $('#pplres').appendChild(pager);
+      $('#pplpager').replaceWith(pager);   // сразу под списком игроков, до чатов: листает игроков
     }
     markPicked(); drawBulk();
     if (showAttn) api('/chats/onboarding').then(f => {
       const host = $('#pplonb');
       if (!host || !f.added) return;
-      host.innerHTML = `<div class="card"><h3>🚪 Подключение чатов · ${f.days} дн.</h3>
+      host.innerHTML = `<div class="card"><h3>Подключение чатов · ${f.days} дн.</h3>
         <div class="chips"><span class="chip">добавили ${f.added}</span><span class="chip ok">выдали права ${f.ready}</span>
         ${f.waiting ? `<span class="chip warn">ждут прав ${f.waiting}</span>` : ''}${f.gave_up ? `<span class="chip bad">ушли без прав ${f.gave_up}</span>` : ''}</div>
         <button class="btn small more" id="onbmore">Где застревают</button></div>`;
@@ -925,7 +929,7 @@ async function playerView(main, id, push = true, from = null) {
   const held = new Set(mk.given.map(m => m.id));
   const free = mk.grantable.filter(m => !held.has(m.id));
   const markRow = (m, btn) => `<div class="sw-row"><div class="t"><b>${esc(m.glyph)} ${esc(m.title)}</b><div class="sub">${esc(m.desc || '')}</div></div>${btn}</div>`;
-  const marksCard = `<div class="card"><h3>🏅 Регалии</h3>
+  const marksCard = `<div class="card"><h3>Регалии</h3>
       <h3 class="sec">Выданы · ${mk.given.length}</h3>
       ${mk.given.length ? mk.given.map(m => markRow(m, canRevoke ? `<button class="btn small" data-unmark="${esc(m.id)}">✖️ Снять</button>` : '')).join('')
         : '<div class="sub">Пока ни одной.</div>'}
@@ -937,7 +941,7 @@ async function playerView(main, id, push = true, from = null) {
         : '<div class="sub">Все регалии уже выданы.</div>'}` : '<div class="sub">Выдавать регалии может роль «Разработчик» и выше.</div>'}
     </div>`;
   const canReports = ME.sections.some(z => z.key === 'reports');
-  const reportsCard = `<div class="card"><h3>📨 Жалобы на игрока · ${rp.total}</h3>
+  const reportsCard = `<div class="card"><h3>Жалобы на игрока · ${rp.total}</h3>
       ${rp.total ? `<div class="chips"><span class="chip ${rp.open ? 'warn' : ''}">открытых: ${rp.open}</span><span class="chip ${rp.confirmed ? 'bad' : ''}">подтверждено: ${rp.confirmed}</span></div>
         ${rp.last.map(r => `<div class="log"><div><b>№${r.id}</b> <span class="chip">${esc(r.status_title)}</span> ${esc(r.reason)}</div>
           <div class="sub">${when(r.created_at)} · ${esc(r.chat)}</div></div>`).join('')}
@@ -945,24 +949,24 @@ async function playerView(main, id, push = true, from = null) {
         : '<div class="sub">Жалоб не было.</div>'}</div>`;
   const noteRow = n => `<div class="log" data-note="${n.id}"><div style="white-space:pre-wrap">${esc(n.text)}</div>
       <div class="sub">${when(n.at)} · ${who(n.author.id, n.author.username)}${n.can_remove ? ` · <a href="#" data-rmnote="${n.id}">убрать</a>` : ''}</div></div>`;
-  const notesCard = `<div class="card" id="notescard"><h3>📝 Заметки персонала · ${p.notes.total}</h3>
+  const notesCard = `<div class="card" id="notescard"><h3>Заметки персонала · ${p.notes.total}</h3>
       <div class="sub" style="margin-bottom:6px">Видят только сотрудники, игрок — нет.</div>
       <div id="notelist">${p.notes.items.map(noteRow).join('') || '<div class="sub">Пока нет заметок.</div>'}</div>
       ${p.notes.next ? '<button class="btn small more" id="notemore">Показать ещё</button>' : ''}
       <div class="field" style="margin-top:10px"><textarea id="notetext" maxlength="1000" placeholder="Что важно знать другим модераторам"></textarea></div>
-      <div class="actions"><button class="btn small primary" id="noteadd">Добавить заметку</button></div></div>`;
+      <div class="actions"><button class="btn small" id="noteadd">Добавить заметку</button></div></div>`;
   const NAME_KINDS = {username: '@ник', name: 'имя'};
-  const namesCard = p.names.length ? `<div class="card"><h3>🕘 Ники и имена</h3>
+  const namesCard = p.names.length ? `<div class="card"><h3>Ники и имена</h3>
       ${p.names.length ? `<div class="sub" style="margin-bottom:4px">Как игрок назывался в Telegram: бот записывает, когда ник или имя меняются.</div>
         ${p.names.map(n => `<div class="log"><b>${esc(n.kind === 'username' ? '@' + n.value : n.value)}</b>
           <div class="sub">${NAME_KINDS[n.kind] || n.kind} · с ${when(n.at)}</div></div>`).join('')}` : ''}</div>` : '';
-  const tagsCard = p.tag_history && p.tag_history.length ? `<div class="card"><h3>🏷 Теги в чатах</h3>
+  const tagsCard = p.tag_history && p.tag_history.length ? `<div class="card"><h3>Теги в чатах</h3>
       <div class="sub" style="margin-bottom:4px">Подпись справа от имени в списке участников. Бот записывает, когда тег меняется.</div>
       ${p.tag_history.map(t => `<div class="log"><b>${t.tag ? esc(t.tag) : '— тег убрали —'}</b>
         <div class="sub"><a href="#" data-chat="${t.chat_id}">${esc(t.chat_title || t.chat_id)}</a> · ${when(t.at)}</div></div>`).join('')}</div>` : '';
   const lk = p.linked;
   const linkRow = (u, extra = '') => `<div class="log"><a href="#" data-player="${u.id}"><b>${who(u.id, u.username)}</b></a>${extra ? `<div class="sub">${extra}</div>` : ''}</div>`;
-  const linkedCard = lk ? `<div class="card"><h3>🔗 Возможные связи</h3>
+  const linkedCard = lk ? `<div class="card"><h3>Возможные связи</h3>
       ${lk.invited_by || lk.invited.total || lk.same_username.length || lk.same_name.length ? '<div class="actions"><button class="btn small" id="plinked">Списком в поиске ›</button></div>' : ''}
       <div class="sub" style="margin-bottom:4px">Совпадение ника или имени — повод присмотреться, а не доказательство. Устройства и адреса бот не собирает.</div>
       ${lk.invited_by ? `<h3 class="sec">Пришёл по приглашению</h3>${linkRow(lk.invited_by)}` : ''}
@@ -985,15 +989,21 @@ async function playerView(main, id, push = true, from = null) {
   const pinned = PREFS.get('pinned', []).some(r => r.id === p.id);
   const canJournal = ME.sections.some(z => z.key === 'journal');
   const sk = p.skins || {items: []}, canSkins = p.actions.player.some(a => a.key === 'skin_grant');
-  const skinsCard = `<div class="card" id="skinscard"><h3>🎨 Образы · ${sk.items.length}</h3>
+  const skinsCard = `<div class="card" id="skinscard"><h3>Образы · ${sk.items.length}</h3>
       ${sk.items.map(k => `<div class="sw-row"><div class="t"><b>${esc(k.name)}</b>${k.equipped ? ' <span class="chip ok">надет</span>' : ''}${k.exclusive ? ' <span class="chip">личный</span>' : ''}
         <div class="sub">тир ${esc(k.tier)} · редкость ${esc(k.rarity)}</div></div>
         ${canSkins ? `<button class="btn small" data-unskin="${esc(k.id)}">Забрать</button>` : ''}</div>`).join('') || '<div class="sub">Образов нет.</div>'}
       ${canSkins ? '<div class="actions"><button class="btn small" id="skingive">🎨 Выдать образ</button></div>' : '<div class="sub">Выдаёт и забирает образы только создатель.</div>'}</div>`;
   const CUR_SHORT = {mora: '🪙', diamonds: '💎', dark_mora: '🌑', zarniki: '✨', essence: '🔮'};
-  const walletCard = (p.wallet || []).length ? `<div class="card"><h3>💳 История кошелька</h3>
+  const walletCard = (p.wallet || []).length ? `<div class="card"><h3>История кошелька</h3>
       ${p.wallet.map(w => `<div class="log"><div><b>${CUR_SHORT[w.code] || ''} ${w.delta > 0 ? '+' : ''}${num(w.delta)}</b> ${esc(w.currency.replace(/^\S+\s/, ''))} · ${esc(w.reason)}</div>
         <div class="sub">${when(w.at)} · стало ${num(w.after)}</div></div>`).join('')}</div>` : '';
+  // Редкое — образы, кошелёк, прежние ники, теги, связи — одной свёрнутой группой внизу; заголовок называет только то, что внутри.
+  const moreParts = [[skinsCard, 'образы'], [walletCard, 'кошелёк'], [namesCard, 'прежние ники'], [tagsCard, 'теги'], [linkedCard, 'связи']].filter(([html]) => html);
+  const moreWords = moreParts.map(([, word]) => word);
+  const moreTitle = moreWords.length > 1 ? moreWords.slice(0, -1).join(', ') + ' и ' + moreWords.at(-1) : moreWords[0] || '';
+  const moreGroup = moreParts.length ? `<details class="card more-group"><summary><h3>${moreTitle[0].toUpperCase() + moreTitle.slice(1)}</h3></summary>
+      ${moreParts.map(([html]) => html).join('')}</details>` : '';
   main.innerHTML = `${backBar()}
     <div class="card">
       <div class="profile-head">
@@ -1029,11 +1039,9 @@ async function playerView(main, id, push = true, from = null) {
         <button class="btn small" id="ppin" aria-pressed="${pinned}">${pinned ? '★ Закреплён' : '☆ Закрепить'}</button>
         ${canJournal ? '<button class="btn small" id="pjournal">☰ Журнал игрока</button>' : ''}</div>
     </div>
-    <details class="player-more"><summary>Образы и история кошелька</summary>${skinsCard}${walletCard}</details>
     ${marksCard}
     ${reportsCard}
     ${notesCard}
-    ${namesCard || tagsCard || linkedCard ? `<details class="player-more"><summary>Прежние ники, теги и связи</summary>${namesCard}${tagsCard}${linkedCard}</details>` : ''}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -1045,7 +1053,8 @@ async function playerView(main, id, push = true, from = null) {
         ${p.actions.member.some(a => memberFits(a.key, c)) ? `<div class="actions"><button class="btn small" data-chatacts="${c.id}">Действия в этом чате</button></div>` : ''}
       </div>`).join('') || '<div class="sub">Не писал ни в одном чате с ботом.</div>'}
     </div>
-    ${historyCard(p.history)}`;
+    ${historyCard(p.history)}
+    ${moreGroup}`;
   wireBack(main);
   const here = {type: 'player', id};
   $('#pwatch').onclick = () => {
@@ -1092,7 +1101,7 @@ async function playerView(main, id, push = true, from = null) {
   const drawNotes = (data, append = false) => {
     const list = $('#notelist');
     list.innerHTML = (append ? list.innerHTML : '') + (data.items.map(noteRow).join('') || (append ? '' : '<div class="sub">Пока нет заметок.</div>'));
-    $('#notescard h3').textContent = `📝 Заметки персонала · ${data.total}`;
+    $('#notescard h3').textContent = `Заметки персонала · ${data.total}`;
     const more = $('#notemore');
     if (more) { if (data.next) more.dataset.next = data.next; else more.remove(); }
     else if (data.next) $('#notelist').insertAdjacentHTML('afterend', '<button class="btn small more" id="notemore">Показать ещё</button>');
@@ -1126,7 +1135,7 @@ async function playerView(main, id, push = true, from = null) {
 function chatSettingsCard(st) {
   if (!st || !st.ranks) return '';
   const flag = (title, on) => `<span class="chip ${on ? 'ok' : 'off'}">${on ? '✓' : '✕'} ${esc(title)}</span>`;
-  return `<div class="card" id="chatsettings"><h3>⚙️ Настройки чата</h3>
+  return `<div class="card" id="chatsettings"><h3>Настройки чата</h3>
     <h3 class="sec">Кто что может (с какого ранга в чате)</h3>
     ${st.ranks.map(r => `<div class="sw-row"><div class="t">${esc(r.title)}</div><span class="sub">${esc(r.name)}</span></div>`).join('')}
     <h3 class="sec">Чистка</h3>
@@ -1237,9 +1246,9 @@ async function chatView(main, id, push = true, from = null) {
   const sanctionRow = (x, line, undo) => `<div class="sw-row"><div class="t">${person(x)}<div class="sub">${line(x)}</div></div>
       ${can(undo) ? `<button class="btn small" data-undo="${undo}" data-uid="${x.user}">${esc(can(undo).title)}</button>` : ''}</div>`;
   const SANCTIONS = {
-    bans: ['⛔ Баны', x => (x.until ? 'до ' + when(x.until) : 'навсегда') + (x.reason ? ' · ' + esc(x.reason) : ''), 'unban'],
-    mutes: ['🔇 Муты', x => x.until ? 'до ' + when(x.until) : 'навсегда', 'unmute'],
-    warns: ['⚠️ Варны', x => 'действующих: ' + x.count, 'unwarn_all'],
+    bans: ['Баны', x => (x.until ? 'до ' + when(x.until) : 'навсегда') + (x.reason ? ' · ' + esc(x.reason) : ''), 'unban'],
+    mutes: ['Муты', x => x.until ? 'до ' + when(x.until) : 'навсегда', 'unmute'],
+    warns: ['Варны', x => 'действующих: ' + x.count, 'unwarn_all'],
   };
   const sanction = kind => {
     const list = c.sanctions[kind], [title, line, undo] = SANCTIONS[kind];
@@ -1369,7 +1378,7 @@ const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v));
 function retentionCard(r) {
   if (!r) return '';
   const names = {d1: 'На следующий день', d7: 'За 7 дней', d30: 'За 30 дней'};
-  return section('m-retention', '🔁 Удержание', `<div class="kpis">
+  return section('m-retention', 'Удержание', `<div class="kpis">
     ${Object.entries(names).map(([k, t]) => r[k] && r[k].cohort
       ? kpi(t, r[k].percent + '%', `<small> ${num(r[k].returned)} из ${num(r[k].cohort)}</small>`, 'sm') : kpi(t, '—', '<small> данных пока нет</small>', 'sm')).join('')}</div>
     <p class="sub note">Доля новых людей, которые вернулись. «Новый» — впервые замечен в сообщениях чатов или командах бота;
@@ -1377,8 +1386,8 @@ function retentionCard(r) {
 }
 
 function funnelCard(f) {
-  if (!f || !f.steps || !f.steps[0].users) return section('m-funnel', '🪜 Воронка мини-приложения', '<div class="sub">За период приложение никто не открывал.</div>', {fold: true, open: false});
-  return section('m-funnel', '🪜 Воронка мини-приложения', `
+  if (!f || !f.steps || !f.steps[0].users) return section('m-funnel', 'Воронка мини-приложения', '<div class="sub">За период приложение никто не открывал.</div>', {fold: true, open: false});
+  return section('m-funnel', 'Воронка мини-приложения', `
     ${f.steps.map(x => x.users == null
       ? `<div class="sub" style="margin-top:10px">${esc(x.title)} — данных пока нет</div>`
       : `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.title)}</span>
@@ -1396,10 +1405,10 @@ const staffEco = st => {
 };
 function economyCard(e) {
   const cur = Object.entries(e || {}).filter(([k, c]) => CURRENCIES[k] && (c.issued || c.spent));
-  if (!cur.length) return section('m-economy', '💰 Экономика', '<div class="sub">За период движений валюты не было.</div>', {fold: true, open: false});
+  if (!cur.length) return section('m-economy', 'Экономика', '<div class="sub">За период движений валюты не было.</div>', {fold: true, open: false});
   const list = (items, label) => items.length ? `<details style="margin-top:6px"><summary class="sub">${label} · ${items.length}</summary>
     ${tbl(['Что', 'Сумма'], items.map(x => [esc(x.title), num(x.amount)]))}</details>` : '';
-  return section('m-economy', '💰 Экономика', `${cur.map(([k, c]) => `
+  return section('m-economy', 'Экономика', `${cur.map(([k, c]) => `
     <div class="sub cur"><b>${CURRENCIES[k]}</b></div>
     <div class="kpis">${kpi('Выдано', num(c.issued), '', 'sm')}${kpi('Потрачено', num(c.spent), '', 'sm')}${kpi('Итого', signed(c.net), '', 'sm')}</div>
     ${list(c.sources, 'Откуда пришло')}${list(c.sinks, 'На что ушло')}`).join('')}
@@ -1441,15 +1450,12 @@ async function metricsView(main, days = 1) {
     <div class="scope">${Object.entries(period).map(([d, t]) =>
       `<button class="btn small ${+d === m.days ? 'primary' : ''}" data-days="${d}">${t}</button>`).join('')}
       <span class="sub">${m.days === 1 ? dmy(m.until) : dmy(m.since) + ' — ' + dmy(m.until)}</span>
-      <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица</button></div>
+      <button class="btn small" id="mexport" style="margin-left:auto">${window.Telegram?.WebApp?.initData ? 'Скопировать таблицу' : '⬇ Скачать таблицу'}</button></div>
     <div class="kpis hero">
-      ${kpi('👤 Уникальных людей', num(m.everyone), metricTrend(m.everyone, cmp.everyone))}${kpi('📱 В приложении', num(s.visitors), metricTrend(s.visitors, cmp.visitors))}
-      ${kpi('🤖 Команд бота', num(b.commands), metricTrend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages))}</div>
-    ${foldNote('Как считаются цифры', `В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
-      в чате с ботом. ${m.days === 1 ? 'Сегодняшний день ещё не завершён (UTC); проценты к полным прошлым суткам не показываем.' : `Стрелки — сравнение с предыдущими ${m.days} днями. Текущий период включает незавершённый день (UTC).`}
-      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель, тестеры): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}`)}
-    ${section('m-app', '📱 Мини-приложение', `<div class="kpis">
-      ${kpi('Посетителей', num(s.visitors), metricTrend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
+      ${kpi('Уникальных людей', num(m.everyone), metricTrend(m.everyone, cmp.everyone))}${kpi('В приложении', num(s.visitors), metricTrend(s.visitors, cmp.visitors))}
+      ${kpi('Команд бота', num(b.commands), metricTrend(b.commands, cmp.commands))}${kpi('Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages))}</div>
+    ${section('m-app', 'Мини-приложение', `<div class="kpis">
+      ${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
       ${kpi('Время всего', dur(s.seconds), '', 'sm')}${kpi('На человека', dur(s.avg_seconds_per_visitor), '', 'sm')}</div>
       ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
       ${s.pages.length ? `<details class="more-d"><summary>По вкладкам · ${s.pages.length}</summary>${tbl(['Вкладка', 'Открытий', 'Людей', 'Время', 'Среднее'],
@@ -1457,18 +1463,21 @@ async function metricsView(main, days = 1) {
         : '<div class="sub" style="margin-top:8px">За период никто не открывал.</div>'}
       ${s.subpages.length ? `<details class="more-d"><summary>Разделы внутри вкладок · ${s.subpages.length}</summary>
         ${tbl(['Вкладка', 'Открытий', 'Людей'], s.subpages.map(p => [esc(p.tab), num(p.visits), `${num(p.users)} чел.`]))}</details>` : ''}`)}
-    ${section('m-bot', '🤖 Команды бота', `<div class="kpis">
-      ${kpi('Команд', num(b.commands), metricTrend(b.commands, cmp.commands), 'sm')}${kpi('В чатах', num(b.commands_group), '', 'sm')}${kpi('В личке', num(b.commands_private), '', 'sm')}
+    ${section('m-bot', 'Команды бота', `<div class="kpis">
+      ${kpi('Команд в чатах', num(b.commands_group), '', 'sm')}${kpi('Команд в личке', num(b.commands_private), '', 'sm')}
       ${kpi('Людей', num(b.users), metricTrend(b.users, cmp.bot_users), 'sm')}${kpi('Людей в чатах', num(b.users_group), '', 'sm')}${kpi('Людей в личке', num(b.users_private), '', 'sm')}</div>
       ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
       ${b.top.length ? `<details class="more-d"><summary>Популярные команды · ${b.top.length}</summary>${tbl(['Команда', 'В чатах', 'В личке', 'Всего'], b.top.map(x => [`бот ${esc(x.command)}`, num(x.group), num(x.private), num(x.total)]))}
         ${b.top_includes_staff ? '<p class="sub note">Рейтинг команд считается без разбивки по людям, поэтому в нём остаются и команды аккаунтов команды. Плитки выше их не включают.</p>' : ''}</details>`
         : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}`)}
-    ${section('m-chats', '💬 Чаты', `<div class="kpis">
-      ${kpi('Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages), 'sm')}${kpi('Писали', num(c.users) + ' чел.', metricTrend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
+    ${section('m-chats', 'Чаты', `<div class="kpis">
+      ${kpi('Писали', num(c.users) + ' чел.', metricTrend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
       ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
       ${c.top.length ? `<details class="more-d"><summary>Самые активные чаты · ${c.top.length}</summary>${tbl(['Чат', 'Сообщений', 'Писали'], c.top.map(x => [ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title), num(x.messages), num(x.users)]))}</details>` : ''}`)}
-    ${economyCard(m.economy)}${retentionCard(m.retention)}${funnelCard(m.funnel)}`;
+    ${economyCard(m.economy)}${retentionCard(m.retention)}${funnelCard(m.funnel)}
+    ${foldNote('Как считаются цифры', `В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
+      в чате с ботом. ${m.days === 1 ? 'Сегодняшний день ещё не завершён (UTC); проценты к полным прошлым суткам не показываем.' : `Стрелки — сравнение с предыдущими ${m.days} днями. Текущий период включает незавершённый день (UTC).`}
+      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель, тестеры): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}`)}`;
   $('#mexport').onclick = async e => {
     e.target.disabled = true;
     try { await exportMetrics(m.days); } catch (err) { toast(err.message || 'Не удалось выгрузить', true); }
@@ -1611,7 +1620,7 @@ async function broadcastView(main) {
   let items = data.items, templates = data.templates || [];
   main.innerHTML = `
     ${pageHead('⌁', 'Рассылка', 'Сообщения игрокам и история отправок')}
-        <div class="card"><h3>📣 Новая рассылка</h3>
+        <div class="card"><h3>Новая рассылка</h3>
       <div class="field"><label>Шаблон</label><select id="btpl"></select>
         <div class="actions" style="margin-top:6px"><button class="btn small" id="btplsave">💾 Сохранить как шаблон</button>
         <button class="btn small danger" id="btpldel" hidden>Удалить шаблон</button></div></div>
@@ -2337,7 +2346,7 @@ async function raceCard(main) {
     return `<div class="sub" style="margin:8px 0 4px"><b>Сезон ${s.season}</b> · ${esc(state)}</div>
       ${s.entries.length ? s.entries.map(row).join('') : '<div class="sub">Пока никто не закрыл Пропуск после старта.</div>'}`;
   };
-  box.innerHTML = `<h3>🏁 Гонка за Пропуском</h3>
+  box.innerHTML = `<h3>Гонка за Пропуском</h3>
     ${hint(`Первые ${r.places} игрока, закрывшие ${r.level}-й уровень Пропуска после старта, получают по ${r.prize_stars} ⭐. Бот сам не платит: отправьте подарок со своего аккаунта и нажмите «Выплачено». О каждом новом месте бот пишет вам в личку.`)}
     ${r.seasons.map(season).join('')}`;
   main.append(box);
@@ -2403,7 +2412,7 @@ function bindReportSettings(main, data) {
 }
 
 function securityCard() {
-  return `<div class="card" id="secset"><h3>🔐 Безопасность</h3>
+  return `<div class="card" id="secset"><h3>Безопасность</h3>
     <div class="sub" style="margin-bottom:4px">Потеряли телефон или вошли с чужого устройства — завершите сессии.</div>
     ${foldNote('Что ещё защищает админку', 'После выхода админку придётся открыть заново через Telegram. Опасные действия (бан во всех чатах, смена роли, крупная выдача) просят ввести ID игрока, а при необычной активности владельцам приходит сообщение в личку.')}
     <div class="actions"><button class="btn" id="revself">Выйти на всех моих устройствах</button>
@@ -2423,7 +2432,7 @@ async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
   main.innerHTML = `${pageHead('⚙', 'Настройки', 'Переводы, жалобы и безопасность')}
-    <div class="sw-row theme-row"><div class="t"><b>Тема админки</b><div class="sub">Как у меня или строгая</div></div><button type="button" class="btn small" data-admin-theme>Сменить</button></div>
+    <div class="sw-row theme-row"><div class="t"><b>Тема админки</b><div class="sub" data-admin-theme-now>${adminThemeNow()}</div></div><button type="button" class="btn small" data-admin-theme>Сменить</button></div>
     <div class="card"><h3>Переводы между игроками</h3>
       <div class="sub" style="margin-bottom:6px">Какие валюты можно отправить командой «бот перевод».</div>
       ${data.transfer.map(c => `<div class="sw-row ${c.enabled ? '' : 'off'}">
@@ -2458,46 +2467,48 @@ async function healthView(main) {
   if (!h) return;
   const tg = h.telegram, dot = ok => `<span class="chip ${ok ? 'ok' : 'bad'}">${ok ? 'работает' : 'не отвечает'}</span>`;
   const row = (title, value, sub = '') => `<div class="log"><div>${title} <b>${value}</b></div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
-  const dg = h.digest;
+  const dg = h.digest, up = h.process.uptime_seconds;
+  // Ошибки бота живут в памяти и после обновления считаются заново: в подписи честный период — «за сутки» или «за 3 ч 10 мин».
+  const errPeriod = up >= 86400 ? 'за сутки' : `за ${duration(up)}`;
+  const group = (key, title, body, open = false) => section(key, title, body, {fold: true, open});
+  // Сверху то, на что смотрит владелец: плитки, ошибки и чаты (раскрываются сами, когда есть беда); техника — одной группой внизу.
   main.innerHTML = `
-    ${pageHead('♥', 'Состояние', 'Живы ли бот, база и очереди')}
+    ${pageHead('', 'Состояние', 'Живы ли бот, база и очереди')}
     ${tg && !tg.ok ? alertBox('bad', '<b>Telegram не отвечает.</b> Бот не получает и не отправляет сообщения: ' + esc(tg.error || 'причина не указана')) : ''}
     <div class="kpis hero">
-      ${kpi('🤖 Telegram', tg ? (tg.ok ? 'работает' : 'не отвечает') : '—', tg && tg.ok ? `<small> ${tg.ms} мс</small>` : '', tg ? (tg.ok ? 'ok' : 'bad') : '')}
-      ${kpi('🗄 База', `${h.database.ms} мс`)}${kpi('⏱ Работает', duration(h.process.uptime_seconds))}${kpi('⚠️ Ошибок за сутки', num(h.errors.count_24h))}</div>
-    ${foldNote('Почему после выката ошибок «0»', 'Ошибки и время работы считаются с последнего перезапуска: каждый выкат новой версии обнуляет их, поэтому «0» сразу после выката ничего не доказывает.')}
-    <div id="h-ops"><div class="sub">Загружаем «Здоровье»…</div></div>
-    <details class="section" data-sec="h-bot" ${(FOLD.has('h-bot') ? FOLD.get('h-bot') : false) ? 'open' : ''}><summary class="sec-h">🤖 Бот</summary><div class="sec-body">
-      ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
-      ${row('Работает', duration(h.process.uptime_seconds), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
-      ${row('База данных', `${h.database.ms} мс`, h.database.pool && h.database.pool.size != null ? `соединений занято ${h.database.pool.size - h.database.pool.idle} из ${h.database.pool.size} (максимум ${h.database.pool.max})` : '')}
-    </div></details>
-    <details class="section" data-sec="h-err" ${(FOLD.has('h-err') ? FOLD.get('h-err') : h.errors.count_24h > 0) ? 'open' : ''}><summary class="sec-h">⚠️ Ошибки за сутки <small class="cnt">· ${num(h.errors.count_24h)}</small></summary><div class="sec-body">
+      ${kpi('Telegram', tg ? (tg.ok ? 'работает' : 'не отвечает') : '—', tg && tg.ok ? `<small> ${tg.ms} мс</small>` : '', tg ? (tg.ok ? 'ok' : 'bad') : '')}
+      ${kpi('Ответ базы', `${h.database.ms} мс`)}${kpi('Работает без перерыва', duration(up))}
+      ${kpi(`Ошибок ${errPeriod}`, num(h.errors.count_24h), '', h.errors.count_24h ? 'bad' : '')}</div>
+    ${group('h-err', `Ошибки ${errPeriod}`, `
       ${h.errors.recent.length ? h.errors.recent.map(e => `<div class="log"><div>${esc(e.text)}</div><div class="sub">${when(e.at)}</div></div>`).join('')
-        : '<div class="sub">Ошибок нет. Считаются с последнего перезапуска.</div>'}
-      ${h.errors.count_24h > h.errors.recent.length ? `<div class="sub">Показаны последние ${h.errors.recent.length}.</div>` : ''}
-    </div></details>
-    <details class="section" data-sec="h-chats" ${(FOLD.has('h-chats') ? FOLD.get('h-chats') : h.chats.no_rights > 0) ? 'open' : ''}><summary class="sec-h">💬 Чаты и игроки</summary><div class="sec-body">
+        : '<div class="sub">Ошибок нет.</div>'}
+      ${h.errors.count_24h > h.errors.recent.length ? `<div class="sub">Показаны последние ${h.errors.recent.length}.</div>` : ''}`, h.errors.count_24h > 0)}
+    ${group('h-chats', 'Чаты и игроки', `
       ${row('Чатов с ботом', num(h.chats.active))}
       ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают. <a href="#" data-attn="left">Какие чаты</a>' : '')}
       ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают. <a href="#" data-attn="no_rights">Какие чаты</a>' : '')}
       ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet), h.chats.quiet ? '<a href="#" data-attn="quiet">Какие чаты</a>' : '')}
       ${row('Игроков', num(h.players.total))}
-      ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
-    </div></details>
-    <details class="section" data-sec="h-queues" ${(FOLD.has('h-queues') ? FOLD.get('h-queues') : false) ? 'open' : ''}><summary class="sec-h">📬 Очереди</summary><div class="sec-body">
+      ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}`, h.chats.no_rights > 0)}
+    ${group('h-bot', 'Бот', `
+      ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
+      ${row('Работает без перерыва', duration(up), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
+      ${row('База данных', `${h.database.ms} мс`, h.database.pool && h.database.pool.size != null ? `соединений занято ${h.database.pool.size - h.database.pool.idle} из ${h.database.pool.size} (максимум ${h.database.pool.max})` : '')}`)}
+    ${group('h-queues', 'Очереди', `
       ${row('Рассылок идёт', num(h.queues.broadcasts_running))}
       ${row('Рассылок запланировано', num(h.queues.broadcasts_scheduled))}
-      ${row('Открытых жалоб', num(h.queues.reports_open))}
-    </div></details>
-    <details class="section" data-sec="h-digest" ${FOLD.get('h-digest') ? 'open' : ''}><summary class="sec-h">🌅 Итоги дня владельцу</summary><div class="sec-body">
+      ${row('Открытых жалоб', num(h.queues.reports_open))}`)}
+    ${group('h-digest', 'Итоги дня владельцу', `
       <div class="sub" style="margin-bottom:8px">Раз в сутки бот пишет владельцу в личку: новые игроки, сообщения, команды, жалобы, ошибки, чаты без прав.</div>
       <div class="field switch"><input type="checkbox" id="dgon" ${dg.enabled ? 'checked' : ''} ${dg.can_edit ? '' : 'disabled'}/><label for="dgon" style="margin:0">Присылать итоги дня</label></div>
       <div class="field"><label>Во сколько (по времени бота)</label><select id="dghour" ${dg.can_edit ? '' : 'disabled'}>
         ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === dg.hour ? 'selected' : ''}>${String(i).padStart(2, '0')}:00</option>`).join('')}</select></div>
       ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
-      <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>
-    </div></details>`;
+      <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>`)}
+    <details class="section dev-d" data-sec="h-dev" ${FOLD.get('h-dev') ? 'open' : ''}><summary class="sec-h">Подробно для разработчика<small class="cnt" id="h-dev-flag"></small></summary>
+      <div class="sec-body" id="h-ops"><div class="sub">Загружаем показатели…</div></div></details>
+    ${foldNote('Почему сразу после обновления ошибок 0', `«Ошибки» и «Работает без перерыва» считаются с последнего обновления бота: после него там 0, и это ещё ничего не доказывает.
+      Цифры в «Подробно для разработчика» хранятся 14 дней, обновление их не обнуляет.`)}`;
   const ATTN_TITLES = {left: 'Бота удалили из чатов', no_rights: 'Без прав модерации', quiet: 'Тихие чаты'};
   main.querySelectorAll('[data-attn]').forEach(a => a.onclick = e => {
     e.preventDefault();
@@ -2518,11 +2529,12 @@ async function healthView(main) {
   };
 }
 
-// «Здоровье»: цифры из services/ops_health.py, хранятся 14 дней и переживают перезапуск.
-const AUTH_REASONS = {no_header: 'нет данных входа (приложение открыто без Telegram или SDK не загрузился)', stale_auth_date: 'вход старше суток (приложение долго висело свёрнутым)',
+// «Подробно для разработчика»: цифры из services/ops_health.py, хранятся 14 дней и переживают перезапуск.
+// Подписи словами: «у медленных 5%» вместо p95, «сбои на сервере» вместо 5xx; коды причин — только в подсказке.
+const AUTH_REASONS = {no_header: 'нет данных входа (приложение открыто без Telegram или скрипт Telegram не загрузился)', stale_auth_date: 'вход старше суток (приложение долго висело свёрнутым)',
   bad_hash: 'неверная подпись Telegram', malformed: 'испорченные данные входа', user_missing: 'в данных входа нет игрока',
   bad_session: 'неверная сессия браузера', expired_session: 'сессия браузера истекла', no_bot_token: 'на сервере нет токена бота'};
-const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился Telegram SDK', boot_timing: 'замеры запуска', guide_miss: 'в Путеводителе не нашлось'};
+const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился скрипт Telegram', boot_timing: 'замеры запуска', guide_miss: 'в Путеводителе не нашлось'};
 const ms = v => v >= 1000 ? `${(v / 1000).toLocaleString('ru-RU', {maximumFractionDigits: 1})} с` : `${num(Math.round(v))} мс`;
 
 async function healthOpsView(box, hours) {
@@ -2531,7 +2543,13 @@ async function healthOpsView(box, hours) {
   PREFS.set('health.hours', hours);
   let o;
   try { o = await api(`/health/ops?hours=${hours}`); }
-  catch (e) { box.innerHTML = alertBox('bad', `«Здоровье» не загрузилось: ${esc(e.message)}`); return; }
+  catch (_) {
+    if (!box.isConnected) return;
+    box.innerHTML = `${alertBox('bad', 'Показатели не загрузились. Попробуйте ещё раз или откройте раздел позже.')}
+      <div class="actions"><button class="btn small" data-hours="${hours}">Повторить</button></div>`;
+    box.querySelector('[data-hours]').onclick = () => healthOpsView(box, hours);
+    return;
+  }
   if (!box.isConnected) return;
   const period = {1: '1 час', 24: '24 часа', 168: '7 дней'};
   const lagBad = o.loop_lag.p95 > 1000, poolBad = o.pool_wait.some(p => p.p95 > 1000);
@@ -2539,47 +2557,52 @@ async function healthOpsView(box, hours) {
   const c = o.client, be = o.bot_errors;
   const clientErrors = c.by_type.filter(t => !['boot_timing', 'guide_miss'].includes(t.type)).reduce((a, t) => a + t.count, 0);
   const none = text => `<div class="sub">${text}</div>`;
+  const slow = t => `у медленных 5% <b>${ms(t.p95)}</b>${t.p99 != null ? ` · у 1% ${ms(t.p99)}` : ''}`;
+  const slowMax = t => `у медленных 5% <b>${ms(t.p95)}</b> · максимум ${ms(t.max)}`;
+  // Группа свёрнута: беда видна по короткой пометке в её заголовке.
+  const flag = document.getElementById('h-dev-flag');
+  if (flag) { const bad = [o.http_5xx ? 'сбои' : '', lagBad || poolBad ? 'замедления' : ''].filter(Boolean).join(' и '); flag.textContent = bad ? ' · ' + bad : ''; }
   box.innerHTML = `
     <div class="scope">${Object.entries(period).map(([h, t]) =>
-      `<button class="btn small ${+h === o.hours ? 'primary' : ''}" data-hours="${h}">${t}</button>`).join('')}
-      <span class="sub">Хранится 14 дней, перезапуск не обнуляет.</span></div>
+      `<button class="btn small ${+h === o.hours ? 'primary' : ''}" data-hours="${h}">${t}</button>`).join('')}</div>
     <div class="kpis hero">
-      ${kpi('🐢 Лаг сервера (p95)', ms(o.loop_lag.p95), '', lagBad ? 'bad' : '')}
-      ${kpi('🗄 Ожидание базы (p95)', ms(Math.max(0, ...o.pool_wait.map(p => p.p95))), '', poolBad ? 'bad' : '')}
-      ${kpi('🚫 Отказов входа', num(o.auth_401.reduce((a, r) => a + r.count, 0)))}
-      ${kpi('📱 Ошибок у игроков', num(clientErrors), '', clientErrors ? 'warn' : '')}
-      ${kpi('🤖 Ошибок бота', num(be.total), '', be.total ? 'bad' : '')}
-      ${kpi('🌐 Ошибок 5xx', num(o.http_5xx), `<small> из ${num(o.http_total)}</small>`, o.http_5xx ? 'bad' : '')}</div>
-    ${section('h-ops-server', '⚙️ Сервер и база', `
-      <div class="log"><div>Задержка обработки <b>p95 ${ms(o.loop_lag.p95)}</b> · максимум ${ms(o.loop_lag.max)}</div><div class="sub">Больше секунды подряд — сервер не успевает, игроки видят «зависания».</div></div>
+      ${kpi('Задержка ответа', ms(o.loop_lag.p95), '<small> у медленных 5%</small>', lagBad ? 'bad' : '')}
+      ${kpi('Ожидание базы', ms(Math.max(0, ...o.pool_wait.map(p => p.p95))), '<small> у медленных 5%</small>', poolBad ? 'bad' : '')}
+      ${kpi('Ошибок у игроков', num(clientErrors), '', clientErrors ? 'warn' : '')}
+      ${kpi('Сбоев на сервере', num(o.http_5xx), `<small> из ${num(o.http_total)} запросов</small>`, o.http_5xx ? 'bad' : '')}</div>
+    ${section('h-ops-server', 'Сервер и база', `
+      <div class="log"><div>Задержка обработки: ${slowMax(o.loop_lag)}</div><div class="sub">Больше секунды подряд — сервер не успевает, игроки видят «зависания».</div></div>
       <div class="log"><div>Соединений с базой занято <b>в среднем ${o.pool_busy.avg}</b> · максимум ${o.pool_busy.max}</div>
         ${(o.pool_held || []).length ? `<div class="sub">Из них в среднем держат: ${(o.pool_held || []).map(h => `${esc(SOURCE_NAMES[h.name] || h.name)} ${h.avg} (до ${h.max})`).join(' · ')}</div>` : ''}</div>
       ${o.db_server && o.db_server.limit ? `<div class="log"><div>Всего соединений на сервере базы <b>до ${o.db_server.total} из ${o.db_server.limit}</b> · Предвестник до ${o.db_server.ours}</div><div class="sub">Общий лимит с сайтом IESA: когда он кончается, база отказывает всем${o.db_server.refused ? ` · отказов: <b>${num(o.db_server.refused)}</b>` : ''}.</div></div>` : ''}
-      ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
-      ${(o.pool_hold || []).map(p => `<div class="log"><div>Удержание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}) <b>p95 ${ms(p.p95)}</b> · p99 ${ms(p.p99)}</div><div class="sub">${num(p.count)} циклов «взял — сделал запрос — отдал»</div></div>`).join('')}
+      ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}): ${slow(p)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
+      ${(o.pool_hold || []).map(p => `<div class="log"><div>Удержание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}): ${slow(p)}</div><div class="sub">${num(p.count)} циклов «взял — сделал запрос — отдал»</div></div>`).join('')}
       ${Object.keys(o.cache_flights || {}).length ? `<div class="sub">Загрузок топов, разделённых с параллельными запросами: ${Object.entries(o.cache_flights).map(([k, v]) => `${k === 'boards' ? 'таблицы' : 'места'} ${num(v)}`).join(' · ')}</div>` : ''}
-      ${Object.entries(o.telegram_delivery || {}).map(([name, t]) => `<div class="log"><div>До обработки сообщения (${esc(name)}) <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} сообщений</div></div>`).join('')}
+      ${Object.entries(o.telegram_delivery || {}).map(([name, t]) => `<div class="log"><div>До обработки сообщения (${esc(name)}): ${slowMax(t)}</div><div class="sub">${num(t.count)} сообщений</div></div>`).join('')}
       ${o.telegram_delayed ? `<div class="log">Дольше 10 с до обработки: <b>${num(o.telegram_delayed)}</b></div>` : ''}
       ${o.telegram_receipt_retries ? `<div class="log">Очередь ждала записи в базу: <b>${num(o.telegram_receipt_retries)} повторов</b></div>` : ''}
-      ${Object.entries(o.telegram_api || {}).map(([name, t]) => `<div class="log"><div>Ответ Telegram: ${esc(name)} <b>p95 ${ms(t.p95)} · макс. ${ms(t.max)}</b></div><div class="sub">${num(t.count)} вызовов · ${num(o.telegram_api_errors?.[name] || 0)} сетевых ошибок</div></div>`).join('')}
-      ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram: ${esc(t.method)} <b>p95 ${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
-    ${section('h-ops-routes', '🌐 Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'p50', 'p95', 'p99', '4xx / 5xx'],
-      o.routes.map(r => [esc(r.route), num(r.count), ms(r.p50), ms(r.p95), ms(r.p99), `${num(r.e4)} / ${r.e5 ? `<b>${num(r.e5)}</b>` : 0}`])) : none('Запросов не было.'), {fold: true, open: false, count: num(o.http_total)})}
-    ${section('h-ops-auth', '🚫 Почему не пустило в приложение (401)', o.auth_401.length ? o.auth_401.map(r =>
-      `<div class="log"><div>${esc(AUTH_REASONS[r.reason] || r.reason)} <b>${num(r.count)}</b></div><div class="sub">${esc(r.reason)}</div></div>`).join('') : none('Отказов не было.'), {fold: true, open: o.auth_401.length > 0})}
-    ${section('h-ops-client', '📱 Ошибки у игроков в приложении', `
+      ${Object.entries(o.telegram_api || {}).map(([name, t]) => `<div class="log"><div>Ответ Telegram (${esc(name)}): ${slowMax(t)}</div><div class="sub">${num(t.count)} вызовов · ${num(o.telegram_api_errors?.[name] || 0)} сетевых ошибок</div></div>`).join('')}
+      ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram (${esc(t.method)}): у медленных 5% <b>${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
+    ${section('h-ops-routes', 'Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'Обычно', 'Медленные 5%', 'Медленный 1%', 'Отказов / сбоев'],
+      o.routes.map(r => [esc(r.route), num(r.count), ms(r.p50), ms(r.p95), ms(r.p99), `${num(r.e4)} / ${r.e5 ? `<b>${num(r.e5)}</b>` : 0}`])) : none('Запросов не было.'), {fold: true, open: false})}
+    ${section('h-ops-auth', 'Почему не пустило в приложение', o.auth_401.length ? o.auth_401.map(r =>
+      `<div class="log" title="${esc(r.reason)}"><div>${esc(AUTH_REASONS[r.reason] || r.reason)} <b>${num(r.count)}</b></div></div>`).join('') : none('Отказов не было.'),
+      {fold: true, open: false, count: num(o.auth_401.reduce((a, r) => a + r.count, 0))})}
+    ${section('h-ops-client', 'Ошибки у игроков в приложении', `
       ${c.by_type.length ? c.by_type.map(t => `<div class="log"><div>${esc(CLIENT_TYPES[t.type] || t.type)} <b>${num(t.count)}</b></div><div class="sub">у ${num(t.sessions)} открытий приложения</div></div>`).join('') : none('Ошибок не было.')}
       ${o.client_timeouts ? `<div class="log">Превышено время ожидания: <b>${num(o.client_timeouts)}</b></div>` : ''}
-      ${c.boot.count ? `<div class="log"><div>Запуск до профиля <b>p50 ${ms(c.boot.p50_ms)}</b> · p95 ${ms(c.boot.p95_ms)}</div><div class="sub">${num(c.boot.count)} запусков</div></div>` : ''}
+      ${c.boot.count ? `<div class="log"><div>Запуск до профиля: обычно <b>${ms(c.boot.p50_ms)}</b> · у медленных 5% ${ms(c.boot.p95_ms)}</div><div class="sub">${num(c.boot.count)} запусков</div></div>` : ''}
       ${c.by_version.length ? `<div class="sub">По версиям: ${c.by_version.map(v => `${esc(v.version)} — ${num(v.count)}`).join(' · ')}</div>` : ''}
       ${c.top.length ? `<h4 class="sub">Повторяются чаще всего</h4>` + c.top.map(t => `<div class="log"><div>${esc(CLIENT_TYPES[t.type] || t.type)}${t.status != null ? ` · ${t.status}` : ''} <b>×${num(t.count)}</b></div>
         <div class="sub">${esc([t.message, t.path].filter(Boolean).join(' · ') || '—')} · последний раз ${when(t.last_at)}</div></div>`).join('') : ''}
       ${Object.keys(c.dropped || {}).length ? `<div class="sub">Не записано (лимиты защиты): ${Object.entries(c.dropped).map(([k, v]) => `${esc(k)} ${num(v)}`).join(', ')}</div>` : ''}`,
-      {fold: true, open: clientErrors > 0, count: num(clientErrors)})}
-    ${section('h-ops-bot', '🤖 Ошибки бота по обработчикам', `
-      ${be.top.length ? be.top.map(b => `<div class="log"><div>${esc(b.handler)} · ${esc(b.exc)} <b>×${num(b.count)}</b></div></div>`).join('') : none('Ошибок в обработчиках бота не было.')}
-      ${be.recent.length ? `<h4 class="sub">Последние</h4>` + be.recent.map(b => `<div class="log"><div>${esc(b.handler)} · ${esc(b.exc_type)}</div><div class="sub">${when(b.at)}${b.update_type ? ` · ${esc(b.update_type)}` : ''} · ${esc(b.trace || '')}</div></div>`).join('') : ''}`,
-      {fold: true, open: be.total > 0, count: num(be.total)})}`;
+      {fold: true, open: false})}
+    ${section('h-ops-bot', 'Ошибки бота', be.total ? `
+      <div class="log"><div>Чаще всего одна и та же: <b>×${num(be.top[0]?.count || be.total)}</b></div>${be.recent.length ? `<div class="sub">последний раз ${when(be.recent[0].at)}</div>` : ''}</div>
+      <details class="more-d"><summary>Где именно в коде</summary>
+        ${be.top.map(b => `<div class="log"><div>${esc(b.handler)} · ${esc(b.exc)} <b>×${num(b.count)}</b></div></div>`).join('')}
+        ${be.recent.length ? `<h4 class="sub">Последние</h4>` + be.recent.map(b => `<div class="log"><div>${esc(b.handler)} · ${esc(b.exc_type)}</div><div class="sub">${when(b.at)}${b.update_type ? ` · ${esc(b.update_type)}` : ''} · ${esc(b.trace || '')}</div></div>`).join('') : ''}</details>`
+      : none('Ошибок в обработчиках бота не было.'), {fold: true, open: false, count: num(be.total)})}`;
   box.querySelectorAll('[data-hours]').forEach(b => b.onclick = () => healthOpsView(box, +b.dataset.hours));
 }
 
@@ -2611,17 +2634,17 @@ async function ownerView(main) {
     ${c.bot.can_moderate ? '' : alertBox('warn', 'У бота нет прав модератора в этом чате. Выдайте боту права администратора (удаление сообщений и ограничение участников), иначе мут, бан и кик не сработают.')}
     <div class="kpis">${kpi('Участников', num(c.members), '', 'sm')}${kpi('Чат', c.closed ? 'закрыт' : 'открыт', '', 'sm ' + (c.closed ? 'warn' : 'ok'))}${kpi('Лимит варнов', c.max_warnings, '', 'sm')}</div>
     <button type="button" class="btn" data-purge="${c.id}">🧹 Чистка: досье и решения ›</button>
-    ${section('o-chat', '⚙️ Чат', `<div class="actions"><button type="button" class="btn ${c.closed ? '' : 'danger'}" id="o-toggle">${c.closed ? '🔓 Открыть чат' : '🔒 Закрыть чат'}</button></div>
+    ${section('o-chat', 'Чат', `<div class="actions"><button type="button" class="btn ${c.closed ? '' : 'danger'}" id="o-toggle">${c.closed ? '🔓 Открыть чат' : '🔒 Закрыть чат'}</button></div>
       <div class="field" style="margin-top:10px"><label>Лимит варнов до наказания (1–20)</label><input id="o-limit" type="number" min="1" max="20" value="${c.max_warnings}"/></div>
       <div class="actions"><button type="button" class="btn primary" id="o-limit-save">Сохранить лимит</button></div>`)}
-    ${section('o-sanc', '🚫 Санкции', `
+    ${section('o-sanc', 'Санкции', `
       <div class="sub" style="margin:4px 0">Баны</div>${sanc.bans.length ? tbl(['Кто', 'Срок', ''], sanc.bans.map(b =>
         [who(b.id, b.username) + (b.reason ? `<div class="sub">${esc(b.reason)}</div>` : ''), untilText(b.until), lift('unban', b.id)])) : none}
       <div class="sub" style="margin:10px 0 4px">Муты</div>${sanc.mutes.length ? tbl(['Кто', 'Срок', ''], sanc.mutes.map(m =>
         [who(m.id, m.username), untilText(m.until), lift('unmute', m.id)])) : none}
       <div class="sub" style="margin:10px 0 4px">Варны</div>${sanc.warns.length ? tbl(['Кто', 'Варнов', ''], sanc.warns.map(w =>
         [who(w.id, w.username), w.count, lift('unwarn_all', w.id)])) : none}`)}
-    ${section('o-member', '👤 Действие с участником', `${hint('Введите числовой ID участника этого чата. Игроков с ролью в боте и самого бота это не затрагивает.')}
+    ${section('o-member', 'Действие с участником', `${hint('Введите числовой ID участника этого чата. Игроков с ролью в боте и самого бота это не затрагивает.')}
       <div class="field"><label>ID участника</label><input id="o-uid" inputmode="numeric" pattern="[0-9]*"/></div>
       <div class="field"><label>Действие</label><select id="o-act"><option value="warn">⚠️ Выдать предупреждение</option><option value="mute">🔇 Замутить в чате</option>
         <option value="kick">👢 Выгнать из чата</option><option value="ban">⛔ Забанить в чате</option></select></div>
@@ -2657,12 +2680,11 @@ async function ownerView(main) {
 async function staffChatsView(main, offset = 0) {
   const d = await loadSectionData(main, `/my-chats?offset=${offset}`, () => staffChatsView(main, offset), 'mychats');
   if (!d) return;
-  main.innerHTML = `${pageHead('💬', 'Мои чаты', 'Твои группы: открой чат, чтобы выдать варн или начать чистку')}
-    <p class="sub">Сначала чаты, которыми ты владеешь, затем чаты с твоим рангом. Название вводить не нужно.</p>
+  main.innerHTML = `${pageHead('💬', 'Мои чаты', 'Откройте чат, чтобы выдать варн или начать чистку')}
     <div class="list">${d.items.map(c => `<button type="button" class="prow" data-chat="${c.id}">
       <span class="ava chat" aria-hidden="true">#</span><span class="pmain"><span class="pname">${esc(c.title)}</span>
       <span class="pmeta">${c.owned ? 'Владелец · ' : ''}Участников: ${num(c.members)}${c.purging ? ' · Идёт чистка' : ''}${c.bot_left ? ' · Бот вышел' : ''}</span></span></button>`).join('') ||
-      '<p class="empty">Чатов пока нет. Напиши боту команду в своём чате и обнови список.</p>'}</div>
+      '<p class="empty">Чатов пока нет. Напишите боту команду в своём чате и обновите список.</p>'}</div>
     <div class="actions"><button type="button" class="btn" id="mychats-refresh">Обновить</button>
       ${d.offset ? '<button type="button" class="btn" id="mychats-prev">Назад</button>' : ''}
       ${d.next_offset !== null ? '<button type="button" class="btn" id="mychats-next">Ещё чаты</button>' : ''}</div>`;
@@ -2678,10 +2700,10 @@ async function ownersAccessCard(main) {
   let st;
   try { st = await api('/access/owners'); } catch (_) { return; }
   if (currentSection() !== 'access' || !main.querySelector('.page-head') || main.querySelector('#ownacc')) return;   // человек успел уйти на другую вкладку
-  const box = document.createElement('div');
-  box.className = 'card'; box.id = 'ownacc';
-  box.innerHTML = `<h3>🧑‍💼 Владельцы чатов</h3>
-    ${foldNote('Что это даёт', `Если включить, владельцы групп с ботом смогут входить в админку и управлять только своими чатами (не больше ${st.max_chats} на человека). Владение проверяется по Telegram при каждом входе.`)}
+  // Та же группа, что «Разделы» и «Модерация» (заголовок .sec-h), и стоит перед пояснением внизу экрана.
+  const box = document.createElement('section');
+  box.className = 'section'; box.id = 'ownacc'; box.dataset.sec = 'a-own';
+  box.innerHTML = `<h3 class="sec-h">Владельцы чатов</h3>
     <div class="sw-row"><div class="t"><b>Вход владельцев чатов</b><div class="sub">${st.enabled ? 'Открыт' : 'Закрыт'}</div></div>
       <label class="toggle"><input type="checkbox" id="own-on" ${st.enabled ? 'checked' : ''}/><span></span></label></div>
     <div class="sub" style="margin:10px 0 4px">Доступ отозван</div>
@@ -2689,10 +2711,12 @@ async function ownersAccessCard(main) {
       <button type="button" class="btn" data-ounblock="${b.id}">Вернуть</button></div>`).join('') : '<div class="sub">Никто не отозван.</div>'}
     <div class="field" style="margin-top:10px"><label>Отозвать доступ: ID человека</label><input id="own-uid" inputmode="numeric"/></div>
     <div class="field"><label>Причина (необязательно)</label><input id="own-reason" maxlength="200"/></div>
-    <div class="actions"><button type="button" class="btn danger" id="own-block">Отозвать доступ</button></div>`;
-  main.append(box);
+    <div class="actions"><button type="button" class="btn danger" id="own-block">Отозвать доступ</button></div>
+    ${foldNote('Что это даёт', `Если включить, владельцы групп с ботом смогут входить в админку и управлять только своими чатами (не больше ${st.max_chats} на человека). Владение проверяется по Telegram при каждом входе.`)}`;
+  const slot = main.querySelector('#a-own-slot');
+  if (slot) slot.replaceWith(box); else main.append(box);
   const post = (path, body) => api(path, {method: 'POST', body: JSON.stringify(body)});
-  const redo = () => { box.remove(); ownersAccessCard(main); };
+  const redo = () => { box.replaceWith(Object.assign(document.createElement('div'), {id: 'a-own-slot'})); ownersAccessCard(main); };   // на прежнее место, до пояснения
   $('#own-on').onchange = async e => {
     const on = e.target.checked;
     if (on && !confirm('Пустить владельцев чатов в админку? Любой, кто создал группу с ботом, сможет входить и модерировать свой чат.')) { e.target.checked = false; return; }
@@ -2724,10 +2748,11 @@ async function accessView(main) {
       ${i.changed ? `<button type="button" class="btn small" data-areset="${esc(i.key)}">Сбросить</button>` : ''}</div>`;
   const group = g => d.items.filter(i => i.group === g).map(row).join('');
   main.innerHTML = `${pageHead('🛡', 'Права', 'С какой роли доступно каждое право')}
-    ${foldNote('Как устроены права', 'Роль выше или равная выбранной получает право. Выдать можно только то, что здесь перечислено: деньги, роли, рассылки, промокоды, переключатели и настройки закреплены за разработчиком и создателем. Действие над игроком с равной или высшей ролью остаётся закрытым.')}
-    ${section('a-sec', '🗂 Разделы', group('section'))}
-    ${section('a-mod', '🛡 Модерация', group('moderation'))}
-    ${section('a-feat', '🧪 Ранний доступ', alertBox('info', 'Новый контент до публичного запуска: сейчас это демо нового сезона (Лига Сапёра и Ритма). Награды в демо ненастоящие.') + group('feature'))}`;
+    ${section('a-sec', 'Разделы', group('section'))}
+    ${section('a-mod', 'Модерация', group('moderation'))}
+    ${section('a-feat', 'Ранний доступ', group('feature') + foldNote('Что такое ранний доступ', 'Новый контент до публичного запуска: сейчас это демо нового сезона (Лига Сапёра и Ритма). Награды в демо ненастоящие.'))}
+    ${ME.creator ? '<div id="a-own-slot"></div>' : ''}
+    ${foldNote('Как устроены права', 'Роль выше или равная выбранной получает право. Выдать можно только то, что здесь перечислено: деньги, роли, рассылки, промокоды, переключатели и настройки закреплены за разработчиком и создателем. Действие над игроком с равной или высшей ролью остаётся закрытым.')}`;
   const post = body => api('/access/matrix', {method: 'POST', body: JSON.stringify(body)});
   const ask = (title, key, rank, expect) => sheet(title,
     `${hint('Изменение вступает в силу сразу для всех сотрудников. Для подтверждения введите «' + esc(expect) + '».')}<div class="field"><label>Подтверждение</label><input id="a-confirm" autocomplete="off"/></div>`,

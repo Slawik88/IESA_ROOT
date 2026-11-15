@@ -5,8 +5,9 @@
 Темы — те же, что у переключателя «Тема админки»: own (цвета надетого образа --look) и strict (Обсидиан).
 
 Запросы /bot-admin/api/* подменяются данными из admin_stand_fixtures.py, внешние адреса (шрифты, telegram-web-app.js) блокируются.
-Выходной код 1, если на какой-то ширине страница шире экрана: админка режет лишнее (overflow-x: clip), и без этой проверки
-обрезанная колонка остаётся незамеченной. Нужен playwright (pip install playwright, браузер из PLAYWRIGHT_BROWSERS_PATH).
+Выходной код 1, если на какой-то ширине страница шире экрана (админка режет лишнее, overflow-x: clip, и без этой проверки
+обрезанная колонка остаётся незамеченной) или раздел не загрузился: экран «Не загрузилось» снимается, но считается проблемой,
+если вкладка не перечислена в --allow-failed. Нужен playwright (pip install playwright, браузер из PLAYWRIGHT_BROWSERS_PATH).
 """
 from __future__ import annotations
 
@@ -56,11 +57,13 @@ def main() -> int:
     ap.add_argument("--themes", default=",".join(THEMES))
     ap.add_argument("--look", default="hanami", help="образ администратора для темы own")
     ap.add_argument("--owner", action="store_true", help="войти как владелец чата (вкладка mychats)")
+    ap.add_argument("--allow-failed", default="", help="вкладки через запятую, у которых экран ошибки ожидаем (нет фикстуры нарочно)")
     args = ap.parse_args()
     STATIC = args.static
     tabs = [t for t in (ALL_TABS if args.tabs == "all" else args.tabs).split(",") if t]
     widths = [int(w) for w in args.widths.split(",") if w]
     themes = [t for t in args.themes.split(",") if t]
+    allow_failed = {t for t in args.allow_failed.split(",") if t}
     from core.skins_v3_catalog import SKINS
     skin = SKINS[args.look]
     look = {"id": args.look, "tier": "SSS", "tokens": skin["tokens"], "pal": list(skin["pal"]), "kinds": skin["kinds"]}
@@ -119,6 +122,9 @@ def main() -> int:
                     page.wait_for_function("() => !document.querySelector('.admin-load:not(.load-failed)')", timeout=8000)
                     page.wait_for_timeout(350)
                     page.screenshot(path=os.path.join(args.out, f"{tab}-{theme}-{width}.png"), full_page=True)
+                    # Снимок ошибки полезен, но «0 проблем» должно значить «все вкладки отрисовались».
+                    if tab not in allow_failed and page.evaluate("() => !!document.querySelector('#main .admin-load.load-failed')"):
+                        problems.append(f"{tab} {theme} {width}px: раздел не загрузился")
                     res = page.evaluate(OVERFLOW_JS)
                     if res["scrollW"] > res["w"] or res["bad"]:
                         problems.append(f"{tab} {theme} {width}px: ширина {res['scrollW']} при {res['w']}, {res['bad']}")

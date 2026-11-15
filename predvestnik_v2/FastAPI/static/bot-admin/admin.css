@@ -1,7 +1,7 @@
 /* СТИЛЬ v1 («монолит» Mini App, см. docs/MONOLITH_V3.md): те же токены, что у приложения, без карточки вокруг каждого блока;
    группы держатся на отступах и тонких линиях, главное действие одна пилюля, вкладки текстом с подчёркиванием. */
 body {
-  --admin-danger-ink: #ffb4b4; --admin-danger-bg: #32161c;
+  --admin-danger-ink: #ffb4b4; --admin-danger-bg: #32161c; --admin-warn-ink: #f3cf7a;
   --v3-admin-radius: 14px;
   /* Переходные имена для двух старых inline-стилей метрик. */
   --accent: var(--v3-acc); --line: var(--v3-faint);
@@ -549,7 +549,6 @@ main { padding-bottom: calc(112px + var(--v3-safe-b) + var(--admin-undo-height, 
 
 .player-facts .fact b, .player-facts .fact span { display: block; }
 .player-facts .fact span { font-size: 12px; }
-.player-more { border-top: 1px solid var(--v3-faint); }
 .profile-head { gap: 14px; }
 .profile-head .pname { font-size: 20px; line-height: 1.2; }
 .ava.has-look { overflow: visible; }
@@ -607,9 +606,10 @@ details.sw-group > summary > .sw-row { flex: 1; min-width: 0; }
 .fold-note > .sub { padding: 0 0 10px; line-height: 1.45; }
 .more-d[open] > summary, .rep-more[open] > summary { color: var(--v3-ink); }
 
-/* Плитки: цифра крупно, подпись мелко; тревога — только цветом цифры, без рамок вокруг плитки. */
+/* Плитки: цифра крупно, подпись мелко; тревога — только цветом цифры, без рамок вокруг плитки:
+   красная — сбой, янтарная — стоит посмотреть (новые жалобы, ошибки у игроков). Цвета не зависят от образа. */
 .kpi.bad, .kpi.warn, .kpi.ok { box-shadow: none; }
-.kpi.warn b { color: var(--v3-ink); }
+.kpi.warn b { color: var(--admin-warn-ink); }
 .kpi b { font-size: 22px; font-weight: 650; }
 .kpi.sm b { font-size: 19px; }
 
@@ -627,6 +627,9 @@ input[type="checkbox"]:checked::after { content: ""; position: absolute; left: 1
 input[type="radio"]:checked::after { content: ""; position: absolute; inset: 18px; border-radius: 50%; background: var(--v3-on-acc); }
 input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .45; cursor: not-allowed; }
 input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outline-offset: -8px; }
+/* Поле внутри переключателя остаётся невидимым всегда, и выключенным тоже: иначе квадрат галочки просвечивал сквозь дорожку. */
+.toggle input[type="checkbox"], .toggle input[type="checkbox"]:disabled { position: absolute; inset: 0; width: 100%; max-width: none; height: 100%; min-height: 0; opacity: 0; }
+.toggle input[type="checkbox"]::before, .toggle input[type="checkbox"]::after { content: none; }
 .field.switch { display: flex; align-items: center; gap: 2px; }
 .field.switch > input[type="checkbox"] { margin-left: -12px; }
 
@@ -643,7 +646,7 @@ input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outlin
 .log-chat a { flex: 0 1 auto; min-width: 0; font-weight: 500; }
 
 /* Настройки: строка темы как обычная строка настройки. */
-.theme-row { border-bottom: 1px solid var(--v3-faint); margin-bottom: 4px; }
+.theme-row { border-bottom: 0; margin-bottom: 0; }   /* разделитель — верхняя линия следующей группы */
 
 /* «Проблемы приложения» на общих примитивах: счётчики как плитки, обращения как строки-карточки. */
 .support-admin { gap: 12px; }
@@ -660,12 +663,28 @@ input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outlin
 
 /* Одинаковые скругления у всех «коробок». */
 .alert, .confirm, .mark-tile, .card.rep, .skin, .ag-toc, .ag-where { border-radius: var(--v3-admin-radius); }
-.jfilters { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* «Что» и «Кто» рядом даже на телефоне: короткие значения */
+.jfilters { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }   /* «Что» — короткие слова, «Кто» — @ник: ему больше места */
+@media (max-width: 360px) { .jfilters { grid-template-columns: 1fr; } }   /* на самом узком @ник целиком */
 .sec-h .cnt { white-space: nowrap; }
-/* Люди в мета-строке журнала: зона нажатия остаётся 44 px, но не раздвигает строку (у строчного блока высоту строки
-   задаёт внешний край, отрицательные поля его сжимают). В жалобах и у чатов не применяется: длинное имя там переносится. */
-.log > .sub a[href="#"] { margin-block: -10px; }
-.log > .sub { margin-top: 2px; }
-/* Карточка игрока: раскрывашки одного вида; редкое (ники, теги, связи, образы, кошелёк) — под ними. */
-.player-extra > summary, .player-more > summary { min-height: 48px; font-size: 14.5px; font-weight: 600; color: var(--v3-ink); }
-.player-more[open] > summary { margin-bottom: 4px; }
+/* Люди в мета-строке журнала: автор, цель и время — отдельные гибкие куски с честной зоной 44 px.
+   Зоны соседних ссылок не перекрываются, даже когда строка переносится (раньше нижняя половина автора открывала цель). */
+#jlist .log > .jmeta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; margin-top: 0; }
+#jlist .log > .jmeta > a[data-player] { flex: 0 1 auto; min-width: 0; }
+/* Карточка игрока: «Подробнее» — строка-приглашение как «как это работает»; редкое собрано в одну группу внизу (details.section). */
+.player-extra > summary { min-height: 44px; font-size: var(--fs-sub); font-weight: 500; color: var(--v3-dim); }
+.player-extra[open] > summary { color: var(--v3-ink); }
+.more-group > summary { min-height: 44px; }
+.more-group > summary h3 { margin: 0; }
+.more-group > .card { padding-top: 12px; }
+
+/* «Функции»: у группы с переключателем шеврон слева, отдельно от переключателя всего раздела (справа). */
+details.sw-group > summary { display: flex; align-items: center; gap: 0; color: var(--v3-ink); }   /* название раздела как у соседних строк, не серым */
+details.sw-group > summary::after { order: -1; margin: 0 12px 0 2px; }
+
+/* Переключатель вида (Действия/Входы, Очередь/Закрытые) — вкладки с подчёркиванием, как в «Чистке» и у фильтров игроков;
+   плашки .scope остаются только для периода. */
+.chips.filters.view-tabs { margin: 0 0 12px; gap: 14px; }
+
+/* «Состояние»: подробности для разработчика — одна свёрнутая группа; внутри свои подгруппы помельче. */
+.dev-d .section { margin-top: 10px; padding-top: 8px; }
+.dev-d .sec-h { font-size: 15px; }
