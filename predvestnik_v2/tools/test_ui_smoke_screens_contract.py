@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from ui_smoke_checks import DOCK_TABS, SCREENS  # noqa: E402
+from ui_smoke_checks import ADMIN_SCREENS, DOCK_TABS, SCREENS  # noqa: E402
 
 STATIC = ROOT / "FastAPI/static"
 main_py = (ROOT / "FastAPI/main.py").read_text(encoding="utf-8")
@@ -26,6 +26,8 @@ for name, opener in SCREENS:
 for tab in DOCK_TABS:
     assert f'data-page="{tab}"' in html or f"data-page='{tab}'" in html or f"data-page=\\\"{tab}\\\"" in html or tab in js, f"dock tab {tab!r} is gone"
 
-# Admin screens stay out of the suite: they are being rewritten elsewhere.
-assert not any(name.startswith(("admin", "global", "console")) for name, _ in SCREENS)
+# Admin screens enter the suite only through ADMIN_SCREENS (own stand without a database, no opener in the app script).
+admin_in_suite = {name for name, _ in SCREENS if name.startswith(("admin", "global", "console"))}
+assert admin_in_suite == set(ADMIN_SCREENS), f"admin screens outside ADMIN_SCREENS: {sorted(admin_in_suite ^ set(ADMIN_SCREENS))}"
+assert all(opener == "" for name, opener in SCREENS if name in admin_in_suite), "admin screens are opened by tools/admin_ui_smoke.py, not by an app-script opener"
 print(f"OK: the UI smoke suite opens {len(SCREENS)} screens and {len(DOCK_TABS)} dock tabs, all of which exist")
