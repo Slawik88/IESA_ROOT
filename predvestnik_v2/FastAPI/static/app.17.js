@@ -37,13 +37,13 @@ function renderV3Top(state) {
   let body;
   if (state === 'error') body = `<div class="v3-empty">Топ не загрузился. <button type="button" class="v3-link" onclick="loadV3Top()">Повторить</button></div>`;
   else if (!data) body = '<div class="sk" style="height:300px;border-radius:14px"></div>';
-  else if (!data.top.length) body = typeof v3PodiumEmpty === 'function' ? v3PodiumEmpty('Пока никого в рейтинге. Станьте первым.') : '<div class="v3-empty">Пока никого в рейтинге. Станьте первым.</div>';
+  else if (!data.top.length) body = v3TopEmpty(tab.id);
   else {
     const inTop = data.top.some(r => r.is_me);
     const podium = typeof v3Podium === 'function' ? v3Podium(data.top, r => `${fmt(r.value)} ${tab.unit}`) : '';   // тройка — подиумом с медалями (app.50.js)
     const rest = podium ? data.top.slice(3) : data.top;
     body = `${podium}${rest.length ? `<ol class="v3-top-list" start="${podium ? 4 : 1}">${rest.map(r => `<li class="${r.is_me ? 'is-me' : ''}">${_v3RowButton(r, r.value)}</li>`).join('')}</ol>` : ''}
-      <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Вы: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span><button type="button" class="v3-link" onclick="${['rhythm', 'minesweeper', 'mafia'].includes(tab.id) ? `openTopV3('${tab.id}')` : `openTopV3('global','${tab.id}')`}">Весь топ ›</button></div>`;
+      <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Ты: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span><button type="button" class="v3-link" onclick="${['rhythm', 'minesweeper', 'mafia'].includes(tab.id) ? `openTopV3('${tab.id}')` : `openTopV3('global','${tab.id}')`}">Весь топ ›</button></div>`;
   }
   host.innerHTML = `${head}<div class="v3-top-body">${body}</div>`;
   window.hydrateLeaderboardAvatars?.(host);

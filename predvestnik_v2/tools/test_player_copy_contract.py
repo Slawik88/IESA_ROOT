@@ -11,6 +11,8 @@ from pathlib import Path
 from core import account_age, chests_v1, league_pass, league_v1, minesweeper_v2, pets_v2, quests_v1, registry, rhythm_v2, rhythm_weather, skins_v3, word_chain
 from core.rhythm_gifts import PERKS
 from services import quests_v1 as quest_rewards
+from bot.chat import family as family_chat, settings as chat_settings, streak as streak_chat
+from core import coin_market_v2, mafia_online, mafia_v1, marks_v1
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "FastAPI" / "static"
@@ -286,12 +288,19 @@ for d in minesweeper_v2.DIFFICULTIES.values():
     assert f"{d.size}×{d.size}, мин: {d.mines}" in body("mines"), f"Сапёр {d.key}: размер и число мин расходятся с кодом"
 vip_line = " ".join(registry.VIP_PERKS_PITCH)
 vip_text = body("vip")
+vip_mission_texts = [next(line for line in registry.VIP_PERKS_PITCH if "Поручение дня:" in line)]
+for tid in ("vip", "quests"):
+    vip_mission_texts.extend(line for line in texts(topics[tid]) if "седьм" in line)
+assert len(vip_mission_texts) == 3, "VIP: проверены описание, Путеводитель и подсказка в заданиях"
+for line in vip_mission_texts:
+    key_count = re.search(r"(\d+) ключ", line)
+    assert key_count and int(key_count[1]) == chests_v1.KEY_SOURCE_COUNTS["vip_daily_milestone"], "VIP: число ключей расходится с наградой"
+    assert "седьмое выполненное поручение" in line, "VIP: считаются выполненные поручения, а не календарные дни"
+    assert all(game in line.lower() for game in ("обычный ритм", "обычный сапёр", "мафию в чате")), "VIP: подходят обычные игры и Мафия в чате, не рейтинговые уровни"
 for number in ("20", "100", "10%", "10 вопросов", "20 значков", "Пять замен"):
     assert number in vip_text and (number in vip_line or number == "10 вопросов" and "10 вопросов" in vip_line or number == "Пять замен" and "Пять замен" in vip_line), f"VIP: «{number}» расходится с registry.VIP_PERKS_PITCH"
 assert "Telegram Stars" in body("zarniki")
 # S08: числа в новых и починенных темах
-from bot.chat import family as family_chat, settings as chat_settings, streak as streak_chat
-from core import coin_market_v2, mafia_online, mafia_v1, marks_v1
 has("modes", league_pass.CASUAL_DAILY_CAP, f"{league_v1.XP_BY_STARS[1]}, {league_v1.XP_BY_STARS[2]} или {league_v1.XP_BY_STARS[3]}")
 has("mafia", mafia_v1.MIN_PLAYERS)
 has("games", mafia_v1.MIN_PLAYERS)

@@ -48,7 +48,8 @@ async def is_vip_active(db, user_id: int) -> bool:
 
 async def is_vip_active_batch(db, user_ids: list[int]) -> set[int]:
     ids=[int(user_id) for user_id in (user_ids or [])]
-    if not ids: return set()
+    if not ids:
+        return set()
     placeholders=",".join(["?"]*len(ids))
     async with db.execute(f"SELECT user_id FROM vip_subscriptions WHERE user_id IN ({placeholders}) AND expires_at>NOW()",tuple(ids)) as c:
         return {int(row[0]) for row in await c.fetchall()}
@@ -56,7 +57,8 @@ async def is_vip_active_batch(db, user_ids: list[int]) -> set[int]:
 async def get_vip_info(db, user_id: int) -> dict | None:
     async with db.execute("SELECT tier,expires_at FROM vip_subscriptions WHERE user_id=? AND expires_at>NOW()",(user_id,)) as c:
         row=await c.fetchone()
-    if not row: return None
+    if not row:
+        return None
     tier,expires_at=row[0],_aware(row[1])
     return {"tier":tier,"tier_label":VIP_TIERS.get(tier,{}).get("label",tier),"expires_at":expires_at,
             "days_left":max(0,math.ceil((expires_at-datetime.now(timezone.utc)).total_seconds()/86400))}
@@ -135,7 +137,7 @@ async def get_daily_status(db, *, user_id: int) -> dict:
     count = int(progress["completed_count"]) if progress else 0
     return {
         "day_boundary": "UTC", "day_key": day_key,
-        "title": "Доиграй Ритм, Сапёр или Мафию", "completed_today": bool(receipt),
+        "title": "Заверши обычный Ритм, обычный Сапёр или Мафию в чате", "completed_today": bool(receipt),
         "completed_count": count, "cycle_progress": count % 7,
         "next_milestone_in": 7 - (count % 7), "daily_reward_mora": 20,
         "milestone_reward_mora": 100, "milestone_reward_keys": KEY_SOURCE_COUNTS["vip_daily_milestone"],

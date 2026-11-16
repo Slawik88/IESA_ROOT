@@ -3,6 +3,20 @@ const _V3_TOP_SCOPES = [{ id: 'global', label: 'Все игроки' }, { id: 'c
 const _V3_TOP_PERIODS = [{ id: 'day', label: 'Сегодня' }, { id: 'week', label: 'Неделя' }, { id: 'month', label: 'Месяц' }, { id: 'all_time', label: 'Всё время' }];
 let _v3Full = { scope: 'global', period: 'week', chat: null, page: 0, data: null, failed: false, loading: false, photoRetries:0, photoTimer:null }, _v3FullSeq = 0;
 
+// These boards count ordinary runs and chat Mafia, independently of the last selected game mode.
+const _V3_EMPTY_TOP_ACTIONS = {
+  rhythm: { text: 'Здесь появятся лучшие результаты в обычном Ритме. Заверши первый забег.', label: 'Играть в обычный Ритм', onclick: "leaveForGame('/rhythm-v2')" },
+  minesweeper: { text: 'Здесь считаются победы в обычном Сапёре. Выиграй первую партию.', label: 'Играть в обычный Сапёр', onclick: "leaveForGame('/minesweeper')" },
+  mafia: { text: 'Здесь считаются победы в Мафии из Telegram-чата. Узнай, как начать партию в своей группе.', label: 'Как начать Мафию в чате', onclick: "openGuide('mafia')" }
+};
+function v3TopEmpty(scope) {
+  const action = _V3_EMPTY_TOP_ACTIONS[scope], flag = _V3_TOP_SCOPES.find(s => s.id === scope)?.flag;
+  if (action && _sysFlags[flag] === true) return v3PodiumEmpty(action.text, action);
+  const text = scope === 'chats' ? 'Здесь появятся чаты с сообщениями за выбранный период. Узнай, какие чаты участвуют.'
+    : 'За выбранный период сообщений пока нет. Узнай, где писать и как попасть в топ.';
+  return v3PodiumEmpty(text, { label: 'Как попасть в топ', onclick: "v3Guide('top')" });
+}
+
 function openTopV3(scope, period) {
   if (scope) _v3Full.scope = scope;
   if (period) _v3Full.period = period;
@@ -62,12 +76,11 @@ function renderTopV3() {
   if (f.failed) body = `<div class="v3-empty">${_profileEsc(f.failed)} <button type="button" class="v3-link" onclick="loadTopV3()">Повторить</button></div>`;
   else if (!d) body = '<div class="sk" style="height:340px;border-radius:14px"></div>';
   else if (!d.items.length) {
-    const text = rhythm ? 'В этом сезоне ещё нет подтверждённых забегов.' : winBoard ? 'Пока нет побед. Завершите партию победой — и вы первым окажетесь в списке.' : f.scope === 'chats' ? 'Пока тихо: чаты попадут сюда, когда в них начнут писать.' : 'Пока тихо. Напишите в чате, и вы первым окажетесь в списке.';
-    body = typeof v3PodiumEmpty === 'function' ? v3PodiumEmpty(text) : `<div class="v3-empty">${text}</div>`;
+    body = v3TopEmpty(f.scope);
   }
   else {
-    const me = d.personal ? `<div class="v3-top-me">Вы: #${fmt(d.personal.place)} из ${fmt(d.personal.total)} · ${fmt(d.personal.count)} ${unit}${d.personal.delta != null ? ` · <span class="${d.personal.delta >= 0 ? 'v3-up' : ''}">${d.personal.delta >= 0 ? '+' : ''}${fmt(d.personal.delta)} к прошлому периоду</span>` : ''}</div>`
-      : (f.scope === 'chats' ? '' : `<div class="v3-top-me">${rhythm ? 'Вашего забега в этом сезоне пока нет.' : winBoard ? 'У вас пока нет побед.' : 'У вас пока нет сообщений за выбранный период.'}</div>`);
+    const me = d.personal ? `<div class="v3-top-me">Ты: #${fmt(d.personal.place)} из ${fmt(d.personal.total)} · ${fmt(d.personal.count)} ${unit}${d.personal.delta != null ? ` · <span class="${d.personal.delta >= 0 ? 'v3-up' : ''}">${d.personal.delta >= 0 ? '+' : ''}${fmt(d.personal.delta)} к прошлому периоду</span>` : ''}</div>`
+      : (f.scope === 'chats' ? '' : `<div class="v3-top-me">${rhythm ? 'Твоего забега в этом сезоне пока нет.' : winBoard ? 'У тебя пока нет побед.' : 'У тебя пока нет сообщений за выбранный период.'}</div>`);
     const pager = d.pages > 1 ? `<div class="v3-pager"><button type="button" class="v3-link" ${d.page <= 0 ? 'disabled' : ''} onclick="v3FullSet('page',${d.page - 1})" aria-label="Предыдущая страница">‹</button><span>${d.page + 1} / ${d.pages}</span><button type="button" class="v3-link" ${d.page + 1 >= d.pages ? 'disabled' : ''} onclick="v3FullSet('page',${d.page + 1})" aria-label="Следующая страница">›</button></div>` : '';
     // на первой странице тройка — подиумом с медалями (app.50.js), список продолжается с 4-го места
     const podium = d.page === 0 && typeof v3Podium === 'function' ? v3Podium(d.items, r => `${fmt(r.count)} ${unit}`) : '', rows = podium ? d.items.slice(3) : d.items;

@@ -147,14 +147,14 @@ function _svValue(v) {
   const m = v.daily_mission || {}, day = Number(m.daily_reward_mora ?? 20), bonus = Number(m.milestone_reward_mora ?? 100), keys = Number(m.milestone_reward_keys ?? 1), weeks = Math.floor(30 / 7);
   const tile = (n, t) => `<div><b>${n}</b><small>${t}</small></div>`;
   return `<div class="sv-sec"><span class="v3-eyebrow">За 30 дней поручений</span></div><div class="sv-value">${tile(`+${fmt(day * 30 + bonus * weeks)}`, 'Моры')}${keys ? tile(`+${fmt(keys * weeks)}`, 'ключей к сундукам') : ''}${tile('+10%', 'Моры за задания')}</div>
-    <p class="sv-fine sv-fine--left">Доиграй за день Ритм, Сапёр или Мафию — и поручение выполнено. Пропуски прогресс не сбрасывают.</p>`;
+    <p class="sv-fine sv-fine--left">Обычный Ритм, обычный Сапёр или Мафия в чате — одно поручение в день. Пропуски прогресс не сбрасывают.</p>`;
 }
 // Поручение дня: семь точек до бонуса, данные приходят с /vip-v2/status
 function _svMission(v) {
   const m = v.daily_mission; if (!v.active || !m) return '';
   const done = Number(m.cycle_progress) || 0;
   return `<div class="sv-sec"><span class="v3-eyebrow">Поручение дня</span><span class="sv-mission-end"><span class="sv-dots" role="img" aria-label="До бонуса: ${done} из 7">${Array.from({ length: 7 }, (_, i) => `<i${i < done ? ' class="is-on"' : ''}></i>`).join('')}</span><em class="${m.completed_today ? 'is-done' : ''}">${m.completed_today ? 'Сегодня ✓' : 'Не выполнено'}</em></span></div>
-    <p class="sv-text"><b>${_profileEsc(m.title || 'Доиграй Ритм, Сапёр или Мафию')}</b> · +${fmt(m.daily_reward_mora ?? 20)} Моры; на седьмое ещё +${fmt(m.milestone_reward_mora ?? 100)} Моры и ключи: ${fmt(m.milestone_reward_keys ?? 0)}. Пропуски прогресс не сбрасывают</p>`;
+    <p class="sv-text"><b>${_profileEsc(m.title || 'Заверши обычный Ритм, обычный Сапёр или Мафию в чате')}</b> · +${fmt(m.daily_reward_mora ?? 20)} Моры. За седьмое выполненное поручение — ещё +${fmt(m.milestone_reward_mora ?? 100)} Моры и ключи: ${fmt(m.milestone_reward_keys ?? 0)}. Пропуски прогресс не сбрасывают</p>`;
 }
 // Как тебя видят другие: две миниатюры профиля. Без VIP чужой видит обычный профиль, с VIP целиком ваш образ: фон, ореол, рамку на аватаре, ник и титул.
 // Показывается надетый образ в его нынешнем тире, а если образа нет, образ недели с потолком (так видно, что покупает VIP)

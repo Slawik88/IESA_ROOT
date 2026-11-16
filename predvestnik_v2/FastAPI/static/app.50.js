@@ -78,8 +78,9 @@ function v3Podium(rows, value) {
 }
 
 // Пустой рейтинг: пьедестал ждёт первых — три пустых места с медалями и подсказка, как туда попасть
-function v3PodiumEmpty(text) {
-  return `<div class="v3-pod-empty"><ol class="v3-podium is-ghost" aria-hidden="true">${[2, 1, 3].map(p => `<li class="v3-pod is-p${p}"><span class="v3-pod-card"><span class="v3-pod-id"><span class="v3-ring"><svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="35"/></svg><span class="v3-ava"></span><span class="v3-pod-medal">${p}</span></span><b class="v3-pod-name">?</b></span></span><i></i></li>`).join('')}</ol><p>${text}</p></div>`;
+function v3PodiumEmpty(text, action = null) {
+  const cta = action ? `<button type="button" class="v3-pill v3-pod-next" onclick="${action.onclick}">${esc(action.label)}</button>` : '';
+  return `<div class="v3-pod-empty"><ol class="v3-podium is-ghost" aria-hidden="true">${[2, 1, 3].map(p => `<li class="v3-pod is-p${p}"><span class="v3-pod-card"><span class="v3-pod-id"><span class="v3-ring"><svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="35"/></svg><span class="v3-ava"></span><span class="v3-pod-medal">${p}</span></span><b class="v3-pod-name">?</b></span></span><i></i></li>`).join('')}</ol><p>${esc(text)}</p>${cta}</div>`;
 }
 
 function _v3Word(n, one, few, many) { n = Math.abs(Number(n) || 0); return n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many; }
