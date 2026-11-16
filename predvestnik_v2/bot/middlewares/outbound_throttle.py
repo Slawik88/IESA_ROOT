@@ -21,6 +21,7 @@ Telegram-запросов (aiogram request middleware, а не update middleware
 идут сразу: раньше они стояли в той же очереди, и «Чистка» ждала по секунде на каждую проверку прав.
 Очередь чата — честная куча с приоритетом: ожидающий вызов, который отменили, слот не тратит, а
 вызовы внутри ``urgent()`` (действия админки) проходят раньше обычных ответов того же чата.
+Квоты чата и общего секундного окна выдаются вместе при отправке, в том числе для повтора после retry_after.
 """
 import asyncio
 import contextlib
@@ -115,7 +116,7 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
         now = time.monotonic()
         self._prune(now)
         lane = self._lanes.setdefault(chat_id, _ChatLane())
-        if not lane.waiters and now >= lane.next_free:
+        if not lane.waiters and now >= lane.next_free and self._global_wait() == 0:
             lane.next_free = now + _MIN_INTERVAL_PER_CHAT_SEC
             return
         granted = asyncio.get_running_loop().create_future()
@@ -131,13 +132,19 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
 
     async def _pump(self, lane: _ChatLane) -> None:
         while lane.waiters:
+            if lane.waiters[0][2].done():
+                heapq.heappop(lane.waiters)
+                continue
             delay = lane.next_free - time.monotonic()
             if delay > 0:
                 await asyncio.sleep(delay)
                 continue
-            *_, granted = heapq.heappop(lane.waiters)
-            if granted.done():          # ожидавший вызов отменили: слот достаётся следующему
+            delay = self._global_wait()
+            if delay > 0:
+                await asyncio.sleep(delay)
                 continue
+            *_, granted = heapq.heappop(lane.waiters)
+            # Обе квоты выдаются вместе: за общей паузой не копятся уже выданные слоты чата.
             lane.next_free = time.monotonic() + _MIN_INTERVAL_PER_CHAT_SEC
             granted.set_result(None)
 
@@ -146,9 +153,10 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
         if now - self._global_window_start >= 1.0:
             self._global_window_start = now
             self._global_count = 0
-        wait = 1.0 - (now - self._global_window_start) if self._global_count >= _GLOBAL_MAX_PER_SEC else 0.0
+        if self._global_count >= _GLOBAL_MAX_PER_SEC:
+            return 1.0 - (now - self._global_window_start)
         self._global_count += 1
-        return wait
+        return 0.0
 
     async def __call__(
         self,
@@ -159,17 +167,16 @@ class OutboundThrottleMiddleware(BaseRequestMiddleware):
         chat_id = getattr(method, "chat_id", None)
         name = type(method).__name__
 
-        started = time.perf_counter()
-        if chat_id is not None and needs_chat_slot(name):
-            await self._chat_slot(chat_id)
-        wait = self._global_wait()
-        if wait > 0:
-            await asyncio.sleep(wait)
-        # Measurement only: how long this call waited for its slot, per Bot API method.
-        ops_metrics.observe("throttle_wait", name, (time.perf_counter() - started) * 1000)
-
         attempt = 0
         while True:
+            started = time.perf_counter()
+            if chat_id is not None and needs_chat_slot(name):
+                await self._chat_slot(chat_id)
+            else:
+                while (wait := self._global_wait()) > 0:
+                    await asyncio.sleep(wait)
+            # Every attempt, including a flood-control retry, needs both applicable quotas.
+            ops_metrics.observe("throttle_wait", name, (time.perf_counter() - started) * 1000)
             request_started = time.perf_counter()
             try:
                 try:
