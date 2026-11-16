@@ -95,7 +95,10 @@ def settings_screen(search):
                 "edit:area",
             ),
         ],
-        [("Города", "edit:cities"), (f"Сайты · {len(search.sources)} из 7", "sources")],
+        [
+            ("Города", "edit:cities"),
+            (f"Сайты · {len(search.sources)} из {len(SOURCES)}", "sources"),
+        ],
         [
             (f"Частота · {search.interval // 60} мин.", "edit:interval"),
             ("Исключения", "edit:exclude"),

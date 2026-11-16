@@ -14,6 +14,7 @@ SOURCES = {
     "immoscout24": "ImmoScout24",
     "homematch": "Homematch",
     "flatfox": "Flatfox",
+    "rentola": "Rentola",
 }
 HOSTS = {
     key: ("www." if key in {"homegate", "immoscout24"} else "") + key + ".ch"

@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from .models import Listing, Search
+from .models import SOURCES, Listing, Search
 
 
 class Store:
@@ -58,6 +58,24 @@ class Store:
 
     def search(self, user_id):
         return Search(**json.loads(self.user(user_id)["config"])).validate()
+
+    def add_source_once(self, user_id, source):
+        """Enable a requested new portal once without resetting preferences or pending deliveries."""
+        if source not in SOURCES:
+            raise ValueError("Unknown source")
+        marker = f"source_added:{source}:{user_id}"
+        if self.get(marker, False):
+            return
+        data = json.loads(self.user(user_id)["config"])
+        with self.db:
+            # Respect an explicitly disabled search and the existing pause flag.
+            if data["sources"] and source not in data["sources"]:
+                data["sources"].append(source)
+                self.db.execute(
+                    "UPDATE users SET config=?,updated=? WHERE id=?",
+                    (json.dumps(data), time.time(), user_id),
+                )
+            self.db.execute("INSERT OR REPLACE INTO kv VALUES(?,?)", (marker, "true"))
 
     def save_search(self, user_id, search):
         search.validate()

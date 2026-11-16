@@ -3,7 +3,7 @@
 import json
 import re
 from dataclasses import asdict, dataclass
-from urllib.parse import urlencode, urljoin, urlsplit
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
@@ -64,6 +64,8 @@ def search_url(source: str, city: str):
     if source == "rentumo":
         location = "wetzikon-kanton-zuerich" if town == "wetzikon" else town
         return root + "/mietobjekte?" + urlencode({"location": location})
+    if source == "rentola":
+        return root + "/en/for-rent/" + ("wetzikon-zh" if town == "wetzikon" else town)
     if source == "huusbro":
         return root + "/de/mieten/" + town
     if source == "homegate":
@@ -78,6 +80,7 @@ def search_url(source: str, city: str):
 
 
 PATTERNS = {
+    "rentola": r"^/en/listings/[^/]+$",
     "rentumo": r"^/inserate/[^/]+-\d+$",
     "huusbro": r"^/de/listings/[^/]+/[^/]+$",
     "homegate": r"^/(?:mieten|rent)/\d+",
@@ -109,6 +112,8 @@ def parse_html(source, url, body):
         )
     ):
         raise SourceError("Сайт включил защиту от автоматических запросов")
+    if source == "rentola":
+        return parse_rentola(soup, url)
     found = {}
     # DOM cards include all visible listings; JSON-LD often includes only the first 10.
     for a in soup.find_all("a", href=re.compile(PATTERNS[source])):
@@ -257,9 +262,95 @@ def schema_items(tree):
     elif isinstance(tree, dict):
         if tree.get("@type") in {"RealEstateListing", "Apartment", "House"}:
             yield tree
-        for key in ("@graph", "itemListElement", "item"):
+        for key in ("@graph", "mainEntity", "itemListElement", "item"):
             if key in tree:
                 yield from schema_items(tree[key])
+
+
+def parse_rentola(soup, url):
+    """Read the public search schema, including precise fractional-room titles."""
+    found, structured_list = {}, False
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            tree = json.loads(script.get_text())
+        except (ValueError, TypeError):
+            continue
+        if isinstance(tree, dict) and tree.get("@type") == "SearchResultsPage":
+            entity = tree.get("mainEntity")
+            structured_list = structured_list or (
+                isinstance(entity, dict)
+                and isinstance(entity.get("itemListElement"), list)
+            )
+        for item in schema_items(tree):
+            offers = item.get("offers")
+            if not isinstance(offers, dict):
+                continue
+            offered = offers.get("itemOffered")
+            if not isinstance(offered, dict):
+                continue
+            address, area = offered.get("address"), offered.get("floorSize")
+            if (
+                not isinstance(address, dict)
+                or address.get("addressCountry") != "CH"
+                or offers.get("priceCurrency") != "CHF"
+            ):
+                continue
+            href = item.get("url", "")
+            if not re.search(PATTERNS["rentola"], urlsplit(href).path):
+                continue
+            href = safe_url(urljoin(url, href), "rentola")
+            title = str(item.get("name", "Жильё"))
+            # numberOfBedrooms in the schema can be rounded (e.g. 3 for 2½ rooms).
+            room_title = re.sub(r"(\d)\s*½", r"\1.5", title)
+            rooms = capture(
+                r"(\d+(?:[.,]\d+)?)\s*[- ]?\s*(?:rooms?|Zimmer|pièces?|pieces?)",
+                room_title,
+            )
+            if rooms is None:
+                counter = offered.get("numberOfRooms", offered.get("numberOfBedrooms"))
+                rooms = (
+                    number(counter.get("value"))
+                    if isinstance(counter, dict)
+                    else number(counter)
+                )
+            kind = {
+                "Apartment": "apartment",
+                "House": "house",
+                "SingleFamilyResidence": "house",
+            }.get(offered.get("@type"), "other")
+            if category(title) == "other":
+                kind = "other"
+            found[href] = Listing(
+                "rentola",
+                href,
+                title[:240],
+                address.get("addressLocality", ""),
+                address.get("streetAddress", "")[:250],
+                number(offers.get("price")),
+                rooms,
+                number(area.get("value")) if isinstance(area, dict) else None,
+                kind,
+            )
+    text = soup.get_text(" ", strip=True)
+    # Only an explicit empty search is a successful zero; a removed schema is an error.
+    total = capture(r"\b([\d'’]+)\s+results\b", text)
+    if not found and not (structured_list and total == 0):
+        raise SourceError(
+            "Rentola: структура выдачи изменилась, объявления не распознаны"
+        )
+    current_page = int(parse_qs(urlsplit(url).query).get("page", ["1"])[0])
+    next_url = None
+    for link in soup.find_all("a", href=True):
+        target = urlsplit(urljoin(url, link["href"]))
+        if target.path == urlsplit(url).path and parse_qs(target.query).get("page") == [
+            str(current_page + 1)
+        ]:
+            next_url = safe_url(urljoin(url, link["href"]), "rentola")
+            break
+    if total is None:
+        # Without the result count, do not claim full coverage of a populated search.
+        return Page(list(found.values()), next_url, partial=bool(found))
+    return Page(list(found.values()), next_url, total=int(total))
 
 
 def parse_flatfox(body):

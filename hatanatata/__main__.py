@@ -38,6 +38,8 @@ async def main():
         raise RuntimeError(
             "Production entry point requires Linux file locking"
         ) from None
+    for user_id in allowed_ids:
+        store.add_source_once(user_id, "rentola")
     async with (
         session() as web,
         aiohttp.ClientSession(

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from hatanatata.bot import Bot, listing_text
-from hatanatata.models import Listing, Search, safe_url
+from hatanatata.models import SOURCES, Listing, Search, safe_url
 from hatanatata.network import Fetcher, FetchError, retry_after, robots_allowed
 from hatanatata.preferences import updated_search
 from hatanatata.scanner import collect, plans, scan_once
@@ -184,7 +184,7 @@ def test_personal_settings_and_shared_query(store):
     search.max_price = 1350
     store.save_search(1, search)
     assert store.search(2).max_price == 1500
-    assert len(plans(store)) == 7
+    assert len(plans(store)) == len(SOURCES)
     search.paused = True
     store.save_search(1, search)
     assert all(p["users"] == [2] for p in plans(store).values())

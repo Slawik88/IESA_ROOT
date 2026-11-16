@@ -13,12 +13,12 @@ from .sources import SourceError, search_url
 from .store import Store
 
 
-async def check(city):
+async def check(city, selected_source=None):
     with tempfile.TemporaryDirectory(prefix="hatanatata-check-") as temp:
         store = Store(Path(temp) / "test.db")
         async with session() as web:
             fetcher = Fetcher(store, web)
-            for source in SOURCES:
+            for source in [selected_source] if selected_source else SOURCES:
                 try:
                     page = await collect(
                         fetcher, source, city, search_url(source, city)
@@ -45,4 +45,8 @@ async def check(city):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--city", default="Wetzikon ZH")
-    asyncio.run(check(parser.parse_args().city))
+    parser.add_argument(
+        "--source", choices=list(SOURCES), help="Check only this portal"
+    )
+    args = parser.parse_args()
+    asyncio.run(check(args.city, args.source))

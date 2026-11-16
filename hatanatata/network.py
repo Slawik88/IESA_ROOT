@@ -154,6 +154,9 @@ class Fetcher:
         await self.robots(source, url)
         cached = self.store.cache(url)
         headers = {}
+        if source == "rentola":
+            # Its locale middleware redirects /en pages when given the shared German preference.
+            headers["Accept-Language"] = "en-CH,en;q=0.9"
         if cached and cached["etag"]:
             headers["If-None-Match"] = cached["etag"]
         if cached and cached["modified"]:
