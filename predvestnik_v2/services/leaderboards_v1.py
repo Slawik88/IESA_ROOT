@@ -153,9 +153,9 @@ async def decorate_game_board(db, board: dict, user_id: int | None = None) -> di
         return board
     refs = await public_profiles.resolve_references(db, [row['player']['profile_ref'] for row in rows])
     ids = [uid for uid in refs.values() if uid is not None]
-    looks = await appearance_public_v3.nick_styles(db, ids)
-    marks = await marks_service.top_mark_batch(db, ids)
     vips = await is_vip_active_batch(db, ids)
+    looks = await appearance_public_v3.nick_styles(db, ids, vip_ids=vips)
+    marks = await marks_service.top_mark_batch(db, ids)
     levels = await users_repo.account_levels(db, ids)
     for row in rows:
         uid = refs.get(row["player"]["profile_ref"])
@@ -168,9 +168,9 @@ async def _win_rows(db, rows: list[dict], user_id: int, first_place: int) -> lis
     """Win rows in the same flat shape as the message top, so both screens share one renderer."""
     ids = [int(row["user_id"]) for row in rows]
     players = await public_profiles.player_projection(db, user_ids=ids)
-    looks = await appearance_public_v3.nick_styles(db, ids)
-    marks = await marks_service.top_mark_batch(db, ids)
     vips = await is_vip_active_batch(db, ids)
+    looks = await appearance_public_v3.nick_styles(db, ids, vip_ids=vips)
+    marks = await marks_service.top_mark_batch(db, ids)
     levels = await users_repo.account_levels(db, ids)
     out = []
     for index, row in enumerate(rows):

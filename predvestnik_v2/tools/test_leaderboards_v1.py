@@ -62,7 +62,7 @@ lb.get_chat_timezone = fake_tz
 lb.bot_tg_id = lambda: 999
 
 
-async def fake_styles(db, ids):
+async def fake_styles(db, ids, *, vip_ids=None):
     return {1: {"id": "forest", "name": "Лесной Странник", "tier": "D", "ceiling": "D", "pal": ["#6fdc98", "#2e9a68", "#d9c28f"], "kinds": {"name": "grad"}, "sig": None, "title": "t"}}
 
 

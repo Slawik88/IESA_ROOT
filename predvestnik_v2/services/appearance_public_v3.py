@@ -33,14 +33,18 @@ async def public_view(db, owner_id: int) -> dict:
     return out
 
 
-async def nick_styles(db, user_ids: list[int]) -> dict[int, dict]:
-    """Compact looks for list rows (leaderboards). Only VIP owners have a look others can see."""
+async def nick_styles(db, user_ids: list[int], *, vip_ids: set[int] | None = None) -> dict[int, dict]:
+    """Compact public looks; callers may reuse a VIP snapshot read for this response."""
     ids = [int(u) for u in dict.fromkeys(user_ids or [])]
     if not ids:
         return {}
+    if vip_ids is None:
+        vip_ids = await is_vip_active_batch(db, ids)
+    visible_ids = [uid for uid in ids if uid in vip_ids]
+    if not visible_ids:
+        return {}
     await skins_repo.ensure_tables(db)
-    vip_ids = await is_vip_active_batch(db, ids)
-    worn = await skins_repo.equipped_batch(db, [uid for uid in ids if uid in vip_ids])
+    worn = await skins_repo.equipped_batch(db, visible_ids)
     return {uid: look_payload(skin_id, cap_tier(tier, True), compact=True)
             for uid, (skin_id, tier) in worn.items() if skin_id in SKINS}
 
