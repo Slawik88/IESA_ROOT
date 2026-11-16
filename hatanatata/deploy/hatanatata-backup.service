@@ -1,0 +1,20 @@
+[Unit]
+Description=Encrypted HataNatata state backup to private personal R2
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/iesa/hatanatata.env
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/hatanatata/releases/RELEASE_SHA
+ExecStart=/opt/iesa/venv311/bin/python -m hatanatata.backup
+UMask=0077
+Nice=15
+CPUQuota=10%
+MemoryMax=160M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/hatanatata
+TimeoutStartSec=180

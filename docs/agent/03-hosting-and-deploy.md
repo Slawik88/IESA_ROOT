@@ -77,6 +77,31 @@ Mini App нужно закрыть и открыть заново: WebSocket н�
 авторизации в схеме `predvestnik`. **Не удалять старую схему или весь кластер**
 в рамках очистки после переноса ботов. Работающий сайт использует их.
 
+## HataNatata: отдельный личный поиск аренды
+
+С 2026-11-16 на том же личном `projects-fra1` предусмотрена отдельная служба
+`hatanatata.service` для `@HataNatata1Bot`; код и инструкции — `hatanatata/README.md`.
+Это самостоятельный проект: без импортов других ботов, Django, общего PostgreSQL,
+новых портов или платных ресурсов. Два получателя задаются в закрытом окружении;
+каждому нужно начать ЛС с ботом. Настройки поиска у каждого собственные.
+
+- Код `/opt/hatanatata/releases/<SHA>`, отдельный Python 3.11.14 venv
+  `/opt/hatanatata/venvs/<SHA>`; текущие пути — `systemctl cat hatanatata`.
+- Секреты `/etc/iesa/hatanatata.env`, root:root `0600`; SQLite
+  `/var/lib/hatanatata/state.db`, отдельный системный пользователь `hatanatata`.
+- Один HTTP-сборщик без браузера, проверки по умолчанию раз в 3 минуты,
+  одинаковые поиски объединяются. MemoryHigh/Max 128/220 MB, CPUQuota 15%.
+  Блокировки сайтов, ошибки разбора и частичный охват видны через `/status`.
+- Копии: отдельные `hatanatata-backup.service` и `.timer`, раз в час на 17-й минуте.
+  Online SQLite snapshot, env/unit/OPERATIONS/SHA шифруются AES-256-GCM существующим
+  recovery.key. Локально `/var/backups/hatanatata`, во внешнем личном закрытом
+  `makss-projects-backups` префикс `hatanatata/`; 14 дней, проверка скачиванием/SHA-256,
+  тот же общий предел 8 GB. Открытые секреты и recovery.key в R2 не загружаются.
+- Проверки: `python -m pytest hatanatata/tests -q`, `python -m ruff check hatanatata`;
+  живые источники без production DB и токена — `python -m hatanatata.check_sources`.
+  Не запускать второй polling production-токена. Выпуск/откат только этой службы,
+  без перезапуска Предвестника/Домового. Пуш в master не выкладывает HataNatata.
+
 ## Сайт IESA: действующий App Platform
 
 - Хостинг: **DigitalOcean App Platform**, одно приложение `iesaroot-app`, регион **FRA1** (Франкфурт),
