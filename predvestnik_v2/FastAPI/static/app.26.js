@@ -48,7 +48,7 @@ function _stLoad(key) {
 
 function _stLook() {
   const look = _profileData?.look;
-  return look ? `${_profileEsc(look.name)} · тир ${_profileEsc(look.tier)}` : 'Скин не надет, откройте витрину';
+  return look ? `${_profileEsc(look.name)} · тир ${_profileEsc(look.tier)}` : 'Скин не надет, открой витрину';
 }
 function _stPresence() {
   const p = _ST.presence;
@@ -56,8 +56,8 @@ function _stPresence() {
   if (!p) return _stLine(2);
   const cur = p.levels.find(l => l.id === p.visibility);
   const now = p.preview ? `Сейчас другие видят: «${_profileEsc(p.preview.label)}».` : 'Сейчас другие не видят ничего.';
-  return `<div class="st-field">${_stIco('eye')}<span class="st-tx"><b>Кто видит, когда вы были в сети</b><small>${_profileEsc(cur?.hint || '')}</small></span></div>${_stSeg(p.levels, p.visibility, '_stSetPresence', 'Кто видит, когда вы были в сети')}
-    <p class="st-hint st-hint--in">${now} Чужое время вы видите с той же точностью, какую даёте сами.</p>`;
+  return `<div class="st-field">${_stIco('eye')}<span class="st-tx"><b>Кто видит, когда ты в сети</b><small>${_profileEsc(cur?.hint || '')}</small></span></div>${_stSeg(p.levels, p.visibility, '_stSetPresence', 'Кто видит, когда ты в сети')}
+    <p class="st-hint st-hint--in">${now} Чужое время тебе видно так же точно, как другим — твоё.</p>`;
 }
 function _stNotif() {
   if (_ST.failed.notif) return _stFail('notif', 'Уведомления');
@@ -69,7 +69,7 @@ function _stNotif() {
 function _stWarps() {
   if (_ST.failed.warps) return _stFail('warps', 'Варпы');
   if (!_ST.warps) return _stLine(1);
-  return _stSwitch('warp', '18+ варпы в мой адрес', 'Разрешить другим игрокам взрослые варп-команды на вас. В чате: «бот 18+ вкл» / «бот 18+ выкл».', !!_ST.warps.adult, '_stWarpsSet(this.checked)');
+  return _stSwitch('warp', '18+ варпы в мой адрес', 'Разрешить другим игрокам взрослые варп-команды на тебя. В чате: «бот 18+ вкл» / «бот 18+ выкл».', !!_ST.warps.adult, '_stWarpsSet(this.checked)');
 }
 function _stWarpsSet(on) {
   const before = _ST.warps; _ST.warps = { adult: on }; _haptic('select');
@@ -85,12 +85,12 @@ function _stAccount() {
     : proc === 'cooling' ? '<p class="st-note st-note--warn">Удаление запланировано, идёт период «остывания».</p>' + _stRow('shield', 'Отменить удаление', 'Аккаунт останется как был', '_accCancel()')
     : _stRow('trash', 'Удалить аккаунт…', 'Три шага защиты, 14 дней на возврат', '_accDeleteStart()', '', 'st-danger');
   return `<div class="st-field">${_stIco('clock')}<span class="st-tx"><b>Удалять аккаунт после неактивности</b><small>Предупредим в ЛС бота за 14 дней</small></span></div>${_stSeg([{ id: '180', title: '6 месяцев' }, { id: '365', title: '1 год' }, { id: '730', title: '2 года' }], String(days), '_stInactivity', 'Срок неактивности')}
-    <p class="st-hint st-hint--in">Любое ваше сообщение в чате отменяет отсчёт.</p></div><div class="st-card st-card--danger">${state}`;
+    <p class="st-hint st-hint--in">Любое твоё сообщение в чате отменяет отсчёт.</p></div><div class="st-card st-card--danger">${state}`;
 }
 function _stRender() {
   const root = el('pg-settings'); if (!root) return;
   const calm = document.body.classList.contains('no-fx'), user = _profileData || {};
-  const login = !INIT_DATA ? _stSec('Вход', `${_stRow('key', 'Войти другим аккаунтом', `Сейчас: @${_profileEsc(user.username || '—')}`, 'switchTgAccount()')}`, 'Сменили аккаунт в приложении Telegram — обновите вход здесь.') : '';
+  const login = !INIT_DATA ? _stSec('Вход', `${_stRow('key', 'Войти другим аккаунтом', `Сейчас: @${_profileEsc(user.username || '—')}`, 'switchTgAccount()')}`, 'Другой аккаунт в Telegram? Обнови вход здесь.') : '';
   root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="navBack()" aria-label="Назад">‹ Назад</button></div>
     <header class="v3-hero">${typeof V3_SKY === 'string' ? V3_SKY : ''}${typeof v3Emblem === 'function' ? v3Emblem('gear') : ''}<div class="v3-hero-tx"><h1 class="v3-title">Настройки${v3GlintMark('Настройки')}</h1><p class="v3-sub">Всё под себя. Изменения сохраняются сразу.</p></div>${v3GuideIcon('settings')}</header>
     ${_stSec('Внешний вид', _stRow('look', 'Образы и скины', _stLook(), 'openLooksModal()') + _stSwitch('calm', 'Спокойный режим', 'Без анимаций: рамки, ореолы и частицы замирают. Телефон скажет спасибо.', calm, '_toggleNoFx(this.checked)') + _stSwitch('easy', 'Упрощённый ввод', 'Мягче таймеры в играх, спин тапом вместо удержания.', _easyInput(), '_toggleEasyInput(this.checked)') + _stSwitch('oled', 'Чёрный фон', 'Для OLED-экранов: фон полностью чёрный, цвета образа остаются.', _dispGet('pv_oled'), '_toggleOled(this.checked)') + _stSwitch('big', 'Крупный текст', 'Весь текст и элементы на экранах чуть крупнее.', _dispGet('pv_big'), '_toggleBig(this.checked)'))}
@@ -99,7 +99,7 @@ function _stRender() {
     ${_stSec('Промокоды и документы', _stRow('promo', 'Промокоды', 'Ввести код, забрать доступные, история', 'openPromoSheet()') + _stRow('doc', 'Пользовательское соглашение', 'Откроется прямо здесь', "openLegalDoc('tos')") + _stRow('shield', 'Политика конфиденциальности', 'Откроется прямо здесь', "openLegalDoc('privacy')"))}
     ${login}
     ${_stSec('Аккаунт', _stAccount())}
-    ${user.user_id ? `<button type="button" class="st-id" onclick="_stCopyId(${Number(user.user_id)})" aria-label="Скопировать ID игрока">ID игрока ${Number(user.user_id)} · нажмите, чтобы скопировать</button>` : ''}`;
+    ${user.user_id ? `<button type="button" class="st-id" onclick="_stCopyId(${Number(user.user_id)})" aria-label="Скопировать ID игрока">ID игрока ${Number(user.user_id)} · нажми, чтобы скопировать</button>` : ''}`;
 }
 
 // ── Действия ─────────────────────────────────────────────────────────────────────

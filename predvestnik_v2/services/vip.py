@@ -135,7 +135,7 @@ async def get_daily_status(db, *, user_id: int) -> dict:
     count = int(progress["completed_count"]) if progress else 0
     return {
         "day_boundary": "UTC", "day_key": day_key,
-        "title": "Заверши одну игру", "completed_today": bool(receipt),
+        "title": "Доиграй Ритм, Сапёр или Мафию", "completed_today": bool(receipt),
         "completed_count": count, "cycle_progress": count % 7,
         "next_milestone_in": 7 - (count % 7), "daily_reward_mora": 20,
         "milestone_reward_mora": 100, "milestone_reward_keys": KEY_SOURCE_COUNTS["vip_daily_milestone"],
