@@ -55,17 +55,23 @@ def _offset_label(offset: int) -> str:
     return "по Москве" if offset == 3 else f"(пояс {offset:+d})"
 
 
+def _zone_example(offset: int) -> str:
+    """Пример команды смены пояса — не тот пояс, что уже стоит у игрока."""
+    return "+5" if offset != 5 else "+7"
+
+
 async def settings_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     on = await repo.consented(db, user_id)
     state = await repo.get_settings(db, user_id)
     chosen = ", ".join(c.label.split(" ", 1)[1] for c in rules.CATEGORIES if c.live and c.key in on)
     lines = ["🔔 <b>Уведомления в личку</b>",
              f"Пишу только о том, что ты включишь. Сейчас включено: {chosen}." if chosen
-             else "Пишу только о том, что ты включишь. Сейчас не включено ничего — выбери ниже.",
+             else "Пишу только о том, что ты включишь. Сейчас не включено ничего.",
              "",
              f"• Не больше {rules.DAILY_CAP} сообщений в сутки — если событий много, соберу их в одно.",
-             f"• Ночью молчу: с {rules.QUIET_START_HOUR}:00 до {rules.QUIET_END_HOUR:02d}:00 {_offset_label(state['tz_offset'])}. Другой пояс: «бот уведомления пояс +5»."
+             f"• Ночью молчу: с {rules.QUIET_START_HOUR}:00 до {rules.QUIET_END_HOUR:02d}:00 {_offset_label(state['tz_offset'])}."
              if state["quiet_enabled"] else "• Тихие часы выключены: пишу в любое время.",
+             f"• Другой пояс? Напиши «бот уведомления пояс {_zone_example(state['tz_offset'])}» (Москва — +3).",
              "• Нажми на строку ниже, чтобы включить или выключить."]
     if state["paused_at"] is not None:
         lines += ["", "⏸ Ты давно не отвечал, и я замолчал. Напиши мне что угодно — и я продолжу."]
@@ -104,8 +110,21 @@ async def social_event(db, *, user_id: int, dedup_key: str, text: str, chat=None
                                       chat_id=getattr(chat, "id", None))
 
 
+DM_NAME_MAX = 20   # ник и название чата в письме: длинное имя не растягивает письмо «Люди» дальше двух строк (S23cw)
+
+
+def short_name(text: str, limit: int = DM_NAME_MAX) -> str:
+    text = " ".join(str(text).split())
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
 def chat_name(chat) -> str:
-    return f"«{html.escape(getattr(chat, 'title', None) or 'чат')}»"
+    return f"«{html.escape(short_name(getattr(chat, 'title', None) or 'чат'))}»"
+
+
+def person_name(user) -> str:
+    """Кто сделал: @ник или имя, укороченное для письма."""
+    return html.escape(short_name("@" + user.username if getattr(user, "username", None) else user.full_name))
 
 
 async def _need_private(ctx: Ctx, what: str, reply_markup=None) -> bool:

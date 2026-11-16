@@ -105,6 +105,8 @@ SCREENS = [
     # «Напоминать о …» (S23cv/S23cw): включил, а чат с ботом не открыт — лист «Открыть чат»; включено и чат открыт — тумблер горит
     ("reminder-chests", _reminder("openChestsV1()", "d.dm_ready = false; d.categories.forEach(c => { c.enabled = false; });")),
     ("reminder-quests", _reminder("openQuestsV1()", "d.dm_ready = true; d.categories.forEach(c => { c.enabled = true; });", press=False)),
+    # включено, но чат с ботом не открыт: писем не будет — тумблер приглушён, под подписью «Сначала открой чат с ботом» (замечание ревью S23cw)
+    ("reminder-wait", _reminder("openPetsV1()", "d.dm_ready = false; d.categories.forEach(c => { c.enabled = true; });", press=False)),
     ("casino", "openCasino()"),
     ("casino-wheel", "openCasino().then(() => casinoGame('wheel'))"),
     ("casino-dice", "openCasino().then(() => casinoGame('dice'))"),
@@ -238,7 +240,7 @@ CURRENCY = """() => { const out = []; const re = /🪙|💎|✨|💧/u; const w 
 
 # Labels of controls the crawler never presses: they spend, delete or leave the account in another state
 # (S13c: classic pets start a trip, pick a route, swap or feed a pet; a marriage proposal is accepted or declined, a divorce is started).
-SKIP_CLICK = r"подтверд|удалить|развестись|отправить|принять|отклонить|поход на|экспедиция на|(осторожный|ровный|рискованный) маршрут|сделать активным|покормить|выйти|сбросить|оплат|продолжить и|да, |забрать|выбрать (осторожный|ровный|рискованный)|улучшить|перековать|сдать|дать|начать|сохранить сборку|открыть за одно очко"
+SKIP_CLICK = r"напоминать о|подтверд|удалить|развестись|отправить|принять|отклонить|поход на|экспедиция на|(осторожный|ровный|рискованный) маршрут|сделать активным|покормить|выйти|сбросить|оплат|продолжить и|да, |забрать|выбрать (осторожный|ровный|рискованный)|улучшить|перековать|сдать|дать|начать|сохранить сборку|открыть за одно очко"
 
 # Visible controls of the current screen as [index among all candidates, label], skipping dangerous ones.
 CANDIDATES = """(skip) => { const re = new RegExp(skip, 'i'); const out = [];

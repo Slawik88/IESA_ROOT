@@ -170,6 +170,13 @@ dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; b
 .v3-remind[aria-checked="true"] i { background: var(--v3-ink); }
 .v3-remind[aria-checked="true"] i::after { transform: translateX(12px); background: var(--v3-on-acc); opacity: 1; }
 .v3-remind[data-state="wait"] i { opacity: .45; }
+.v3-remind em { display: none; color: var(--v3-dim); font: 400 11.5px/1.25 var(--v3-font); }
+/* Включено, но чат с ботом не открыт: письма не придут — тумблер приглушён, под подписью «Сначала открой чат с ботом» */
+.v3-remind[data-state="chat"] { padding-block: 5px; }
+.v3-remind[data-state="chat"] em { display: block; }
+.v3-remind[data-state="chat"] svg { stroke: var(--v3-dim); }
+.v3-remind[data-state="chat"] i { background: var(--v3-track); }
+.v3-remind[data-state="chat"] i::after { background: var(--v3-ink); opacity: .55; }
 .v3-remind[aria-busy="true"] { opacity: .6; }
 .v3-remind:active { transform: scale(.97); }
 .v3-remind:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }
@@ -320,3 +327,16 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 .v3-guide-ic:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }
 /* Узкий телефон (S23cw): в шапке с эмблемой «Подсказки» сжимается, чтобы не наезжать на заголовок («Питомцы» на 320 px) */
 @media (max-width: 340px) { .v3-head--hero > .v3-pill--sm { padding: 0 10px; font-size: 12px; } }
+/* «Крупный текст» (zoom 1.14) сужает место, не меняя ширину окна: на 360–390 px шапке так же тесно, как на 320 —
+   та же узкая шапка, что в art-v3.css при max-width 340px (эмблема 48, заголовок 23) и сжатые «Подсказки» */
+@media (max-width: 390px) {
+  body.pv-big :is(.v3-head--hero, .v3-hero) { gap: 12px; }
+  body.pv-big :is(.v3-head--hero, .v3-hero) .v3-emblem { width: 48px; height: 48px; border-radius: 15px; }
+  body.pv-big :is(.v3-head--hero, .v3-hero) .v3-emblem svg { width: 32px; height: 32px; }
+  body.pv-big :is(.v3-head--hero, .v3-hero) .v3-title { font-size: 23px; }
+  body.pv-big .v3-head--hero > .v3-pill--sm { padding: 0 10px; font-size: 12px; }
+}
+/* 320 px и «Крупный текст»: места совсем мало — эмблема (украшение) уступает его заголовку */
+@media (max-width: 340px) { body.pv-big .v3-head--hero > .v3-emblem { display: none; } }
+/* И на всякий случай: длинное слово заголовка обрезается многоточием, а не уходит под кнопку справа */
+.v3-head--hero .v3-title { overflow: hidden; text-overflow: ellipsis; }

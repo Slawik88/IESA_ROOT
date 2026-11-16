@@ -113,6 +113,9 @@ def main() -> int:
             assert [b.inner_text() for b in page.query_selector_all("#mf button")] == ["Позже", "Открыть чат"]
             assert consent("chests") is True and state(page, "chests") == "true"
             page.evaluate("() => CM()")
+            # «Позже»: согласие есть, а писем не будет — тумблер не горит как обычный «вкл» и говорит почему
+            page.wait_for_function("() => document.querySelector(\"[data-reminder='chests']\").dataset.state === 'chat'", timeout=8000)
+            assert "Сначала открой чат с ботом" in page.inner_text(SWITCH.format(key="chests")), "on without the chat: the switch says why no letters come"
             # включено, а писать по-прежнему некуда: нажатие предлагает «Выключить» или открыть чат, ничего не меняя молча
             page.click(SWITCH.format(key="chests"))
             page.wait_for_function("() => el('modal').open", timeout=8000)

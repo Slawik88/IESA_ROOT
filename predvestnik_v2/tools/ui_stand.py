@@ -193,6 +193,9 @@ async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, nam
         if money["essence"] != bal:
             await skins_repo.essence_apply(db, PERSONA_ID, money["essence"] - bal, reason="stand_seed", reference=None, idempotency_key=f"stand-{time.time_ns()}")
         await conn.execute("DELETE FROM vip_subscriptions WHERE user_id=$1", PERSONA_ID)
+        if await conn.fetchval("SELECT to_regclass('user_notification_prefs') IS NOT NULL"):
+            # «Напоминать о …» (S23cw) пишет согласие в базу: без сброса вид переключателя зависел бы от прошлых прогонов
+            await conn.execute("DELETE FROM user_notification_prefs WHERE user_id=$1", PERSONA_ID)
         if vip:
             await conn.execute("INSERT INTO vip_subscriptions(user_id, tier, expires_at) VALUES ($1,'1m', NOW() + INTERVAL '23 days')", PERSONA_ID)
         for mark in ("developer", "tester"):

@@ -789,6 +789,10 @@
    "db": false,
    "s": 1.1
   },
+  "test_reminder_switch_browser.py": {
+   "db": true,
+   "s": 17.3
+  },
   "test_retention_v3.py": {
    "db": false,
    "s": 0.5

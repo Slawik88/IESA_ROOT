@@ -65,7 +65,7 @@ async def dm_social_events_need_consent_and_link_to_the_chat(h: Harness) -> None
     await say(h, groom, chat, f"бот брак, @sim{bride.id}")
     to_bride = last_message(h, chat, "делает предложение")
     proposal = [r for r in await pending(bride) if "предложение" in r["text"]]
-    ok(len(proposal) == 1 and "сутки" in proposal[0]["text"] and "Sim" in proposal[0]["text"], f"the proposal letter names the chat: {proposal}")
+    ok(len(proposal) == 1 and "«Да» или «Нет»" in proposal[0]["text"] and "сутки" not in proposal[0]["text"] and "Sim" in proposal[0]["text"], f"the proposal letter names the chat: {proposal}")
     await say(h, groom, chat, f"бот брак, @sim{outsider.id}")   # @ник ищется по всем игрокам, но письма чужому нет
     ok(not await pending(outsider), "someone who is not in the chat gets no letter and learns no chat title")
     await say(h, shy, chat, f"бот брак, @sim{groom.id}")
@@ -76,7 +76,7 @@ async def dm_social_events_need_consent_and_link_to_the_chat(h: Harness) -> None
     adopt = await say(h, groom, chat, f"бот усыновить, @sim{kid.id}")
     ok("в свою семью ребёнком" in said(adopt), said(adopt))
     invite = [r for r in await pending(kid) if "семью" in r["text"]]
-    ok(len(invite) == 1 and "24 ч" in invite[0]["text"], f"the family invite reaches the child: {invite}")
+    ok(len(invite) == 1 and "кнопкой под сообщением" in invite[0]["text"], f"the family invite reaches the child: {invite}")
     await say(h, groom, chat, f"бот усыновить, @sim{kid.id}")
     ok(len([r for r in await pending(kid) if "семью" in r["text"]]) == 1, "the same invite again today: no second letter")
     await h.click(kid, chat, last_message(h, chat, "в свою семью ребёнком"), "Нет")
@@ -86,7 +86,7 @@ async def dm_social_events_need_consent_and_link_to_the_chat(h: Harness) -> None
         start = len(h.world.calls)
         await deliver(h, db, datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0) + timedelta(days=1))
     letters = " ".join(str(p["text"]) for p in to_player(h, bride, start))
-    ok("Перевод тебе" in letters and "уже на твоём балансе" in letters and "предложение" not in letters,
+    ok("Перевод тебе" in letters and "уже на балансе" in letters and "предложение" not in letters,
        f"the transfer arrives, the already accepted proposal is withdrawn: {letters[:400]!r}")
 
 
@@ -116,7 +116,8 @@ async def dm_holiday_looks_reminder_lists_only_missing_looks(h: Harness) -> None
     ok(found["events"] >= 2 and again["events"] == 0, f"queued once per window: {found} then {again}")
     rows = await pending(newcomer)
     ok(len(rows) == 1 and "Новогодняя Ночь" in rows[0]["text"] and "ещё 2 дня" in rows[0]["text"]
-       and all(SKINS[k]["name"] in rows[0]["text"] for k in looks), f"the letter names the window, the days and the looks: {rows}")
+       and SKINS[looks[0]]["name"] in rows[0]["text"] and f"и ещё {len(looks) - 1} образ" in rows[0]["text"],
+       f"the letter names the window, the days, one look and how many more (not the whole list): {rows}")
     ok(rows[0]["button"]["section"] == "looks", "the button opens the looks")
     half_rows = await pending(half)
     ok(len(half_rows) == 1 and SKINS[looks[0]]["name"] not in half_rows[0]["text"], "an owned look is not offered again")

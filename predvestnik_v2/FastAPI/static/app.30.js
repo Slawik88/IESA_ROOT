@@ -147,7 +147,7 @@ function _svValue(v) {
   const m = v.daily_mission || {}, day = Number(m.daily_reward_mora ?? 20), bonus = Number(m.milestone_reward_mora ?? 100), keys = Number(m.milestone_reward_keys ?? 1), weeks = Math.floor(30 / 7);
   const tile = (n, t) => `<div><b>${n}</b><small>${t}</small></div>`;
   return `<div class="sv-sec"><span class="v3-eyebrow">За 30 дней поручений</span></div><div class="sv-value">${tile(`+${fmt(day * 30 + bonus * weeks)}`, 'Моры')}${keys ? tile(`+${fmt(keys * weeks)}`, 'ключей к сундукам') : ''}${tile('+10%', 'Моры за задания')}</div>
-    <p class="sv-fine sv-fine--left">Одна завершённая игра в день — и поручение выполнено. Пропуски прогресс не сбрасывают.</p>`;
+    <p class="sv-fine sv-fine--left">Доиграйте за день Ритм, Сапёр или Мафию — и поручение выполнено. Пропуски прогресс не сбрасывают.</p>`;
 }
 // Поручение дня: семь точек до бонуса, данные приходят с /vip-v2/status
 function _svMission(v) {

@@ -56,6 +56,14 @@ def fmt(value: Decimal) -> str:
     return f"{q:,f}".replace(",", " ")
 
 
+def transfer_letter(amount: str, spec, sender, chat=None) -> str:
+    """Письмо получателю: одно на оба пути (перевод из лички и из группы) — заголовок и строка «от кого» (S23cw)."""
+    from bot.chat.notify import chat_name, person_name
+    where = f" в чате {chat_name(chat)}" if chat is not None else ""
+    return (f"💸 <b>Перевод тебе: {amount} {spec.icon} {spec.label}</b>\n"
+            f"От {person_name(sender)}{where} — уже на балансе.")
+
+
 @registry.command("перевод", aliases=("перевести", "передать"), usage=USAGE, section="profile",
                   summary="Перевести валюту игроку. Бот спросит, какую.", example="бот перевод, @ник 300")
 async def cmd_transfer(ctx: Ctx) -> None:
@@ -140,21 +148,15 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
     if not sent.applied:   # то же нажатие повторно: деньги уже ушли раньше, уведомление и зачёт достижения не дублируем
         return
     if getattr(call.message.chat, "type", "") == "private":   # в группе получатель видит перевод в чате, из лички ему ничего не придёт
-        sender = call.from_user
         try:
-            await call.bot.send_message(
-                cb.to, f"💸 Перевод тебе: <b>{fmt(amount)}</b> {spec.icon} {spec.label} от "
-                       f"{html.escape('@' + sender.username if sender.username else sender.full_name)}. Уже на твоём балансе.", parse_mode="HTML")
+            await call.bot.send_message(cb.to, transfer_letter(fmt(amount), spec, call.from_user), parse_mode="HTML")
         except Exception:
             pass   # игрок не открывал диалог с ботом — уведомить некуда
     else:   # в группе получатель мог не заметить перевод: «Люди» в личку, если он их включил
-        from bot.chat.notify import chat_name, social_event
-        sender = call.from_user
-        name = html.escape("@" + sender.username if sender.username else sender.full_name)
+        from bot.chat.notify import social_event
         await social_event(
             db, user_id=cb.to, dedup_key=f"transfer:{key}", chat=call.message.chat, message_id=call.message.message_id,
-            text=f"💸 <b>Перевод тебе: {fmt(amount)} {spec.icon} {spec.label}</b>\n"
-                 f"От {name} в чате {chat_name(call.message.chat)} — уже на твоём балансе.")
+            text=transfer_letter(fmt(amount), spec, call.from_user, call.message.chat))
     from bot.chat import achievements
     u = call.from_user
     await achievements.after_transfer(db, call.message, cb.uid, achievements.quiet_name(u.username, u.full_name))

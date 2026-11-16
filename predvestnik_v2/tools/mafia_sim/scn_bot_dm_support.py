@@ -409,6 +409,10 @@ async def dm_morning_plan_comes_once_in_the_players_morning(h: Harness) -> None:
         ok(not click.alert and last_message(h, ready.id, "План дня"), "the button opens the full plan")
         tomorrow = await dm_push_events.collect(db, morning + timedelta(days=1))
         ok(tomorrow["digest"] >= 1, "and tomorrow it comes again")
+        ok("Новые задания дня" in rows[0]["text"], f"without «Задания» the plan names the new daily quests: {rows[0]['text']!r}")
+        await consent(db, ready, "quests")
+        plan = await dm_plan.morning_text(db, ready.id, morning)
+        ok(plan is None or "Новые задания дня" not in plan, f"with «Задания» on, the plan does not repeat that letter: {plan!r}")
         mixed = await player(h, "Склейка")
         await consent(db, mixed, "digest", "quests")
         from tools.mafia_sim.scn_bot_dm_push import push_at

@@ -175,7 +175,17 @@ def _holiday_text(season_id: str, end: datetime, missing: list[str], now: dateti
     days = max(1, -(-int((end - now).total_seconds()) // 86400))
     word = "день" if days == 1 else "дня"
     return (f"{_HOLIDAY_ICON.get(season_id, '🎁')} <b>«{SEASONS[season_id]['name']}» в магазине ещё {days} {word}</b>\n"
-            f"Пока не твои: {', '.join(missing)}. Потом — только через год.")
+            f"{_missing_looks(missing)} Потом — только через год.")
+
+
+def _missing_looks(missing: list[str]) -> str:
+    """Одно название и число остальных, а не весь список: письмо остаётся в две короткие строки (S23cw)."""
+    if len(missing) == 1:
+        return f"Пока не твой: «{missing[0]}»."
+    rest = len(missing) - 1
+    tail = ("образ" if rest % 10 == 1 and rest % 100 != 11
+            else "образа" if rest % 10 in (2, 3, 4) and rest % 100 not in (12, 13, 14) else "образов")
+    return f"Пока не твои: «{missing[0]}» и ещё {rest} {tail}."
 
 
 async def holiday_notice(db, user_id: int, key: str, now: datetime) -> str | None:
@@ -430,7 +440,7 @@ async def vip_daily_reminders(db, now: datetime | None = None) -> int:
     for user_id in await daily_reminder_candidates(db, now=now):
         if await dm_push.enqueue(
             db, user_id=user_id, category="vip_expiry", dedup_key=f"vip_daily:{today}",
-            text="✦ <b>VIP-поручение на сегодня ещё ждёт</b>\nДоиграй одну любую игру до конца — и оно выполнено.",
+            text="✦ <b>VIP-поручение на сегодня ещё ждёт</b>\nДоиграй до конца Ритм, Сапёр или Мафию — и оно выполнено.",
             button={"kind": "app", "section": "games", "label": "🎮 Сыграть"},
         ):
             await record_daily_reminder_sent(db, user_id=user_id, now=now)

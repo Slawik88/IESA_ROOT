@@ -130,7 +130,7 @@ const _remindRow = key => (_remind.prefs?.categories || []).find(c => c.key === 
 function v3ReminderButton(key) {
   setTimeout(_remindSync, 0);
   const row = _remindRow(key);
-  return `<button type="button" class="v3-remind" role="switch" data-reminder="${key}" aria-checked="${!!row?.enabled}"${row ? '' : ' data-state="wait"'} onclick="_remindTap(this)"><svg viewBox="0 0 24 24" aria-hidden="true">${_ST_ICO.bell}</svg><span>Напоминать ${_REMIND_WHAT[key] || ''}</span><i aria-hidden="true"></i></button>`;
+  return `<button type="button" class="v3-remind" role="switch" data-reminder="${key}" aria-checked="${!!row?.enabled}"${row ? '' : ' data-state="wait"'} onclick="_remindTap(this)"><svg viewBox="0 0 24 24" aria-hidden="true">${_ST_ICO.bell}</svg><span>Напоминать ${_REMIND_WHAT[key] || ''}<em>Сначала открой чат с ботом</em></span><i aria-hidden="true"></i></button>`;
 }
 function _remindLoad(force) {
   if (!force && _remind.prefs && Date.now() - _remind.at < _REMIND_TTL) return Promise.resolve(_remind.prefs);
@@ -141,13 +141,15 @@ function _remindLoad(force) {
   return _remind.load;
 }
 // Перерисовать все переключатели на странице: подпись не меняется, только тумблер. Нет такой категории — переключатель прячется.
+// Включено, а чат с ботом не открыт — писем не будет: тумблер приглушён, под подписью «Сначала открой чат с ботом» (data-state="chat"), нажатие открывает лист.
 function _remindPaint() {
   document.querySelectorAll('[data-reminder]').forEach(b => {
     const row = _remindRow(b.dataset.reminder);
     if (!_remind.prefs) return;
     b.hidden = !row;
     b.setAttribute('aria-checked', String(!!row?.enabled));
-    b.removeAttribute('data-state');
+    if (row?.enabled && _remind.prefs.dm_ready === false) b.dataset.state = 'chat';
+    else b.removeAttribute('data-state');
   });
   document.querySelectorAll('[data-reminder-also]').forEach(b => {   // VIP: «Напоминать о поручении дня» горит, только если включена и категория
     const row = _remindRow(b.dataset.reminderAlso);

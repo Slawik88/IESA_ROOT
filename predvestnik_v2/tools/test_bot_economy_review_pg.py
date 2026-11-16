@@ -99,7 +99,7 @@ async def run():
             await transfer.on_transfer(c, c.data_cb, db)
             assert "Переведено" in c.edited[0], (c.edited, c.alerts)
     assert await bal(A) == 100000 - 25 and await bal(B) == 100000 + 25
-    assert [chat for chat, _ in bot.sent] == [B], bot.sent                    # «Вам перевели» пришло один раз
+    assert [chat for chat, _ in bot.sent] == [B], bot.sent                    # «Перевод тебе» пришло один раз
 
     # ── Встречные переводы одновременно не блокируют друг друга ───────────────────
     async def cross(uid, to, amount, msg_id):

@@ -159,10 +159,24 @@ for relative in ("services/season_report.py", "services/dm_push_events.py", "cor
 
 
 # Уведомления в личку (S23cw): заголовок и одна строка «что сделать», короткая кнопка-действие. Итог сезона — отчёт, он отдельно.
+from bot.chat.notify import DM_NAME_MAX
+
+_NAME = "Ж" * DM_NAME_MAX   # ник и название чата подставляются самой большой длины, какую пропускает bot/chat/notify.short_name
+_CHAT = f"«{_NAME}»"
+
+
+def _stub(expr: str) -> str:
+    return _CHAT if "chat" in expr else _NAME if ("who" in expr or "name" in expr) else "{}"
+
+
 def _literal(node) -> str:
     if isinstance(node, ast.Constant):
-        return node.value if isinstance(node.value, str) else ""
-    return "".join(v.value if isinstance(v, ast.Constant) else "{}" for v in node.values) if isinstance(node, ast.JoinedStr) else ""
+        text = node.value if isinstance(node.value, str) else ""
+    elif isinstance(node, ast.JoinedStr):
+        text = "".join(v.value if isinstance(v, ast.Constant) else _stub(ast.unparse(v.value)) for v in node.values)
+    else:
+        return ""
+    return text.replace("{who}", _NAME).replace("{chat}", _CHAT)   # шаблоны .format() из family._tell_in_dm
 
 
 def _letters(tree) -> list:
@@ -196,6 +210,35 @@ for relative in ("services/dm_push_events.py", "bot/chat/family.py", "bot/chat/t
             for key, value in zip(node.keys, node.values):
                 if isinstance(key, ast.Constant) and key.value == "label" and len(_literal(value)) > 24:
                     PROBLEMS.append(f"{relative}: кнопка письма длиннее 24 знаков: {_literal(value)!r}")
+
+
+def _letter_fits(label: str, text: str) -> None:
+    plain = re.sub(r"<[^>]+>", "", text)
+    if len(plain.split("\n")) > 2 or len(plain) > 120:
+        PROBLEMS.append(f"{label}: письмо в личку длиннее двух коротких строк ({len(plain)} знаков): {plain!r}")
+
+
+# Готовые письма, а не шаблоны: подстановка может растянуть их сильнее, чем видно по «{}» (замечание ревью S23cw)
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from bot.chat.transfer import MAX_AMOUNT, fmt, transfer_letter
+from core.economy_contract import CURRENCY_SPECS
+from core.skins_v3_catalog import SEASONS, SKINS
+from services.dm_push_events import _holiday_text
+
+_now = datetime(2027, 1, 1, tzinfo=timezone.utc)
+for season_id in SEASONS:   # новичок без единого образа сезона: весь список недостающих из настоящего каталога
+    names = [s["name"] for s in SKINS.values() if s.get("season") == season_id and not s.get("exclusive")]
+    for missing in (names, names[:2], names[:1]):
+        if missing:
+            _letter_fits(f"образы «{season_id}», не хватает {len(missing)}", _holiday_text(season_id, _now + timedelta(days=3), missing, _now))
+_sender = SimpleNamespace(username="u" * 32, full_name="Имя Фамилия " * 6)   # ник Telegram до 32 знаков
+_chat = SimpleNamespace(id=-1, title="Очень длинное название группового чата про всё на свете")
+for spec in CURRENCY_SPECS.values():
+    for chat in (None, _chat):
+        _letter_fits(f"перевод {spec.label}", transfer_letter(fmt(MAX_AMOUNT), spec, _sender, chat))
+assert transfer_letter("10", CURRENCY_SPECS["mora"], _sender).split("\n")[0] == \
+    transfer_letter("10", CURRENCY_SPECS["mora"], _sender, _chat).split("\n")[0], "перевод из лички и из группы — одно письмо"
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # ── Дары: Путеводитель показывает ровно то, что видит игрок в игре ──────────────────────────────────────────────────────

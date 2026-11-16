@@ -362,17 +362,15 @@ async def cmd_propose(ctx: Ctx) -> None:
     sent = await ctx.reply(f"💍 {me} делает предложение {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))}!\n"
                            "Ответить может только тот, кому предложили. Предложение действует сутки.", reply_markup=kb)
     await _tell_in_dm(ctx, target.user_id, f"proposal:{ctx.user_id}:{target.user_id}:{local_now().date().isoformat()}", getattr(sent, "message_id", None),
-                      "💍 <b>{who} делает тебе предложение</b>\nОтветь в чате {chat} кнопкой «Да» или «Нет» — у тебя сутки.",
+                      "💍 <b>{who} делает тебе предложение</b>\nОтветь в чате {chat} кнопкой «Да» или «Нет».",
                       invitation={"proposal_id": pid})
 
 
 async def _tell_in_dm(ctx: Ctx, user_id: int, key: str, message_id: int | None, template: str, *, invitation: dict) -> None:
     """Приглашение в чате могло утонуть в ленте: «Люди» в личку тому, кого зовут, если он их включил."""
-    from bot.chat.notify import chat_name, social_event
-    u = ctx.message.from_user
-    who = html.escape("@" + u.username if u.username else u.full_name)
+    from bot.chat.notify import chat_name, person_name, social_event
     await social_event(ctx.db, user_id=user_id, dedup_key=key, chat=ctx.message.chat, message_id=message_id,
-                       text=template.format(who=who, chat=chat_name(ctx.message.chat)),
+                       text=template.format(who=person_name(ctx.message.from_user), chat=chat_name(ctx.message.chat)),
                        invitation={**invitation, "until": (ctx.message.date + timedelta(hours=24)).timestamp()})
 
 
@@ -577,8 +575,7 @@ async def cmd_adopt(ctx: Ctx) -> None:
                            "в свою семью ребёнком. Согласны?", reply_markup=kb)
     message_id = getattr(sent, "message_id", None)
     await _tell_in_dm(ctx, target.user_id, f"adopt:{ctx.user_id}:{target.user_id}:{local_now().date().isoformat()}", message_id,
-                      "👪 <b>{who} зовёт тебя в семью ребёнком</b>\nОтветь в чате {chat} кнопкой под сообщением — "
-                      f"у тебя {ADOPT_INVITE_HOURS} ч.",
+                      "👪 <b>{who} зовёт тебя в семью ребёнком</b>\nОтветь в чате {chat} кнопкой под сообщением.",
                       invitation={"marriage_id": fam.marriage_id, "inviter_id": ctx.user_id})
 
 

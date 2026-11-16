@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from loguru import logger
 
@@ -60,7 +60,7 @@ async def _pets_and_pass(db, user_id: int, now: datetime) -> list[str]:
     if pets is not None and pets[0]:
         lines.append(f"🐾 Вернулись питомцы: {pets[0]} — забери добычу.")
     if await pass_ready(db, user_id, now):
-        lines.append("🏆 В Пропуске ждёт награда.")
+        lines.append("🏆 В Пропуске ждёт награда — забери.")
     return lines
 
 
@@ -77,6 +77,21 @@ async def evening_text(db, user_id: int, now: datetime) -> str | None:
     return "🌙 <b>Итоги дня</b>\n" + "\n".join(lines) if lines else None
 
 
+async def _quests_letter_today(db, user_id: int, now: datetime) -> bool:
+    """Письмо «Новые задания дня» сегодня уже ушло, стоит в очереди или придёт (включены «Задания»): план его не повторяет.
+    Ключ тот же, что у services/dm_push_events._quests; сборщик заданий идёт после утреннего, поэтому смотрим и согласие."""
+    from infrastructure.repositories import dm_push as repo
+    try:
+        if await repo.has_consent(db, user_id, "quests"):
+            return True
+        async with db.execute("SELECT 1 FROM dm_push_outbox WHERE user_id = ? AND dedup_key = ?",
+                              (user_id, f"quests:daily:{now.astimezone(timezone.utc).date().isoformat()}")) as c:
+            return await c.fetchone() is not None
+    except Exception as exc:
+        logger.warning(f"plan: outbox unavailable: {type(exc).__name__}: {exc}")
+        return False
+
+
 async def morning_text(db, user_id: int, now: datetime) -> str | None:
     """Утреннее письмо: что сегодня можно забрать или сделать. None — сегодня нечего сказать, письмо не нужно."""
     lines = []
@@ -87,8 +102,10 @@ async def morning_text(db, user_id: int, now: datetime) -> str | None:
         ready = [k for k, v in quests["rewards"]["items"].items() if v["claimable"]]
         if ready:
             lines.append("🎁 Награда за задания " + ", ".join(QUEST_KINDS[k] for k in ready if k in QUEST_KINDS) + " ждёт — забери.")
-        if done < total:
-            lines.append(f"📋 Новые задания дня: {total}." if not done else f"📋 Задания дня: осталось {total - done} из {total}.")
+        if done and done < total:
+            lines.append(f"📋 Задания дня: осталось {total - done} из {total}.")
+        elif not done and not await _quests_letter_today(db, user_id, now):   # письмо «Новые задания дня» уже ушло — не повторяем его
+            lines.append(f"📋 Новые задания дня ({total}) — начни с любого.")
     lines += await _pets_and_pass(db, user_id, now)
     if not lines:
         return None
@@ -120,7 +137,6 @@ async def claim_quest(db, user_id: int, kind: str) -> str:
 
 async def claim_pass(db, user_id: int) -> str:
     """Все готовые награды Пропуска во всех сезонах, где их можно забрать."""
-    from datetime import timezone
     from infrastructure.repositories.economy_ledger import ensure_tables as ensure_ledger
     from services import dm_push_events, league_pass
     await ensure_ledger(db)

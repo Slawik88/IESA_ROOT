@@ -510,7 +510,7 @@ async def transfer_flow(db, bot):
     c = Call(2002, "mora", amount="10", msg_id=90, private=True)
     await transfer.on_transfer(c, c.data_cb, db)
     assert "Переведено" in c.edited[0], (c.edited, c.alerts)
-    assert bot.sent and bot.sent[-1][0] == 1001 and "Вам перевели" in bot.sent[-1][1] and "10" in bot.sent[-1][1], bot.sent
+    assert bot.sent and bot.sent[-1][0] == 1001 and "Перевод тебе" in bot.sent[-1][1] and "уже на балансе" in bot.sent[-1][1] and "10" in bot.sent[-1][1], bot.sent
     c = Call(2002, "mora", amount="1.5", msg_id=79)
     await transfer.on_transfer(c, c.data_cb, db)
     assert "целым" in c.alerts[0]
