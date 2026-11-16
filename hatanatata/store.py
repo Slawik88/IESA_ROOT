@@ -37,6 +37,10 @@ class Store:
               next_try REAL NOT NULL DEFAULT 0, created REAL NOT NULL,
               PRIMARY KEY(user_id, duplicate_key));
             CREATE INDEX IF NOT EXISTS deliveries_due ON deliveries(status, next_try);
+            CREATE TABLE IF NOT EXISTS favorites (
+              user_id INTEGER NOT NULL, listing_key TEXT NOT NULL, data TEXT NOT NULL,
+              checked REAL NOT NULL, saved REAL NOT NULL,
+              PRIMARY KEY(user_id, listing_key));
         """)
 
     def close(self):
@@ -178,6 +182,63 @@ class Store:
                 if len(result) == limit:
                     break
         return result
+
+    def find_listing(self, short_key, user_id):
+        """Resolve opaque button IDs, including saved items pruned from the live cache."""
+        if len(short_key) != 24 or any(c not in "0123456789abcdef" for c in short_key):
+            return None
+        rows = self.db.execute(
+            "SELECT data,last_seen FROM listings WHERE key LIKE ? LIMIT 2",
+            (short_key + "%",),
+        ).fetchall()
+        if not rows:
+            rows = self.db.execute(
+                "SELECT data,checked AS last_seen FROM favorites WHERE user_id=? AND listing_key LIKE ? LIMIT 2",
+                (user_id, short_key + "%"),
+            ).fetchall()
+        return (
+            (Listing(**json.loads(rows[0]["data"])), rows[0]["last_seen"])
+            if len(rows) == 1
+            else None
+        )
+
+    def is_favorite(self, user_id, key):
+        return (
+            self.db.execute(
+                "SELECT 1 FROM favorites WHERE user_id=? AND listing_key=?",
+                (user_id, key),
+            ).fetchone()
+            is not None
+        )
+
+    def save_favorite(self, user_id, listing, checked):
+        with self.db:
+            self.db.execute(
+                "INSERT OR IGNORE INTO favorites VALUES(?,?,?,?,?)",
+                (
+                    user_id,
+                    listing.key,
+                    json.dumps(asdict(listing)),
+                    checked,
+                    time.time(),
+                ),
+            )
+
+    def remove_favorite(self, user_id, key):
+        with self.db:
+            self.db.execute(
+                "DELETE FROM favorites WHERE user_id=? AND listing_key=?",
+                (user_id, key),
+            )
+
+    def favorites(self, user_id):
+        rows = self.db.execute(
+            """SELECT COALESCE(l.data,f.data) AS data,COALESCE(l.last_seen,f.checked) AS checked
+               FROM favorites f LEFT JOIN listings l ON l.key=f.listing_key
+               WHERE user_id=? ORDER BY f.saved DESC""",
+            (user_id,),
+        ).fetchall()
+        return [(Listing(**json.loads(row["data"])), row["checked"]) for row in rows]
 
     def prune(self):
         with self.db:

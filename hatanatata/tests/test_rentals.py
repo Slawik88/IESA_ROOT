@@ -6,9 +6,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from hatanatata.bot import Bot, listing_text, updated_search
+from hatanatata.bot import Bot, listing_text
 from hatanatata.models import Listing, Search, safe_url
 from hatanatata.network import Fetcher, FetchError, retry_after, robots_allowed
+from hatanatata.preferences import updated_search
 from hatanatata.scanner import collect, plans, scan_once
 from hatanatata.sources import (
     Page,
@@ -291,7 +292,11 @@ def test_source_backoff_survives_failure(store, monkeypatch):
 
 
 def test_bot_authorization_and_private_chat_boundary(store):
-    telegram = type("FakeTelegram", (), {"send": AsyncMock(), "call": AsyncMock()})()
+    telegram = type(
+        "FakeTelegram",
+        (),
+        {"send": AsyncMock(), "call": AsyncMock(), "panel": AsyncMock()},
+    )()
     bot = Bot(store, telegram, [1, 2])
     for uid, chat_type, chat_id in [
         (3, "private", 3),
@@ -315,7 +320,11 @@ def test_bot_authorization_and_private_chat_boundary(store):
 
 
 def test_bot_inline_settings_validate_and_persist(store):
-    telegram = type("FakeTelegram", (), {"send": AsyncMock(), "call": AsyncMock()})()
+    telegram = type(
+        "FakeTelegram",
+        (),
+        {"send": AsyncMock(), "call": AsyncMock(), "panel": AsyncMock()},
+    )()
     bot = Bot(store, telegram, [1, 2])
 
     def message(text):

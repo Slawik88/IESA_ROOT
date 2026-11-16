@@ -9,9 +9,10 @@ log = logging.getLogger(__name__)
 
 
 class TelegramError(Exception):
-    def __init__(self, code, retry=30):
+    def __init__(self, code, retry=30, *, not_modified=False):
         super().__init__("Telegram API error " + str(code))
         self.code, self.retry = code, retry
+        self.not_modified = not_modified
 
 
 class Telegram:
@@ -32,6 +33,8 @@ class Telegram:
                     raise TelegramError(
                         data.get("error_code", response.status),
                         data.get("parameters", {}).get("retry_after", 30),
+                        not_modified="message is not modified"
+                        in data.get("description", "").lower(),
                     )
                 return data["result"]
         except (TimeoutError, aiohttp.ClientError, ValueError) as exc:
@@ -51,6 +54,26 @@ class Telegram:
             await asyncio.sleep(0.06)
             return result
 
+    async def panel(self, user_id, text, keyboard, message_id=None):
+        """Navigate in place; an expired/deleted panel becomes a fresh message."""
+        if message_id is not None:
+            try:
+                return await self.call(
+                    "editMessageText",
+                    chat_id=user_id,
+                    message_id=message_id,
+                    text=text,
+                    parse_mode="HTML",
+                    reply_markup=keyboard,
+                    link_preview_options={"is_disabled": True},
+                )
+            except TelegramError as exc:
+                if exc.not_modified:
+                    return {"message_id": message_id}
+                if exc.code != 400:
+                    raise
+        return await self.send(user_id, text, keyboard)
+
     async def setup(self):
         me = await self.call("getMe")
         if me.get("username", "").lower() != "hatanatata1bot":
@@ -62,8 +85,10 @@ class Telegram:
             "setMyCommands",
             commands=[
                 {"command": "start", "description": "Открыть меню поиска жилья"},
+                {"command": "menu", "description": "Главный экран"},
                 {"command": "settings", "description": "Настроить мой поиск"},
                 {"command": "current", "description": "Подходящие объявления сейчас"},
+                {"command": "favorites", "description": "Сохранённые объявления"},
                 {"command": "status", "description": "Проверки и доступность сайтов"},
                 {"command": "pause", "description": "Приостановить уведомления"},
                 {"command": "resume", "description": "Возобновить уведомления"},

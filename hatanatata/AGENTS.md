@@ -7,7 +7,9 @@
 - `sources.py` — адаптеры публичных страниц, `network.py` — HTTP и robots.
 - `scanner.py` — общий сбор с ограничениями и первой тихой синхронизацией.
 - `store.py` — отдельный SQLite, история доставки, кэш и очередь.
-- `bot.py`, `telegram.py` — меню в личке и Telegram Bot API.
+- `bot.py` — polling и доставка; `telegram.py` — Bot API, обновление одного экрана.
+- `interaction.py` — доступ и маршрутизация, `preferences.py` — разбор ввода.
+- `ui.py`, `views.py` — экраны, перелистывание и личное избранное.
 - `backup.py` — root-only зашифрованная копия в личный R2.
 
 Проверки из корня: `python -m pytest hatanatata/tests -q`,
