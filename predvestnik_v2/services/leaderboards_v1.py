@@ -31,42 +31,40 @@ BOARD_CACHE_SEC = 45
 _BOARDS = TtlCache(BOARD_CACHE_SEC, max_entries=128)    # up to 500 rows each: global, chats and local boards
 _PLACES = TtlCache(BOARD_CACHE_SEC, max_entries=4096)   # one small row per player and board
 
-# Singleflight: after a TTL expiry one request reloads the board and the concurrent ones share its task
-# (waiting on their own, not yet taken connections). Without it every viewer paid its own reload.
-_INFLIGHT: dict[tuple, asyncio.Task] = {}
-
-
-async def _load_shared(cache: TtlCache, key: tuple, load):
-    value = await load()
-    cache.put(key, value)
-    return value
-
-
-def _flight_done(flight_key: tuple, task: asyncio.Task) -> None:
-    _INFLIGHT.pop(flight_key, None)
-    if not task.cancelled():
-        task.exception()   # retrieved here so an abandoned failure does not warn
+# The loading request retains ownership of its DB handle. Other requests share only its result;
+# cancelling a waiter must not cancel that request or take its connection away.
+_INFLIGHT: dict[tuple, asyncio.Future] = {}
+_FLIGHT_RETRY = object()   # the loading request was cancelled: a remaining reader may take over
 
 
 async def _cached(cache: TtlCache, key: tuple, load):
-    value = cache.get(key)
-    if value is not None:
-        return value
     flight_key = (id(cache), key)
-    task = _INFLIGHT.get(flight_key)
-    if task is None:
-        task = _INFLIGHT[flight_key] = asyncio.create_task(_load_shared(cache, key, load))
-        task.add_done_callback(lambda done: _flight_done(flight_key, done))
-    else:
+    while True:
+        value = cache.get(key)
+        if value is not None:
+            return value
+        flight = _INFLIGHT.get(flight_key)
+        if flight is None:
+            flight = asyncio.get_running_loop().create_future()
+            _INFLIGHT[flight_key] = flight
+            try:
+                value = await load()
+                cache.put(key, value)
+                flight.set_result(value)
+                return value
+            except Exception as exc:
+                flight.set_exception(exc)
+                flight.exception()   # retrieve failures even when every waiter has left
+                raise
+            finally:
+                if _INFLIGHT.get(flight_key) is flight:
+                    _INFLIGHT.pop(flight_key)
+                if not flight.done():
+                    flight.set_result(_FLIGHT_RETRY)
         ops_metrics.count("cache_flight", "boards" if cache is _BOARDS else "places")
-    try:
-        return await task
-    except RuntimeError:
-        # The request that started the load ended and closed its lazy database handle: redo it here,
-        # on this caller's own connection, exactly like it would without the shared task.
-        value = await load()
-        cache.put(key, value)
-        return value
+        value = await asyncio.shield(flight)
+        if value is not _FLIGHT_RETRY:
+            return value
 
 
 async def _ranking(db, scope: str, *, chat_id: int | None = None, bounds: tuple[str, str] | None, limit: int = 500) -> list[dict]:

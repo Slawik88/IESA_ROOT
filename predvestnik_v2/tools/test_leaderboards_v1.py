@@ -132,7 +132,7 @@ async def main() -> None:
 
 
 async def check_singleflight() -> None:
-    """Concurrent misses on a cold key share one load; a leader whose handle died is redone by the waiter."""
+    """Concurrent misses share one load and one failure; a later request can retry."""
     lb._BOARDS.clear(); lb._PLACES.clear(); lb._INFLIGHT.clear()
     calls = 0
 
@@ -148,11 +148,14 @@ async def check_singleflight() -> None:
     assert lb._BOARDS.get(("t",)) == [{"row": 1}], "shared load must fill the cache"
 
     started = asyncio.Event()
+    broken_calls = 0
 
     async def broken_load():
+        nonlocal broken_calls
+        broken_calls += 1
         started.set()
         await asyncio.sleep(0.02)
-        raise RuntimeError("database handle used after its update or request ended")
+        raise RuntimeError("database unavailable")
 
     async def own_load():
         return [{"row": 2}]
@@ -161,19 +164,17 @@ async def check_singleflight() -> None:
         return await lb._cached(lb._BOARDS, ("t2",), broken_load)
 
     async def waiter():
-        return await lb._cached(lb._BOARDS, ("t2",), own_load)
+        return await lb._cached(lb._BOARDS, ("t2",), broken_load)
 
     lb._BOARDS.clear(); lb._INFLIGHT.clear()
     leader_task = asyncio.create_task(leader())
     await started.wait()   # the flight is registered; the waiter joins it before the leader fails
-    assert await waiter() == [{"row": 2}], "waiter must finish on its own load"
+    results = await asyncio.gather(leader_task, waiter(), return_exceptions=True)
+    assert all(isinstance(result, RuntimeError) for result in results)
+    assert broken_calls == 1, "a failed shared load must not trigger retries from every waiter"
+    assert lb._BOARDS.get(("t2",)) is None
+    assert await lb._cached(lb._BOARDS, ("t2",), own_load) == [{"row": 2}]
     assert lb._BOARDS.get(("t2",)) == [{"row": 2}]
-    try:
-        await leader_task
-    except RuntimeError:
-        pass
-    else:
-        raise AssertionError("the leader must surface its own failure")
     lb._INFLIGHT.clear()
 
 
