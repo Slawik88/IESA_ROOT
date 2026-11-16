@@ -39,10 +39,9 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-num { background: linear-gradient(180deg, var(--v3-ink) 35%, color-mix(in srgb, var(--v3-ink) 48%, var(--v3-bg))); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .v3-id { position: relative; isolation: isolate; }
 .v3-id-copy { min-width: 0; }
-/* Keep profile text readable independently of the scene's brightest animation frame. */
-#pro-main > .ap-stage .v3-id-copy { position: relative; isolation: isolate; flex: 1; }
-#pro-main > .ap-stage .v3-id-copy::before { content: ""; position: absolute; inset: -10px -8px; z-index: -1; border-radius: 14px; background: color-mix(in srgb, var(--v3-bg) 92%, transparent); pointer-events: none; }
-#pro-main > .ap-stage .v3-id-copy :is(.v3-greet, .v3-sub) { color: color-mix(in srgb, var(--v3-ink) 85%, var(--v3-bg)); }
+/* Text follows the scene without covering the equipped appearance. */
+#pro-main > .ap-stage .v3-id-copy { flex: 1; }
+#pro-main > .ap-stage .v3-id-copy :is(.v3-greet, .v3-sub) { color: var(--v3-ink); text-shadow: 0 1px 3px var(--v3-bg), 0 0 8px var(--v3-bg); }
 .v3-id::before { content: ""; position: absolute; left: -35%; top: -70%; width: 150%; height: 240%; z-index: -1; pointer-events: none; background: radial-gradient(closest-side, rgba(var(--acc-rgb), .15), transparent); animation: v3drift 14s ease-in-out infinite alternate; }
 @keyframes v3drift { to { transform: translate3d(6%, 5%, 0) scale(1.1); } }
 @keyframes v3spin { to { transform: rotate(360deg); } }

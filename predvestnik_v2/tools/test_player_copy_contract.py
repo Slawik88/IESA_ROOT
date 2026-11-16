@@ -14,6 +14,15 @@ from services import quests_v1 as quest_rewards
 from bot.chat import family as family_chat, settings as chat_settings, streak as streak_chat
 from core import coin_market_v2, mafia_online, mafia_v1, marks_v1
 
+from core import dm_push as dm_push_rules, dm_tickets
+from bot.chat.notify import DM_NAME_MAX
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from bot.chat.transfer import MAX_AMOUNT, fmt, transfer_letter
+from core.economy_contract import CURRENCY_SPECS
+from core.skins_v3_catalog import SEASONS, SKINS
+from services.dm_push_events import _holiday_text
+
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "FastAPI" / "static"
 guide = json.loads((STATIC / "guide-v3.json").read_text(encoding="utf-8"))
@@ -143,7 +152,6 @@ for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/i
 word_copy = json.dumps(topics["words"], ensure_ascii=False)
 for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS, word_chain.SOLO_PLAIN_MINUTES, word_chain.IDLE_MINUTES, word_chain.BOT_MESSAGES_KEPT):
     assert str(value) in word_copy, f"words: число {value} расходится с правилами"
-from core import dm_push as dm_push_rules, dm_tickets
 support_copy = json.dumps(topics["support"], ensure_ascii=False)
 for value in (dm_tickets.MIN_TEXT, dm_tickets.MAX_TEXT):
     assert str(value) in support_copy, f"support: число {value} расходится с правилами"
@@ -161,7 +169,6 @@ for relative in ("services/season_report.py", "services/dm_push_events.py", "cor
 
 
 # Уведомления в личку (S23cw): заголовок и одна строка «что сделать», короткая кнопка-действие. Итог сезона — отчёт, он отдельно.
-from bot.chat.notify import DM_NAME_MAX
 
 _NAME = "Ж" * DM_NAME_MAX   # ник и название чата подставляются самой большой длины, какую пропускает bot/chat/notify.short_name
 _CHAT = f"«{_NAME}»"
@@ -221,12 +228,6 @@ def _letter_fits(label: str, text: str) -> None:
 
 
 # Готовые письма, а не шаблоны: подстановка может растянуть их сильнее, чем видно по «{}» (замечание ревью S23cw)
-from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
-from bot.chat.transfer import MAX_AMOUNT, fmt, transfer_letter
-from core.economy_contract import CURRENCY_SPECS
-from core.skins_v3_catalog import SEASONS, SKINS
-from services.dm_push_events import _holiday_text
 
 _now = datetime(2027, 1, 1, tzinfo=timezone.utc)
 for season_id in SEASONS:   # новичок без единого образа сезона: весь список недостающих из настоящего каталога
