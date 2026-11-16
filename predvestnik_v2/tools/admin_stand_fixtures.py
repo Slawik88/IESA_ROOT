@@ -295,6 +295,11 @@ SWITCHES = {
             {"key": "all", "title": "Бот целиком", "hint": "Все команды, игры и уведомления"},
             {"key": "site", "title": "Сайт", "hint": "Мини-приложение и веб-страницы"},
             {"key": "games", "title": "Игры", "hint": "Запуск игр в чатах"},
+            # Раздел с вложенными командами, как section:* в services/feature_switches.py: шеврон группы и переключатель раздела в одной строке.
+            {"key": "section:fun", "title": "🎲 Развлечения", "hint": "Весь раздел", "items": [
+                {"key": "cmd:кубик", "title": "бот кубик", "hint": "Бросить кубик"},
+                {"key": "cmd:шар", "title": "бот шар", "hint": "Шар предсказаний"},
+            ]},
         ]},
         {"title": "Уведомления", "scope": "global", "items": [
             {"key": "notice:achievements", "title": "Достижения", "hint": "Сообщения о новых достижениях"},
@@ -331,3 +336,14 @@ MATRIX = {"floor": 2, "ceiling": 5, "roles": _ROLES, "items": [
     {"key": "action:ban", "group": "moderation", "title": "⛔ Бан в чате с очень длинным названием права " + "x" * 30, "default": 4, "current": 4, "changed": False},
     {"key": "action:warn", "group": "moderation", "title": "⚠️ Варн в чате", "default": 3, "current": 2, "changed": True}]}
 ROUTES["/access/matrix"] = MATRIX
+# S11b: «Проблемы приложения» и «Патч-ноуты» тоже снимаются стендом (раньше их ответа не было, раздел падал в ошибку).
+ROUTES["/diagnostics"] = {"page": 0, "total": 2, "counts": {"new": 1, "investigating": 1, "resolved": 0},
+                          "monitor": {"totals": {"requests": 1234, "errors_5xx": 3, "auth_401": 12, "slow": 4, "avatar_miss": 1}},
+                          "items": [{"id": "0b6f3c0e-0000-4000-8000-000000000001", "code": "PV-7K2Q", "category": "avatar", "status": "new",
+                                     "created_at": "2026-10-12T09:00:00+00:00", "user_id": 5000, "comment": "Не видно фото в профиле после смены образа " + "x" * 60},
+                                    {"id": "0b6f3c0e-0000-4000-8000-000000000002", "code": "PV-9M1D", "category": "games", "status": "investigating",
+                                     "created_at": "2026-10-11T09:00:00+00:00", "user_id": 5001, "comment": ""}]}
+ROUTES["/patch-notes"] = {"target": "https://t.me/predvestnik_news/2", "topic_verified": True, "problems": [],
+                          "items": [{"note_id": "2026-10-12", "title": "Питомцы и новые образы", "note_date": "2026-10-12", "status": "draft", "images": 2},
+                                    {"note_id": "2026-10-05", "title": "Пропуск сезона", "note_date": "2026-10-05", "status": "sent", "images": 1, "edited": True}]}
+SECTIONS.extend([{"key": "diagnostics", "title": "Проблемы приложения"}, {"key": "patchnotes", "title": "Патч-ноуты"}])

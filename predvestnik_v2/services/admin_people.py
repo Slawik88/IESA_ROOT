@@ -13,7 +13,7 @@ from bot.chat import ranks
 from bot.chat.global_ranks import bot_rank_name, get_bot_rank
 from bot.chat.tracking import local_now
 from infrastructure.repositories import skins_v3 as skins_v3_repo
-from services import admin_avatars, feature_switches, global_moderation, member_tags, name_history, staff_watch
+from services import skins_v3, admin_avatars, feature_switches, global_moderation, member_tags, name_history, staff_watch
 from services import reports as reports_service
 from services import vip as vip_service
 from core.marks_v1 import GRANTABLE
@@ -702,6 +702,7 @@ async def player(db, uid: int) -> dict | None:
         family["partner_username"] = names.get(family["partner"])
     return {
         "id": uid, "username": u[0], "name": u[6] or "", "avatar": admin_avatars.avatar_url(uid),
+        "look": await skins_v3.own_look(db, uid) if vip else None,
         "rank": rank, "rank_name": bot_rank_name(rank), "sponsor": bool(u[4]),
         "deleted_at": _iso(u[5]),
         "balances": {"mora": float(u[1]), "diamonds": float(u[2]), "zarniki": float(u[3]),

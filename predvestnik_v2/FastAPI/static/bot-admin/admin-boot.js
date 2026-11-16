@@ -13,6 +13,7 @@
     if (again) again.onclick = () => location.reload();
     return;
   }
+  applyTheme();
   $('#who').textContent = ME.rank_name;
   const top = $('.top');
   const headBtn = (cls, label, text, handler) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'hbtn ' + cls; b.setAttribute('aria-label', label); b.title = label; b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${text}</svg>`; b.onclick = handler; top.append(b); };

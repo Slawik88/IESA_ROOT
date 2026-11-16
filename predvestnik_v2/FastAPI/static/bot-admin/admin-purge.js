@@ -41,6 +41,8 @@ async function purgeApi(path, opts = {}) {
   } finally { clearTimeout(timer); }
 }
 
+// Общая шапка разделов: крупное название чата и одна строка о том, что это за экран.
+const purgeHead = () => pageHead('', `Чистка · ${PURGE.title || PURGE.cid}`, 'Кто за период написал меньше нормы');
 const purgeVisible = () => !!(PURGE.main && PURGE.main.isConnected && PURGE.main.querySelector('#purgeview'));
 const purgeDay = iso => { const d = iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00`) : null; return d && !isNaN(d) ? d.toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) : esc(iso || ''); };
 const purgeName = t => t.member_tag || (t.username ? '@' + t.username : 'Участник ' + t.user_id);
@@ -49,9 +51,10 @@ async function purgeView(main, cid, title, from = null, back = null) {
   if (from) PEOPLE.stack.push(from);
   Object.assign(PURGE, {cid: +cid, title, mode: 'pending', page: 0, view: null, etag: '', main,
     back: back || (() => window.back(main))});   // из карточки чата: «Назад» ведёт в неё (она в PEOPLE.stack)
+  // «← Назад» ведёт в карточку чата (как в карточке игрока); «‹» в шапке приложения — выход в игру, это не дубль.
   main.innerHTML = `<div class="bar"><button class="btn" id="pgback">← Назад</button></div>
-    <div id="purgeview"><div class="card"><h3>🧹 Чистка · ${esc(title || cid)}</h3><div class="sub">Загружаю ход…</div></div></div>`;
-  const leave = () => { clearTimeout(PURGE.timer); purgeRememberDraft(); PURGE.main = null; PURGE.back(); };
+    ${purgeHead()}<div id="purgeview"><div class="sub">Загружаем ход чистки…</div></div>`;
+  const leave = () => { if (adminCloseSheet()) return; clearTimeout(PURGE.timer); purgeRememberDraft(); PURGE.main = null; PURGE.back(); };
   $('#pgback').onclick = leave;
   const bb = TG && TG.BackButton;   // «Назад» самого Telegram — туда же, а не из админки
   if (bb) { bb.offClick(goApp); if (PEOPLE.bb) bb.offClick(PEOPLE.bb); PEOPLE.bb = leave; bb.onClick(leave); bb.show(); }
@@ -89,9 +92,8 @@ async function purgeLoad(quiet = false) {
   } catch (e) {
     if (seq !== PURGE.seq || !purgeVisible()) return;
     if (e.status === 403 || e.status === 401) PURGE.view = null;
-    $('#purgeview').innerHTML = `<div class="card"><h3>🧹 Чистка · ${esc(PURGE.title || cid)}</h3>
-      <div class="sub" role="alert">${e.status === 403 ? 'Нет доступа: ' : 'Не загрузилось: '}${esc(e.message)}</div>
-      ${PURGE.view ? '' : '<div class="actions"><button class="btn small" id="pgretry">Повторить</button></div>'}</div>`;
+    $('#purgeview').innerHTML = `<div class="sub" role="alert">${e.status === 403 ? 'Нет доступа: ' : 'Не загрузилось: '}${esc(e.message)}</div>
+      ${PURGE.view ? '' : '<div class="actions"><button class="btn small" id="pgretry">Повторить</button></div>'}`;
     if ($('#pgretry')) $('#pgretry').onclick = () => purgeLoad();
   } finally { purgeSchedule(); }
 }
@@ -99,9 +101,8 @@ async function purgeLoad(quiet = false) {
 function purgeRender(quiet) {
   const keep = quiet ? window.scrollY : 0, v = PURGE.view;
   purgeRememberDraft();
-  $('#purgeview').innerHTML = `<div class="card"><h3>🧹 Чистка · ${esc(PURGE.title || PURGE.cid)}</h3>
-    <div class="sub">Кто за период написал меньше нормы. Решения общие с Telegram: досье в админ-чате и этот экран — одно и то же.</div></div>
-    ${v.active ? purgeActive(v) : purgeIdle(v)}`;
+  $('#purgeview').innerHTML = `${v.active ? purgeActive(v) : purgeIdle(v)}
+    ${foldNote('Как это связано с Telegram', 'Решения общие: досье в админ-чате и этот экран — одно и то же. Решили здесь — в админ-чате тоже отмечено, и наоборот.')}`;
   purgeWire();
   const draft = PURGE.drafts[PURGE.cid];   // что админ уже вписал в форму, переживает обновление хода
   if (draft && $('#pgnorm')) { $('#pgnorm').value = draft.norm; $('#pgfrom').value = draft.from; $('#pgto').value = draft.to; }
@@ -140,7 +141,7 @@ function purgeActive(v) {
   const empty = {pending: 'Все решения приняты. Можно завершать.', decided: 'Решений пока нет.', all: 'В этой чистке никого нет.'}[PURGE.mode];
   return `<div class="card" role="status">${state}<div class="meter" aria-hidden="true"><i style="width:${Math.round(100 * shown / Math.max(1, c.total))}%"></i></div></div>
     <div class="chips filters">${[['pending', `Ждут · ${num(waiting)}`], ['decided', 'Решённые'], ['all', 'Все']].map(([k, t]) =>
-      `<span class="chip ${PURGE.mode === k ? 'ok' : ''}" data-pgmode="${k}">${t}</span>`).join('')}</div>
+      `<button type="button" class="chip ${PURGE.mode === k ? 'ok' : ''}" data-pgmode="${k}">${t}</button>`).join('')}</div>
     <div class="card">${rows || `<div class="sub">${empty}</div>`}
       ${v.page || v.has_more ? `<div class="actions">${v.page ? '<button class="btn small" data-pgpage="-1">‹ Предыдущие</button>' : ''}${v.has_more ? '<button class="btn small" data-pgpage="1">Следующие ›</button>' : ''}</div>` : ''}</div>
     <div class="actions"><button class="btn" id="pgfinish" ${c.blocked ? 'disabled' : ''}>Завершить чистку</button></div>

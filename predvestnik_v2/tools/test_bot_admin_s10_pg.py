@@ -187,6 +187,15 @@ async def checks():
         except skins.SkinConflict as exc:
             assert "для одного игрока" in str(exc), exc
         await skins.equip(db, P1, plain)
+        # S11: своё оформление доступно без VIP; в чужой карточке рамка только VIP, фото остаётся всем.
+        from services import admin_people, vip
+        assert (await skins.own_look(db, P1))["id"] == plain
+        before_vip = await admin_people.player(db, P1)
+        assert before_vip["look"] is None
+        await vip.grant_vip_days(db, P1, "vip", 1)
+        with_vip = await admin_people.player(db, P1)
+        assert with_vip["look"]["id"] == plain and with_vip["avatar"] == before_vip["avatar"]
+        await db.execute("DELETE FROM vip_subscriptions WHERE user_id=?", (P1,))
         inv = await skins.inventory(db, P1)
         assert inv["equipped"] == plain and {i["id"] for i in inv["items"]} == {plain, private}, inv
         assert next(i for i in inv["items"] if i["id"] == private)["exclusive"], inv

@@ -16,7 +16,7 @@ from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat import moderation
 from bot.chat.access import is_developer
 from bot.chat.global_ranks import get_bot_rank
-from services import admin_access, admin_people, admin_security, owner_access
+from services import skins_v3, admin_access, admin_people, admin_security, owner_access
 
 router = APIRouter(prefix="/bot-admin/api/owner", tags=["bot-admin-owner"], route_class=AdminRoute)
 
@@ -88,7 +88,7 @@ async def owner_me(request: Request, user=Depends(owner_user), db=Depends(get_db
         await owner_access.record_login(db, user["id"], ip, request.headers.get("user-agent", ""), via)
     except Exception as exc:   # noqa: BLE001
         logger.warning(f"owner login journal skipped: {exc}")
-    return {"user_id": user["id"], "kind": "owner", "chats": user["chat_list"], "max_chats": owner_access.MAX_CHATS,
+    return {"look": await skins_v3.own_look(db, user["id"]), "user_id": user["id"], "kind": "owner", "chats": user["chat_list"], "max_chats": owner_access.MAX_CHATS,
             "chat_actions": [{"key": k, "title": t} for k, t in CHAT_ACTIONS.items()],
             "member_actions": list(MEMBER_ACTIONS)}
 

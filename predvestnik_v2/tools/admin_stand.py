@@ -1,10 +1,13 @@
 """Стенд админки: открывает bot-admin на фикстурах (без входа и сервера) и снимает вкладки на 320/390/430 в двух темах.
 
-    python tools/admin_stand.py [--out DIR] [--tabs metrics,health]
+    python tools/admin_stand.py [--out DIR] [--tabs metrics,health] [--widths 390] [--themes own,strict] [--look hanami]
+
+Темы — те же, что у переключателя «Тема админки»: own (цвета надетого образа --look) и strict (Обсидиан).
 
 Запросы /bot-admin/api/* подменяются данными из admin_stand_fixtures.py, внешние адреса (шрифты, telegram-web-app.js) блокируются.
-Выходной код 1, если на какой-то ширине страница шире экрана: админка режет лишнее (overflow-x: clip), и без этой проверки
-обрезанная колонка остаётся незамеченной. Нужен playwright (pip install playwright, браузер из PLAYWRIGHT_BROWSERS_PATH).
+Выходной код 1, если на какой-то ширине страница шире экрана (админка режет лишнее, overflow-x: clip, и без этой проверки
+обрезанная колонка остаётся незамеченной) или раздел не загрузился: экран «Не загрузилось» снимается, но считается проблемой,
+если вкладка не перечислена в --allow-failed. Нужен playwright (pip install playwright, браузер из PLAYWRIGHT_BROWSERS_PATH).
 """
 from __future__ import annotations
 
@@ -16,36 +19,54 @@ import sys
 from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(__file__))
-from admin_stand_fixtures import OWNER_ROUTES, ROUTES  # noqa: E402
+from admin_stand_fixtures import OWNER_ROUTES, ROUTES, PURGE_VIEW  # noqa: E402
+# Снимаемые вкладки: player и purge открываются своими экранами, остальные — как раздел дока.
+ALL_TABS = "people,player,reports,journal,metrics,broadcast,promo,switches,settings,health,diagnostics,access,patchnotes,purge,guide"
 
 STATIC = os.path.join(os.path.dirname(__file__), "..", "FastAPI", "static", "bot-admin")
 HOST = "http://stand.local"
+SHARED = {"shell-v3.css": "../shell-v3.css", "appearance-ring-v3.css": "../appearance-ring-v3.css", "appearance-core.js": "../app.20.js"}
 WIDTHS = (320, 390, 430)
-THEMES = ("dark", "light")
+THEMES = ("own", "strict")
 OVERFLOW_JS = """() => {
   const w = document.documentElement.clientWidth, bad = [];
   document.querySelectorAll('main *').forEach(el => {
     const r = el.getBoundingClientRect();
     if (el.closest('[hidden], details:not([open]) > :not(summary)')) return;
     const cut = el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === 'visible' && !['TABLE', 'TR', 'TBODY', 'DETAILS', 'SUMMARY'].includes(el.tagName);
-    if (r.width && (r.right > w + 1 || r.left < -1 || cut)) bad.push(el.tagName + '.' + el.className + ' ' + Math.round(r.right) + (cut ? ' текст шире блока' : ''));
+    let scroll = el.parentElement, clipped = false;
+    while (scroll && scroll !== document.body) { if (['auto','scroll'].includes(getComputedStyle(scroll).overflowX)) { clipped = true; break; } scroll = scroll.parentElement; }
+    if (!clipped && r.width && (r.right > w + 1 || r.left < -1 || cut)) bad.push(el.tagName + '.' + el.className + ' ' + Math.round(r.right) + (cut ? ' текст шире блока' : ''));
   });
   return {scrollW: document.documentElement.scrollWidth, w, bad: bad.slice(0, 6)};
 }"""
 
 
 def read(name: str) -> str:
-    with open(os.path.join(STATIC, name), encoding="utf-8") as f:
+    with open(os.path.join(STATIC, SHARED.get(name, name)), encoding="utf-8") as f:
         return f.read()
 
 
 def main() -> int:
+    global STATIC
     ap = argparse.ArgumentParser()
+    ap.add_argument("--static", default=STATIC, help="папка bot-admin для снимков базовой ревизии")
     ap.add_argument("--out", default="admin-stand-out")
-    ap.add_argument("--tabs", default="metrics,health")
+    ap.add_argument("--tabs", default="metrics,health", help=f"через запятую или all ({ALL_TABS})")
+    ap.add_argument("--widths", default=",".join(map(str, WIDTHS)))
+    ap.add_argument("--themes", default=",".join(THEMES))
+    ap.add_argument("--look", default="hanami", help="образ администратора для темы own")
     ap.add_argument("--owner", action="store_true", help="войти как владелец чата (вкладка mychats)")
+    ap.add_argument("--allow-failed", default="", help="вкладки через запятую, у которых экран ошибки ожидаем (нет фикстуры нарочно)")
     args = ap.parse_args()
-    tabs = [t for t in args.tabs.split(",") if t]
+    STATIC = args.static
+    tabs = [t for t in (ALL_TABS if args.tabs == "all" else args.tabs).split(",") if t]
+    widths = [int(w) for w in args.widths.split(",") if w]
+    themes = [t for t in args.themes.split(",") if t]
+    allow_failed = {t for t in args.allow_failed.split(",") if t}
+    from core.skins_v3_catalog import SKINS
+    skin = SKINS[args.look]
+    look = {"id": args.look, "tier": "SSS", "tokens": skin["tokens"], "pal": list(skin["pal"]), "kinds": skin["kinds"]}
     os.makedirs(args.out, exist_ok=True)
     from playwright.sync_api import sync_playwright
 
@@ -62,35 +83,48 @@ def main() -> int:
             routes = OWNER_ROUTES if args.owner else ROUTES
             if key in routes:
                 status, body = routes[key] if isinstance(routes[key], tuple) else (200, routes[key])
+                if key in ("/me", "/owner/me") and status == 200:
+                    body = {**body, "look": look}
                 return route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
             return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
+        if path.startswith("/purge-v1/chats/"):
+            return route.fulfill(content_type="application/json", body=json.dumps(PURGE_VIEW))
         # После разделения ядра на admin*.js стенд должен отдавать все части, а не только admin.js.
         name = path.rsplit("/", 1)[-1]
-        if name.startswith("admin") and name.endswith(".js"):
+        if (name.startswith("admin") or name in SHARED) and name.endswith(".js"):
             return route.fulfill(status=200, content_type="text/javascript", body=read(name))
         if name.endswith(".json"):   # данные справки (guide-admin.json, S09)
             return route.fulfill(status=200, content_type="application/json", body=read(name))
-        if name.startswith("admin") and name.endswith(".css"):
+        if (name.startswith("admin") or name in SHARED) and name.endswith(".css"):
             return route.fulfill(status=200, content_type="text/css", body=read(name))
         return route.fulfill(status=200, content_type="text/html", body=html)
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH") or None)
-        for theme in THEMES:
-            for width in WIDTHS:
+        for theme in themes:
+            for width in widths:
                 ctx = browser.new_context(viewport={"width": width, "height": 800}, device_scale_factor=1)
-                ctx.add_init_script(f"localStorage.setItem('pv_admin_prefs', JSON.stringify({{theme: '{theme}'}}))")
+                ctx.add_init_script(f"localStorage.setItem('pv_admin_prefs', JSON.stringify({{'admin.look': '{theme}'}}))")
                 ctx.route("**/*", handle)
                 page = ctx.new_page()
                 errors: list[str] = []
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 for tab in tabs:
                     page.goto(f"{HOST}/bot-admin/")
-                    page.wait_for_selector(f'#tabs [data-tab="{tab}"], #tabs [data-more]')
-                    page.evaluate(f"open('{tab}')")
-                    page.wait_for_function("() => !document.querySelector('.admin-load')", timeout=8000)
+                    page.wait_for_selector('#tabs [data-tab], #tabs [data-more]')
+                    if tab == "player":
+                        page.evaluate("playerView(document.querySelector('#main'), 5000)")
+                    elif tab == "purge":
+                        page.evaluate("purgeView(document.querySelector('#main'), -100, 'Тестовый чат')")
+                    else:
+                        page.evaluate(f"open('{tab}')")
+                    # Ошибка раздела — тоже готовый экран: его снимок показывает состояние «не загрузилось».
+                    page.wait_for_function("() => !document.querySelector('.admin-load:not(.load-failed)')", timeout=8000)
                     page.wait_for_timeout(350)
                     page.screenshot(path=os.path.join(args.out, f"{tab}-{theme}-{width}.png"), full_page=True)
+                    # Снимок ошибки полезен, но «0 проблем» должно значить «все вкладки отрисовались».
+                    if tab not in allow_failed and page.evaluate("() => !!document.querySelector('#main .admin-load.load-failed')"):
+                        problems.append(f"{tab} {theme} {width}px: раздел не загрузился")
                     res = page.evaluate(OVERFLOW_JS)
                     if res["scrollW"] > res["w"] or res["bad"]:
                         problems.append(f"{tab} {theme} {width}px: ширина {res['scrollW']} при {res['w']}, {res['bad']}")

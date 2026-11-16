@@ -64,7 +64,7 @@ AG_BLOCK.list = AG_BLOCK.gives;
 function agHub(main) {
   const groups = AG.data.groups.map((g, n) => {
     const rows = g.topics.map(agTopic).filter(Boolean);
-    return rows.length ? `<details class="section ag-group" id="ag-group-${esc(g.id)}"${n === 0 || AG.openGroup === g.id ? ' open' : ''}><summary class="sec-h">${esc(g.icon)} ${esc(g.title)} <small class="cnt">· ${rows.length}</small></summary><div class="sec-body">${rows.map(agRow).join('')}</div></details>` : '';
+    return rows.length ? `<details class="section ag-group" id="ag-group-${esc(g.id)}"${n === 0 || AG.openGroup === g.id ? ' open' : ''}><summary class="sec-h">${esc(g.title)} <small class="cnt">· ${rows.length}</small></summary><div class="sec-body">${rows.map(agRow).join('')}</div></details>` : '';
   }).join('');
   const faq = AG.data.faq.filter(f => agTopic(f.t));
   const glossary = AG.data.glossary.filter(g => agTopic(g.t));
@@ -94,7 +94,7 @@ function agTopicView(main, t) {
     ? `<button type="button" class="btn primary" data-ag-open="${esc(t.section)}">${esc(t.where.label)}</button>` : '';
   const more = (t.next || []).map(agTopic).filter(Boolean);
   main.innerHTML = `<div class="bar"><button type="button" class="btn small" id="ag-back">← Назад</button></div>
-    <nav class="ag-crumbs" aria-label="Где ты в справке"><button type="button" class="ag-link" data-ag-home="1">Справка</button>${group ? ` › <button type="button" class="ag-link" data-ag-group="${esc(group.id)}">${esc(group.title)}</button>` : ''}</nav>
+    <nav class="ag-crumbs" aria-label="Где вы в справке"><button type="button" class="ag-link" data-ag-home="1">Справка</button>${group ? ` › <button type="button" class="ag-link" data-ag-group="${esc(group.id)}">${esc(group.title)}</button>` : ''}</nav>
     ${pageHead(t.icon, t.title, t.lead)}${agSearchBox()}${toc}
     ${t.blocks.map((b, i) => `<div class="ag-b" id="ag-b-${i}">${(AG_BLOCK[b.t] || (() => ''))(b)}</div>`).join('')}
     <section class="ag-where"><div><small>Где это</small><b>${esc(t.where.path)}</b></div>${go}</section>

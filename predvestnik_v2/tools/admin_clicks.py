@@ -16,6 +16,7 @@ import sys
 from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(__file__))
+from admin_stand import SHARED
 from admin_stand_fixtures import CHAT, PURGE_VIEW, ROUTES  # noqa: E402
 
 HOST = "http://stand.local"
@@ -46,6 +47,9 @@ NEW = {
     "Бан во всех чатах": ("card", [("tap", "#pacts"), ("tap", '[data-act="global_ban"]'), ("keys", "#fconfirm", str(UID)), ("tap", "#sok"),
                                    ("expect", f"/player/{UID}/action", "action", "global_ban")]),
     "Чистка чата": ("chat", [("tap", "[data-purge]"), ("seen", "#purgeview .meter")]),
+    # S11b: под жалобой видны два решения, наказание — под «Ещё действия» (одно касание сверх прежнего).
+    "Жалоба: наказать": ("people", [("tap", '#tabs [data-tab="reports"]'), ("tap", '[data-card="100"] .rep-more > summary'),
+                                    ("tap", '[data-punish="mute"][data-rid="100"]'), ("tap", "#sok"), ("expect", "/reports/100/punish", "action", "mute")]),
 }
 # Проверки поведения, не замер: «Отменить» не отправляет ничего; решение в «Чистке» уходит на общий сервер после отсчёта.
 CHECKS = {
@@ -58,7 +62,7 @@ CHECKS = {
 
 
 def read(static: str, name: str) -> str:
-    with open(os.path.join(static, name), encoding="utf-8") as f:
+    with open(os.path.join(static, SHARED.get(name, name)), encoding="utf-8") as f:
         return f.read()
 
 
@@ -92,11 +96,11 @@ def main() -> int:
         if path.startswith(f"/purge-v1/chats/{CID}"):
             return route.fulfill(status=200, content_type="application/json", body=json.dumps(PURGE_VIEW))
         name = path.rsplit("/", 1)[-1]
-        if name.startswith("admin") and name.endswith(".js") and os.path.exists(os.path.join(args.static, name)):
+        if (name.startswith("admin") or name in SHARED) and name.endswith(".js") and os.path.exists(os.path.join(args.static, SHARED.get(name, name))):
             return route.fulfill(status=200, content_type="text/javascript", body=read(args.static, name))
         if name.endswith(".json") and os.path.exists(os.path.join(args.static, name)):
             return route.fulfill(status=200, content_type="application/json", body=read(args.static, name))
-        if name.startswith("admin") and name.endswith(".css"):
+        if (name.startswith("admin") or name in SHARED) and name.endswith(".css"):
             return route.fulfill(status=200, content_type="text/css", body=read(args.static, name))
         return route.fulfill(status=200, content_type="text/html", body=html)
 
