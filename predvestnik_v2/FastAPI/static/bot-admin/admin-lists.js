@@ -57,7 +57,7 @@ async function journalView(main, more = '') {
     const reason = x.reason ? ` · причина: ${esc(x.reason)}` : '';
     // Автор, цель и время — отдельные куски строки: у каждой ссылки своя зона нажатия, они не наезжают друг на друга.
     return `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b>${x.text ? ' ' + esc(x.text) : ''}</div>${where}
-      <div class="sub jmeta">${x.actor && x.actor.id ? person(x.actor) : '<span>бот</span>'}${x.user ? '<span aria-hidden="true">→</span>' + person(x.user) : ''}<span>· ${when(x.at)}${reason}</span></div></div>`;
+      <div class="sub jmeta">${x.actor && x.actor.id ? person(x.actor) : '<span>бот</span>'}${x.user ? '<span aria-hidden="true">→</span>' + person(x.user) : ''}<span>${when(x.at)}${reason}</span></div></div>`;
   }).join('');
   const body = rows || (more ? '' : '<div class="empty">За этот период действий нет.</div>');
   if (more) {

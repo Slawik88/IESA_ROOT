@@ -64,7 +64,7 @@ AG_BLOCK.list = AG_BLOCK.gives;
 function agHub(main) {
   const groups = AG.data.groups.map((g, n) => {
     const rows = g.topics.map(agTopic).filter(Boolean);
-    return rows.length ? `<details class="section ag-group" id="ag-group-${esc(g.id)}"${n === 0 || AG.openGroup === g.id ? ' open' : ''}><summary class="sec-h">${esc(g.icon)} ${esc(g.title)} <small class="cnt">· ${rows.length}</small></summary><div class="sec-body">${rows.map(agRow).join('')}</div></details>` : '';
+    return rows.length ? `<details class="section ag-group" id="ag-group-${esc(g.id)}"${n === 0 || AG.openGroup === g.id ? ' open' : ''}><summary class="sec-h">${esc(g.title)} <small class="cnt">· ${rows.length}</small></summary><div class="sec-body">${rows.map(agRow).join('')}</div></details>` : '';
   }).join('');
   const faq = AG.data.faq.filter(f => agTopic(f.t));
   const glossary = AG.data.glossary.filter(g => agTopic(g.t));

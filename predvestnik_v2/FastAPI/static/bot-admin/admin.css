@@ -314,7 +314,7 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .rep-msg { margin: 8px 0 0; padding: 6px 10px; border-left: 3px solid var(--v3-faint); color: var(--v3-dim); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .jfilters { margin: 10px 0; }
 #jlist .log { padding: 10px 0; }
-.bulkbar { background: var(--v3-sheet); }
+.bulkbar { background: var(--v3-sheet); padding: 12px 14px; border: 0; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--surface-line); }
 .card.rep, .sw-row .t { overflow-wrap: anywhere; }
 .day-h { margin: 14px 0 2px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--v3-dim); }
 .day-h:first-child { margin-top: 4px; }
@@ -688,3 +688,6 @@ details.sw-group > summary::after { order: -1; margin: 0 12px 0 2px; }
 /* «Состояние»: подробности для разработчика — одна свёрнутая группа; внутри свои подгруппы помельче. */
 .dev-d .section { margin-top: 10px; padding-top: 8px; }
 .dev-d .sec-h { font-size: 15px; }
+/* S11b: пометка беды под заголовком свёрнутой группы «Подробно для разработчика», а не сбоку. */
+.dev-flag { display: block; margin-top: 2px; font-size: 13px; font-weight: 500; color: var(--admin-warn-ink); }
+.dev-flag:empty { display: none; }

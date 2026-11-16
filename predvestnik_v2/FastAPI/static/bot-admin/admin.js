@@ -1585,7 +1585,7 @@ function bcHistoryRow(b) {
   const progress = b.status === 'scheduled' ? `отправится ${when(b.scheduled_at)}` : `${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}`;
   const resumable = b.status === 'interrupted' || (b.status === 'stopped' && b.total > b.sent + b.failed);
   return `<div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${progress}</div>
-    <div class="sub" style="white-space:pre-wrap">${b.media_id ? '🖼 ' : ''}${(b.html ? tgHtml : esc)(text)}${b.button ? `\n[ ${esc(b.button.text)} ]` : ''}</div>
+    <div class="sub" style="white-space:pre-wrap">${b.media_id ? '🖼 ' : ''}${(b.html ? tgHtml : esc)(text)}</div>${b.button ? `<div class="chips" style="margin-top:4px"><span class="chip">${esc(b.button.text)}</span></div>` : ''}
     <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div>
     <div class="actions" style="margin-top:6px">
       ${b.status === 'running' ? `<button class="btn small" data-bstop="${b.id}">⏹ Остановить</button>` : ''}
@@ -2505,7 +2505,7 @@ async function healthView(main) {
         ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === dg.hour ? 'selected' : ''}>${String(i).padStart(2, '0')}:00</option>`).join('')}</select></div>
       ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
       <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>`)}
-    <details class="section dev-d" data-sec="h-dev" ${FOLD.get('h-dev') ? 'open' : ''}><summary class="sec-h">Подробно для разработчика<small class="cnt" id="h-dev-flag"></small></summary>
+    <details class="section dev-d" data-sec="h-dev" ${FOLD.get('h-dev') ? 'open' : ''}><summary class="sec-h"><span>Подробно для разработчика<small class="dev-flag" id="h-dev-flag"></small></span></summary>
       <div class="sec-body" id="h-ops"><div class="sub">Загружаем показатели…</div></div></details>
     ${foldNote('Почему сразу после обновления ошибок 0', `«Ошибки» и «Работает без перерыва» считаются с последнего обновления бота: после него там 0, и это ещё ничего не доказывает.
       Цифры в «Подробно для разработчика» хранятся 14 дней, обновление их не обнуляет.`)}`;
@@ -2561,7 +2561,7 @@ async function healthOpsView(box, hours) {
   const slowMax = t => `у медленных 5% <b>${ms(t.p95)}</b> · максимум ${ms(t.max)}`;
   // Группа свёрнута: беда видна по короткой пометке в её заголовке.
   const flag = document.getElementById('h-dev-flag');
-  if (flag) { const bad = [o.http_5xx ? 'сбои' : '', lagBad || poolBad ? 'замедления' : ''].filter(Boolean).join(' и '); flag.textContent = bad ? ' · ' + bad : ''; }
+  if (flag) { const bad = [o.http_5xx ? 'сбои' : '', lagBad || poolBad ? 'замедления' : ''].filter(Boolean).join(' и '); flag.textContent = bad ? 'Есть ' + bad : ''; }
   box.innerHTML = `
     <div class="scope">${Object.entries(period).map(([h, t]) =>
       `<button class="btn small ${+h === o.hours ? 'primary' : ''}" data-hours="${h}">${t}</button>`).join('')}</div>
