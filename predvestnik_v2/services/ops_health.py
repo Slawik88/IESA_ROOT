@@ -42,6 +42,8 @@ DB_SERVER_SAMPLE_EVERY = 60.0
 DB_HEALTH_TIMEOUT_SEC = 2.0
 BUFFER_FLUSH_EVERY = 10.0
 FLUSH_EVERY = 300
+SAMPLE_STALE_AFTER = 10
+WRITE_STALE_AFTER = FLUSH_EVERY + 2 * BUFFER_FLUSH_EVERY
 CLEANUP_EVERY = 3600.0
 PERIOD_HOURS = (1, 24, 168)
 
@@ -137,6 +139,7 @@ _bot_error_buffer: deque[dict] = deque(maxlen=500)
 _bot_error_stored_at: dict[tuple[str, str], float] = {}
 _last_sample_at = 0.0
 _last_flush_at = 0.0
+_metrics_started_at = time.time()
 _alerted_at: dict[str, float] = {}
 
 
@@ -194,7 +197,8 @@ def _client_event(raw: dict, common: dict, now: float) -> dict:
     path = str(raw.get("path") or "")
     if not (raw["type"] in ("js_error", "unhandled_rejection") and _FRAME.fullmatch(path)):
         path = _route_path(path)   # API route; a script error keeps its file:line:column
-    return {**common, "at": datetime.fromtimestamp(now, timezone.utc), "type": raw["type"],
+    event_type = "browser_open" if raw["type"] == "sdk_missing" and raw.get("message") == "browser" else raw["type"]
+    return {**common, "at": datetime.fromtimestamp(now, timezone.utc), "type": event_type,
             "screen": _route_path(raw.get("screen")), "path": path,
             "status": int(status) if isinstance(status, int) and not isinstance(status, bool) and 0 <= status <= 999 else None,
             "message": scrub(raw.get("message"), 200), "detail": detail or None}
@@ -305,7 +309,7 @@ async def _sample_loop() -> None:
 
 
 async def _db_server_loop() -> None:
-    """How full the shared database server is: the site and the bot draw from the same connection limit."""
+    """Connection use on this database server, including other applications and maintenance clients."""
     import asyncpg
     from infrastructure.database import get_pool, server_connection_usage
     while True:
@@ -370,7 +374,7 @@ def alerts_for(window: ops_metrics.Window) -> list[tuple[str, str]]:
     if refused or (total and limit and total.peak >= limit.peak - DB_SERVER_SPARE):
         ours = window.timings.get(("db_server", "ours"))
         busy = f"занято до {total.peak:.0f} из {limit.peak:.0f}, из них Предвестник — {ours.peak if ours else 0:.0f}" if total and limit else "сервер базы отказал в соединении"
-        found.append(("db_server", f"На сервере базы кончаются соединения: {busy}. Остальные — сайт IESA, Домовой и служебные подключения самой базы."))
+        found.append(("db_server", f"На сервере базы кончаются соединения: {busy}. Остальные соединения занимают другие приложения и служебные подключения на этом сервере."))
     requests = sum(s.count for (kind, _), s in window.timings.items() if kind == "http")
     errors_5xx = sum(c for (kind, _), c in window.counters.items() if kind == "http_5xx")
     if errors_5xx >= HTTP_5XX_MIN and errors_5xx >= HTTP_5XX_SHARE * max(requests, 1):
@@ -436,6 +440,18 @@ def _stat(s: ops_metrics.Series) -> dict:
             "max": round(s.peak, 1)}
 
 
+def metrics_freshness() -> dict:
+    now = time.time()
+    sample_age = now - _last_sample_at if _last_sample_at else None
+    write_age = now - _last_flush_at if _last_flush_at else None
+    collecting = write_age is None and now - _metrics_started_at < WRITE_STALE_AFTER
+    return {"sampled_seconds_ago": round(sample_age) if sample_age is not None else None,
+            "written_seconds_ago": round(write_age) if write_age is not None else None,
+            "sample_fresh": sample_age is not None and sample_age < SAMPLE_STALE_AFTER,
+            "writer_fresh": collecting or (write_age is not None and write_age < WRITE_STALE_AFTER),
+            "collecting": collecting}
+
+
 async def dashboard(db, hours: int) -> dict:
     hours = hours if hours in PERIOD_HOURS else 1
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -483,8 +499,7 @@ async def dashboard(db, hours: int) -> dict:
         "client": {**await repo.client_summary(db, since), "dropped": counts("client_dropped")},
         "bot_errors": {"total": sum(r["count"] for r in bot_errors), "top": bot_errors[:10],
                        "recent": await repo.recent_bot_errors(db, since)},
-        "fresh": {"sampled_seconds_ago": round(time.time() - _last_sample_at) if _last_sample_at else None,
-                  "written_seconds_ago": round(time.time() - _last_flush_at) if _last_flush_at else None},
+        "fresh": metrics_freshness(),
     }
 
 
@@ -502,8 +517,8 @@ async def deep_check(timeout: float = DB_HEALTH_TIMEOUT_SEC) -> tuple[int, dict]
     except Exception as exc:
         body["status"] = "down"
         body["database"] = {"ok": False, "error": type(exc).__name__}
-    age = time.time() - _last_sample_at if _last_sample_at else None
-    body["metrics"] = {"sampled_seconds_ago": round(age) if age is not None else None, "fresh": age is not None and age < 10}
+    fresh = metrics_freshness()
+    body["metrics"] = {**fresh, "fresh": fresh["sample_fresh"] and fresh["writer_fresh"]}
     if body["status"] == "ok" and not body["metrics"]["fresh"]:
         body["status"] = "degraded"
     return (200 if body["database"]["ok"] else 503), body

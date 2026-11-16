@@ -19,15 +19,14 @@ section{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}figure{margi
 <section><figure><figcaption id="bcap">До (S11) · 390</figcaption><img id="before" alt="Прежний вид"></figure><figure><figcaption id="acap">После</figcaption><img id="after" alt="Новый вид"></figure></section>
 <script>
 const TABS = {people:'Игроки',player:'Карточка игрока',reports:'Жалобы',journal:'Журнал',metrics:'Метрики',broadcast:'Рассылка',promo:'Промокоды',switches:'Функции',
-  settings:'Настройки',health:'Состояние',diagnostics:'Проблемы приложения',access:'Права',patchnotes:'Патч-ноуты',widgets:'Виджеты',purge:'Чистка',guide:'Справка'};
+  settings:'Настройки',health:'Состояние',diagnostics:'Проблемы приложения',access:'Права',patchnotes:'Патч-ноуты',purge:'Чистка',guide:'Справка'};
 const WIDE = ['reports','journal','metrics','health','broadcast','player','switches','settings'];
 const tab = document.getElementById('tab'), mode = document.getElementById('mode'), width = document.getElementById('width');
 tab.innerHTML = Object.entries(TABS).map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
 function draw() {
   const t = tab.value, w = (mode.value === 'after' && WIDE.includes(t)) ? width.value : '390';
   const b = document.getElementById('before');
-  b.hidden = t === 'widgets'; b.src = t === 'widgets' ? '' : `before-${t}-390.webp`;
-  document.getElementById('bcap').textContent = t === 'widgets' ? 'До: раздела не было в ветке S11' : 'До (S11) · 390';
+  b.src = `before-${t}-390.webp`;
   document.getElementById('after').src = `${mode.value}-${t}-${w}.webp`;
   document.getElementById('acap').textContent = `После · ${mode.value === 'after' ? 'образ' : 'строгая тема'} · ${w}${w !== width.value ? ' (другие ширины — у восьми главных экранов)' : ''}`;
 }

@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 sys.path.insert(0, os.path.dirname(__file__))
 from admin_stand_fixtures import OWNER_ROUTES, ROUTES, PURGE_VIEW  # noqa: E402
 # Снимаемые вкладки: player и purge открываются своими экранами, остальные — как раздел дока.
-ALL_TABS = "people,player,reports,journal,metrics,broadcast,promo,switches,settings,health,diagnostics,access,patchnotes,widgets,purge,guide"
+ALL_TABS = "people,player,reports,journal,metrics,broadcast,promo,switches,settings,health,diagnostics,access,patchnotes,purge,guide"
 
 STATIC = os.path.join(os.path.dirname(__file__), "..", "FastAPI", "static", "bot-admin")
 HOST = "http://stand.local"

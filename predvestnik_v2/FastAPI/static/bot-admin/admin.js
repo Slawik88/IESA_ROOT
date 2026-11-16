@@ -34,7 +34,6 @@ const SECTION_META = {
   access: ['🛡', 'Права', 'Читаем права ролей и вход владельцев'],
   mychats: ['💬', 'Мои чаты', 'Собираем ваши чаты и действия с участниками'],
   patchnotes: ['📣', 'Патч-ноуты', 'Собираем посты обновлений для канала'],
-  widgets: ['🧩', 'Виджеты', 'Собираем пробные виджеты'],
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
 
@@ -161,11 +160,10 @@ const ICONS = {
   mychats: '<path d="M4 5.5h16v10H9l-5 4z"/>',
   access: '<path d="M12 3.5 5 6v5.5c0 4.2 2.8 7.4 7 9 4.2-1.6 7-4.8 7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
   patchnotes: '<path d="M5 4.5h10l4 4v11H5z"/><path d="M14.5 4.5v4h4M8.5 12h7M8.5 15.5h5"/>',
-  widgets: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13v7M13 16.5h7"/>',
   more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
 };
 const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
-const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты', access: 'Права', patchnotes: 'Патч-ноуты', widgets: 'Виджеты'};
+const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты', access: 'Права', patchnotes: 'Патч-ноуты'};
 const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
 
 function dockSplit() {
@@ -2534,7 +2532,7 @@ async function healthView(main) {
 const AUTH_REASONS = {no_header: 'нет данных входа (приложение открыто без Telegram или скрипт Telegram не загрузился)', stale_auth_date: 'вход старше суток (приложение долго висело свёрнутым)',
   bad_hash: 'неверная подпись Telegram', malformed: 'испорченные данные входа', user_missing: 'в данных входа нет игрока',
   bad_session: 'неверная сессия браузера', expired_session: 'сессия браузера истекла', no_bot_token: 'на сервере нет токена бота'};
-const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился скрипт Telegram', boot_timing: 'замеры запуска', guide_miss: 'в Путеводителе не нашлось'};
+const CLIENT_TYPES = {js_error: 'ошибка в коде страницы', unhandled_rejection: 'необработанная ошибка', fetch_fail: 'запрос не удался', sdk_missing: 'не загрузился скрипт Telegram', browser_open: 'открытие в обычном браузере (без ошибки)', boot_timing: 'замеры запуска', guide_miss: 'в Путеводителе не нашлось'};
 const ms = v => v >= 1000 ? `${(v / 1000).toLocaleString('ru-RU', {maximumFractionDigits: 1})} с` : `${num(Math.round(v))} мс`;
 
 async function healthOpsView(box, hours) {
@@ -2555,16 +2553,24 @@ async function healthOpsView(box, hours) {
   const lagBad = o.loop_lag.p95 > 1000, poolBad = o.pool_wait.some(p => p.p95 > 1000);
   const SOURCE_NAMES = {http: 'приложение', bot: 'бот', background: 'фон'};
   const c = o.client, be = o.bot_errors;
-  const clientErrors = c.by_type.filter(t => !['boot_timing', 'guide_miss'].includes(t.type)).reduce((a, t) => a + t.count, 0);
+  const clientErrors = c.by_type.filter(t => !['boot_timing', 'guide_miss', 'browser_open'].includes(t.type)).reduce((a, t) => a + t.count, 0);
+  const fresh = o.fresh || {};
+  const freshnessBad = fresh.sample_fresh === false || fresh.writer_fresh === false;
+  const telegramMethods = [...new Set([...Object.keys(o.telegram_api || {}), ...Object.keys(o.telegram_api_errors || {})])].sort();
   const none = text => `<div class="sub">${text}</div>`;
   const slow = t => `у медленных 5% <b>${ms(t.p95)}</b>${t.p99 != null ? ` · у 1% ${ms(t.p99)}` : ''}`;
   const slowMax = t => `у медленных 5% <b>${ms(t.p95)}</b> · максимум ${ms(t.max)}`;
   // Группа свёрнута: беда видна по короткой пометке в её заголовке.
   const flag = document.getElementById('h-dev-flag');
-  if (flag) { const bad = [o.http_5xx ? 'сбои' : '', lagBad || poolBad ? 'замедления' : ''].filter(Boolean).join(' и '); flag.textContent = bad ? 'Есть ' + bad : ''; }
+  if (flag) {
+    const bad = [o.http_5xx ? 'сбои' : '', lagBad || poolBad ? 'замедления' : '', freshnessBad ? 'задержка сбора цифр' : ''].filter(Boolean);
+    flag.textContent = bad.length ? 'Есть ' + (bad.length > 1 ? bad.slice(0, -1).join(', ') + ' и ' + bad.at(-1) : bad[0]) : '';
+  }
   box.innerHTML = `
     <div class="scope">${Object.entries(period).map(([h, t]) =>
       `<button class="btn small ${+h === o.hours ? 'primary' : ''}" data-hours="${h}">${t}</button>`).join('')}</div>
+    ${freshnessBad ? alertBox('warn', 'Сбор или запись показателей задерживаются. Отсутствие новых ошибок пока не подтверждает исправность.') : ''}
+    <div class="sub" role="status">Последний замер: ${fresh.sampled_seconds_ago == null ? 'ещё нет' : `${ms(fresh.sampled_seconds_ago * 1000)} назад`} · запись: ${fresh.written_seconds_ago == null ? (fresh.collecting ? 'собираем первые 5 минут' : 'ещё нет') : `${ms(fresh.written_seconds_ago * 1000)} назад`}.</div>
     <div class="kpis hero">
       ${kpi('Задержка ответа', ms(o.loop_lag.p95), '<small> у медленных 5%</small>', lagBad ? 'bad' : '')}
       ${kpi('Ожидание базы', ms(Math.max(0, ...o.pool_wait.map(p => p.p95))), '<small> у медленных 5%</small>', poolBad ? 'bad' : '')}
@@ -2574,14 +2580,17 @@ async function healthOpsView(box, hours) {
       <div class="log"><div>Задержка обработки: ${slowMax(o.loop_lag)}</div><div class="sub">Больше секунды подряд — сервер не успевает, игроки видят «зависания».</div></div>
       <div class="log"><div>Соединений с базой занято <b>в среднем ${o.pool_busy.avg}</b> · максимум ${o.pool_busy.max}</div>
         ${(o.pool_held || []).length ? `<div class="sub">Из них в среднем держат: ${(o.pool_held || []).map(h => `${esc(SOURCE_NAMES[h.name] || h.name)} ${h.avg} (до ${h.max})`).join(' · ')}</div>` : ''}</div>
-      ${o.db_server && o.db_server.limit ? `<div class="log"><div>Всего соединений на сервере базы <b>до ${o.db_server.total} из ${o.db_server.limit}</b> · Предвестник до ${o.db_server.ours}</div><div class="sub">Общий лимит с сайтом IESA: когда он кончается, база отказывает всем${o.db_server.refused ? ` · отказов: <b>${num(o.db_server.refused)}</b>` : ''}.</div></div>` : ''}
-      ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${p.name === 'http' ? 'приложение' : 'бот'}): ${slow(p)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
+      ${o.db_server && o.db_server.limit ? `<div class="log"><div>Всего соединений на сервере базы <b>до ${o.db_server.total} из ${o.db_server.limit}</b> · Предвестник до ${o.db_server.ours}</div><div class="sub">Лимит этого сервера: другие приложения и служебные подключения тоже занимают соединения${o.db_server.refused ? ` · отказов: <b>${num(o.db_server.refused)}</b>` : ''}.</div></div>` : ''}
+      ${o.pool_wait.map(p => `<div class="log"><div>Ожидание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}): ${slow(p)}</div><div class="sub">${num(p.count)} раз</div></div>`).join('')}
       ${(o.pool_hold || []).map(p => `<div class="log"><div>Удержание соединения (${esc(SOURCE_NAMES[p.name] || p.name)}): ${slow(p)}</div><div class="sub">${num(p.count)} циклов «взял — сделал запрос — отдал»</div></div>`).join('')}
       ${Object.keys(o.cache_flights || {}).length ? `<div class="sub">Загрузок топов, разделённых с параллельными запросами: ${Object.entries(o.cache_flights).map(([k, v]) => `${k === 'boards' ? 'таблицы' : 'места'} ${num(v)}`).join(' · ')}</div>` : ''}
       ${Object.entries(o.telegram_delivery || {}).map(([name, t]) => `<div class="log"><div>До обработки сообщения (${esc(name)}): ${slowMax(t)}</div><div class="sub">${num(t.count)} сообщений</div></div>`).join('')}
       ${o.telegram_delayed ? `<div class="log">Дольше 10 с до обработки: <b>${num(o.telegram_delayed)}</b></div>` : ''}
       ${o.telegram_receipt_retries ? `<div class="log">Очередь ждала записи в базу: <b>${num(o.telegram_receipt_retries)} повторов</b></div>` : ''}
-      ${Object.entries(o.telegram_api || {}).map(([name, t]) => `<div class="log"><div>Ответ Telegram (${esc(name)}): ${slowMax(t)}</div><div class="sub">${num(t.count)} вызовов · ${num(o.telegram_api_errors?.[name] || 0)} сетевых ошибок</div></div>`).join('')}
+      ${telegramMethods.map(name => {
+        const t = o.telegram_api?.[name];
+        return `<div class="log"><div>Ответ Telegram (${esc(name)})${t ? `: ${slowMax(t)}` : ''}</div><div class="sub">${t ? `${num(t.count)} вызовов · ` : ''}${num(o.telegram_api_errors?.[name] || 0)} сетевых ошибок${name === 'GetUpdates' ? ' · долгое ожидание новых сообщений — обычный режим опроса Telegram, это не время ответа игроку' : ''}</div></div>`;
+      }).join('')}
       ${o.throttle.length ? o.throttle.map(t => `<div class="log"><div>Очередь в Telegram (${esc(t.method)}): у медленных 5% <b>${ms(t.p95)}</b></div><div class="sub">${num(t.count)} вызовов</div></div>`).join('') : ''}`, {fold: true, open: lagBad || poolBad})}
     ${section('h-ops-routes', 'Самые медленные запросы', o.routes.length ? tbl(['Запрос', 'Сколько', 'Обычно', 'Медленные 5%', 'Медленный 1%', 'Отказов / сбоев'],
       o.routes.map(r => [esc(r.route), num(r.count), ms(r.p50), ms(r.p95), ms(r.p99), `${num(r.e4)} / ${r.e5 ? `<b>${num(r.e5)}</b>` : 0}`])) : none('Запросов не было.'), {fold: true, open: false})}

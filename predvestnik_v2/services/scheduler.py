@@ -226,3 +226,18 @@ async def dm_push_task(bot: Bot) -> None:
             logger.warning(f"dm push loop error: {type(exc).__name__}: {exc}")
         tick += 1
         await asyncio.sleep(wait)
+
+
+async def word_chain_task(bot: Bot) -> None:
+    from bot.chat.word_chain import clean_messages
+    from core.word_chain import MAINTENANCE_SECONDS
+    from services.word_chain import expire_idle
+
+    while True:
+        try:
+            async with lazy_db.lazy_connection(get_pool(), source="background") as db:
+                await expire_idle(db)
+                await clean_messages(db, bot)
+        except Exception:
+            logger.exception("Word game maintenance failed; retrying on next pass")
+        await asyncio.sleep(MAINTENANCE_SECONDS)

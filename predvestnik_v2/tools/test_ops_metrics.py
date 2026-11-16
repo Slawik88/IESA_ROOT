@@ -90,7 +90,7 @@ def test_alert_thresholds() -> None:
     assert ops_health.alerts_for(server(10, 6, 22)) == []
     (key, text), = ops_health.alerts_for(server(20, 9, 22))
     assert key == "db_server" and "20 из 22" in text and "Предвестник — 9" in text, text
-    assert "сайт IESA" in text and "Домовой" in text, text      # the other holders are named, not only the site
+    assert "другие приложения" in text and "сайт IESA" not in text, text
     refused = ops_metrics.Window()
     refused.counters[("db_refused", "server_full")] = 1
     assert [k for k, _ in ops_health.alerts_for(refused)] == ["db_server"]
@@ -182,9 +182,41 @@ def test_handler_name() -> None:
     assert "player text" not in trace and "tools/test_ops_metrics.py" in trace
 
 
+def test_metrics_freshness() -> None:
+    from unittest.mock import patch
+
+    with (patch.object(ops_health.time, "time", return_value=10_000),
+          patch.object(ops_health, "_metrics_started_at", 9_999),
+          patch.object(ops_health, "_last_sample_at", 9_999),
+          patch.object(ops_health, "_last_flush_at", 0)):
+        fresh = ops_health.metrics_freshness()
+        assert fresh["collecting"] and fresh["writer_fresh"] and fresh["sample_fresh"]
+        with patch.object(ops_health, "_metrics_started_at", 9_000):
+            assert not ops_health.metrics_freshness()["writer_fresh"]
+        with patch.object(ops_health, "_last_flush_at", 9_999):
+            assert ops_health.metrics_freshness()["written_seconds_ago"] == 1
+        with patch.object(ops_health, "_last_flush_at", 9_000):
+            assert not ops_health.metrics_freshness()["writer_fresh"]
+        with patch.object(ops_health, "_last_sample_at", 9_000):
+            assert not ops_health.metrics_freshness()["sample_fresh"]
+
+
+def test_browser_launch_is_not_error() -> None:
+    import time
+
+    event = ops_health._client_event({"type": "sdk_missing", "message": "browser"}, {}, time.time())
+    assert event["type"] == "browser_open"
+    telegram = ops_health._client_event({"type": "sdk_missing", "message": "opened in Telegram"}, {}, time.time())
+    assert telegram["type"] == "sdk_missing"
+    window = ops_metrics.Window()
+    window.counters[("client", "browser_open")] = ops_health.CLIENT_ERRORS_MIN
+    assert ops_health.alerts_for(window) == []
+
+
 def main() -> None:
     for test in (test_percentiles, test_windows_merge_and_restore, test_overflow_is_bounded, test_alert_thresholds,
-                 test_trim, test_scrub_and_paths, test_client_events_validation_and_limits, test_handler_name):
+                 test_trim, test_scrub_and_paths, test_client_events_validation_and_limits, test_handler_name,
+                 test_metrics_freshness, test_browser_launch_is_not_error):
         test()
     print("OK: ops metrics aggregator, alerts and client telemetry limits")
 

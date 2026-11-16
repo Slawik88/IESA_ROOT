@@ -332,7 +332,7 @@ def home_screen(username: str, miniapp_url: str = "") -> Screen:
     rows = [[_url("➕ Добавить бота в чат", cs.add_url(username))],
             [_btn("❔ Как подключить", "add"), _btn("⚙️ Мой чат", "my")],
             [_btn("🎮 Я просто играю", "play"), _btn("📖 Что умеет бот", "guide")],
-            [_btn("🎛 Мой день: табло", "hub")],
+            [_btn("📋 Мой план дня", "hub")],
             _site_btn(miniapp_url), _guide_btn(miniapp_url)]
     return text, _kb(*rows)
 
@@ -814,9 +814,10 @@ async def on_onboarding(call: CallbackQuery, callback_data: OnbCB, bot: Bot, db)
     elif a == "my":
         await _edit(call, my_screen(await cs.my_chats(db, user_id, bot=bot), username))
     elif a == "hub":
-        from bot.chat import widgets as widgets_chat
+        from bot.chat.notify import plan_view
         await cs.log_event(db, 0, user_id, "hub")
-        await widgets_chat.open_widget(call.message, bot, db, user_id, "hub", "day")
+        text, kb = await plan_view(db, user_id)
+        await call.message.answer(text, parse_mode="HTML", reply_markup=kb)
         await call.answer()
     elif a == "guide" and not chat_id:
         await cs.log_event(db, 0, user_id, "guide")

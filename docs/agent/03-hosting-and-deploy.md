@@ -13,9 +13,21 @@
   Это бесплатный адрес sslip.io, связанный с IP сервера; при смене IP меняется адрес.
   HTTPS — Let's Encrypt, автоматическое продление через `certbot.timer`.
 - Службы `predvestnik.service`, `domovoy.service`; общий Python
-  `/opt/iesa/venv311/bin/python`, выпуск
-  `/opt/iesa/releases/3a8fd4f8ec145f98c204142f14ec91375d1eb04e`.
+  `/opt/iesa/venv311/bin/python`. Точный текущий выпуск Предвестника —
+  `systemctl show predvestnik -p WorkingDirectory -p Environment`: каталог
+  `/opt/iesa/releases/<SOURCE_COMMIT>/predvestnik_v2` (отдельная выкладка после проверок),
+  Домовой — `/opt/iesa/releases/3a8fd4f8ec145f98c204142f14ec91375d1eb04e`.
   Автоматического деплоя из GitHub на Droplet пока нет.
+- Служба Предвестника получает `SOURCE_COMMIT` проверенного выпуска через unit:
+  версия видна в админке «Состояние». «Здоровье» отдельно проверяет свежесть
+  замеров и записи метрик; просроченная запись даёт `degraded` в deep health.
+- Telegram хранит два независимых адреса запуска: меню чата (`setChatMenuButton`,
+  обновляется ботом из `MINIAPP_URL`) и «Открыть приложение» в профиле
+  (BotFather → карточка бота → Mini Apps → Main App → поле URL → Save).
+  При смене hostname нужно обновить оба на HTTPS-адрес Предвестника выше.
+  Проверка меню через Bot API не доказывает исправность кнопки профиля:
+  её проверяют отдельным новым запуском. На 2026-11-14 оба адреса обновлены;
+  сохранение Main App проверено повторным открытием настройки в BotFather.
 - Production-переменные: `/etc/iesa/predvestnik.env`, `/etc/iesa/domovoy.env`,
   права `0600`. Базы `predvestnik` и `domovoy` на `127.0.0.1:5432`, отдельные роли.
   Старые DSN не используются как резервное подключение.

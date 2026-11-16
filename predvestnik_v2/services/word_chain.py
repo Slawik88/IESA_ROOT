@@ -99,7 +99,7 @@ async def play(db, *, chat_id: int, topic_id: int, actor: int, message_id: int, 
             return {**previous,"replayed":True}
         row = await _current(db,chat_id,topic_id)
         if not row:
-            raise WordChainError("Партии нет или сутки никто не играл. Начни новую: «бот слова».")
+            raise WordChainError("Партии нет или 15 минут не было ходов. Начать: «бот слова».")
         if ((expected_round is not None and int(row["id"]) != expected_round)
                 or (expected_turn is not None and int(row["turns"]) != expected_turn)):
             raise WordChainError("Кто-то уже продолжил цепочку. Попробуй слово на новую букву ниже.")
@@ -145,6 +145,19 @@ async def solo_turn_open(db, *, chat_id: int, topic_id: int) -> bool:
     _scope(chat_id, topic_id)
     await repo.ensure_tables(db)
     return await repo.recently_active(db, chat_id, topic_id, rules.SOLO_PLAIN_MINUTES)
+
+
+async def expire_idle(db) -> None:
+    await repo.ensure_tables(db)
+    for chat_id, topic_id in await repo.idle_scopes(db):
+        async with db.connection.transaction():
+            await repo.lock(db, chat_id, topic_id)
+            await _current(db, chat_id, topic_id)
+
+
+async def remember_message(db, *, chat_id: int, topic_id: int, message_id: int) -> None:
+    await repo.ensure_tables(db)
+    await repo.remember_message(db, chat_id, topic_id, message_id)
 
 
 async def stop(db, *, chat_id: int, topic_id: int, actor: int, can_moderate: bool) -> dict:

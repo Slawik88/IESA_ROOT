@@ -10,7 +10,6 @@ SECTIONS = [
     {"key": "people", "title": "Игроки и чаты"}, {"key": "reports", "title": "Жалобы"}, {"key": "metrics", "title": "Метрики"},
     {"key": "journal", "title": "Журнал"}, {"key": "broadcast", "title": "Рассылка"}, {"key": "promo", "title": "Промокоды"},
     {"key": "switches", "title": "Функции"}, {"key": "settings", "title": "Настройки"}, {"key": "health", "title": "Состояние"},
-    {"key": "access", "title": "Права"}, {"key": "widgets", "title": "Виджеты"},
 ]
 ME = {"user_id": 5000, "rank": 6, "rank_name": "Владелец", "sections": SECTIONS, "creator": True,
       "ranks": ["🌱 Младший хелпер", "💬 Хелпер", "🎓 Старший хелпер", "🛠 Разработчик", "👑 Владелец"]}
@@ -60,8 +59,12 @@ def _timing(p50, p95, p99, peak, count):
 HEALTH_OPS = {
     "hours": 24,
     "loop_lag": _timing(5, 1500, 3000, 4210.5, 86400),
-    "pool_wait": [{"name": "bot", **_timing(1, 20, 100, 340, 51234)}, {"name": "http", **_timing(2, 1500, 5000, 9100, 123456)}],
+    "pool_wait": [{"name": "bot", **_timing(1, 20, 100, 340, 51234)}, {"name": "http", **_timing(2, 1500, 5000, 9100, 123456)},
+                  {"name": "background", **_timing(1, 2, 5, 10, 100000)}],
     "pool_busy": {"avg": 6.4, "max": 10},
+    "db_server": {"total": 10, "ours": 8, "limit": 37, "refused": 0},
+    "telegram_api": {"GetUpdates": _timing(10000, 20000, 20000, 20001, 1000)},
+    "telegram_api_errors": {"GetUpdates": 2, "GetChatMember": 1, "GetStarTransactions": 1},
     "throttle": [{"method": "SendMessage", **_timing(1, 1000, 2000, 4100, 9876)}, {"method": "EditMessageText", **_timing(1, 5, 50, 300, 1234)}],
     "routes": [{"route": "GET /public-profile-v3/u/{user_id}/very-long-route-name-for-wrap", **_timing(50, 3000, 10000, 15000, 4321), "e4": 12, "e5": 3},
                {"route": "GET /profile/me", **_timing(20, 300, 750, 2100, 98765), "e4": 456, "e5": 0},
@@ -70,7 +73,8 @@ HEALTH_OPS = {
     "auth_401": [{"reason": "stale_auth_date", "count": 321}, {"reason": "no_header", "count": 45}, {"reason": "bad_hash", "count": 2}],
     "client": {
         "by_type": [{"type": "fetch_fail", "count": 210, "sessions": 80}, {"type": "js_error", "count": 34, "sessions": 20},
-                    {"type": "sdk_missing", "count": 7, "sessions": 7}, {"type": "boot_timing", "count": 900, "sessions": 900}],
+                    {"type": "sdk_missing", "count": 7, "sessions": 7}, {"type": "boot_timing", "count": 900, "sessions": 900},
+                    {"type": "browser_open", "count": 14, "sessions": 14}],
         "by_version": [{"version": "af92e459d5a9cb7bab10", "count": 200}, {"version": "0c1d2e3f4a5b6c7d8e9f", "count": 51}],
         "top": [{"type": "fetch_fail", "message": "", "path": "/profile/me", "status": 401, "count": 150, "sessions": 60, "last_at": "2026-10-12T09:00:00+00:00"},
                 {"type": "js_error", "message": "TypeError: Cannot read properties of undefined (reading 'skin_scene_very_long_property_name')",
@@ -82,7 +86,7 @@ HEALTH_OPS = {
                                         {"handler": "bot.chat.payments:cmd_start", "exc": "KeyError", "count": 3}],
                    "recent": [{"at": "2026-10-12T09:00:00+00:00", "handler": "bot.chat.warps:handle_warp_command_with_long_name", "update_type": "message",
                                "exc_type": "TelegramBadRequest", "trace": "bot/chat/warps.py:210 send_warp ← bot/chat/warps.py:120 handle_warp_command_with_long_name"}]},
-    "fresh": {"sampled_seconds_ago": 1, "written_seconds_ago": 120},
+    "fresh": {"sampled_seconds_ago": 1, "written_seconds_ago": 900, "sample_fresh": True, "writer_fresh": False, "collecting": False},
 }
 
 _LONG = "Очень длинное название чата для проверки переноса строк"
@@ -332,12 +336,6 @@ MATRIX = {"floor": 2, "ceiling": 5, "roles": _ROLES, "items": [
     {"key": "action:ban", "group": "moderation", "title": "⛔ Бан в чате с очень длинным названием права " + "x" * 30, "default": 4, "current": 4, "changed": False},
     {"key": "action:warn", "group": "moderation", "title": "⚠️ Варн в чате", "default": 3, "current": 2, "changed": True}]}
 ROUTES["/access/matrix"] = MATRIX
-ROUTES["/widgets"] = {"items": [
-    {"key": "ping", "icon": "📡", "title": "Проверка связи", "hint": "Тема, отклик бота, вибрация, копирование", "size": 2000},
-    {"key": "ttt", "icon": "❌", "title": "Крестики-нолики", "hint": "Партия с ботом прямо в сообщении", "size": 2500},
-], "off": False, "limit": 4096}
-ROUTES["/widgets/send"] = {"ok": True, "message": "Отправлено вам в личку."}
-
 # S11b: «Проблемы приложения» и «Патч-ноуты» тоже снимаются стендом (раньше их ответа не было, раздел падал в ошибку).
 ROUTES["/diagnostics"] = {"page": 0, "total": 2, "counts": {"new": 1, "investigating": 1, "resolved": 0},
                           "monitor": {"totals": {"requests": 1234, "errors_5xx": 3, "auth_401": 12, "slow": 4, "avatar_miss": 1}},

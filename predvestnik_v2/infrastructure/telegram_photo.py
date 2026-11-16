@@ -74,9 +74,16 @@ async def current_photo(user_id: int) -> PhotoRef | None:
     result = await _bot_api("getUserProfilePhotos", {"user_id": int(user_id), "limit": 1})
     photos = result.get("photos") or []
     size = _pick_size(photos[0]) if photos else None
-    if not size or not size.get("file_id") or not size.get("file_unique_id") or (size.get("file_size") or 0) > MAX_BYTES:
-        return None
-    return PhotoRef(version=str(size["file_unique_id"]), file_id=str(size["file_id"]))
+    if size and size.get("file_id") and size.get("file_unique_id") and (size.get("file_size") or 0) <= MAX_BYTES:
+        return PhotoRef(version=str(size["file_unique_id"]), file_id=str(size["file_id"]))
+    # Telegram can expose a private chat's photo even when the profile-photo list is empty.
+    chat = await _bot_api("getChat", {"chat_id": int(user_id)})
+    photo = chat.get("photo") or {}
+    for prefix in ("small", "big"):
+        file_id, version = photo.get(f"{prefix}_file_id"), photo.get(f"{prefix}_file_unique_id")
+        if file_id and version:
+            return PhotoRef(version=str(version), file_id=str(file_id))
+    return None
 
 
 async def download_file(file_id: str) -> bytes:

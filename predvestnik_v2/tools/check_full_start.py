@@ -53,7 +53,7 @@ runpy.run_module("bot", run_name="__main__", alter_sys=True)
 """
 
 
-def serve(port: int, backlog: int, boot_fault: bool = False, widget_backlog: int = 0) -> None:
+def serve(port: int, backlog: int, boot_fault: bool = False) -> None:
     """Minimal Telegram Bot API: enough for both bots to start, poll and answer; counts calls per bot."""
     from aiohttp import web
 
@@ -64,12 +64,6 @@ def serve(port: int, backlog: int, boot_fault: bool = False, widget_backlog: int
         "message_id": 100 + i, "date": int(time.time()), "chat": {"id": CHAT, "type": "supergroup", "title": "Test chat"},
         "from": {"id": 7_000_000 + i % 500, "is_bot": False, "first_name": f"U{i % 500}", "username": f"user{i % 500}"},
         "text": ["привет", "баланс", "топ", "я", "бот помощь"][i % 5]}} for i in range(backlog)]
-    updates.extend({"update_id": first_update + backlog + i, "widget_query": {
-        "id": f"boot-widget-{i}", "from": {"id": 1, "is_bot": False, "first_name": "Creator"},
-        "chat": {"id": 1, "type": "private"}, "message_id": 50 + i,
-        "type": {"type": "data"}, "data": "ttt:m:0:---------"}} for i in range(widget_backlog))
-    widget_answers: set[str] = set()
-    widget_boards: set[str] = set()
     sent = [5000]
 
     def message(chat_id: int, text: str) -> dict:
@@ -113,21 +107,12 @@ def serve(port: int, backlog: int, boot_fault: bool = False, widget_backlog: int
             result = 10
         elif method == "getStarTransactions":
             result = {"transactions": []}
-        elif method == "answerWidgetQuery":
-            query_id = str(form.get("widget_query_id") or "")
-            widget_answers.add(query_id)
-            data = json.loads(str(form.get("data") or "{}"))
-            board = data.get("b") if isinstance(data, dict) else None
-            if isinstance(board, str) and len(board) == 9 and board[0] == "x" and board.count("o") == 1:
-                widget_boards.add(query_id)
-            result = True
         else:
             result = True
         return web.json_response({"ok": True, "result": result})
 
     async def stats(_request: web.Request) -> web.Response:
-        return web.json_response({"calls": dict(calls), "pending_updates": len(updates),
-                                  "widget_answers": len(widget_answers), "widget_boards": len(widget_boards)})
+        return web.json_response({"calls": dict(calls), "pending_updates": len(updates)})
 
     app = web.Application(client_max_size=64 * 1024 * 1024)
     app.router.add_get("/_stats", stats)
@@ -158,7 +143,6 @@ def main() -> int:
     parser.add_argument("--domovoy-dsn", default="", help="loopback PostgreSQL for Domovoy (default: sqlite file)")
     parser.add_argument("--seconds", type=int, default=90)
     parser.add_argument("--backlog", type=int, default=0, help="updates waiting in the fake Telegram at start")
-    parser.add_argument("--widget-backlog", type=int, default=0, help="creator widget requests added after ordinary updates")
     parser.add_argument("--max-rss-mib", type=int, default=0, help="fail when both bots together hold more (0: only report)")
     parser.add_argument("--health-timeout", type=int, default=60, help="seconds until /api/health must answer")
     parser.add_argument("--no-domovoy", action="store_true")
@@ -167,7 +151,7 @@ def main() -> int:
     parser.add_argument("--serve", nargs=2, metavar=("PORT", "BACKLOG"), help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.serve:
-        serve(int(args.serve[0]), int(args.serve[1]), args.telegram_boot_fault, args.widget_backlog)
+        serve(int(args.serve[0]), int(args.serve[1]), args.telegram_boot_fault)
         return 0
     for dsn in (args.dsn, args.domovoy_dsn):
         if dsn and urlparse(dsn).hostname not in {"127.0.0.1", "localhost", "::1"}:
@@ -196,7 +180,6 @@ def main() -> int:
         procs[name] = subprocess.Popen(argv, cwd=cwd, env=env, stdout=logs[name].open("wb"), stderr=subprocess.STDOUT)
 
     telegram_args = [sys.executable, __file__, "--serve", str(tg_port), str(args.backlog)]
-    telegram_args.extend(["--widget-backlog", str(args.widget_backlog)])
     if args.telegram_boot_fault:
         telegram_args.append("--telegram-boot-fault")
     start("fake_telegram", telegram_args, ROOT, base)
@@ -249,12 +232,8 @@ def main() -> int:
             problems.append(f"{label} is not polling")
     if args.telegram_boot_fault and (calls.get("pv:deleteWebhook", 0) < 2 or not calls.get("pv:setMyCommands")):
         problems.append("the startup fault sequence was not exercised")
-    if (args.backlog or args.widget_backlog) and stats["pending_updates"] != 0:
+    if args.backlog and stats["pending_updates"] != 0:
         problems.append(f"{stats['pending_updates']} waiting updates were not taken")
-    if args.widget_backlog and stats.get("widget_answers", 0) != args.widget_backlog:
-        problems.append(f"{stats.get('widget_answers', 0)} of {args.widget_backlog} widgets were answered")
-    if args.widget_backlog and stats.get("widget_boards", 0) != args.widget_backlog:
-        problems.append(f"{stats.get('widget_boards', 0)} of {args.widget_backlog} widgets returned a played board")
     if args.max_rss_mib and any(peak[label] == 0 for label in ("predvestnik", "domovoy") if label in procs):
         problems.append("memory measurement unavailable for a bot")
     if args.max_rss_mib and total_mib > args.max_rss_mib:
@@ -267,8 +246,7 @@ def main() -> int:
     print(json.dumps({"aiogram": version, "python": sys.version.split()[0], "first_health_s": first_health,
                       "peak_mib": {k: v // 2**20 for k, v in peak.items()}, "peak_total_mib": total_mib,
                       "calls": {k: v for k, v in sorted(calls.items()) if k.endswith(("getUpdates", "getMe", "deleteWebhook", "setMyCommands"))},
-                      "pending_updates": stats["pending_updates"], "widget_answers": stats.get("widget_answers", 0),
-                      "widget_boards": stats.get("widget_boards", 0),
+                      "pending_updates": stats["pending_updates"],
                       "problems": problems, "logs": str(out_dir)}, ensure_ascii=False))
     return 1 if problems else 0
 

@@ -230,14 +230,13 @@ async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot
     if message.chat.type != "private":   # Telegram шлёт /start в группу после «добавить бота в группу»: ведём по настройке чата
         from bot.chat import onboarding
         return await onboarding.group_start(message, bot, db)
+    if command.args == "plan":
+        from bot.chat.notify import slash_plan
+        return await slash_plan(message, db)
     if command.args == "buyzarniki":
         return await _send_packages_menu(message)
-    if command.args and command.args.startswith("w-"):
-        from bot.chat import widgets as widgets_chat
-        if await widgets_chat.from_start(message, bot, db, command.args):
-            return
     if command.args and command.args[0] == "m":
-        # Mafia deep links from the group lobby: «mrules», «mr» (ready), «mj<lobby id>» (join).
+        # Mafia deep links from the group lobby: rules, ready or join.
         from bot.chat.mafia import handle_start_payload
         if await handle_start_payload(message, command.args, db, bot):
             return

@@ -27,6 +27,7 @@ def message(*, actor=101, chat=-100, topic=7, text="слон", mid=50, reply=Tru
     return Message.model_validate(data)
 
 
+@patch.object(ui,"remember_reply",AsyncMock())
 @patch.object(ui.feature_switches,"disabled",AsyncMock(return_value=None))
 async def run():
     for value in ("наркотик", "наркотики", "работаю", "красивые", "интернет-магазин", "по-русски"):
@@ -57,7 +58,7 @@ async def run():
         assert await ui.on_reply(object(),BOT,message())
         assert isinstance(reply.call_args.kwargs["reply_markup"],ForceReply)
         assert reply.call_args.kwargs["reply_markup"].selective
-        assert "бот слово" in reply.call_args.args[0]
+        assert reply.call_args.args[0] == "🔤 <b>нос</b>\nТебе на <b>С</b>."
     with patch.object(ui.game,"play",AsyncMock(side_effect=ui.game.WordChainError("Нужно одно существительное"))), patch.object(ui.game,"spelling_help",AsyncMock(return_value={**STATE,"candidates":[]})), patch.object(Message,"reply",AsyncMock()) as reply:
         assert await ui.on_reply(object(),BOT,message(text="два слова"))
         assert "Нужно одно" in reply.call_args.args[0]
@@ -94,7 +95,7 @@ async def run():
     with patch.object(ui.global_moderation,"is_blocked",AsyncMock(return_value=False)), patch.object(ui.game,"play",AsyncMock(return_value=RESULT)) as play, patch.object(CallbackQuery,"answer",AsyncMock()), patch.object(Message,"answer",AsyncMock()):
         await ui.confirm_spelling(query,ordinary_fix,BOT,object())
         assert play.call_args.kwargs["topic_id"] == 0, "ordinary reply chains must share callback scope zero"
-    assert len({ui.prompt({**RESULT,"turns":i}) for i in range(1,7)})>1
+    assert all(len(ui.prompt({**RESULT,"turns":i}).splitlines()) == 2 for i in range(1,20))
     print("PASS: automatic addressed replies, ordinary-chat isolation, invalid-input recovery, spelling, signed corrections, stale-user/topic/tampering guards, retry, feature gate and callback64-byte limit")
 
 

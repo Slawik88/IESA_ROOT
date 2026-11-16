@@ -139,7 +139,7 @@ for relative in ("bot/chat/word_chain.py", "services/word_chain.py", "bot/chat/i
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"[А-Яа-яЁё]", node.value):
             assert_plain(relative, node.value)
 word_copy = json.dumps(topics["words"], ensure_ascii=False)
-for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS, word_chain.SOLO_PLAIN_MINUTES):
+for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS, word_chain.SOLO_PLAIN_MINUTES, word_chain.IDLE_MINUTES, word_chain.BOT_MESSAGES_KEPT):
     assert str(value) in word_copy, f"words: число {value} расходится с правилами"
 from core import dm_push as dm_push_rules, dm_tickets
 support_copy = json.dumps(topics["support"], ensure_ascii=False)
@@ -313,11 +313,6 @@ for name in ("rhythm-v2.html", "minesweeper-v2.html", "rhythm-v2.js", "minesweep
              "league-result.js", "league-pass.js", "league-mines.js", "league-demo.js", "app.47.js", "app.57.js", "app.04.js", "game-board-v3.js", "game-shell-v3.js", "game-shell-v3.html"):
     for line in ui_strings(name):
         assert_plain(name, line)
-# Виджеты в личке (S30b): шаблоны и тексты, которые бот кладёт в пульт и Сапёр
-for path in [*sorted((ROOT / "core" / "widgets" / "html").glob("*.html")), ROOT / "services" / "widgets" / "hub.py",
-             ROOT / "services" / "widgets" / "mines.py", ROOT / "services" / "widgets" / "track.py", ROOT / "bot" / "chat" / "widgets.py"]:
-    for line in re.findall(r'"([^"\n]*[А-Яа-яЁё][^"\n]*)"', path.read_text(encoding="utf-8")):
-        assert_plain(path.name, line)
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # league-help.js: числа в карточках «Как копить опыт» и «Как играть» = числа в коде

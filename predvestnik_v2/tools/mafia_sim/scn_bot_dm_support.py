@@ -23,7 +23,7 @@ async def set_rank(user, rank: int) -> None:
 # ── words: one player against the bot, in the DM ────────────────────────────
 
 def next_letter(text: str) -> str:
-    found = re.search(r"Теперь тебе на (\S)", text)
+    found = re.search(r"Тебе на (\S)", text)
     ok(found, f"the prompt names the next letter: {text[:200]!r}")
     return found.group(1).lower()
 
@@ -51,18 +51,18 @@ async def dm_words_one_player_against_the_bot(h: Harness) -> None:
     user = await player(h, "Игрок слов", write=False)
     start = await say(h, user, user.id, "слова")
     text = said(start)
-    ok("Просто напиши слово" in text and "бот слово, СЛОВО" not in text, f"in the DM the move is just a word: {text[:240]!r}")
+    ok("Напиши слово" in text and "бот слово, СЛОВО" not in text, f"in the DM the move is just a word: {text[:240]!r}")
     letter, used = next_letter(text), set()
     first = word_for(letter, used)
     reply = said(await say(h, user, user.id, first))                 # a plain word, no command
-    ok("Твоё" in reply and first in reply, f"a plain word is a move: {reply[:200]!r}")
+    ok("Тебе на" in reply and len(reply.splitlines()) == 2, f"a plain word is a move: {reply[:200]!r}")
     letter = next_letter(reply)
     used |= {first}
     await let_time_pass(user)
-    prompt = last_message(h, user.id, "Теперь тебе на")
+    prompt = last_message(h, user.id, "Тебе на")
     second = word_for(letter, used)
     reply = said(await say(h, user, user.id, second, reply_to=prompt))   # an answer to the bot's message works too
-    ok("Твоё" in reply and second in reply, f"a reply to the game message is a move: {reply[:200]!r}")
+    ok("Тебе на" in reply and len(reply.splitlines()) == 2, f"a reply to the game message is a move: {reply[:200]!r}")
     letter = next_letter(reply)
     used |= {second}
     await let_time_pass(user)
@@ -76,13 +76,25 @@ async def dm_words_one_player_against_the_bot(h: Harness) -> None:
     help_text = said(await say(h, user, user.id, "бот слова правила"))
     ok("Слова один на один" in help_text and "<code>" not in help_text, f"the DM has its own help: {help_text[:120]!r}")
     score = said(await say(h, user, user.id, "бот слова счёт"))
-    ok("Счёт этой партии" in score and "Игрок слов" in score, f"the score shows the one player: {score[:200]!r}")
-    await let_time_pass(user, round_age_minutes=11)
-    stale = said(await say(h, user, user.id, word_for(letter, used)))
-    ok("Твоё" not in stale and "Сейчас нужно слово" not in stale, f"after 10 minutes of silence a bare word is only a word: {stale[:120]!r}")
-    prompt = last_message(h, user.id, "Теперь тебе на")
-    reply = said(await say(h, user, user.id, word_for(letter, used), reply_to=prompt))
-    ok("Твоё" in reply, f"but an answer to the game message still works within the day: {reply[:120]!r}")
+    ok("Счёт" in score and "Игрок слов" in score, f"the score shows the one player: {score[:200]!r}")
+    await let_time_pass(user, round_age_minutes=12)
+    resumed = said(await say(h, user, user.id, word_for(letter, used)))
+    ok("Тебе на" in resumed, f"a bare word still works after twelve minutes: {resumed[:120]!r}")
+    # Every response, including rules/errors/score, shares the same seven-message budget.
+    for _ in range(8):
+        await say(h, user, user.id, "бот слова подсказка")
+    live = [m for m in h.world.live(user.id) if m.text.startswith("🔤")]
+    ok(len(live) == 7, f"only the latest seven bot game messages remain: {len(live)}")
+    from services import word_chain
+    await let_time_pass(user, round_age_minutes=16)
+    async with database() as db:
+        await word_chain.expire_idle(db)
+        state = await word_chain.status(db, chat_id=user.id, topic_id=0)
+    ok(not state["active"], "a silent game is closed without a player message")
+    prompt = last_message(h, user.id, "Тебе на")
+    ended = said(await say(h, user, user.id, "арбуз", reply_to=prompt))
+    ok("15 минут" in ended, f"replying to an old game explains expiry: {ended[:160]!r}")
+    await say(h, user, user.id, "слова")
     stop = said(await say(h, user, user.id, "бот слова стоп"))
     ok("Партия завершена" in stop, f"the player ends his own game: {stop[:120]!r}")
     after = said(await say(h, user, user.id, "арбуз"))

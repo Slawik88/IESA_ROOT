@@ -11,13 +11,15 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import time
 from urllib.parse import quote, urlparse
 
 
 def _assert_loopback(dsn: str) -> None:
-    if urlparse(dsn).hostname not in {"127.0.0.1", "localhost", "::1"}:
-        raise SystemExit("this test writes and deletes rows: loopback databases only")
+    parsed = urlparse(dsn)
+    if parsed.hostname not in {"127.0.0.1", "localhost", "::1"} or not re.search(r"(?:^|[_-])(?:test|preprod)(?:[_-]|$)", parsed.path.lstrip("/")):
+        raise SystemExit("this test writes and deletes rows: use a separately named loopback test/preprod database")
 
 
 def _init_data(user: dict | None, *, auth_date: int | None = None, good_hash: bool = True, with_hash: bool = True) -> str:
@@ -159,6 +161,10 @@ async def main(dsn: str) -> None:
         stored_errors = await conn.fetch("SELECT handler, exc_type, trace FROM bot_handler_errors")
         assert len(stored_errors) == 1 and "text a player typed" not in stored_errors[0]["trace"]
 
+        # Preserve historical rows while distinguishing a normal browser from a broken Telegram SDK.
+        await conn.execute("INSERT INTO client_telemetry_events (sid,type,message,version) VALUES ('legacy01','sdk_missing','browser','legacy-browser'), ('legacy02','browser_open','browser','legacy-browser')")
+        rows = await conn.fetch("SELECT * FROM client_telemetry_events ORDER BY id")
+
         panel_live = await ops_health.dashboard(db, 1)          # before the window is written: live numbers
         window = await ops_health.flush_window(db)
         assert window.counters
@@ -168,12 +174,24 @@ async def main(dsn: str) -> None:
             assert all(reasons.get(reason) == 1 for reason in cases), reasons
             types = {t["type"]: t["count"] for t in view["client"]["by_type"]}
             assert types.get("js_error", 0) >= 1 and types.get("fetch_fail") == 1 and types.get("sdk_missing") == 1, types
+            assert types.get("browser_open") == 2, types
+            assert all(row["version"] != "legacy-browser" for row in view["client"]["by_version"])
+            assert all(row["message"] != "browser" for row in view["client"]["top"])
             assert view["client"]["boot"]["count"] == 1 and view["client"]["boot"]["p50_ms"] == 2400
             assert view["bot_errors"]["total"] == 1 and view["bot_errors"]["top"][0]["exc"] == "ValueError"
             assert any(r["route"] == "GET /profile/me" and r["e4"] == len(cases) for r in view["routes"])
             assert view["client"]["dropped"].get("rate_limited", 0) >= 1
         assert any(r["message"] == "TypeError: boom" and r["path"] == "app.01.js:10:5" and r["screen"] == "/profile" for r in rows)
         assert len(panel["client"]["top"]) <= 10
+
+        from unittest.mock import patch
+        with (patch.object(ops_health, "_last_sample_at", time.time()),
+              patch.object(ops_health, "_last_flush_at", time.time() - 2 * ops_health.WRITE_STALE_AFTER)):
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as health_client:
+                deep = await health_client.get("/api/health/deep")
+            assert deep.status_code == 200 and deep.json()["status"] == "degraded"
+            assert deep.json()["metrics"]["sample_fresh"] is True
+            assert deep.json()["metrics"]["writer_fresh"] is False
 
         # the same 5 minutes written twice (two processes during a deploy) add up instead of failing
         bucket = ops_health._bucket_start(time.time())

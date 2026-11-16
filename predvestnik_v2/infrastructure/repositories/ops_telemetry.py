@@ -151,15 +151,20 @@ async def counter_totals(db, since: datetime) -> list[tuple[str, str, int]]:
 async def client_summary(db, since: datetime, limit: int = 10) -> dict:
     await ensure_tables(db)
     conn = db.connection
+    # Older clients reported every ordinary browser launch as a missing Telegram SDK.
+    # Keep the original rows, but distinguish these expected launches from errors.
+    event_type = "CASE WHEN type = 'sdk_missing' AND message = 'browser' THEN 'browser_open' ELSE type END"
     by_type = await conn.fetch(
-        "SELECT type, COUNT(*) AS n, COUNT(DISTINCT sid) AS sessions FROM client_telemetry_events "
-        "WHERE at >= $1 GROUP BY type ORDER BY n DESC", since)
+        f"SELECT {event_type} AS type, COUNT(*) AS n, COUNT(DISTINCT sid) AS sessions FROM client_telemetry_events "
+        "WHERE at >= $1 GROUP BY 1 ORDER BY n DESC", since)
     by_version = await conn.fetch(
-        "SELECT version, COUNT(*) AS n FROM client_telemetry_events WHERE at >= $1 AND type <> 'boot_timing' "
+        "SELECT version, COUNT(*) AS n FROM client_telemetry_events WHERE at >= $1 AND type NOT IN ('boot_timing', 'browser_open') "
+        "AND NOT (type = 'sdk_missing' AND message = 'browser') "
         "GROUP BY version ORDER BY n DESC LIMIT $2", since, limit)
     top = await conn.fetch(
         "SELECT type, message, path, status, COUNT(*) AS n, COUNT(DISTINCT sid) AS sessions, MAX(at) AS last_at "
-        "FROM client_telemetry_events WHERE at >= $1 AND type <> 'boot_timing' "
+        "FROM client_telemetry_events WHERE at >= $1 AND type NOT IN ('boot_timing', 'browser_open') "
+        "AND NOT (type = 'sdk_missing' AND message = 'browser') "
         "GROUP BY type, message, path, status ORDER BY n DESC LIMIT $2", since, limit)
     boot = await conn.fetchrow(
         "SELECT COUNT(*) AS n, "

@@ -6,9 +6,11 @@ from types import MappingProxyType
 MIN_LENGTH = 2
 MAX_LENGTH = 32
 MAX_TURNS = 500
-IDLE_HOURS = 24
+IDLE_MINUTES = 15
+BOT_MESSAGES_KEPT = 7
+MAINTENANCE_SECONDS = 15
 TURN_COOLDOWN_SECONDS = 3
-SOLO_PLAIN_MINUTES = 10   # в личке слово без команды и без «ответа» считается ходом, если в партии ходили не позже
+SOLO_PLAIN_MINUTES = IDLE_MINUTES
 COMMON_REPLY_WEIGHT = 3
 SKIP_ENDINGS = frozenset("ьъый")
 WORD_RE = re.compile(rf"(?=.{{{MIN_LENGTH},{MAX_LENGTH}}}\Z)[а-яё]+(?:-[а-яё]+)*")

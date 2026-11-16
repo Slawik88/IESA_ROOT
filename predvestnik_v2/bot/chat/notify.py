@@ -16,7 +16,6 @@ from aiogram.filters import Command as SlashCommand
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from loguru import logger
 
-from bot.chat import widgets as widgets_chat
 from bot.chat.framework import Ctx, registry
 from core import dm_push as rules
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
@@ -184,13 +183,11 @@ async def plan_view(db, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
 async def cmd_plan(ctx: Ctx) -> None:
     if ctx.message.chat.type != "private":
         me = await ctx.bot.me()
-        link = widgets_chat.deep_link(me.username, "hub", "day") if me.username else ""
+        link = f"https://t.me/{me.username}?start=plan" if me.username else ""
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🎛 Открыть в личке", url=link)]]) if link else None
         await _need_private(ctx, "План дня показываю", kb)
         return
     await dm_push.confirm_contact(ctx.db, ctx.user_id)
-    if await widgets_chat.show(ctx.bot, ctx.db, ctx.user_id, "hub", "day"):   # живое табло вместо текста, если оно подходит
-        return
     text, kb = await plan_view(ctx.db, ctx.user_id)
     await ctx.reply(text, reply_markup=kb)
 
@@ -313,9 +310,6 @@ async def on_notify_button(call: CallbackQuery, db) -> None:
         elif parts[1] == "pets":
             await _open_pets(call, db)
             return
-        if parts[1] == "plan" and await widgets_chat.show(call.bot, db, uid, "hub", "day"):
-            await call.answer("Табло — ниже 👇")
-            return
         if parts[1] == "plan":
             text, kb = await plan_view(db, uid)
         else:
@@ -377,7 +371,5 @@ async def slash_plan(message: Message, db) -> None:
     if message.from_user is None or await _quiet(message, db):
         return
     await dm_push.confirm_contact(db, message.from_user.id)
-    if await widgets_chat.show(message.bot, db, message.from_user.id, "hub", "day"):
-        return
     text, kb = await plan_view(db, message.from_user.id)
     await message.answer(text, parse_mode="HTML", reply_markup=kb)

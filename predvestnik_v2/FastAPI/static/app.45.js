@@ -18,11 +18,18 @@ function _giftLen(s) { return [...String(s || '')].length; }   // как на с
 function _giftDate(v) { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); }
 
 function _giftsLoad(after) {
+  if (!_isFeatureEnabled('gifts_v2')) {
+    _giftsOn = false; _gifts.me = null; giftsShelfRender(); if (after) after(); return;
+  }
   if (_gifts.loading) return;
+  const flag = _sysFlags.gifts_v2;
   _gifts.loading = true;
-  api('/gifts-v2/me').then(d => { _gifts.me = d; _giftsOn = true; })
-    .catch(e => { if (e === 'Подарки пока закрыты') { _giftsOn = false; _gifts.me = null; } })
-    .finally(() => { _gifts.loading = false; giftsShelfRender(); if (typeof _shopRender === 'function' && _activePage === 'shop') _shopRender(); if (after) after(); });
+  api('/gifts-v2/me').then(d => { if (flag === _sysFlags.gifts_v2) { _gifts.me = d; _giftsOn = true; } })
+    .catch(e => { if (flag === _sysFlags.gifts_v2 && e === 'Подарки пока закрыты') { _giftsOn = false; _gifts.me = null; } })
+    .finally(() => {
+      _gifts.loading = false; giftsShelfRender(); if (typeof _shopRender === 'function' && _activePage === 'shop') _shopRender(); if (after) after();
+      if (flag !== _sysFlags.gifts_v2 && _isFeatureEnabled('gifts_v2')) _giftsLoad();
+    });
 }
 
 // ── Вкладка магазина ────────────────────────────────────────────────────────────────
@@ -131,7 +138,7 @@ function _giftPinned(list) {
 function giftsShelfRender() {
   const host = el('pro-gifts'); if (!host) return;
   const s = _gifts.me?.shelf;
-  host.hidden = !(_giftsOn === true && s);
+  host.hidden = !(_giftsOn === true && s) || !_isFeatureEnabled('gifts_v2');
   if (host.hidden) return;
   const c = s.counts || {};
   const shelves = (s.tiers || []).map(t => `<div class="gift-shelf gt${_giftTier(t.tier)}"><span class="gift-shelf-name">${_profileEsc(t.name)}</span><div class="gift-slots">${(t.slots || []).map(x => x.count > 0

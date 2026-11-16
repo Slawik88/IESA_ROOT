@@ -24,7 +24,8 @@ async def denied(call, needle=""):
     raise AssertionError("expected rejection")
 
 
-async def run(dsn):
+@patch("bot.chat.word_chain.remember_reply", new_callable=AsyncMock)
+async def run(dsn, remember):
     conns = [await asyncpg.connect(dsn) for _ in range(2)]
     for conn in conns:
         await conn.execute("SET search_path TO predvestnik,public")
@@ -102,7 +103,7 @@ async def run(dsn):
                 assert await ui.on_reply(db,BOT,reply_message)
                 assert "Партии нет" in sent.call_args.args[0]
             assert await ui.on_reply(db,BOT,reply_message)
-            assert "Твоё <b>наркотик</b>" in sent.call_args.args[0],sent.call_args.args
+            assert sent.call_args.args[0].startswith("🔤 <b>") and "Тебе на" in sent.call_args.args[0],sent.call_args.args
         assert (await game.status(db,chat_id=cid,topic_id=0))["turns"] == 4
         assert not (await game.status(db,chat_id=cid,topic_id=943))["active"]
         # The explicit command uses the same ordinary-chat round too.
@@ -110,7 +111,7 @@ async def run(dsn):
         explicit=reply_message.model_copy(update={"from_user":reply_message.from_user.model_copy(update={"id":owner}),"message_id":941})
         with patch.object(Message,"reply",AsyncMock()) as sent:
             await ui.word(SimpleNamespace(db=db,bot=BOT,message=explicit,args=next_word))
-            assert "Твоё <b>" in sent.call_args.args[0]
+            assert "Тебе на <b>" in sent.call_args.args[0]
         # Dictionary forms outside the old noun list are real accepted turns.
         for index,value in enumerate(("наркотики","работаю","красивые","интернет-магазин"),950):
             await db.execute("UPDATE word_chain_rounds SET last_word=?,updated_at=CLOCK_TIMESTAMP() WHERE id=?",("а"+value[0],resumed["round_id"]))

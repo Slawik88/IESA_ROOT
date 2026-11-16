@@ -12,6 +12,8 @@ from pathlib import Path
 import sys
 from unittest.mock import AsyncMock, patch
 
+import httpx
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault('BOT_TOKEN', '1:offline-avatar-test')
 os.environ.setdefault('DATABASE_URL', 'postgresql://offline@127.0.0.1:1/offline')
@@ -55,10 +57,98 @@ def reset():
     avatar_photos._failed_at.clear()
 
 
+async def negative_cache_recovers():
+    """A former miss is pending across readers until the shared refresh finishes."""
+    reset()
+    repo = MemoryRepo()
+    now = datetime.now(timezone.utc)
+    repo.rows[9] = (None, None, now - timedelta(minutes=20))
+    repo.rows[10] = (None, None, now)
+    release = asyncio.Event()
+
+    async def found(uid):
+        await release.wait()
+        return telegram_photo.PhotoRef(f'photo-{uid}', f'file-{uid}')
+
+    with patch.object(avatar_photos, 'repo', repo), patch.object(avatar_photos, '_with_db', run_db), \
+         patch.object(telegram_photo, 'current_photo', found), \
+         patch.object(telegram_photo, 'download_file', AsyncMock(return_value=b'jpeg')), \
+         patch.object(telegram_photo, 'shrink', AsyncMock(return_value=WEBP)):
+        pending = await avatar_photos.views(None, {9: 'r' * 16, 10: 's' * 16})
+        assert pending[9].state == 'loading', 'an old negative row must not stop profile/leaderboard hydration'
+        assert pending[10].state == 'absent' and 10 not in avatar_photos._inflight
+        first = avatar_photos._inflight[9]
+        assert (await avatar_photos.view(None, 9, 'r' * 16, vip_active=True)).state == 'loading'
+        assert avatar_photos._inflight[9] is first, 'all readers share the in-flight lookup'
+        with patch.object(avatar_photos.time, 'time', return_value=now.timestamp() + 61):
+            assert (await avatar_photos.view(None, 10, 's' * 16, vip_active=True)).state == 'loading'
+        second = avatar_photos._inflight[10]
+        release.set()
+        await asyncio.gather(first, second)
+        shown = await avatar_photos.views(None, {9: 'r' * 16, 10: 's' * 16})
+        assert all(item.state == 'ready' and item.avatar for item in shown.values())
+        assert repo.saves == 2
+        repo.rows[12] = (None, None, now - timedelta(minutes=2))
+        assert await avatar_photos.image_for_admin(12) == WEBP, 'admin images also wait for recovery of an old miss'
+        # A failed recheck of a miss remains pending, with the existing retry pause.
+        repo.rows[11] = (None, None, now - timedelta(minutes=2))
+        with patch.object(telegram_photo, 'current_photo', AsyncMock(side_effect=telegram_photo.TelegramUnavailable('offline'))):
+            assert (await avatar_photos.view(None, 11, 't' * 16, vip_active=True)).state == 'loading'
+            await avatar_photos._inflight[11]
+            assert (await avatar_photos.view(None, 11, 't' * 16, vip_active=True)).state == 'loading'
+            assert 11 not in avatar_photos._inflight and avatar_photos.refresh(11) is None
+    reset()
+
+
 async def main():
+    await negative_cache_recovers()
     repo = MemoryRepo()
     old = datetime.now(timezone.utc) - timedelta(days=2)
     photo = telegram_photo.PhotoRef(version='uniq-1', file_id='f1')
+    # PV-C18F5C022AE9: an empty profile-photo list can still have a private-chat photo.
+    calls = []
+    state = {'profile': [], 'chat': {'small_file_id': 'chat-small', 'small_file_unique_id': 'chat-unique'}, 'error': None}
+
+    def telegram(request):
+        method = request.url.path.rsplit('/', 1)[-1]
+        calls.append(method)
+        if method == 'getUserProfilePhotos':
+            assert request.url.params['user_id'] == '1'
+            result = {'photos': state['profile']}
+        else:
+            assert method == 'getChat' and request.url.params['chat_id'] == '1'
+            if state['error'] == 'timeout':
+                raise httpx.ReadTimeout('offline', request=request)
+            if state['error']:
+                return httpx.Response(state['error'], json={'ok': False, 'error_code': state['error']})
+            result = {'photo': state['chat']}
+        return httpx.Response(200, json={'ok': True, 'result': result})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(telegram)) as client:
+        with patch.object(telegram_photo, '_client', client):
+            assert await telegram_photo.current_photo(1) == telegram_photo.PhotoRef('chat-unique', 'chat-small')
+            assert calls == ['getUserProfilePhotos', 'getChat']
+            state['profile'] = [[{'file_id': 'profile', 'file_unique_id': 'profile-unique', 'width': 160, 'height': 160}]]
+            calls.clear()
+            assert await telegram_photo.current_photo(1) == telegram_photo.PhotoRef('profile-unique', 'profile')
+            assert calls == ['getUserProfilePhotos'], 'a visible profile photo needs no fallback'
+            state['profile'] = []
+            for chat in ({}, {'small_file_id': 'incomplete', 'big_file_unique_id': 'different-size'}):
+                state['chat'] = chat
+                assert await telegram_photo.current_photo(1) is None, 'never combine identifiers of different sizes'
+            state['chat'] = {'big_file_id': 'chat-big', 'big_file_unique_id': 'big-unique'}
+            assert await telegram_photo.current_photo(1) == telegram_photo.PhotoRef('big-unique', 'chat-big')
+            for error in (429, 503, 'timeout'):
+                reset()
+                state['error'] = error
+                repo.rows[1] = ('saved', WEBP, old)
+                with patch.object(avatar_photos, 'repo', repo), patch.object(avatar_photos, '_with_db', run_db):
+                    await avatar_photos.refresh(1)
+                assert repo.rows[1] == ('saved', WEBP, old) and 1 in avatar_photos._failed_at
+                assert repo.saves == 0, 'a failed fallback must keep the stored photo'
+            state['error'] = 400
+            assert await telegram_photo.current_photo(1) is None, 'an unknown private chat is a final miss'
+    reset()
     with patch.object(avatar_photos, 'repo', repo), patch.object(avatar_photos, '_with_db', run_db), \
          patch.object(telegram_photo, 'shrink', AsyncMock(side_effect=lambda data: WEBP if data else None)):
         # VIP rule first: no lookups at all for a non-VIP.
