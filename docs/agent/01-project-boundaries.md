@@ -1,49 +1,32 @@
 # 01 · Границы проектов
 
-## Три проекта в одном репозитории (production с 2026-11-13)
+## Один проект в этом репозитории (с 2026-11-18)
 
-| | Сайт IESA | Предвестник | Домовой |
-|---|---|---|---|
-| Папка | `IESA_ROOT/`, настройки в `IESA_ROOT/IESA_ROOT/` | `predvestnik_v2/` | `domovoy/` |
-| Стек | Django, шаблоны + HTMX | aiogram + FastAPI, asyncpg | aiogram + закрытый FastAPI-интерфейс |
-| Production | App Platform, компонент `iesa-root`, `iesasport.ch` | Droplet `projects-fra1`, `predvestnik.service` | тот же личный Droplet, `domovoy.service` |
-| Запуск | `Procfile` → `web: cd IESA_ROOT && sh start.sh`, порт 8080 | отдельный systemd-процесс, порт 8000 через nginx | отдельный systemd-процесс, закрытый порт 8011 через gateway |
-| База | Managed PG17, `DATABASE_URL` / `DATABASE_POOL_URL` | локальная PG17, БД `predvestnik`, `DATABASE_URL` | локальная PG17, БД `domovoy`, `DOMOVOY_DATABASE_URL` |
-| Правила | `docs/agent/` | `predvestnik_v2/AGENTS.md` | `domovoy/AGENTS.md` |
+Здесь только **сайт IESA** и его бот **IESA Helper**. Личные проекты вынесены в отдельные
+закрытые репозитории вместе с историей; их код, документы и задачи сюда не возвращаются.
 
-Независимый адрес Предвестника и закрытый вход Домового — в
-[`03-hosting-and-deploy.md`](03-hosting-and-deploy.md). Старый `/predvestnik`
-на доменах IESA — только HTTP-перенаправление, не место работы бота.
+| | Сайт IESA + IESA Helper | Предвестник | Домовой | CKBGL (бокс) |
+|---|---|---|---|---|
+| Репозиторий | **этот** (`Slawik88/IESA_ROOT`) | `Slawik88/predvestnik` | `Slawik88/domovoy` | `Slawik88/ckbgl-site` |
+| Стек | Django, шаблоны + HTMX; бот — webhook Bot API внутри Django | aiogram + FastAPI | aiogram + закрытый FastAPI | статический сайт |
+| Production | App Platform, компонент `iesa-root`, `iesasport.ch` | Droplet `projects-fra1` | Droplet `projects-fra1` | Droplet `projects-fra1` |
+| Правила | `docs/agent/` | `AGENTS.md`, `docs/HOSTING.md` там | `AGENTS.md`, `docs/HOSTING.md` там | `README.md`, `docs/HOSTING.md` там |
 
-## Что общее (осторожно — затрагивает несколько проектов)
+Старый `/predvestnik` на доменах IESA — только HTTP-перенаправление App Platform на новый адрес
+Предвестника, не место работы бота.
 
-- **Репозиторий и ветка `master`** общие. Автодеплой из неё обновляет только сайт IESA.
-  Боты обновляются отдельной выкладкой на Droplet; их переменные и данные не переносить заново.
-- **Корневые `requirements.txt` и `constraints.txt`** общие. Изменение зависимостей проверять
-  для затронутых проектов; уже работающий venv ботов не меняется от одного пуша в GitHub.
-- **`Procfile`** оставлен только для сайта. Старый `scripts/run_bots.sh` — исторический
-  совместный лаунчер, не текущий production и не способ выкладки новых проектов.
-- **`iesaroot-app`** содержит сайт и его managed DB. Неиспользуемые переменные ботов
-  из него удалены. Личные службы используют `/etc/iesa/*.env` на своём сервере.
+## Что относится к сайту
+
+`IESA_ROOT/` целиком: приложения `core`, `users` (включая `users/telegram/` — бот IESA Helper:
+привязка аккаунта, уведомления, команды), `blog`, `gallery`, `products`, `notifications`,
+шаблоны, статика, переводы (`locale/`), настройки (`IESA_ROOT/IESA_ROOT/settings*.py`),
+`docs/audits/` внутри `IESA_ROOT/`. А также корневые `requirements.txt`, `constraints.txt`,
+`Procfile`, этот `docs/agent/`.
+
 - **`app.yaml` в `IESA_ROOT/`** — устаревший черновик, **не** реальная конфигурация DO (имена компонентов
   и пути не совпадают). Истина — панель DigitalOcean.
-
-## Что только сайт
-
-`IESA_ROOT/` целиком: приложения `core`, `users`, `blog`, `gallery`, `products`, `notifications`,
-шаблоны, статика, переводы (`locale/`), настройки (`IESA_ROOT/IESA_ROOT/settings*.py`),
-`docs/audits/` внутри `IESA_ROOT/`. А также: root `requirements.txt` (сайтовая часть), этот `docs/agent/`.
-
-## Что только Предвестник
-
-`predvestnik_v2/` целиком (бот, FastAPI, `infrastructure/`, `services/`, `ai_knowledge/`, его `docs/`,
-`.codex/`). Сайтовые задачи туда не заходят: ни правок, ни «заодно».
-
-## Что только Домовой
-
-`domovoy/` целиком. Общий технический вход через gateway не делает Домового частью
-игры: не добавлять его в UI Предвестника и не раскрывать приватный путь.
-Runtime, БД, права и настройки Домового самостоятельны.
+- Старая managed-БД сайта содержит таблицы сайта и в схеме `predvestnik` (историческое имя):
+  **не удалять** при «чистке» — сайт их использует.
 
 ## Архив / не источник истины
 
@@ -51,11 +34,12 @@ Runtime, БД, права и настройки Домового самосто�
 `DEEP_BUGS_BACKLOG.md`, …), одноразовые скрипты в корне (`fix_*.py`, `diagnose_*.py`, `ui_*.py`),
 `graphify-out/`, `server_output.txt`, `logs/`. Не читать и не править без прямого запроса.
 Исторические адреса, лимиты и выводы в этих файлах не переопределяют текущий документ хостинга.
+В истории git и старых аудитах встречаются `predvestnik_v2/`, `domovoy/`, `scripts/run_bots.sh` —
+это прошлое общего репозитория, сейчас этих путей здесь нет.
 
 ## Как не перепутать
 
-- Путь начинается с `predvestnik_v2/` → Предвестник, `domovoy/` → Домовой, `IESA_ROOT/` → сайт.
-- Сообщение коммита сайта начинай с `fix(auth):`, `feat(site):` и т.п.; Предвестника — `feat(ui):`,
-  `fix(game):`… (так уже заведено в истории: коммиты `feat(ui): …` в основном про Предвестника).
-- Если задача затрагивает общее (`requirements.txt`, `Procfile`, DO-настройки) — скажи пользователю явно,
-  какие действующие службы или сборки это затронет. Общей production-БД у трёх проектов больше нет.
+- Задача про игру, Домового или сайт бокса → работай в их репозитории, не здесь.
+- Сообщение коммита сайта начинай с `fix(auth):`, `feat(site):` и т.п.
+- Если задача затрагивает общее для сборки (`requirements.txt`, `constraints.txt`, `Procfile`, DO-настройки) —
+  скажи пользователю явно: это пересоберёт сайт в App Platform.

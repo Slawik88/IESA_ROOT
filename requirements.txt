@@ -56,17 +56,6 @@ Faker==33.3.0
 # TOTP for member verification system
 pyotp==2.9.0
 
-# Predvestnik bot
-aiogram==3.24.0
-aiosqlite==0.21.0
-loguru==0.7.3
-asyncpg==0.30.0
-pymorphY3==2.0.2
-matplotlib==3.9.4
-av==15.1.0  # видео-карточка скина SSS в чате (bot/chat/skin_motion.py); без него бот шлёт картинку
-fastapi==0.115.12
-uvicorn[standard]==0.34.3
-
 # Translation sync
 polib==1.2.0
 
@@ -78,6 +67,3 @@ oauthlib==4.0.0
 # Sanitize rich-text posts before rendering, including legacy content.
 nh3==0.3.7
 
-# Domovoy money workbook exchange
-openpyxl==3.1.5
-defusedxml==0.7.1

@@ -33,10 +33,6 @@ ENV/
 *.db-wal
 *.db-shm
 
-# Bot runtime files
-predvestnik_v2/.env
-predvestnik_v2/db.sqlite3
-
 # IDE
 .vscode/*
 !.vscode/settings.json
@@ -58,9 +54,6 @@ Thumbs.db
 # Environment
 .env
 .env.local
-predvestnik_v2/.env.test
-predvestnik_v2/.env.test.local
-predvestnik_v2/.local/
 .local/
 
 # Coverage

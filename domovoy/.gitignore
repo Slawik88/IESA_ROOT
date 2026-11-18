@@ -1,9 +1,0 @@
-# Секреты и рантайм-данные «Домового»
-.env
-data/
-media/
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
-__pycache__/

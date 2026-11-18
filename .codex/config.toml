@@ -6,19 +6,12 @@ args = ["@modelcontextprotocol/server-fetch"]
 command = "npx"
 args = [
     "@modelcontextprotocol/server-filesystem",
-    'F:\GitsRepos\IESA_ROOT\predvestnik_v2',
+    'F:\GitsRepos\IESA_ROOT',
 ]
 
 [mcp_servers.github]
 command = "npx"
 args = ["@modelcontextprotocol/server-github"]
-
-[mcp_servers.postgres]
-command = "npx"
-args = [
-    "@modelcontextprotocol/server-postgres",
-    "postgresql://predvestnik_preprod@127.0.0.1:55432/predvestnik_preprod",
-]
 
 [mcp_servers.puppeteer]
 command = "npx"
