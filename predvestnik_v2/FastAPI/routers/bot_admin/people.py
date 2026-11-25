@@ -66,12 +66,16 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
     "message": ("📣 Написать от бота", 5, "chat"),
     "leave": ("🚪 Бот выйдет из чата", 6, "chat"),
     "revoke_sessions": ("🔒 Завершить сессии админки", 6, "player"),
+    "global_unmute": ("🔊 Снять мут во всех чатах", 3, "bulk"),
+    "global_unwarn": ("🧽 Снять предупреждения во всех чатах", 3, "bulk"),
+    "watch": ("👁 Взять игрока на контроль", 2, "bulk"),
+    "unwatch": ("👁 Снять игрока с контроля", 2, "bulk"),
 }
 LINKED_MIN_RANK = 4
 BULK_MAX = 50
-BULK_ACTIONS = {"mark_grant": "player", "mark_revoke": "player", "unwarn_all": "member", "watch": "", "unwatch": "",
-                "unmute_all": "member"}
-BULK_RIGHTS = {"unmute_all": "unmute"}   # массовое действие проверяется правом одиночного
+BULK_ACTIONS = {"mark_grant": "player", "mark_revoke": "player", "unwarn_all": "bulk", "watch": "bulk", "unwatch": "bulk",
+                "unmute_all": "bulk"}
+BULK_RIGHTS = {"unmute_all": "global_unmute", "unwarn_all": "global_unwarn"}
 BALANCE_CURRENCIES = {"mora": ("🪙 Мора", 0), "diamonds": ("💎 Алмазы", 2), "essence": ("🔮 Эссенция", 0), "zarniki": ("✨ Зарники", 0)}
 CREATOR_ONLY_CURRENCIES = ("zarniki",)   # платная валюта: менять баланс может только создатель
 
@@ -274,8 +278,9 @@ async def remove_player_note(uid: int, nid: int, user=Depends(_user), db=Depends
 
 @router.post("/player/{uid}/watch")
 async def player_watch(uid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
-    await _known_user(db, uid)
     on = bool(data.get("on"))
+    _check(user, "watch" if on else "unwatch", "bulk")
+    await _known_user(db, uid)
     reason = _reason(data)
     if on:
         if await staff_watch.add(db, uid, user["id"], reason):
@@ -301,8 +306,7 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
     action = str(data.get("action") or "")
     if action not in BULK_ACTIONS:
         raise HTTPException(400, "Это действие для нескольких игроков недоступно.")
-    if BULK_ACTIONS[action]:
-        _check(user, BULK_RIGHTS.get(action, action), BULK_ACTIONS[action])
+    _check(user, BULK_RIGHTS.get(action, action), BULK_ACTIONS[action])
     raw = data.get("ids")
     if not isinstance(raw, list):
         raise HTTPException(400, "Выберите игроков.")

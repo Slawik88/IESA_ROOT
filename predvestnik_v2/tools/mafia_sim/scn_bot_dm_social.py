@@ -7,10 +7,12 @@ consent who must get nothing. The test clock is a parameter (``collect(db, now)`
 from __future__ import annotations
 
 import dataclasses
+import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
+from unittest.mock import patch
 
 from tools.mafia_sim.harness import Harness
 from tools.mafia_sim.registry import bot_scenario, ok
@@ -337,3 +339,72 @@ async def dm_season_report_uses_exact_utc_boundaries(h: Harness) -> None:
             await db.execute("DELETE FROM minesweeper_v2_runs WHERE run_id = ANY(?)", (run_ids,))
             await db.commit()
             season_report._cache.clear()
+
+
+@bot_scenario
+async def dm_family_decline_during_slow_send_cannot_resurrect_a_letter(h: Harness) -> None:
+    groom, bride, child = [await player(h, n) for n in ("Родитель", "Супруга", "Приглашённый")]
+    chat = h.new_chat([groom, bride, child])
+    for user in (groom, bride, child):
+        await h.say(user, chat, "привет")
+    await say(h, groom, chat, f"бот брак, @sim{bride.id}")
+    await h.click(bride, chat, last_message(h, chat, "делает предложение"), "Да")
+    async with database() as db:
+        await consent(db, child, "social")
+    visible, resume = asyncio.Event(), asyncio.Event()
+    original = h.bot.session.make_request
+
+    async def delayed(bot, method, timeout=None):
+        result = await original(bot, method, timeout=timeout)
+        if type(method).__name__ == "SendMessage" and int(method.chat_id) == chat and "в свою семью ребёнком" in method.text:
+            visible.set()
+            await resume.wait()
+        return result
+
+    with patch.object(h.bot.session, "make_request", new=delayed):
+        task = asyncio.create_task(say(h, groom, chat, f"бот усыновить, @sim{child.id}"))
+        try:
+            await asyncio.wait_for(visible.wait(), 10)
+            await h.click(child, chat, last_message(h, chat, "в свою семью ребёнком"), "Нет")
+        finally:
+            resume.set()
+            await task
+    ok(not await pending(child), "an answer before SendMessage returns cannot resurrect the invitation letter")
+
+
+@bot_scenario
+async def dm_season_reports_progress_past_unreachable_players(h: Harness) -> None:
+    from core import seasons
+    from infrastructure.repositories import league_pass as pass_repo
+    from services import dm_push_events, global_moderation, season_report
+    blocked, other, reachable = [await player(h, n) for n in ("Недоступен", "Тоже недоступен", "Ждёт итоги")]
+    now = seasons.season_bounds(2)[1] + timedelta(hours=2)
+    async with database() as db:
+        await pass_repo.ensure_tables(db)
+        for user in (blocked, other, reachable):
+            await consent(db, user, "season_report")
+            await db.execute("INSERT INTO league_pass_progress (user_id,season,xp) VALUES (?,2,3700)", (user.id,))
+        for user in (blocked, other):
+            await global_moderation.block(db, user.id, 101)
+        await db.commit()
+        dm_push_events._report_seen.clear()
+        async with db.execute("SELECT user_id FROM user_notification_prefs WHERE category='season_report' AND NOT (user_id=ANY(?::bigint[]))",
+                              ([blocked.id, other.id, reachable.id],)) as cur:
+            dm_push_events._report_seen[2] = {int(r[0]) for r in await cur.fetchall()}
+        getattr(dm_push_events, "_report_cursor", {}).clear()
+        season_report._cache.clear()
+        try:
+            with patch.object(dm_push_events, "BATCH", 2):
+                await dm_push_events._season_report(db, now)
+                await dm_push_events._season_report(db, now)
+                ok(bool(await pending(reachable)), "unreachable low IDs do not occupy every report batch forever")
+                await global_moderation.unblock(db, blocked.id)
+                await dm_push_events._season_report(db, now)
+                ok(bool(await pending(blocked)), "a formerly blocked player is revisited on the next round")
+        finally:
+            for user in (blocked, other):
+                await global_moderation.unblock(db, user.id)
+            dm_push_events._report_seen.clear()
+            getattr(dm_push_events, "_report_cursor", {}).clear()
+            season_report._cache.clear()
+            await db.commit()

@@ -29,6 +29,7 @@ GLOBAL_FLOORS = {
     "action:balance": 5, "action:vip": 5, "action:rank": 5, "action:dm": 5,
     "action:skin_grant": 6, "action:skin_revoke": 6,
     "action:mark_grant": 5, "action:mark_revoke": 5, "action:revoke_sessions": 6,
+    "action:global_unmute": 3, "action:global_unwarn": 3, "action:watch": 2, "action:unwatch": 2,
     "section:broadcast": 5, "section:promo": 5, "section:switches": 5, "section:settings": 5,
     "section:diagnostics": 5, "section:access": 6, "section:patchnotes": 6, "section:widgets": 6,
 }

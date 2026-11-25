@@ -125,6 +125,7 @@ async def _season(db, now: datetime) -> int:
 # сезон → игроки, чей итог уже разобран (поставлен или пустой): они не перебираются каждый проход, а включившие «Итоги сезона»
 # позже и те, кому сейчас нельзя писать, подхватятся следующим проходом. Сбой одного игрока не останавливает остальных.
 _report_seen: dict[int, set[int]] = {}
+_report_cursor: dict[int, int] = {}
 
 
 async def _season_report(db, now: datetime) -> int:
@@ -137,13 +138,15 @@ async def _season_report(db, now: datetime) -> int:
     seen = _report_seen.setdefault(number, set())
     for old in [s for s in _report_seen if s != number]:
         del _report_seen[old]
+        _report_cursor.pop(old, None)
     async with db.execute(
         "SELECT np.user_id FROM user_notification_prefs np " + _READY.format(alias="np") +
-        " WHERE np.category = 'season_report' AND np.enabled = TRUE AND NOT (np.user_id = ANY(?::bigint[])) "
+        " WHERE np.category = 'season_report' AND np.enabled = TRUE AND np.user_id > ? AND NOT (np.user_id = ANY(?::bigint[])) "
         "AND NOT EXISTS (SELECT 1 FROM dm_push_outbox o WHERE o.user_id = np.user_id AND o.dedup_key = ?) "
-        "ORDER BY np.user_id LIMIT ?", (list(seen), key, BATCH),
+        "ORDER BY np.user_id LIMIT ?", (_report_cursor.get(number, 0), list(seen), key, BATCH),
     ) as c:
         rows = await c.fetchall()
+    _report_cursor[number] = int(rows[-1][0]) if len(rows) == BATCH else 0
     sent = 0
     for (user_id,) in rows:
         try:
@@ -228,7 +231,8 @@ async def _holiday_looks(db, now: datetime) -> int:
     return sent
 
 
-async def social(db, *, user_id: int, dedup_key: str, text: str, button: dict | None = None, chat_id: int | None = None) -> bool:
+async def social(db, *, user_id: int, dedup_key: str, text: str, button: dict | None = None, chat_id: int | None = None,
+                 message_id: int | None = None) -> bool:
     """Событие «Люди» (перевод в чате, предложение брака, приглашение в семью): ставится сразу из обработчика.
     Никогда не роняет сам обработчик: уведомление — дополнение, действие игрока уже выполнено."""
     try:
@@ -237,16 +241,33 @@ async def social(db, *, user_id: int, dedup_key: str, text: str, button: dict | 
                                   (int(user_id), int(chat_id))) as cur:
                 if await cur.fetchone() is None:
                     return False
+        invitation = (button or {}).get("invitation", {})
+        if "marriage_id" in invitation and chat_id is not None and message_id is not None:
+            from infrastructure.repositories import dm_push as push_repo
+            async with db.connection.transaction():
+                await push_repo.lock_invitation(db, user_id, chat_id, message_id)
+                if await push_repo.invitation_closed(db, user_id, chat_id, message_id):
+                    return False
+                return await dm_push.enqueue(db, user_id=int(user_id), category="social", dedup_key=dedup_key, text=text, button=button)
         return await dm_push.enqueue(db, user_id=int(user_id), category="social", dedup_key=dedup_key, text=text, button=button)
     except Exception as exc:
         logger.warning(f"dm push social {dedup_key} skipped: {type(exc).__name__}: {exc}")
         return False
 
 
-async def withdraw_invitation(db, kind: str, sender_id: int, target_id: int) -> None:
+async def withdraw_invitation(db, kind: str, sender_id: int, target_id: int, *, source: tuple[int, int] | None = None) -> None:
     """Уже отвеченное или отозванное приглашение не должно ждать в очереди лички."""
     from infrastructure.repositories import dm_push as push_repo
     prefix = f"{kind}:{sender_id}:{target_id}:"
+    if source is not None:
+        # Adoption refusals have no game-state row. Persist the decision before editing the Telegram card.
+        # A write failure must reach the handler: the card must not claim that an unrecorded refusal succeeded.
+        async with db.connection.transaction():
+            await push_repo.lock_invitation(db, target_id, *source)
+            await push_repo.close_invitation(db, target_id, *source)
+            rows = await push_repo.pending_rows(db, target_id)
+            await push_repo.drop(db, [r["id"] for r in rows if r["dedup_key"].startswith(prefix)], "expired")
+        return
     try:
         rows = await push_repo.pending_rows(db, target_id)
         await push_repo.drop(db, [r["id"] for r in rows if r["dedup_key"].startswith(prefix)], "expired")

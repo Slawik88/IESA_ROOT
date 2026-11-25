@@ -313,6 +313,29 @@ async def drop_pending_key(db, user_id: int, dedup_key: str, reason: str) -> Non
                      "AND sent_at IS NULL AND dropped_at IS NULL", (reason, int(user_id), dedup_key))
 
 
+def _invitation_receipt(chat_id: int, message_id: int) -> str:
+    return f"invitation_closed:{int(chat_id)}:{int(message_id)}"
+
+
+async def lock_invitation(db, user_id: int, chat_id: int, message_id: int) -> None:
+    """Short transaction lock shared by cancellation and enqueue, never held while calling Telegram."""
+    key = f"dm:{int(user_id)}:{_invitation_receipt(chat_id, message_id)}"
+    await db.execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", (key,))
+
+
+async def invitation_closed(db, user_id: int, chat_id: int, message_id: int) -> bool:
+    async with db.execute("SELECT 1 FROM dm_push_outbox WHERE user_id=? AND dedup_key=?",
+                          (int(user_id), _invitation_receipt(chat_id, message_id))) as cur:
+        return await cur.fetchone() is not None
+
+
+async def close_invitation(db, user_id: int, chat_id: int, message_id: int) -> None:
+    """An empty, already dropped receipt uses normal outbox retention/account deletion; it is never delivered."""
+    await db.execute("INSERT INTO dm_push_outbox (user_id,category,dedup_key,text,dropped_at,drop_reason) "
+                     "VALUES (?,'social',?,'',NOW(),'expired') ON CONFLICT (user_id,dedup_key) DO NOTHING",
+                     (int(user_id), _invitation_receipt(chat_id, message_id)))
+
+
 async def drop_pending(db, user_id: int, reason: str, *, category: str | None = None) -> None:
     sql = "UPDATE dm_push_outbox SET dropped_at = NOW(), drop_reason = ? WHERE user_id = ? AND sent_at IS NULL AND dropped_at IS NULL"
     args: list = [reason, int(user_id)]

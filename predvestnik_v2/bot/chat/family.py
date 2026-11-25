@@ -601,7 +601,7 @@ async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
         return
     names = await labels(db, (cb.by, cb.t), call.message.chat.id if call.message else None)
     if cb.act == "n":
-        await withdraw_invitation(db, "adopt", cb.by, cb.t)
+        await withdraw_invitation(db, "adopt", cb.by, cb.t, source=(call.message.chat.id, call.message.message_id))
         # «Нет» от позвавшего — отзыв приглашения, от приглашённого — отказ
         text = (f"↩️ {names[cb.by]} отозвал(а) приглашение." if me == cb.by else f"🙅 {names[cb.t]} не хочет в семью.")
         await edit_or_send(call, text, parse_mode="HTML")

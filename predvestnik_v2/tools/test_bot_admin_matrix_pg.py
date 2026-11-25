@@ -103,6 +103,20 @@ async def run():
     assert "access" not in [s["key"] for s in (await get(HELPER, "/me")).json()["sections"]]
     assert "access" in [s["key"] for s in (await get(DEV, "/me")).json()["sections"]]
 
+    for action, right, default in (("unmute_all", "global_unmute", 3), ("unwarn_all", "global_unwarn", 3),
+                                   ("watch", "watch", 2), ("unwatch", "unwatch", 2)):
+        key = f"action:{right}"
+        assert keys[key]["current"] == default
+        assert (await setm(key, 6, "создатель")).status_code == 200
+        assert (await post(HELPER, "/players/bulk", action=action, ids=[P3])).status_code == 403
+        if action in ("watch", "unwatch"):
+            assert (await post(HELPER, f"/player/{P3}/watch", on=action == "watch")).status_code == 403
+        if action == "unmute_all":
+            # Allow local moderation while the independent global operation is closed.
+            assert (await post(HELPER, f"/player/{P3}/action", action="unmute", chat_id=CHAT)).status_code == 200
+        assert (await post(DEV, "/players/bulk", action=action, ids=[P3])).status_code == 200
+        assert (await setm(key, None, "сброс")).status_code == 200
+
     # Global bans remain admin actions: the creator may tighten role 5 to 6, never delegate below 5.
     for action in ("global_ban", "global_unban"):
         key = f"action:{action}"
@@ -169,7 +183,7 @@ async def run():
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         async with db.execute("SELECT COUNT(*) FROM bot_admin_actions WHERE action = 'grant' AND actor_id = ?", (DEV,)) as cur:
-            assert (await cur.fetchone())[0] == 9   # прежние пять + два глобальных права: ограничить и сбросить
+            assert (await cur.fetchone())[0] == 17   # прежние пять + шесть глобальных прав: ограничить и сбросить
 
 
 def main():

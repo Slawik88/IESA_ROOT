@@ -101,7 +101,7 @@ async def social_event(db, *, user_id: int, dedup_key: str, text: str, chat=None
     if invitation:
         button = {**(button or {"kind": "none"}), "invitation": invitation}
     return await dm_push_events.social(db, user_id=user_id, dedup_key=dedup_key, text=text, button=button,
-                                      chat_id=getattr(chat, "id", None))
+                                      chat_id=getattr(chat, "id", None), message_id=message_id)
 
 
 def chat_name(chat) -> str:

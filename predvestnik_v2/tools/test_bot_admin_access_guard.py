@@ -137,7 +137,10 @@ def main():
         assert floor == default and acc.bounds(key) == (default, CREATOR_RANK)
         assert acc.effective_min(key, default, {key: 1}) == default
         assert acc.effective_min(key, default, {key: 99}) == CREATOR_RANK
-    assert {"action:" + k for k, (_, _, scope) in people.ACTIONS.items() if scope == "player"} <= acc.CONFIGURABLE
+    assert {"action:" + k for k, (_, _, scope) in people.ACTIONS.items() if scope in {"player", "bulk"}} <= acc.CONFIGURABLE
+    for action, scope in people.BULK_ACTIONS.items():
+        right = people.BULK_RIGHTS.get(action, action)
+        assert people.ACTIONS[right][2] == scope and f"action:{right}" in acc.CONFIGURABLE
     configurable_actions = {k[7:] for k in acc.CONFIGURABLE if k.startswith("action:")}
     assert configurable_actions <= set(people.ACTIONS), configurable_actions - set(people.ACTIONS)
     assert {k[8:] for k in acc.CONFIGURABLE if k.startswith("section:")} <= set(auth.SECTIONS)
