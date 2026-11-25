@@ -50,6 +50,7 @@ ACTION_TITLES = {
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена или отменена",
     "broadcast_resume": "Рассылка продолжена", "broadcast_template": "Шаблон рассылки",
     "journal_export": "Выгрузка журнала", "dm": "Сообщение в личку", "skin_grant": "Выдан образ", "skin_revoke": "Забран образ", "purge_start": "Чистка начата", "purge_finish": "Чистка закончена", "purge_reconcile": "Чистка: решение сверено с Telegram",
+    "widget_test": "Пробный виджет себе в личку",
 }
 
 
@@ -530,6 +531,7 @@ FEED_KINDS = {
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
     "purge": ("Чистка", ("purge_start", "purge_finish", "purge_reconcile")),
+    "widgets": ("Виджеты", ("widget_test",)),
 }
 FEED_DAYS_MAX = 90
 EXPORT_MAX_ROWS = 5000

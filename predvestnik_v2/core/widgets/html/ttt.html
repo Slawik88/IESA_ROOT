@@ -1,0 +1,24 @@
+<style>
+#g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:300px;margin:8px auto}
+#g button{aspect-ratio:1;margin:0;padding:0;border:0;border-radius:12px;background:var(--s);color:var(--tg-theme-text-color);font-size:2em;font-weight:700}
+#g .x{color:var(--a)}#g .o{color:var(--g)}#g .w{background:var(--t)}
+.sc{display:flex;justify-content:space-around;margin:4px 0}
+#nw{display:block;width:100%}
+</style>
+<h3>❌ Крестики-нолики</h3>
+<div class="h" id="st">Ты — ❌, бот — ⭕. Твой ход.</div>
+<div id="g"></div>
+<div class="sc h n"><span id="sw"></span><span id="sd"></span><span id="sl"></span></div>
+<button id="nw">Новая партия</button>
+<div id="m"></div>
+<script>
+var KEY="ttt",LIVE=0,SC={w:0,d:0,l:0};
+try{SC=JSON.parse(localStorage.getItem("sc"))||SC}catch(e){}
+function board(){return S.b&&S.b.length==9?S.b:"---------"}
+function draw(s){var b=board(),g=$("g"),line=s.l||"";g.textContent="";for(var i=0;i<9;i++){var c=document.createElement("button"),v=b[i];c.textContent=v=="x"?"❌":v=="o"?"⭕":"";c.className=(v=="-"?"":v)+(line.indexOf(i)>=0?" w":"");c.dataset.i=i;if(v!="-"||s.w)c.disabled=true;c.onclick=move;g.appendChild(c)}
+$("st").textContent=s.w=="x"?"Победа! Бот сдаётся.":s.w=="o"?"Бот выиграл. Ещё партию?":s.w=="d"?"Ничья.":"Ты — ❌, бот — ⭕. Твой ход.";
+if(s.w&&s.r&&SC.k!=s.r){SC.k=s.r;SC[s.w=="x"?"w":s.w=="o"?"l":"d"]++;try{localStorage.setItem("sc",JSON.stringify(SC))}catch(e){}}
+$("sw").textContent="Победы: "+SC.w;$("sd").textContent="Ничьи: "+SC.d;$("sl").textContent="Бот: "+SC.l}
+function move(e){var i=e.currentTarget.dataset.i;ask(KEY+":m:"+i+":"+board(),1).then(function(o){if(o&&!o.e&&T&&T.HapticFeedback)T.HapticFeedback.selectionChanged()})}
+function start(){$("nw").onclick=function(){ask(KEY+":n",1)}}
+</script>

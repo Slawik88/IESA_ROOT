@@ -16,7 +16,7 @@ from typing import Any
 
 from tools.mafia_sim.world import World
 
-_ID_KEYS = {"message_id", "message_ids", "reply_to_message_id", "message_thread_id", "pre_checkout_query_id", "callback_query_id"}
+_ID_KEYS = {"message_id", "message_ids", "reply_to_message_id", "message_thread_id", "pre_checkout_query_id", "callback_query_id", "widget_query_id"}
 _CLOCK = re.compile(r"\b[0-2]\d:[0-5]\d(:[0-5]\d)?\b")
 _RUN_IDS = re.compile(r"(?<=sim-photo-)\d+|(?<=mf:)\d+|(?<=start=mj)\d+")   # file id, Mafia lobby/match id, join link
 

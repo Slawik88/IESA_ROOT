@@ -28,6 +28,7 @@ SECTIONS: dict[str, tuple[str, int]] = {
     "diagnostics": ("Проблемы приложения", 5),
     "access": ("Права", 6),   # только создатель: матрица прав ролей и вход владельцев чатов
     "patchnotes": ("Патч-ноуты", 6),   # только создатель: посты обновлений в официальный канал
+    "widgets": ("Виджеты", 6),   # только создатель: пробные HTML-виджеты себе в личку (S30)
 }
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 

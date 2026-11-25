@@ -20,6 +20,7 @@ _TYPES = {"admin.js": "text/javascript; charset=utf-8", "admin-lists.js": "text/
           "admin-diagnostics.js": "text/javascript; charset=utf-8",
           "admin-patchnotes.js": "text/javascript; charset=utf-8", "admin-patchnotes-edit.js": "text/javascript; charset=utf-8",
           "admin-patchnotes-actions.js": "text/javascript; charset=utf-8",
+          "admin-widgets.js": "text/javascript; charset=utf-8",   # пробные виджеты в личку (S30)
           "admin-guide.js": "text/javascript; charset=utf-8", "guide-admin.json": "application/json; charset=utf-8",   # справка (S09)
           "admin-boot.js": "text/javascript; charset=utf-8", "admin.css": "text/css; charset=utf-8"}
 router = APIRouter()

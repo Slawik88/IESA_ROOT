@@ -1,0 +1,18 @@
+<style>
+.k{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:8px 0;font-size:.9em}
+.k b{font-weight:500;text-align:right}
+.big{font-size:1.9em;font-weight:700;color:var(--a)}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btns button{width:100%}
+</style>
+<h3>📡 Проверка связи</h3>
+<div class="card row"><div class="big n" id="ms">…</div><div class="h">столько шёл ответ бота</div></div>
+<div class="k"><span class="h">Тема чата</span><b id="th"></b><span class="h">Кто смотрит</span><b id="vw"></b><span class="h">Часы бота</span><b class="n" id="tm"></b><span class="h">Ответов подряд</span><b class="n" id="nn">0</b></div>
+<div class="btns"><button id="go">🔁 Ещё раз</button><button id="hp">📳 Вибрация</button><button id="cp">📋 Копировать</button><button id="er">🧯 Пример отказа</button></div>
+<div id="m"></div>
+<script>
+var KEY="ping",LIVE=0,N=0;
+function draw(s){$("th").textContent=T?(T.colorScheme=="dark"?"тёмная":"светлая"):"вне Telegram";var v=T&&T.viewer;$("vw").textContent=v?v.first_name:"—";$("tm").textContent=s.t?new Date(s.t).toLocaleTimeString():"—"}
+function ping(tap){var t0=Date.now();ask(KEY+":s",tap).then(function(o){if(o&&!o.e){N++;$("ms").textContent=Date.now()-t0+" мс";$("nn").textContent=N;if(tap&&T.HapticFeedback)T.HapticFeedback.notificationOccurred("success")}})}
+function start(){$("go").onclick=function(){ping(1)};$("hp").onclick=function(){if(T&&T.HapticFeedback)T.HapticFeedback.impactOccurred("medium")};$("cp").onclick=function(){if(T)T.copyText("Предвестник: виджеты работают")};$("er").onclick=function(){ask(KEY+":x",1)};if(T)T.onEvent("activated",function(){ping(0)});ping(0)}
+</script>
