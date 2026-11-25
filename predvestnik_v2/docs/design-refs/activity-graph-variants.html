@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>График активности в «бот я / бот кто» — референсы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Deep Space Gold (как в Mini App и админке) ─────────────────────────── */
+  :root{
+    --bg0:#07080f; --bg1:#0e1019; --bg2:#151827; --bg3:#1c2033;
+    --text:#c9cede; --bright:#f1f3fa; --muted:#9aa3bc; --dim:#232739;
+    --gold:#e8b54d; --gold2:#f5d488; --gold-dim:rgba(232,181,77,.12);
+    --violet:#8b6cf0; --violet-dim:rgba(139,108,240,.14);
+    --border:rgba(232,181,77,.28); --line:rgba(255,255,255,.07);
+    /* Telegram-бабл (тёмная тема) */
+    --bub:#182533; --bub-name:#ffffff; --bub-sub:#8696a0;
+    --quote:#4a708c; --codebg:rgba(255,255,255,.07);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--text);
+       font:15px/1.5 Onest,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+       background:
+         radial-gradient(1100px 500px at 85% -10%, rgba(139,108,240,.10), transparent 60%),
+         radial-gradient(900px 420px at -10% 0%, rgba(232,181,77,.07), transparent 55%),
+         var(--bg0);}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 90px}
+  h1{font-size:24px;margin:0 0 6px;font-weight:800;color:var(--bright)}
+  h2{font-size:17px;margin:0;font-weight:800;color:var(--bright)}
+  h3{font-size:13px;margin:16px 0 8px;color:var(--gold2);font-weight:800;
+     letter-spacing:.04em;text-transform:uppercase}
+  p{margin:6px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .gold{color:var(--gold2)} .vio{color:var(--violet)}
+  b{color:var(--bright)}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+  .badge{font-size:12px;border:1px solid var(--border);border-radius:20px;padding:3px 12px;
+         color:var(--gold2);background:var(--gold-dim);white-space:nowrap}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:14px 0 24px}
+  .cardx{background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--line);
+         border-radius:16px;padding:14px 16px}
+  .cardx b.h{display:block;color:var(--gold2);font-size:13px;letter-spacing:.03em;margin-bottom:6px}
+  .pill{display:inline-block;font-size:12px;border-radius:20px;padding:2px 10px;border:1px solid var(--line);
+        color:var(--muted);margin:3px 4px 0 0}
+  .pill.gold{color:var(--gold2);border-color:rgba(232,181,77,.35);background:var(--gold-dim)}
+  .pill.vio{color:#b9a6ff;border-color:rgba(139,108,240,.4);background:var(--violet-dim)}
+
+  .ruler{background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--border);
+         border-radius:16px;padding:16px 18px;margin:18px 0}
+  .ruler .row{display:grid;grid-template-columns:190px 1fr;gap:14px;padding:10px 0;
+              border-top:1px dashed rgba(255,255,255,.09);align-items:center}
+  .ruler .row:first-of-type{border-top:0}
+  .ruler .lbl{font-size:13px;color:var(--muted)}
+  .ruler .lbl b{display:block;color:var(--bright);font-size:14px}
+
+  .variant{background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--line);
+           border-radius:18px;padding:18px;margin:18px 0}
+  .vhead{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .tag{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:2px 10px;white-space:nowrap}
+  .vbody{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:20px;margin-top:14px}
+  @media (max-width:880px){ .vbody{grid-template-columns:1fr} }
+
+  /* телефон + сообщение (как выглядит в Telegram, тёмная тема) */
+  .phone{background:#0b1118;border:1px solid var(--line);border-radius:16px;padding:14px 12px;align-self:start}
+  .chan{color:var(--bub-sub);font-size:12px;margin:0 4px 8px}
+  .msg{display:flex;justify-content:flex-start}
+  .bubble{background:var(--bub);border-radius:13px;border-top-left-radius:4px;padding:10px 13px;
+          max-width:100%;font-size:14.5px;line-height:1.45;box-shadow:0 1px 2px rgba(0,0,0,.25);
+          overflow-wrap:anywhere;color:#e9edf1}
+  .bubble .nm{font-weight:700;color:var(--bub-name)}
+  .bubble .rw{color:var(--bub-sub)}
+  blockquote{margin:7px 0;padding:2px 0 2px 10px;border-left:3px solid var(--quote);color:#dfe6ee}
+  code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;background:var(--codebg);
+       border-radius:4px;padding:1px 5px;font-size:13.5px;white-space:nowrap}
+  .vnote{font-size:13.5px}
+  ul{margin:6px 0 0;padding-left:18px}
+  li{margin:4px 0;font-size:13.5px;color:var(--text)}
+  li b{color:var(--gold2)}
+  .meter{margin-top:10px}
+  .two{display:grid;grid-template-columns:minmax(300px,380px) minmax(300px,380px);gap:20px;align-items:start}
+  @media (max-width:880px){ .two{grid-template-columns:1fr} }
+  .arrow{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
+  .foot{margin-top:26px;font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>📊 График активности в «бот я / бот кто»</h1>
+      <p class="sub">Референсы v2 · 18.10.2026 · читаемость с первого взгляда · тема Предвестника «Deep Space Gold» · скорость</p>
+    </div>
+    <span class="badge">🔮 Предвестник · чат-бот</span>
+  </div>
+
+  <div class="cards">
+    <div class="cardx">
+      <b class="h">Скорость — условие №1</b>
+      <p>Данные уже собираются: каждое сообщение в чатах пишется по дням в <b>daily_user_stats</b>. График — это
+      <b>один агрегирующий запрос</b> (≤ 28 строк) и несколько строк текста, которые вставляются в то же сообщение.
+      Никаких картинок и второго сообщения.</p>
+      <div class="meter"><span class="pill gold">+1 SQL ≈ 1–5 мс</span><span class="pill gold">0 картинок</span><span class="pill gold">то же сообщение</span></div>
+    </div>
+    <div class="cardx">
+      <b class="h">Тема Предвестника</b>
+      <p>Палитра Mini App «Deep Space Gold»: космос, золото и фиолет. В боте уже говорит эмодзи-язык —
+      🔮 ✨ 🌙 ⭐ 💜, а панель <b>«бот стрик»</b> уже показывает активность сеткой ⬜🟩🟨🟧🟥.</p>
+      <div class="meter"><span class="pill vio">космос и ночь</span><span class="pill vio">золото/фиолет в тексте</span><span class="pill vio">единый язык со стриком</span></div>
+    </div>
+    <div class="cardx">
+      <b class="h">Читаемость простым взглядом</b>
+      <p>Общее правило у всех вариантов: <b>ярче/выше — активнее</b>. Без легенды понятно, кто перед тобой:
+      «пульсирующий» игрок или тихоня. Числа — в цитате, как в остальных карточках бота.</p>
+      <div class="meter"><span class="pill">7 дней — легко считать пальцем</span><span class="pill">2 недели — видно ритм</span></div>
+    </div>
+  </div>
+
+  <div class="ruler">
+    <h3 style="margin:0 0 4px">Линейка — только график, как он встанет в самое начало ответа</h3>
+    <div class="row">
+      <div class="lbl"><b>1 · «Фазы» (луна)</b>фишка Предвестника · 14 дней</div>
+      <div>📊 Активность:<br/>🌒🌓🌕🌔🌒🌑🌒<br/>🌒🌓🌕🌕🌔🌓🌓</div>
+    </div>
+    <div class="row">
+      <div class="lbl"><b>2 · «Ритм» (столбики)</b>неделя с днями · самый читаемый</div>
+      <div>📊 Неделя:<br/><code>▂ ▃ ▆ █ ▅ ▃ ▄<br/>П В С Ч П С В</code></div>
+    </div>
+    <div class="row">
+      <div class="lbl"><b>3 · «Панель дней»</b>как «бот стрик» · 14 дней</div>
+      <div>📊 Активность:<br/>🟩🟨🟥🟧🟩⬜🟩<br/>🟩🟨🟥🟥🟧🟨🟨</div>
+    </div>
+    <div class="row">
+      <div class="lbl"><b>4 · «Пульс + числа»</b>самый компактный и точный</div>
+      <div>📊 Активность: <code>▃▆▇▆▄▁▂▃▅▇█▆▅▅</code><br/><blockquote>сегодня 31 · пик 77 (чт) · в среднем 26</blockquote></div>
+    </div>
+  </div>
+
+  <p class="sub">Ниже — каждый вариант в живом виде: как ответит бот на «бот я» в группе (тёмная тема Telegram, как у Предвестника). Карточка под графиком — та же, что сейчас; меняется только верх.</p>
+
+  <!-- ================= 1 · ФАЗЫ ================= -->
+  <section class="variant">
+    <div class="vhead"><h2>1 · «Фазы» — луна за 14 дней</h2><span class="tag">3 строки · тема Предвестника</span></div>
+    <div class="vbody">
+      <div class="phone">
+        <div class="chan">💬 Тайное общество · 19:42</div>
+        <div class="msg"><div class="bubble">
+          <div>📊 <b>Активность:</b></div>
+          <div>🌒🌓🌕🌔🌒🌑🌒</div>
+          <div>🌒🌓🌕🌕🌔🌓🌓</div>
+          <div style="margin-top:6px"><span class="nm">👤 Иван Грозный</span></div>
+          <div>@ivan_grozny</div>
+          <div>🏷 <b>Волк</b></div>
+          <div class="rw"><i>🛡 Модератор · 💖 Спонсор</i></div>
+          <div style="margin-top:7px">💬 <b>Сообщения</b></div>
+          <blockquote>Сегодня: <b>23</b> · неделя: <b>187</b><br/>Месяц: <b>654</b> · всего: <b>12 348</b><br/>Во всех чатах: <b>98 123</b></blockquote>
+          <div>📅 В чате: 214 дней (с 17.03.2026)</div>
+          <div style="margin-top:7px">💰 <b>Баланс</b></div>
+          <blockquote>🪙 Мора: <b>154 300</b><br/>💎 Алмазы: <b>42</b><br/>🔮 Эссенция: <b>17</b><br/>✨ Зарники: <b>5</b></blockquote>
+        </div></div>
+      </div>
+      <div>
+        <h3>Как читается</h3>
+        <ul>
+          <li>Одна строка = одна неделя, бегущая дорожка дней. <b>Полнее луна — активнее день</b>.</li>
+          <li>Каждый день — свой значок: тишина 🌑, искра 🌒, разговор 🌓, много 🌔, пик 🌕.</li>
+          <li>Луна — родная тема Предвестника (ночь, 🔮 🔮 🔮 посты, мафия 🌙): график выглядит «своим», не гостем.</li>
+        </ul>
+        <h3>Пометки</h3>
+        <ul>
+          <li>Современный «лунный дашборд» — ни у одного бота рядом такого нет.</li>
+          <li>Скорость: 1 запрос, 14 дней; при желании — легенда одной строкой <i>(🌑 тишина → 🌕 пик)</i>.</li>
+        </ul>
+        <div class="meter"><span class="pill gold">высота 3 строки</span><span class="pill vio">самый тематичный</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 2 · РИТМ ================= -->
+  <section class="variant">
+    <div class="vhead"><h2>2 · «Ритм» — столбики недели с днями</h2><span class="tag">3 строки · читается без легенды</span></div>
+    <div class="vbody">
+      <div class="phone">
+        <div class="chan">💬 Тайное общество · 19:42</div>
+        <div class="msg"><div class="bubble">
+          <div>📊 <b>Неделя:</b></div>
+          <div><code>▂ ▃ ▆ █ ▅ ▃ ▄</code></div>
+          <div><code>П В С Ч П С В</code> <span class="rw">· пик 77, сегодня 31</span></div>
+          <div style="margin-top:6px"><span class="nm">👤 Иван Грозный</span></div>
+          <div>@ivan_grozny</div>
+          <div>🏷 <b>Волк</b></div>
+          <div class="rw"><i>🛡 Модератор · 💖 Спонсор</i></div>
+          <div style="margin-top:7px">💬 <b>Сообщения</b></div>
+          <blockquote>Сегодня: <b>23</b> · неделя: <b>187</b><br/>Месяц: <b>654</b> · всего: <b>12 348</b></blockquote>
+        </div></div>
+      </div>
+      <div>
+        <h3>Как читается</h3>
+        <ul>
+          <li>Обычный столбчатый график: чем выше █ — тем больше сообщений.</li>
+          <li>Подписи дней: видно, <b>когда</b> игрок молчит: выходные просели, четверг — рекорд.</li>
+          <li>Цифры рядом говорят точные значения, график даёт форму.</li>
+        </ul>
+        <h3>Пометки</h3>
+        <ul>
+          <li>7 дней — «сегодня на краю»; мысленно продлевается до 2 недель двумя группами по 7.</li>
+          <li>Скорость: 1 запрос; значки ▂▃▄▅▆▇█ — обычный текст, рисуются мгновенно.</li>
+        </ul>
+        <div class="meter"><span class="pill gold">высота 3 строки</span><span class="pill gold">максимум ясности</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 3 · ПАНЕЛЬ ДНЕЙ ================= -->
+  <section class="variant">
+    <div class="vhead"><h2>3 · «Панель дней» — как «бот стрик»</h2><span class="tag">3 строки · одна палитра на весь бот</span></div>
+    <div class="vbody">
+      <div class="phone">
+        <div class="chan">💬 Тайное общество · 19:42</div>
+        <div class="msg"><div class="bubble">
+          <div>📊 <b>Активность:</b></div>
+          <div>🟩🟨🟥🟧🟩⬜🟩</div>
+          <div>🟩🟨🟥🟥🟧🟨🟨</div>
+          <div style="margin-top:6px"><span class="nm">👤 Иван Грозный</span></div>
+          <div>@ivan_grozny</div>
+          <div>🏷 <b>Волк</b></div>
+          <div class="rw"><i>🛡 Модератор · 💖 Спонсор</i></div>
+          <div style="margin-top:7px">💬 <b>Сообщения</b></div>
+          <blockquote>Сегодня: <b>23</b> · неделя: <b>187</b><br/>Месяц: <b>654</b> · всего: <b>12 348</b></blockquote>
+        </div></div>
+      </div>
+      <div>
+        <h3>Как читается</h3>
+        <ul>
+          <li>Дни различаются цветом мгновенно: ⬜ тишина → 🟥 пик. Тот же язык, что в <b>«бот стрик»</b> и «Достижениях».</li>
+          <li>Тёмный ⬜ уместен в тёмной теме Telegram, как «ночь» в календаре.</li>
+          <li>Кто видел стрик — уже умеет читать; легенда не нужна.</li>
+        </ul>
+        <h3>Пометки</h3>
+        <ul>
+          <li>Классика в квадратах — «GitHub-календарь», узнаётся моментально.</li>
+          <li>Скорость: 1 запрос, 14 дней; эмодзи — обычный текст.</li>
+        </ul>
+        <div class="meter"><span class="pill gold">высота 3 строки</span><span class="pill vio">единая палитра бота</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 4 · ПУЛЬС ================= -->
+  <section class="variant">
+    <div class="vhead"><h2>4 · «Пульс + числа» — миллимит и факты</h2><span class="tag">2 строки + цитата · самый компактный</span></div>
+    <div class="vbody">
+      <div class="phone">
+        <div class="chan">💬 Тайное общество · 19:42</div>
+        <div class="msg"><div class="bubble">
+          <div>📊 <b>Активность:</b> <code>▃▆▇▆▄▁▂▃▅▇█▆▅▅</code></div>
+          <blockquote>сегодня <b>31</b> · пик <b>77</b> (чт) · в среднем <b>26</b></blockquote>
+          <div><span class="nm">👤 Иван Грозный</span></div>
+          <div>@ivan_grozny</div>
+          <div>🏷 <b>Волк</b></div>
+          <div class="rw"><i>🛡 Модератор · 💖 Спонсор</i></div>
+          <div style="margin-top:7px">💬 <b>Сообщения</b></div>
+          <blockquote>Сегодня: <b>23</b> · неделя: <b>187</b><br/>Месяц: <b>654</b> · всего: <b>12 348</b></blockquote>
+          <div style="margin-top:7px">💰 <b>Баланс</b></div>
+          <blockquote>🪙 Мора: <b>154 300</b><br/>💎 Алмазы: <b>42</b></blockquote>
+        </div></div>
+      </div>
+      <div>
+        <h3>Как читается</h3>
+        <ul>
+          <li>Пульс одной строкой — форма активности за 2 недели. Ниже — выжимка цифрами.</li>
+          <li>Как метеосводка: «сегодня, пик, среднее» — понятно без пояснений.</li>
+          <li>Самый маленький след в карточке — не спорит с «Сообщениями» ниже.</li>
+        </ul>
+        <h3>Пометки</h3>
+        <ul>
+          <li>Самый «технический» вид; если хочется теплее — рядом можно поставить 🌙.</li>
+          <li>Скорость: 1 запрос; строка ▁▂▃▄▅▆▇█ и три числа.</li>
+        </ul>
+        <div class="meter"><span class="pill gold">высота 2 строки + цитата</span><span class="pill gold">максимум пользы на символ</span></div>
+      </div>
+    </div>
+  </section>
+
+  <h3>Размещение: два способа показать «над ответом»</h3>
+  <div class="two">
+    <div>
+      <p><b>A · Внутри ответа, первым блоком</b> <span class="pill gold">рекомендуется · 0 лишних отправок</span></p>
+      <div class="phone">
+        <div class="msg"><div class="bubble">
+          <div>📊 <b>Активность:</b></div>
+          <div>🌒🌓🌕🌔🌒🌑🌒</div>
+          <div>🌒🌓🌕🌕🌔🌓🌓</div>
+          <div style="margin-top:6px"><span class="nm">👤 Иван Грозный</span> · @ivan_grozny<br/>🏷 <b>Волк</b> …</div>
+        </div></div>
+        <div class="arrow">одно сообщение: график сверху, карточка ниже</div>
+      </div>
+    </div>
+    <div>
+      <p><b>B · Отдельным сообщением над карточкой</b> <span class="pill">+1 отправка ≈ +80–150 мс</span></p>
+      <div class="phone">
+        <div class="msg"><div class="bubble">📊 <b>Активность:</b><br/>🌒🌓🌕🌔🌒🌑🌒<br/>🌒🌓🌕🌕🌔🌓🌓</div></div>
+        <div style="height:8px"></div>
+        <div class="msg"><div class="bubble"><span class="nm">👤 Иван Грозный</span><br/>@ivan_grozny<br/>🏷 <b>Волк</b> …</div></div>
+        <div class="arrow">два сообщения: график, затем карточка</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ruler" style="margin-top:22px">
+    <h3 style="margin:0 0 4px">Что выбрать</h3>
+    <div class="row"><div class="lbl"><b>Максимально «Предвестник»</b></div><div><b>1 · Фазы</b> — луна как график; ни у кого такого нет, при этом читается по яркости</div></div>
+    <div class="row"><div class="lbl"><b>Максимально понятно</b></div><div><b>2 · Ритм</b> — столбики с днями недели: классика, ошибки в чтении невозможны</div></div>
+    <div class="row"><div class="lbl"><b>Единый стиль бота</b></div><div><b>3 · Панель дней</b> — та же палитра, что «бот стрик»</div></div>
+    <div class="row"><div class="lbl"><b>Минимум места</b></div><div><b>4 · Пульс + числа</b> — две строки и три числа</div></div>
+    <div class="row"><div class="lbl"><b>Совместимость</b></div><div>Варианты сочетаются: «Фазы» + строка чисел, «Ритм» + одна строка «сегодня · пик». Скажи какой — доработаю его.</div></div>
+  </div>
+
+  <p class="foot">Приложение: график строится из <code>daily_user_stats</code> (местные даты, тот же источник, что у «бот стрик» и счётчиков в этой же карточке). Показывается в группе — по этому чату, в личке — по всем чатам. В самом верху ответа, над «👤 Ник». Никаких картинок и лишних сообщений.</p>
+
+</div>
+</body>
+</html>
