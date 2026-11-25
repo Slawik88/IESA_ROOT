@@ -25,6 +25,8 @@
 | Списки санкций и карточка игрока | `sanctions.py` |
 | Список варпов по группам | `warps.py` (`cmd_warp_list`) |
 | Сайт, привязка админ-чата | `site.py`, `admin_chat.py` |
+| Хаб питомцев: меню, карточка, кормление, походы, маршруты | `pets.py`, `pets_views.py`, `pets_collection_views.py`, `pets_activity_views.py` |
+| Часовой пояс чата | `chat_timezone.py` |
 | Родословная «бот древо» | `family.py` (`tree_text`, `_branches`) |
 | Кто под защитой «бот под защитой» | `moderation.py` (`cmd_protected`) |
 | Жалоба «бот жалоба» | `reports.py` (`cmd_report`) |

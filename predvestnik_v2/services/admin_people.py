@@ -41,6 +41,7 @@ ACTION_TITLES = {
     "promo_create": "Промокод создан", "promo_update": "Промокод изменён", "promo_active": "Промокод включён или выключен",
     "promo_bulk": "Пачка промокодов создана",
     "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб", "digest_settings": "Ежедневный отчёт владельцу",
+    "chat_timezone": "Часовой пояс чата",
     "note_add": "Заметка об игроке", "note_remove": "Заметка убрана",
     "watch_add": "Игрок поставлен на контроль", "watch_remove": "Игрок снят с контроля",
     "sessions_revoke": "Завершены сессии админки", "grant": "Права ролей изменены", "owner_access": "Вход владельцев чатов", "owner_block": "Доступ владельца отозван или возвращён",
@@ -252,6 +253,8 @@ def describe(action: str, d: dict) -> str:
     if action == "switch":
         where = "везде" if not d.get("chat") else f"в чате {d['chat']}"
         return f"{d.get('feature', '')} {where} → {'включено' if d.get('enabled') else 'выключено'}"
+    if action == "chat_timezone":
+        return f"UTC{int(d.get('before', 0) or 0):+d} → UTC{int(d.get('after', 0) or 0):+d}"
     if action == "transfer":
         return ", ".join(d.get("currencies") or []) or "переводы выключены"
     if action == "digest_settings":
@@ -323,7 +326,7 @@ FEED_KINDS = {
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
     "switches": ("Функции", ("switch",)),
-    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke", "grant", "owner_access", "owner_block")),
+    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke", "grant", "owner_access", "owner_block", "chat_timezone")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
 }

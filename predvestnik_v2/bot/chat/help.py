@@ -18,6 +18,7 @@ SECTIONS: dict[str, str] = {
     "family": "💞 Семья",
     "social": "🤗 Взаимодействия",
     "games": "🎮 Игры",
+    "pets": "🐾 Питомцы",
     "moderation": "🛡 Модерация",
     "purge": "🧹 Чистка",
     "settings": "⚙️ Настройки чата",

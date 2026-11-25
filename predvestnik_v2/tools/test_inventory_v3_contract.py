@@ -36,12 +36,13 @@ assert 'id="v3-bag"' in bar and 'onclick="openBarMenu()"' in bar and 'data-wn-bt
 assert len(re.findall(r'class="v3-bell[ "]', bar)) == 1, "the bell and the bag are one button"
 assert "function openBarMenu" in js and "CM();${go}" in js and "openInventory()" in js and "openWhatsNew()" in js
 
-# Eight tabs in the dock: pets stand between chests and top and open the pets screen.
+# Ten controls in the dock (owner order): pets stand third and open the pets screen; the wallet is a dialog, not a page.
 nav = re.search(r'<nav class="nav".*?</nav>', index, re.S)
-assert nav and "--nav-n:8" in nav.group(0) and nav.group(0).count('class="nb') == 8
+assert nav and nav.group(0).count('class="nb') == 10, "ten dock controls"
 tabs = re.findall(r'data-page="([a-z]+)"', nav.group(0))
-assert tabs == ["profile", "arena", "looks", "questlog", "chests", "pets", "top", "more"], tabs
+assert tabs == ["profile", "arena", "pets", "questlog", "looks", "chests", "inventory", "top", "more"], tabs
 assert 'data-page="pets" onclick="openPetsV1()"' in nav.group(0)
+assert 'aria-haspopup="dialog"' in nav.group(0), "the wallet control opens its dialog"
 
 # The screen only reads: two GET requests, no writes, and a failed request does not hide the part that arrived.
 assert "api('/skins-v3/me')" in js and "api('/inventory-v1/me')" in js
@@ -65,4 +66,4 @@ assert used and used <= styled, f"classes without a rule: {sorted(used - styled)
 assert not re.search(r"\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b", service), "the inventory service never writes"
 assert router.count("@router.") == 1 and '@router.get("/me")' in router
 
-print("OK: the inventory shows looks, pets, stock and old items in one read-only screen, with eight tabs in the dock")
+print("OK: the inventory shows looks, pets, stock and old items in one read-only screen, with ten controls in the dock")
