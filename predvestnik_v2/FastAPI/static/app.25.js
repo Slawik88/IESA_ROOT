@@ -47,6 +47,7 @@ function v3CountUp(root) {
   root.querySelectorAll('[data-n]').forEach(node => {
     const key = node.dataset.key, to = Number(node.dataset.n) || 0, from = Number(prevAll[key]) || 0, short = node.dataset.f === 'short';
     seen[key] = to;
+    if(key==='mora'){node.textContent=fmtBalance(to);return;}
     const draw = value => { node.textContent = short ? _v3Short(Math.round(value)) : fmt(Math.round(value)); };
     if (calm || from === to || Math.abs(to - from) < 1) { draw(to); return; }
     const t0 = performance.now(), span = Math.min(900, 380 + Math.abs(to - from) / Math.max(1, to) * 700);

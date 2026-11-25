@@ -23,11 +23,13 @@ vm.runInContext(source.slice(source.indexOf('function invalidate('),source.index
 vm.runInContext(source.slice(source.indexOf('async function preview('),source.indexOf('\n  function create(){')),ctx);
 vm.runInContext(source.slice(source.indexOf('async function createPreview('),source.indexOf('\n  async function confirm(')),ctx);
 async function main(){
- const walletCtx=vm.createContext({data:{balances:{mora:'894',mora_total:'1094',mora_reserved:'200'}},num:String});
+ const balanceSource=fs.readFileSync(path.join(__dirname,'../FastAPI/static/app.01.js'),'utf8');
+ const balanceCtx=vm.createContext({});vm.runInContext(balanceSource.slice(balanceSource.indexOf('function fmtBalance('),balanceSource.indexOf('\nfunction vipName(')),balanceCtx);
+ const walletCtx=vm.createContext({data:{balances:{mora:'1094',mora_total:'1094',mora_reserved:'0'}},num:String,walletMoney:balanceCtx.fmtBalance});
  vm.runInContext(source.slice(source.indexOf('function walletSummary('),source.indexOf('\n  function marketSummary(')),walletCtx);
  const split=walletCtx.walletSummary();
- assert.match(split,/В кошельке · Мора/);assert.match(split,/>1094<\/strong>/);
- assert.match(split,/Для торговли<\/dt><dd>894/);assert.match(split,/В резерве<\/dt><dd>200/);
+ assert.match(split,/В кошельке · Мора/);assert.match(split,/>1\u00a0094<\/strong>/);
+ assert.doesNotMatch(split,/Для торговли|В резерве/,'wallet has one spendable balance');
  walletCtx.data.balances={mora:'1094',mora_total:'1094',mora_reserved:'0'};
  assert.doesNotMatch(walletCtx.walletSummary(),/В резерве/,'empty reserve must not clutter the wallet');
  const refreshButton={disabled:false,textContent:'Обновить'};let finishRefresh,homeRenders=0;

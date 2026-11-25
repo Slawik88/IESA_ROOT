@@ -62,7 +62,7 @@ function _shopLoad() {
 
 function _shopBalances(b) {
   const keys = b.keys || {}, tiers = Object.keys(keys).filter(t => Number(keys[t]) > 0 || t === '1');
-  return `<section class="shop-bal" aria-label="Баланс">${['mora', 'diamonds', 'zarniki', 'essence'].map(k => `<span>${_SHOP_ICONS[k]} <b>${_shopNum(b[k] || 0)}</b></span>`).join('')}<span class="shop-keys">🗝 ${tiers.map(t => `${t}★ <b>${fmt(keys[t] || 0)}</b>`).join(' · ')}</span></section>`;
+  return `<section class="shop-bal" aria-label="Баланс">${['mora', 'diamonds', 'zarniki', 'essence'].map(k => `<span>${_SHOP_ICONS[k]} <b>${fmtBalance(b[k] || 0)}</b></span>`).join('')}<span class="shop-keys">🗝 ${tiers.map(t => `${t}★ <b>${fmt(keys[t] || 0)}</b>`).join(' · ')}</span></section>`;
 }
 
 function _shopLimit(item) {

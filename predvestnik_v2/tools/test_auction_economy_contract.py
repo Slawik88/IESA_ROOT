@@ -15,28 +15,15 @@ resolve = service[service.index("async def resolve_lot("):service.index("async d
 cancel = service[service.index("async def cancel_lot("):service.index("async def _finalize_lot(")]
 finalize = service[service.index("async def _finalize_lot("):]
 
-assert "async with eco_repo.atomic(db, seller_id)" in create
-assert "find_reference_replay(" in create
-assert 'source="auction_listing_fee"' in create
-assert "listing_operation_id" in repo
-assert "UPDATE inventory SET quantity = quantity - ?" in create
-assert "placement = 'auction'" in create
-
-restore = service[service.index("async def _restore_asset_escrow("):service.index("async def create_auction_lot(")]
-assert "INSERT INTO inventory" in restore
-assert "placement = 'storage'" in restore
-assert "_restore_asset_escrow(db, lot)" in resolve
-assert "_restore_asset_escrow(db, lot)" in cancel
-
-assert bid.index("FOR UPDATE") < bid.index("highest = await get_highest_bid")
-assert "get_bid_by_request(" in bid
-assert "effective_amount = float(lot[\"buyout\"])" in bid
-assert '"applied": False' in bid and '"applied": True' in bid
-assert "request_key" in repo and "idx_auction_bids_request" in repo
-
-assert 'idempotency_key=f"auction-settle:{lot[\'id\']}:buyer"' in finalize
-assert 'idempotency_key=f"auction-settle:{lot[\'id\']}:seller"' in finalize
+assert 'return False, "Старый аукцион закрыт.", False' in create
+assert '"ok": False' in bid and "db.execute" not in bid
+assert "db.execute" not in create
+assert 'raise RuntimeError("Legacy auction settlement is retired")' in finalize
+assert "return {}" in resolve and "db.execute" not in resolve
+assert "return False" in cancel and "db.execute" not in cancel
+assert "_restore_asset_escrow(db, lot)" not in finalize
 assert "UPDATE users SET user_balance" not in service
+assert 'raise RuntimeError("Legacy wallet holds are retired")' in repo
 
 assert '"market_open": False' in router
 for marker in (

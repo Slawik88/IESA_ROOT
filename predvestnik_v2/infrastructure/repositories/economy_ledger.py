@@ -412,24 +412,8 @@ async def apply_balance_change(
                 spec = CURRENCY_SPECS[code]
                 raise InsufficientBalance(f"Недостаточно валюты: {spec.icon} {spec.label}.")
 
-        # Active auction bids are a real liability, not merely a UI badge.
-        # Ordinary spends may use only free Mora; auction settlement removes
-        # its winning reserve in the same outer transaction before charging.
-        if not allow_negative and normalized.get("mora", Decimal("0")) < 0:
-            async with db.execute(
-                "SELECT COALESCE(reserved_mora, 0) FROM user_reserve WHERE user_id = ?",
-                (user_id,),
-            ) as cursor:
-                reserve_row = await cursor.fetchone()
-            reserved_mora = as_ledger_amount(
-                _row_get(reserve_row, "reserved_mora", 0) if reserve_row else 0
-            )
-            if after["mora"] < reserved_mora:
-                free_mora = max(Decimal("0"), before["mora"] - reserved_mora)
-                raise InsufficientBalance(
-                    f"Недостаточно свободной Моры: доступно {free_mora:.2f}, "
-                    f"в ставках {reserved_mora:.2f}."
-                )
+        # A player's wallet is the sole spendable balance. Retired duel/auction
+        # availability holds are archived and never subtracted or credited.
 
         assignments = ", ".join(
             f"{CURRENCY_SPECS[code].balance_column} = ?" for code in CURRENCY_CODES

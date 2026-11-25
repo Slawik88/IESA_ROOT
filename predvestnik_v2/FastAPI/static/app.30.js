@@ -75,7 +75,7 @@ function _svReachHtml(pack) {
   const goal = _sv.goal && _svItem(_sv.goal), list = pack ? _svReach(Number(pack.total)) : [], money = _svBal() + (pack ? Number(pack.total) : 0);
   const head = goal && !goal.owned ? `<p class="sv-goal">Вы выбрали «${_profileEsc(goal.name)}»: ${fmt(goal.price_zarniki)} ✨${goal.price_zarniki > _svBal() ? `, не хватает ${fmt(goal.price_zarniki - _svBal())} ✨` : ''}</p>` : '';
   if (!list.length) return head;
-  return `${head}<div class="sv-sec"><span class="v3-eyebrow">Хватит на</span><small>на счёте будет ${fmt(money)} ✨</small></div>
+  return `${head}<div class="sv-sec"><span class="v3-eyebrow">Хватит на</span><small>на счёте будет ${fmtBalance(money)} ✨</small></div>
     <div class="sv-reach">${list.map(i => `<button type="button" class="v3-row sv-go" onclick="svOpenSkin('${i.id}')" aria-label="${_profileEsc(i.name)}, ${fmt(i.price_zarniki)} Зарников. Открыть образ">${_svAva(i)}
       <span><b>${_profileEsc(i.name)}</b><small>редкость <em class="sv-tier">${_profileEsc(i.rarity)}</em></small></span><span class="v3-end">${fmt(i.price_zarniki)} ✨ ${_v3Icon('chev')}</span></button>`).join('')}</div>`;
 }
@@ -95,7 +95,7 @@ async function svPay() {
   const stars = _sv.sel, pack = (_sv.pk?.packages || []).find(p => Number(p.stars) === stars);
   if (_sv.busy || !pack) return;
   const ok = await v3Confirm({ title: 'Пополнение Зарников', visual: '✨', name: `${fmt(pack.total)} ✨`, sub: pack.bonus ? `${fmt(pack.zarniki)} и ${fmt(pack.bonus)} в подарок` : 'Без бонуса',
-    rows: [['Вы получите', `${fmt(pack.total)} ✨`], ['Оплата', `${fmt(pack.stars)} ⭐ Telegram Stars`], ['Будет на счёте', `${fmt(_svBal() + Number(pack.total))} ✨`, true]], cta: `Оплатить ${fmt(pack.stars)} ⭐`, note: 'Оплата откроется в Telegram. Зарники придут сразу после неё.' });
+    rows: [['Вы получите', `${fmt(pack.total)} ✨`], ['Оплата', `${fmt(pack.stars)} ⭐ Telegram Stars`], ['Будет на счёте', `${fmtBalance(_svBal() + Number(pack.total))} ✨`, true]], cta: `Оплатить ${fmt(pack.stars)} ⭐`, note: 'Оплата откроется в Telegram. Зарники придут сразу после неё.' });
   if (!ok) return;
   const btn = document.querySelector('#pg-store .sv-buy')?.getBoundingClientRect(), origin = btn ? { x: btn.left + btn.width / 2, y: btn.top + btn.height / 2 } : null;   // откуда полетят искры
   _sv.busy = true; _svRender();

@@ -85,7 +85,7 @@ async function giftNoteNext() {
   if (_giftLen(note) > max) { toast(`Записка — не больше ${max} символов.`, false); return; }
   CM();
   const b = d.balances || {};
-  const spent = Object.entries(g.cost || {}).map(([k, v]) => [`Баланс ${_GIFT_ICONS[k] || k}`, `${fmtF(b[k] || 0)} → ${fmtF(Number(b[k] || 0) - Number(v))}`]);
+  const spent = Object.entries(g.cost || {}).map(([k, v]) => [`Баланс ${_GIFT_ICONS[k] || k}`, `${fmtBalance(b[k] || 0)} → ${fmtBalance(Number(b[k] || 0) - Number(v))}`]);
   const ok = await v3Confirm({ title: 'Подарить', visual: g.icon || '🎁', name: g.name, sub: g.tier_name || '',
     rows: [['Кому', d.recipient?.name || ''], ['Отдаёшь', _giftCost(g.cost)], ...(note ? [['Записка', note]] : []), ...spent],
     cta: `Подарить за ${_giftCost(g.cost)}`, note: g.irreversible ? 'Это необратимо.' : '' });

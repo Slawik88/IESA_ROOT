@@ -92,9 +92,9 @@ el('toast')?.addEventListener('click', () => { const t = el('toast'); clearTimeo
 // Если строки не заданы, они собираются из price, icon и have. Внутри открытого диалога (старые окна) лист рисуется внутри него.
 let _cfKeys = null;
 function v3Confirm(spec) {
-  const s = spec || {}, icon = s.icon || '✨', cash = n => `${fmt(n)} ${icon}`;
+  const s = spec || {}, icon = s.icon || '✨', cash = n => `${fmt(n)} ${icon}`, balance = n => `${fmtBalance(n)} ${icon}`;
   const price = Number(s.price), have = Number(s.have);
-  const rows = s.rows || (Number.isFinite(price) ? [['Цена', cash(price)], ...(Number.isFinite(have) ? [['На счёте', cash(have)], ['Останется', cash(Math.max(0, have - price)), true]] : [])] : []);
+  const rows = s.rows || (Number.isFinite(price) ? [['Цена', cash(price)], ...(Number.isFinite(have) ? [['На счёте', balance(have)], ['Останется', balance(Math.max(0, have - price)), true]] : [])] : []);
   return new Promise(resolve => {
     document.getElementById('cf-sheet')?.remove(); if (_cfKeys) document.removeEventListener('keydown', _cfKeys, true);
     const host = document.createElement('div'); host.id = 'cf-sheet'; host.className = 'lk-sheet-back';

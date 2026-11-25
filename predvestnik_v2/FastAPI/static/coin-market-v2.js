@@ -14,6 +14,7 @@ window.CM2 = (() => {
   // Confirmation amounts are canonical server decimals: preserve all six
   // ledger places without floating-point rounding, including tiny commissions.
   const exactMoney=s=>{const value=String(s??'0');if(!/^-?\d+(?:\.\d{1,6})?$/.test(value))return '—';const [whole,fraction='']=value.split('.'),tail=fraction.replace(/0+$/,'');return whole.replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0')+(tail?','+tail:'');};
+  const walletMoney=s=>typeof fmtBalance==='function'?fmtBalance(s):num(s);
   const signed=s=>(Number(s)>0?'+':'')+num(s);
   // Portfolio valuation only: never round server decimals through binary float.
   function sumMoney(values){
@@ -158,8 +159,7 @@ window.CM2 = (() => {
       '<details class="cm2-help"><summary>Как работает биржа</summary><p>Курс меняет сервер по своему расписанию. Покупки игроков на него не влияют. Комиссия — 0,5% при покупке и продаже; чистый результат уже учитывает выход.</p><p>Позиция «на падение»: вы выделяете сумму, потерять можно только её. Если цены пойдут против позиции, сервер закроет её заранее. Остальной кошелёк не затрагивается.</p><button class="cm2-help-link" onclick="loadPlayerExchangeV1(true)">Проверить состояние прежней биржи</button></details>',focus);
   }
   function walletSummary(){
-    const balance=data.balances,reserved=Number(balance.mora_reserved||0)>0;
-    return `<div class="cm2-marketbar"><div class="cm2-wallet"><span class="cm2-eyebrow">В кошельке · Мора</span><strong class="cm2-wallet-sum">${num(balance.mora_total??balance.mora)}</strong></div><button id="cm2-refresh" class="cm2-plain" onclick="CM2.refreshMarket()">Обновить</button>${reserved?`<dl class="cm2-wallet-split"><div><dt>Для торговли</dt><dd>${num(balance.mora)}</dd></div><div><dt>В резерве</dt><dd>${num(balance.mora_reserved)}</dd></div></dl><p class="cm2-wallet-note">Зарезервированные средства недоступны для новых сделок.</p>`:''}</div>`;
+    return `<div class="cm2-marketbar"><div class="cm2-wallet"><span class="cm2-eyebrow">В кошельке · Мора</span><strong class="cm2-wallet-sum">${walletMoney(data.balances.mora)}</strong></div><button id="cm2-refresh" class="cm2-plain" onclick="CM2.refreshMarket()">Обновить</button></div>`;
   }
   function marketSummary(){
     const rising=data.coins.filter(c=>Number(c.change_24h)>0).length,falling=data.coins.filter(c=>Number(c.change_24h)<0).length;

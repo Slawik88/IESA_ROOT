@@ -43,7 +43,7 @@ function _lkAction(item, st) {
   if (item.maxed) return { t: 'Максимальный тир', a: '', sub: 'Образ раскрыт полностью' };
   if (item.next.needs_vip) return { t: 'Открыть SSS с VIP', a: 'vip', sub: 'Последний тир SSS доступен только с активным VIP' };
   return e >= item.next.essence
-    ? { t: `Улучшить до ${item.next.tier}`, a: 'upgrade', sub: `${fmt(item.next.essence)} Эссенции, останется ${fmt(e - item.next.essence)}`, cost: item.next.essence }
+    ? { t: `Улучшить до ${item.next.tier}`, a: 'upgrade', sub: `${fmt(item.next.essence)} Эссенции, останется ${fmtBalance(e - item.next.essence)}`, cost: item.next.essence }
     : { t: `Не хватает ${fmt(item.next.essence - e)} Эссенции`, a: 'essence', sub: `Тир ${item.next.tier} стоит ${fmt(item.next.essence)}, нажмите, чтобы пополнить` };
 }
 
@@ -70,7 +70,7 @@ function _lkSteps(item) {
 }
 function _lkTop(st) {
   return `<div class="lk-top"><button type="button" class="v3-link pp-back" onclick="navBack()" aria-label="Назад">‹ Профиль</button>
-      <div class="lk-wallet" role="group" aria-label="Баланс"><button type="button" onclick="openZarnikiTopup()" aria-label="Зарники ${fmt(st.zarniki)}. Пополнить">✨ <b>${fmt(st.zarniki)}</b></button><button type="button" onclick="lkEssence()" aria-label="Эссенция ${fmt(st.essence.balance)}. Пополнить">${_v3Icon('essence')} <b>${fmt(st.essence.balance)}</b></button></div></div>${lkViewSwitch()}`;
+      <div class="lk-wallet" role="group" aria-label="Баланс"><button type="button" onclick="openZarnikiTopup()" aria-label="Зарники ${fmtBalance(st.zarniki)}. Пополнить">✨ <b>${fmtBalance(st.zarniki)}</b></button><button type="button" onclick="lkEssence()" aria-label="Эссенция ${fmtBalance(st.essence.balance)}. Пополнить">${_v3Icon('essence')} <b>${fmtBalance(st.essence.balance)}</b></button></div></div>${lkViewSwitch()}`;
 }
 function lkTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 

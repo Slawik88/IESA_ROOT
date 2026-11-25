@@ -426,7 +426,7 @@ async def quote(db, user_id, coin_id, side, *, amount=0, units=0, position_id=No
     if side in ('buy','short'):
         available=await repo.balances(db,user_id)
         if Decimal(available.get('mora','0'))*rules.MORA < -result.flow.wallet:
-            raise rules.MarketError('Недостаточно свободной Моры.')
+            raise rules.MarketError('Недостаточно Моры в кошельке.')
     if side=='short' and any(p['user_id']==user_id for p in await repo.active_shorts(db,coin_id)):
         raise rules.MarketError('У вас уже есть позиция на падение этой монеты.')
     return {

@@ -65,15 +65,15 @@ function renderProfileHome(data) {
     ${_v3TodayShell()}
     <section class="v3-bal" aria-label="Баланс">
       <div class="v3-bal-head"><span class="v3-eyebrow">Мора</span><button type="button" class="v3-link" onclick="showCurrModal()">Кошелёк ›</button></div>
-      <div class="v3-bal-row"><div class="v3-num" data-key="mora" data-n="${Number(wallet.mora) || 0}">${fmt(wallet.mora || 0)}</div>
-        <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button></div>
+      <div class="v3-bal-row"><div class="v3-num" data-key="mora" data-n="${Number(wallet.mora) || 0}">${fmtBalance(wallet.mora || 0)}</div>
+        <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmtBalance(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmtBalance(wallet.zarniki || 0)}</button></div>
     </section>
     <section class="v3-stats" aria-label="Показатели игрока"><span class="v3-eyebrow v3-stats-label">Активность</span><div><b data-key="streak" data-n="${Number(d.streak) || 0}">${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b data-key="ach" data-n="${Number(d.achievements) || 0}">${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b data-key="msgs" data-f="short" data-n="${Number(d.messages_all_time) || 0}">${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
     ${_v3PathShell()}
     ${_v3TopShell()}
     ${typeof giftsShelfShell === 'function' ? giftsShelfShell() : ''}
     <nav class="v3-list" aria-label="Разделы профиля">
-      ${_v3Row('hanger', 'Образы', 'openLooksModal()', d.essence ? `Скины и сеты · Эссенция ${fmt(d.essence)}` : 'Скины, прокачка тиров и сеты')}
+      ${_v3Row('hanger', 'Образы', 'openLooksModal()', d.essence ? `Скины и сеты · Эссенция ${fmtBalance(d.essence)}` : 'Скины, прокачка тиров и сеты')}
       ${_v3Row('bag', 'Инвентарь', 'openInventory()', 'Образы, питомцы, ключи и вещи')}
       ${_v3Row('paw', 'Питомцы', 'openPetsV1()')}
       ${_v3Row('flag', 'Квесты', 'openQuestsV1()')}

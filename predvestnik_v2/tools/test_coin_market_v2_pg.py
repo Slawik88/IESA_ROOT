@@ -285,16 +285,21 @@ async def run():
           INSERT INTO users(user_tg_id) SELECT generate_series(1,20);""")
         await economy_ledger.ensure_tables(db)
         await legacy_reserve_recovery(db,conn)
-        # The exchange's spendable amount must not masquerade as the entire
-        # wallet. Showing the split must never alter or release a real hold.
+        # Legacy availability holds do not split the live wallet. Reading or
+        # spending it must never credit the historical hold a second time.
         async with conn.transaction():
             await conn.execute("INSERT INTO users(user_tg_id,user_balance_mora) VALUES(21,1094)")
             await conn.execute("INSERT INTO user_reserve(user_id,reserved_mora) VALUES(21,200)")
             balance = await repo.balances(db,21)
             assert Decimal(balance['mora_total']) == 1094
-            assert Decimal(balance['mora_reserved']) == 200
-            assert Decimal(balance['mora']) == 894
+            assert Decimal(balance['mora_reserved']) == 0
+            assert Decimal(balance['mora']) == 1094
             assert await conn.fetchval("SELECT reserved_mora FROM user_reserve WHERE user_id=21") == 200
+            from infrastructure.repositories.economy import add_balance
+            spent = await add_balance(db,21,mora=-1000,source="hold_retirement_regression",
+                source_type="test",idempotency_key="single-wallet-spend")
+            assert await conn.fetchval("SELECT user_balance_mora FROM users WHERE user_tg_id=21") == 94
+            await conn.execute("UPDATE users SET user_balance_mora=1094 WHERE user_tg_id=21")
             await conn.execute("DELETE FROM user_reserve WHERE user_id=21")
             assert Decimal((await repo.balances(db,21))['mora']) == 1094
             await conn.execute("DELETE FROM users WHERE user_tg_id=21")

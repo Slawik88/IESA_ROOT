@@ -2,11 +2,30 @@
 # Pure text-formatting utilities. No DB, no platform, no side effects.
 import html as _html
 from datetime import datetime as _dt
+from decimal import Decimal, InvalidOperation, ROUND_DOWN
 
 
 def format_currency(amount: float) -> str:
     """1500.5 → '1 500.50'"""
     return f"{amount:,.2f}".replace(",", " ")
+
+
+def format_balance(value) -> str:
+    """Show whole balances or two complete decimal places, never round up."""
+    try:
+        amount = Decimal(str(value if value is not None else 0))
+        if not amount.is_finite():
+            return "—"
+        if isinstance(value,float):
+            amount = amount.quantize(Decimal('0.000001'))
+        whole = amount == amount.to_integral_value()
+        amount = amount.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    except (InvalidOperation, ValueError):
+        return "—"
+    if amount == 0:
+        amount = Decimal(0)
+    places = 0 if whole else 2
+    return f"{amount:,.{places}f}".replace(',', '\u00a0').replace('.', ',')
 
 
 def format_number(value: int) -> str:

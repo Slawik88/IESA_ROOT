@@ -19,15 +19,15 @@ function v3ChipsFade() {
   bar.classList.remove('fit-1', 'fit-2', 'fit-3');
   if (over()) {
     bar.classList.add('fit-1');
-    if (over()) { bar.classList.add('fit-2'); if (over()) { bar.classList.add('fit-3'); _v3BarNumbers(true); } }   // fit-3: суммы от тысячи сокращаются
+    if (over()) { bar.classList.add('fit-2'); if (over()) { bar.classList.add('fit-3'); _v3BarNumbers(true); } }   // fit-3: минимальные отступы; суммы остаются точными
   }
   main.classList.toggle('has-more', over());
 }
-// Суммы в панели; compact сокращает уже от тысячи («2,6к»), обычный вид только от десяти тысяч
+// Балансы в панели не сокращаются и не округляются вверх; при нехватке места ряд прокручивается.
 let _v3BarVals = null, _v3BarFirstAt = 0;
 function _v3BarNumbers(compact) {
   const v = _v3BarVals; if (!v) return;
-  const set = (id, value) => { const node = el(id); if (node) node.textContent = _v3Short(value, compact ? 1e3 : 1e4); };
+  const set = (id, value) => { const node = el(id); if (node) node.textContent = fmtBalance(value); };
   set('vb-mora', v.mora); set('vb-dia', v.diamonds); set('vb-ess', v.essence); set('vb-zar', v.zarniki);   // порядок как на экране: Мора, Алмазы, остальные, Зарники
 }
 window.addEventListener('resize', v3ChipsFade);
@@ -37,7 +37,7 @@ function renderV3Bar(d) {
   const bar = el('v3-bar'); if (!bar || !d) return;
   const wallet = _v3Wallet(d), level = Math.max(1, Number(d.account_level) || 1);
   ['mora', 'diamonds', 'zarniki', 'essence'].forEach(k => {
-    const node = el('cm-bal-' + k); if (node && wallet[k] !== undefined) node.textContent = fmtF(wallet[k]);
+    const node = el('cm-bal-' + k); if (node && wallet[k] !== undefined) node.textContent = fmtBalance(wallet[k]);
   });
   const need = Number(d.xp_to_next) > 0 ? Number(d.xp_to_next) : 0, xp = Math.max(0, Number(d.xp_into) || 0);
   const me = el('v3-bar-me');

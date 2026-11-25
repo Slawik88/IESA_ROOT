@@ -180,7 +180,7 @@ function _trBuildHtml() {
     : '<p class="tr-note">Талисманов пока нет. Их находят питомцы в Походах и Экспедициях.</p>';
   const cost = _trBuildCost(p, b), have = _trHave('essence'), short = cost.total > 0 && have != null && have < cost.total;
   const changed = (b.calling || null) !== (p.calling || null) || !_trSame(b.traits, p.traits) || !_trSame(b.tal, p.talismans);
-  const why = !changed ? 'Сборка не изменилась.' : short ? `Не хватает Эссенции: нужно ${cost.total}, у вас ${fmt(have)}.` : cost.total ? `Замена стоит ${cost.total} Эссенции${have != null ? `, у вас ${fmt(have)}` : ''}.` : 'Это бесплатно.';
+  const why = !changed ? 'Сборка не изменилась.' : short ? `Не хватает Эссенции: нужно ${cost.total}, у вас ${fmtBalance(have)}.` : cost.total ? `Замена стоит ${cost.total} Эссенции${have != null ? `, у вас ${fmtBalance(have)}` : ''}.` : 'Это бесплатно.';
   const presets = (_tr.me.build_presets || []).filter(x => x.pet_id === p.id);
   const saved = `<details class="tr-grp"><summary>Мои шаблоны · ${presets.length} из 3</summary><p class="tr-note">Шаблон хранит выбор. Загрузка ничего не меняет и не списывает; применение оплачивается по обычным правилам.</p><div class="tr-chips">${presets.map(x => `<button type="button" class="tr-chip" onclick="trailPresetLoad(${x.slot})">${_trE(x.name)}</button>`).join('')}</div><div class="tr-preset-form"><label class="tr-note" for="tr-preset-name">Название шаблона</label><input id="tr-preset-name" maxlength="40" value="${_trE(b.presetName || '')}" oninput="_tr.build.presetName=this.value" placeholder="Например, ночные походы"><label class="tr-note" for="tr-preset-slot">Место сохранения</label><select id="tr-preset-slot" onchange="_tr.build.presetSlot=Number(this.value)">${[1,2,3].map(n => `<option value="${n}"${n === (b.presetSlot || 1) ? ' selected' : ''}>${n}${presets.some(x => x.slot === n) ? ' · заменить' : ' · свободно'}</option>`).join('')}</select><button type="button" class="v3-link" onclick="trailPresetSave(this)">Сохранить шаблон бесплатно</button></div></details>`;
   const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span><b>${_trE(p.name)}</b><small>Уровень ${p.level}</small></span></p>${saved}
@@ -202,7 +202,7 @@ function trailBuildGo(button) {
   const have = _trHave('essence');
   v3Confirm({
     title: 'Заменить сборку', visual: p.icon, name: p.name, sub: `Уровень ${p.level}`, cta: `Заплатить ${cost.total} Эссенции`,
-    rows: [...cost.parts.map(([k, v]) => [k, `${fmt(v)} 💧`]), ...(have != null ? [['На счёте', `${fmt(have)} 💧`], ['Останется', `${fmt(Math.max(0, have - cost.total))} 💧`, true]] : [['Итого', `${fmt(cost.total)} 💧`, true]])],
+    rows: [...cost.parts.map(([k, v]) => [k, `${fmt(v)} 💧`]), ...(have != null ? [['На счёте', `${fmtBalance(have)} 💧`], ['Останется', `${fmtBalance(Math.max(0, have - cost.total))} 💧`, true]] : [['Итого', `${fmt(cost.total)} 💧`, true]])],
   }).then(ok => { if (ok) run(); });
 }
 
@@ -287,8 +287,8 @@ function trailUpgrade(building) {
   const camp = _tr.me.camp, lv = camp.levels[building] || 0, cost = camp.next_costs?.[building]; if (!cost || !_TR_BLD[building]) return;
   const mora = _trHave('mora'), ess = _trHave('essence');
   const rows = [['Постройка', `${_TR_BLD[building]}, ${lv} → ${lv + 1}`], ['Что даст', _trBldFx(building, lv + 1)], ['Мора', `${fmt(cost.mora)} 🪙`], ['Эссенция', `${fmt(cost.essence)} 💧`], ['Стройка займёт', `${cost.hours}\u00a0ч`]];
-  if (mora != null) rows.push(['Моры останется', `${fmt(Math.max(0, mora - cost.mora))} 🪙`]);
-  if (ess != null) rows.push(['Эссенции останется', `${fmt(Math.max(0, ess - cost.essence))} 💧`, true]);
+  if (mora != null) rows.push(['Моры останется', `${fmtBalance(Math.max(0, mora - cost.mora))} 🪙`]);
+  if (ess != null) rows.push(['Эссенции останется', `${fmtBalance(Math.max(0, ess - cost.essence))} 💧`, true]);
   v3Confirm({ title: 'Улучшить постройку', visual: '⛺', name: `${_TR_BLD[building]} → ${lv + 1}\u00a0ур.`, sub: 'Плата списывается сразу', cta: 'Начать стройку', rows }).then(ok => {
     if (!ok) return;
     _trRun(null, () => _trPost('camp/upgrade', { building }, 'camp', building, lv + 1).then(r => {
@@ -302,7 +302,7 @@ function trailReforge(talismanId) {
   const cost = (_tr.me.rules.reforge || {})[t.tier]; if (cost == null) return;
   const [ic, nm] = _trTal(t), ess = _trHave('essence');
   const rows = [['Тир', `${_TR_TIER[t.tier]} → ${_TR_TIER[t.tier + 1]}`], ['Эссенция', `${fmt(cost)} 💧`]];
-  if (ess != null) rows.push(['Эссенции останется', `${fmt(Math.max(0, ess - cost))} 💧`, true]);
+  if (ess != null) rows.push(['Эссенции останется', `${fmtBalance(Math.max(0, ess - cost))} 💧`, true]);
   v3Confirm({ title: 'Перековать талисман', visual: ic, name: `${nm} ${_TR_TIER[t.tier]}`, sub: _trTalFx(t), cta: 'Перековать', rows }).then(ok => {
     if (!ok) return;
     _trRun(null, () => _trPost('talisman/reforge', { talisman_id: t.id }, 'reforge', t.id, t.tier).then(r => {

@@ -253,9 +253,9 @@ function updateCurrBar(data) {
     }
     v.textContent = next;
   };
-  set('cb-mora', data?.mora ?? 0, fmtBar);
-  set('cb-dia',  data?.diamonds ?? 0, fmtBar);
-  set('cb-zar',  data?.zarniki ?? 0, fmtBar);
+  set('cb-mora', data?.mora ?? 0, fmtBalance);
+  set('cb-dia',  data?.diamonds ?? 0, fmtBalance);
+  set('cb-zar',  data?.zarniki ?? 0, fmtBalance);
   _currInited = true;
 }
 
@@ -286,28 +286,28 @@ function showCurrModal() {
     <div class="cm-block">
       <div class="cm-icon">🪙</div>
       <div class="cm-info">
-        <div class="cm-name">Мора <span class="cm-val" id="cm-bal-mora">${fmtF(mora)}</span></div>
+        <div class="cm-name">Мора <span class="cm-val" id="cm-bal-mora">${fmtBalance(mora)}</span></div>
         <div class="cm-desc">Основная валюта: награды за квесты и игры.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💎</div>
       <div class="cm-info">
-        <div class="cm-name">Алмазы <span class="cm-val" id="cm-bal-diamonds">${fmtF(dia)}</span></div>
+        <div class="cm-name">Алмазы <span class="cm-val" id="cm-bal-diamonds">${fmtBalance(dia)}</span></div>
         <div class="cm-desc">Редкая валюта: награды за достижения и сундуки.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💧</div>
       <div class="cm-info">
-        <div class="cm-name">Эссенция <span class="cm-val" id="cm-bal-essence">${fmtF(d.essence ?? 0)}</span></div>
+        <div class="cm-name">Эссенция <span class="cm-val" id="cm-bal-essence">${fmtBalance(d.essence ?? 0)}</span></div>
         <div class="cm-desc">Растит образы по тирам. Её дают задания, ещё её можно взять за Зарники в разделе «Образы».</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">✨</div>
       <div class="cm-info">
-        <div class="cm-name">Зарники <span class="cm-val" id="cm-bal-zarniki">${fmtF(zar)}</span></div>
+        <div class="cm-name">Зарники <span class="cm-val" id="cm-bal-zarniki">${fmtBalance(zar)}</span></div>
         <div class="cm-desc">Донат-валюта. Можно обменять в пределах общего суточного лимита — без прямой покупки Моры или Алмазов за Stars.</div>
       </div>
     </div>
@@ -376,14 +376,14 @@ function refreshCurrBar() {
 // Патчит и когда экран профиля не активен — тот же паттерн, что уже у updateCurrBar().
 function _profileSyncStats(d){
   const set=(id,val)=>{ const n=el(id); if(n && val!=null) n.textContent=val; };
-  set('pro-stat-mora', fmt(d.mora));
-  set('pro-stat-dia', fmtF(d.diamonds));
-  set('pro-stat-zar', Math.floor(d.zarniki||0));
+  set('pro-stat-mora', fmtBalance(d.mora));
+  set('pro-stat-dia', fmtBalance(d.diamonds));
+  set('pro-stat-zar', fmtBalance(d.zarniki||0));
   set('pro-stat-ach', d.achievements);
   set('pro-stat-streak', d.streak);
   const metric=(key,val,short=false)=>{
     const n=document.querySelector(`#pro-main [data-key="${key}"]`);if(!n||val==null)return;
-    n.dataset.n=String(Number(val)||0);n.textContent=short?_v3Short(val):fmt(val);
+    n.dataset.n=String(Number(val)||0);n.textContent=key==='mora'?fmtBalance(val):short?_v3Short(val):fmt(val);
   };
   metric('mora',d.mora);metric('streak',d.streak);metric('ach',d.achievements);
   metric('msgs',d.messages_all_time,true);

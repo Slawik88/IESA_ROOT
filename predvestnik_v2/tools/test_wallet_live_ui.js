@@ -2,6 +2,9 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const dir=path.join(__dirname,'../FastAPI/static');
 const nodes=new Map();const el=id=>nodes.get(id)||(nodes.set(id,{textContent:'',classList:{contains:()=>false,remove(){},add(){},toggle(){}},dataset:{},scrollWidth:0,clientWidth:100}),nodes.get(id));
 const ctx=vm.createContext({document:{fonts:null,addEventListener(){},querySelector:()=>null},window:{addEventListener(){}},el,fmt:x=>String(x),fmtF:x=>String(x),_v3Ring:()=>'',console,Date,Number});
+const app1=fs.readFileSync(path.join(dir,'app.01.js'),'utf8');
+vm.runInContext(app1.slice(app1.indexOf('function fmtBalance('),app1.indexOf('\nfunction vipName(')),ctx);
+for(const [input,output] of [['79.99','79,99'],['79.999999','79,99'],['79.9','79,90'],['80','80'],['80.000013','80,00'],['0.009999','0,00'],['999999999999.999999','999\u00a0999\u00a0999\u00a0999,99']])assert.equal(ctx.fmtBalance(input),output);
 vm.runInContext(fs.readFileSync(path.join(dir,'app.16.js'),'utf8'),ctx);
 const run=x=>vm.runInContext(x,ctx);
 run('renderV3Bar({balances:{mora:400,diamonds:5,zarniki:9},mora:0,zarniki:7,essence:3})');
@@ -9,8 +12,20 @@ assert.equal(el('vb-mora').textContent,'0');assert.equal(el('cm-bal-mora').textC
 el('zar-exchange-amount').value='23';run('renderV3Bar({mora:100,diamonds:0,zarniki:0,essence:0})');
 assert.equal(el('cm-bal-mora').textContent,'100');assert.equal(el('cm-bal-zarniki').textContent,'0');assert.equal(el('zar-exchange-amount').value,'23');
 // Actual WebSocket handler merges a partial balance and updates both DTO shapes.
-const app1=fs.readFileSync(path.join(dir,'app.01.js'),'utf8');const start=app1.indexOf('function queueLiveBalance('),end=app1.indexOf('\nfunction showWsNotif',start);
+const start=app1.indexOf('function queueLiveBalance('),end=app1.indexOf('\nfunction showWsNotif',start);
 Object.assign(ctx,{_pendingBalanceEvent:null,_balanceEventTimer:0,_profileData:{mora:50,diamonds:2,zarniki:8,balances:{mora:50,diamonds:2,zarniki:8}},updateCurrBar:ctx.renderV3Bar,_profileSyncStats(){},setTimeout:f=>{ctx.fire=f;return 1;}});
 vm.runInContext(app1.slice(start,end),ctx);run('queueLiveBalance({mora:0})');ctx.fire();
 assert.equal(ctx._profileData.mora,0);assert.equal(ctx._profileData.balances.mora,0);assert.equal(ctx._profileData.balances.zarniki,8);assert.equal(el('cm-bal-mora').textContent,'0');
+run('renderV3Bar({mora:79.99,diamonds:79.99,zarniki:79.99,essence:79.99});_v3BarNumbers(true)');
+for(const id of ['vb-mora','vb-dia','vb-zar','vb-ess','cm-bal-mora','cm-bal-diamonds','cm-bal-zarniki','cm-bal-essence'])assert.equal(el(id).textContent,'79,99',id+' never rounds up or abbreviates a wallet');
+run('queueLiveBalance({mora:79.999999,diamonds:79.9})');ctx.fire();assert.equal(el('vb-mora').textContent,'79,99');assert.equal(el('cm-bal-diamonds').textContent,'79,90');
+const confirm=fs.readFileSync(path.join(dir,'app.28.js'),'utf8'),confirmStart=confirm.indexOf('function v3Confirm('),confirmEnd=confirm.indexOf('  return new Promise',confirmStart);
+vm.runInContext(confirm.slice(confirmStart,confirmEnd)+'return rows;}',ctx);
+const rows=run("v3Confirm({price:1,have:79.999999,icon:'Моры'})");
+assert.equal(rows[0][1],'1 Моры','prices keep their existing formatter');
+assert.equal(rows[1][1],'79,99 Моры');assert.equal(rows[2][1],'78,99 Моры');
+const app25=fs.readFileSync(path.join(dir,'app.25.js'),'utf8'),countStart=app25.indexOf('function v3CountUp('),countEnd=app25.indexOf('\n// Один раз за запуск',countStart);
+Object.assign(ctx,{_v3Calm:()=>false,_V3_LS:{counts:'counts'},_lsGet:()=>'{}',_lsSet(){},requestAnimationFrame(){throw Error('a currency balance must not show interpolated spendable amounts');}});
+vm.runInContext(app25.slice(countStart,countEnd),ctx);
+const counter={dataset:{key:'mora',n:'79.999999'},textContent:''};ctx.v3CountUp({querySelectorAll:()=>[counter]});assert.equal(counter.textContent,'79,99');
 console.log('OK: wallet flat/nested reconciliation, zero balances, live partial updates, open modal and preserved form input');

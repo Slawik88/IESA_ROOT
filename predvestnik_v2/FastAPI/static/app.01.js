@@ -296,7 +296,7 @@ function queueLiveBalance(event){
     _profileData={..._profileData,...patch,balances:{...(_profileData.balances||{}),...patch}};
     try{updateCurrBar(_profileData);}catch(_){}
     try{_profileSyncStats(_profileData);}catch(_){}
-    keys.forEach(k=>{const n=el('cm-bal-'+k);if(n&&patch[k]!==undefined)n.textContent=fmtF(patch[k]);});
+    keys.forEach(k=>{const n=el('cm-bal-'+k);if(n&&patch[k]!==undefined)n.textContent=fmtBalance(patch[k]);});
   },80);
 }
 function showWsNotif(event) {
@@ -415,6 +415,18 @@ let _xpAnimated = false;
 const fmt = n => Number(n).toLocaleString('ru');
 // Float-формат валют/цен: разделители тысяч + до 2 знаков после запятой (без хвостовых нулей).
 const fmtF = n => (Number(n)||0).toLocaleString('ru',{maximumFractionDigits:2});
+// Wallets must never round 79.999999 up to a spendable-looking 80.
+// Keep accounting precision on the server; display complete cents consistently.
+function fmtBalance(value){
+  let text=typeof value==='number'&&Number.isFinite(value)?value.toFixed(6):String(value??0);
+  if(!/^-?\d+(?:\.\d+)?$/.test(text)){
+    const n=Number(value);if(!Number.isFinite(n))return '—';text=n.toFixed(6);if(!/^-?\d+(?:\.\d+)?$/.test(text))return '—';
+  }
+  const negative=text.startsWith('-'),[whole,part='']=text.replace(/^-/,'').split('.');
+  let cents=BigInt(whole)*100n+BigInt(part.padEnd(2,'0').slice(0,2));
+  const fraction=cents%100n,integer=String(cents/100n).replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0');
+  return (negative&&cents?'-':'')+integer+(fraction||/[1-9]/.test(part)?','+String(fraction).padStart(2,'0'):'');
+}
 function vipName(name, isVip, badge='✦', position='left') {
   if (!isVip || position === 'hidden') return name;
   if (position === 'right') return `${name} ${badge}`;

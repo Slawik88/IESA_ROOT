@@ -184,12 +184,7 @@ async def get_reserve(db: aiosqlite.Connection, user_id: int) -> float:
 
 
 async def add_reserve(db: aiosqlite.Connection, user_id: int, amount: float) -> None:
-    # Qualify column name to avoid "ambiguous column reference" in PostgreSQL ON CONFLICT
-    await db.execute(
-        "INSERT INTO user_reserve (user_id, reserved_mora) VALUES (?, ?) "
-        "ON CONFLICT(user_id) DO UPDATE SET reserved_mora = user_reserve.reserved_mora + ?",
-        (user_id, amount, amount),
-    )
+    raise RuntimeError("Legacy wallet holds are retired")
 
 
 async def remove_reserve(db: aiosqlite.Connection, user_id: int, amount: float) -> None:
