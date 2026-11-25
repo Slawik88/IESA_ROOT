@@ -257,14 +257,22 @@ async def category_delete(cbq: CallbackQuery):
 # ── Привязка чата и приглашение ──────────────────────────────────────────────
 
 @router.callback_query(F.data == cb.settings_bind_chat())
+@router.callback_query(F.data.regexp(r"^st_chat:([1-9][0-9]{0,18})$"))
 @guard
 async def bind_chat(cbq: CallbackQuery):
-    house = await _house_of(cbq.from_user.id)
+    if cbq.data == cb.settings_bind_chat():
+        house = await _house_of(cbq.from_user.id)
+    else:
+        house_id = int(cb.parse(cbq.data)[1])
+        if house_id.bit_length() > 63:
+            raise households.DomainError("Дом не найден")
+        await households.require(house_id, cbq.from_user.id, "manage_house_settings")
+        house = await households.get_house(house_id)
     if house is None:
         await cbq.answer("Сначала выберите дом", show_alert=True)
         return
     await households.require(house["id"], cbq.from_user.id, "manage_house_settings")
-    if cbq.message.chat.type == "private":
+    if cbq.message.chat.type not in {"group", "supergroup"}:
         await cbq.answer("Привязать можно только чат, где есть бот: откройте эту кнопку "
                          "внутри группы.", show_alert=True)
         return

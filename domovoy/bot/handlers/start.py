@@ -1,6 +1,9 @@
 """
 bot/handlers/start.py — /start, выбор дома, создание дома, deep-link приглашения.
 """
+import re
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -30,15 +33,24 @@ def _menu_text(house) -> str:
     return f"🏠 Дом «{house['name']}»\nЧто делаем?"
 
 
-def _main_menu(can_switch_house: bool):
-    return kb.main_menu(can_switch_house=can_switch_house, web_url=public_url())
+def _site_url(house_id: int | None = None) -> str | None:
+    url = public_url()
+    if url is None or house_id is None:
+        return url
+    parsed = urlsplit(url)
+    query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if key != "house"]
+    return urlunsplit(parsed._replace(query=urlencode([*query, ("house", str(house_id))])))
+
+
+def _main_menu(can_switch_house: bool, house_id: int | None = None):
+    return kb.main_menu(can_switch_house=can_switch_house, web_url=_site_url(house_id))
 
 
 @router.message(CommandStart())
 @guard
 async def cmd_start(message: Message, command: CommandObject, state: FSMContext):
     if message.chat.type != "private":
-        await _start_in_group(message)
+        await _start_in_group(message, (command.args or "").strip())
         return
 
     tg_id = message.from_user.id
@@ -54,21 +66,41 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
     house = await resolve_house(tg_id)
     if house is not None:
         await message.answer(_menu_text(house), reply_markup=_main_menu(
-            can_switch_house=len(await households.houses_of_user(tg_id)) > 1))
+            can_switch_house=len(await households.houses_of_user(tg_id)) > 1, house_id=house["id"]))
     elif len(await households.houses_of_user(tg_id)) > 1:
-        await message.answer("У вас несколько домов. Выберите, с каким работаем:",
-                             reply_markup=kb.house_selector(await households.houses_of_user(tg_id)))
+        web_url = public_url()
+        await message.answer(
+            "У вас несколько домов. Откройте Домового и выберите нужный дом в приложении."
+            if web_url else "У вас несколько домов. Выберите, с каким работаем:",
+            reply_markup=kb.onboarding(web_url) if web_url else kb.house_selector(
+                await households.houses_of_user(tg_id)),
+        )
     else:
         await message.answer(
-            "Привет! Это Домовой — график уборки и Баланс Квартиры вашего дома.\n\n"
-            "Создайте дом и позовите жильцов по ссылке — или присоединитесь к чужому дому "
-            "по приглашению.",
-            reply_markup=kb.onboarding(),
+            "Привет! Домовой помогает вести общие деньги и уборку.\n\n"
+            "Откройте приложение: там можно создать свой дом или вступить по приглашению. "
+            "Дальше все домашние дела будут под рукой.",
+            reply_markup=kb.onboarding(public_url()),
         )
 
 
-async def _start_in_group(message: Message):
+async def _start_in_group(message: Message, payload: str = ""):
     """Бот в чате: основные действия — в личке, здесь дом привязывают к чату."""
+    if message.from_user is None:
+        raise households.DomainError("Подключите группу от своего аккаунта, не от имени канала.")
+    if payload:
+        match = re.fullmatch(r"house_([1-9][0-9]{0,18})", payload)
+        if match is None or int(match[1]).bit_length() > 63:
+            raise households.DomainError("Ссылка подключения не распознана. Откройте новую ссылку из нужного дома.")
+        house_id = int(match[1])
+        await households.require(house_id, message.from_user.id, "manage_house_settings")
+        house = await households.get_house(house_id)
+        await message.answer(
+            f"Подключить этот чат к дому «{house['name']}»?\n"
+            "Сюда будут приходить уведомления, для которых жильцы выбрали общий чат.",
+            reply_markup=kb.bind_chat_keyboard(house_id),
+        )
+        return
     house = await resolve_house(message.from_user.id)
     if house is None:
         await message.answer("Сначала создайте дом или войдите в него в личке у бота, "
@@ -92,11 +124,11 @@ async def _join_by_invite(message: Message, token: str, state: FSMContext):
     added = await households.join_house(house, message.from_user.id, display_name)
     await repo.users.set_active_house(message.from_user.id, house["id"])
     greeting = "Вы вступили в дом" if added else "Вы уже участник дома"
+    web_url = _site_url(house["id"])
     await message.answer(
         f"{greeting} «{house['name']}» 🏠\n\n"
-        "Кнопки: «Сегодня» — чей день уборки, «Баланс» — котёл квартиры, "
-        "«Траты» — что куплено, «Скинулся» — ваш взнос.",
-        reply_markup=_main_menu(can_switch_house=False),
+        "Откройте приложение — здесь общие деньги, уборка и домашние дела.",
+        reply_markup=kb.onboarding(web_url) if web_url else _main_menu(can_switch_house=False, house_id=house["id"]),
     )
 
 
@@ -111,10 +143,10 @@ async def show_menu(cbq: CallbackQuery, state: FSMContext):
     houses_count = len(await households.houses_of_user(cbq.from_user.id))
     try:
         await cbq.message.edit_text(_menu_text(house),
-                                    reply_markup=_main_menu(can_switch_house=houses_count > 1))
+                                    reply_markup=_main_menu(can_switch_house=houses_count > 1, house_id=house["id"]))
     except Exception:
         await cbq.message.answer(_menu_text(house),
-                                 reply_markup=_main_menu(can_switch_house=houses_count > 1))
+                                 reply_markup=_main_menu(can_switch_house=houses_count > 1, house_id=house["id"]))
     await cbq.answer()
 
 
@@ -146,7 +178,8 @@ async def select_house(cbq: CallbackQuery, state: FSMContext):
     house = await households.get_house(house_id)
     await cbq.message.edit_text(_menu_text(house),
                                 reply_markup=_main_menu(
-                                    can_switch_house=len(await households.houses_of_user(cbq.from_user.id)) > 1))
+                                    can_switch_house=len(await households.houses_of_user(cbq.from_user.id)) > 1,
+                                    house_id=house["id"]))
     await cbq.answer()
 
 
@@ -177,5 +210,5 @@ async def create_house_named(message: Message, state: FSMContext):
         f"1. Пригласите жильцов: {link}\n"
         f"2. Настройте график: «Настройки» → или кнопку «График» в меню.\n\n"
         f"Ссылку можно обновить в «Настройки» → «Ссылка-приглашение».",
-        reply_markup=_main_menu(can_switch_house=False),
+        reply_markup=_main_menu(can_switch_house=False, house_id=house["id"]),
     )

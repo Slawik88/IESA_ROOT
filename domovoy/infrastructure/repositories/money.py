@@ -99,16 +99,27 @@ async def get_contribution(contribution_id: int):
         )
 
 
-async def set_contribution_status(contribution_id: int, status: str, confirmed_by: int) -> bool:
+async def set_contribution_status(
+    contribution_id: int, status: str, confirmed_by: int, *, expected: dict | None = None,
+) -> bool:
     """Подтвердить/отклонить; повторная смена статуса не проходит (только declared → …)."""
+    sql = "UPDATE contributions SET status = ?, confirmed_by = ?, confirmed_at = ? "
+    sql += "WHERE id = ? AND status = 'declared'"
+    args = [status, confirmed_by, now_utc(), contribution_id]
+    if expected is not None:
+        sql += " AND house_id = ? AND tg_id = ? AND amount_kop = ? AND paid_on = ? AND month = ?"
+        sql += """ AND EXISTS (
+            SELECT 1 FROM memberships m
+            WHERE m.house_id = contributions.house_id AND m.tg_id = ? AND m.status = 'active'
+              AND (m.role = 'owner' OR EXISTS (
+                SELECT 1 FROM member_permissions p WHERE p.house_id = m.house_id AND p.tg_id = m.tg_id
+                  AND p.permission = 'confirm_contributions'
+              ))
+        )"""
+        args.extend((expected["house_id"], expected["tg_id"], expected["amount_kop"], expected["paid_on"],
+                     expected["month"], confirmed_by))
     async with db.acquire() as conn:
-        rowcount = await conn.execute(
-            """
-            UPDATE contributions SET status = ?, confirmed_by = ?, confirmed_at = ?
-            WHERE id = ? AND status = 'declared'
-            """,
-            status, confirmed_by, now_utc(), contribution_id,
-        )
+        rowcount = await conn.execute(sql, *args)
         return rowcount > 0
 
 
@@ -116,7 +127,7 @@ async def pending_contributions(house_id: int) -> list:
     async with db.acquire() as conn:
         return await conn.fetch(
             """
-            SELECT c.id, c.house_id, c.tg_id, c.amount_kop, c.month, c.status, c.declared_at,
+            SELECT c.id, c.house_id, c.tg_id, c.amount_kop, c.month, c.status, c.declared_at, c.paid_on,
                    m.display_name
             FROM contributions c
             LEFT JOIN memberships m ON m.house_id = c.house_id AND m.tg_id = c.tg_id

@@ -54,6 +54,14 @@ async def join_house(actor: int, first_name: str, username: str | None, invite: 
     return {"house_id": house["id"], "joined": joined}
 
 
+async def preview_invitation(actor: int, invite: str) -> dict:
+    house = await households.get_house_by_invite(_invite_token(invite))
+    if house is None:
+        raise DomainError("Приглашение недействительно. Попросите новое у жильцов дома.")
+    membership = await households.membership(house["id"], actor)
+    return {"name": house["name"], "already_member": membership is not None and membership["status"] == "active"}
+
+
 async def management(house_id: int, actor: int, month: str | None) -> dict:
     await households.require_member(house_id, actor)
     house = await households.get_house(house_id)

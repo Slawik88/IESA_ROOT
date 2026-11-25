@@ -11,12 +11,14 @@ from pydantic import BaseModel, Field
 
 from core import config
 from core.constants import JOURNAL_SEARCH_LIMIT
+from core.transaction_versions import contribution_version
 from services import cleaning, households, journal, money, settings, transfers, web_commands
 from services.households import DomainError
 from services.transaction_dates import parse_month
 from services.web_auth import verify_init_data
 from web.receipt_routes import register_receipt_routes
 from web.management import router as management_router
+from web.contribution_routes import router as contribution_router
 
 STATIC = Path(__file__).with_name("static")
 SECURITY_HEADERS = {
@@ -46,6 +48,7 @@ class ImportInput(BaseModel):
 
 class Decision(BaseModel):
     confirm: bool
+    version: str = Field(min_length=64, max_length=64)
 
 
 class ExpenseEditInput(TransactionInput):
@@ -66,6 +69,7 @@ def journal_params(
 
 def create_app(*, bot=None) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, redirect_slashes=False)
+    app.state.telegram_bot = bot
 
     @app.middleware("http")
     async def private_boundary(request: Request, call_next):
@@ -133,17 +137,20 @@ def create_app(*, bot=None) -> FastAPI:
         await cleaning.ensure_days(house_id, today)
         entries = await journal.view(house_id, request.state.actor, query, page)
         permissions = {}
-        for code in ("confirm_contributions", "import_transactions", "manage_schedule", "close_others_days"):
+        for code in ("confirm_contributions", "import_transactions", "manage_schedule", "close_others_days",
+                     "manage_members", "manage_house_settings"):
             permissions[code] = await households.can(house_id, request.state.actor, code)
         house = await households.get_house(house_id)
         return {
-            "title": "Домовой", "actor": request.state.actor, "house": {"id": house_id, "name": house["name"]},
+            "title": "Домовой", "actor": request.state.actor,
+            "house": {"id": house_id, "name": house["name"], "chat_bound": house["chat_id"] is not None},
             "today": today, "month": selected or today[:7], "all_months": all_months, "currency": values["currency"],
             "balance": await money.pot_balance(house_id), "permissions": permissions,
             "categories": [dict(row) for row in await money.categories(house_id)],
             "members": [dict(row) for row in await households.members(house_id)],
             "cleaning": [dict(row) for row in await cleaning.open_days_up_to(house_id, today)],
-            "pending": [dict(row) for row in await money.pending_contributions(house_id)]
+            "pending": [{**dict(row), "version": contribution_version(row)}
+                        for row in await money.pending_contributions(house_id)]
                        if permissions["confirm_contributions"] else [],
             **entries,
         }
@@ -177,7 +184,8 @@ def create_app(*, bot=None) -> FastAPI:
     @app.post("/api/houses/{house_id}/contributions/{contribution_id}")
     async def decide(request: Request, house_id: int, contribution_id: int, payload: Decision):
         await context(request, house_id)
-        row = await money.resolve_contribution(contribution_id, payload.confirm, request.state.actor, house_id=house_id)
+        row = await money.resolve_contribution(contribution_id, payload.confirm, request.state.actor,
+                                               house_id=house_id, expected_version=payload.version)
         return {"status": row["status"]}
 
     @app.get("/api/houses/{house_id}/export/{extension}")
@@ -219,5 +227,6 @@ def create_app(*, bot=None) -> FastAPI:
         return {"added": added, "duplicates": skipped}
 
     app.include_router(management_router)
+    app.include_router(contribution_router)
     register_receipt_routes(app, bot)
     return app

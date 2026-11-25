@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery
 from bot import cb, keyboards as kb
 from bot.util import fmt_date, guard, resolve_house, safe_edit
 from core.money import format_amount
+from core.private_entry import public_url
 from services import households, money, notify
 from services import settings as settings_service
 from services.money import MODE_HOUSE, MODE_PERSONAL
@@ -27,42 +28,32 @@ async def _context(tg_id: int):
 
 # ── Взносы («Скинулся») ──────────────────────────────────────────────────────
 
+def _review_keyboard(house_id: int):
+    url = public_url()
+    return kb.onboarding(f"{url}?house={house_id}") if url else kb.back_to_menu()
+
+
 async def _notify_confirmers(bot, house, settings, contribution, currency):
-    """Тем, у кого право подтверждать взносы, — кнопки решения."""
+    """Подтверждающие открывают сайт: уведомление не является снимком текущей суммы."""
     await notify.contribution_declared(
         bot, house, contribution, currency,
-        markup=kb.contribution_decision_keyboard(contribution["id"]),
+        markup=_review_keyboard(house["id"]),
     )
 
 
 @router.callback_query(F.data.regexp(r"^cres:(\d+):(0|1)$"))
 @guard
 async def resolve_contribution(cbq: CallbackQuery, state: FSMContext):
-    house, settings = await _context(cbq.from_user.id)
-    if house is None:
-        await cbq.answer("Сначала выберите дом", show_alert=True)
+    # Уже отправленные cres-кнопки не содержат версии показанных денег. Даже
+    # чтение текущей суммы не доказывает, что пользователь её видел.
+    contribution_id = int(cb.parse(cbq.data)[1])
+    contribution = await money.contribution_for_review(contribution_id, cbq.from_user.id)
+    if cbq.message is None or cbq.message.chat.type != "private":
+        await cbq.answer("Откройте Домового в личном чате с ботом, чтобы проверить взнос.", show_alert=True)
         return
-    parts = cb.parse(cbq.data)
-    contribution_id, confirm = int(parts[1]), parts[2] == "1"
-    await households.require(house["id"], cbq.from_user.id, "confirm_contributions")
-    contribution = await money.resolve_contribution(
-        contribution_id, confirm, cbq.from_user.id, house_id=house["id"],
-    )
-    await state.clear()
-    currency = settings["currency"]
-    verb = "подтверждён" if confirm else "отклонён"
-    await cbq.answer(f"Взнос {verb}")
-    await safe_edit(cbq,
-                    f"{'✅' if confirm else '❌'} Взнос "
-                    f"{format_amount(contribution['amount_kop'], currency)} "
-                    f"за {contribution['month']} {verb}.")
-    await notify.deliver(
-        cbq.bot, house, "contribution_confirmed",
-        {contribution["tg_id"]: (
-            f"{'✅' if confirm else '❌'} Ваш взнос "
-            f"{format_amount(contribution['amount_kop'], currency)} за {contribution['month']} {verb}."
-        )},
-    )
+    text = "Взнос мог измениться. Откройте Домового, чтобы проверить актуальные данные."
+    await safe_edit(cbq, text, _review_keyboard(contribution["house_id"]))
+    await cbq.answer("Проверьте актуальные данные на сайте", show_alert=True)
 
 
 # ── Баланс ───────────────────────────────────────────────────────────────────
@@ -115,7 +106,7 @@ async def show_pending(cbq: CallbackQuery):
     for row in pending_rows:
         lines.append(f"• {row['display_name'] or '?'} — "
                      f"{format_amount(row['amount_kop'], currency)} за {row['month']}")
-    await safe_edit(cbq, "\n".join(lines), kb.pending_keyboard(pending_rows, currency))
+    await safe_edit(cbq, "\n".join(lines), _review_keyboard(house["id"]))
     await cbq.answer()
 
 

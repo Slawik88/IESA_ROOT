@@ -12,7 +12,7 @@ from core.constants import (
 from infrastructure import repositories as repo
 from services.households import DomainError, require, require_member
 from services.transaction_dates import parse_date, parse_month
-from core.transaction_versions import expense_version
+from core.transaction_versions import expense_version, contribution_version
 
 MODE_HOUSE = "house"        # трата из котла
 MODE_PERSONAL = "personal"  # заплатил за всех своими — ждёт возврата из котла
@@ -59,6 +59,7 @@ async def declare_contribution(
 
 async def resolve_contribution(
     contribution_id: int, confirm: bool, resolved_by: int, *, house_id: int | None = None,
+    expected_version: str | None = None,
 ):
     """Подтвердить/отклонить. Повторное решение не проходит (идемпотентный переход)."""
     contribution = await repo.money.get_contribution(contribution_id)
@@ -67,14 +68,28 @@ async def resolve_contribution(
     await require(contribution["house_id"], resolved_by, "confirm_contributions")
     if contribution["status"] != STATUS_DECLARED:
         raise DomainError("Этот взнос уже решён")
+    if expected_version is not None and contribution_version(contribution) != expected_version:
+        raise DomainError("Взнос изменился. Обновите список и проверьте сумму, дату и месяц перед решением.")
     status = STATUS_CONFIRMED if confirm else STATUS_REJECTED
-    if not await repo.money.set_contribution_status(contribution_id, status, resolved_by):
+    expected = dict(contribution) if expected_version is not None else None
+    if not await repo.money.set_contribution_status(contribution_id, status, resolved_by, expected=expected):
+        if expected_version is not None:
+            raise DomainError("Взнос или ваши права изменились. Обновите список перед подтверждением.")
         raise DomainError("Этот взнос уже решён")
     return await repo.money.get_contribution(contribution_id)
 
 
 async def pending_contributions(house_id: int) -> list:
     return await repo.money.pending_contributions(house_id)
+
+
+async def contribution_for_review(contribution_id: int, actor: int):
+    """Старое уведомление только открывает сайт; решение требует актуальной версии."""
+    contribution = await repo.money.get_contribution(contribution_id)
+    if contribution is None:
+        raise DomainError("Взнос не найден")
+    await require(contribution["house_id"], actor, "confirm_contributions")
+    return contribution
 
 
 # ── Траты и чеки ─────────────────────────────────────────────────────────────

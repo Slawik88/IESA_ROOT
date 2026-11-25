@@ -176,6 +176,19 @@ _STATEMENTS = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS contribution_changes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        house_id BIGINT NOT NULL REFERENCES houses(id),
+        contribution_id BIGINT NOT NULL,
+        actor BIGINT NOT NULL,
+        action TEXT NOT NULL,
+        before_version TEXT NOT NULL,
+        before_json TEXT NOT NULL,
+        after_json TEXT,
+        changed_at TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS money_import_items (
         house_id INTEGER NOT NULL REFERENCES houses(id),
         source_key TEXT NOT NULL,
@@ -199,6 +212,8 @@ _STATEMENTS = (
 )
 
 _INDEXES = (
+    "CREATE INDEX IF NOT EXISTS idx_contribution_changes_target "
+    "ON contribution_changes(house_id, contribution_id, action)",
     "CREATE INDEX IF NOT EXISTS idx_days_house_date ON cleaning_days(house_id, planned_date)",
     "CREATE INDEX IF NOT EXISTS idx_days_open ON cleaning_days(status, planned_date)",
     "CREATE INDEX IF NOT EXISTS idx_expenses_house ON expenses(house_id, spent_on)",

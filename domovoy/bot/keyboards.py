@@ -30,7 +30,9 @@ def main_menu(can_switch_house: bool, web_url: str | None = None) -> InlineKeybo
     return _kb(rows)
 
 
-def onboarding() -> InlineKeyboardMarkup:
+def onboarding(web_url: str | None = None) -> InlineKeyboardMarkup:
+    if web_url:
+        return _kb([[Btn(text="Открыть Домового", web_app=WebAppInfo(url=web_url))]])
     return _kb([[Btn(text="🏠 Создать дом", callback_data=cb.house_create())]])
 
 
@@ -44,8 +46,8 @@ def back_to_menu() -> InlineKeyboardMarkup:
     return _kb([[Btn(text="← Меню", callback_data=cb.menu())]])
 
 
-def bind_chat_keyboard() -> InlineKeyboardMarkup:
-    return _kb([[Btn(text="🔗 Привязать этот чат", callback_data=cb.settings_bind_chat())]])
+def bind_chat_keyboard(house_id: int | None = None) -> InlineKeyboardMarkup:
+    return _kb([[Btn(text="🔗 Привязать этот чат", callback_data=cb.settings_bind_chat(house_id))]])
 
 
 # ── Сегодня / дни ────────────────────────────────────────────────────────────
@@ -126,28 +128,6 @@ def balance_keyboard(pending_count: int, can_confirm: bool) -> InlineKeyboardMar
         [Btn(text="← Меню", callback_data=cb.menu())],
     ])
     return _kb(rows)
-
-
-def pending_keyboard(pending_rows: list, currency: str) -> InlineKeyboardMarkup:
-    from core.money import format_amount
-
-    rows = []
-    for row in pending_rows:
-        who = row["display_name"] or "?"
-        label = f"{who} · {format_amount(row['amount_kop'], currency)}"[:24]
-        rows.append([
-            Btn(text=f"✅ {label}", callback_data=cb.contribution_resolve(row["id"], True)),
-            Btn(text="❌", callback_data=cb.contribution_resolve(row["id"], False)),
-        ])
-    rows.append([Btn(text="← Баланс", callback_data=cb.balance())])
-    return _kb(rows)
-
-
-def contribution_decision_keyboard(contribution_id: int) -> InlineKeyboardMarkup:
-    return _kb([[
-        Btn(text="✅ Подтвердить", callback_data=cb.contribution_resolve(contribution_id, True)),
-        Btn(text="❌ Отклонить", callback_data=cb.contribution_resolve(contribution_id, False)),
-    ]])
 
 
 def categories_keyboard(categories: list) -> InlineKeyboardMarkup:

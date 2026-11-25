@@ -2,6 +2,11 @@
 
 window.DomovoyI18n = (() => {
   const messages = {
+  "Пока группа не подключена, уведомления приходят в личный чат.": [
+    "Поки групу не підключено, сповіщення надходять у приватний чат.",
+    "Tant que le groupe n’est pas connecté, les notifications arrivent dans votre conversation privée.",
+    "Solange keine Gruppe verbunden ist, erhältst du Benachrichtigungen im privaten Chat."
+  ],
   "Сменить дом": [
     "Змінити дім",
     "Changer de foyer",
@@ -1951,6 +1956,476 @@ window.DomovoyI18n = (() => {
     "Доми",
     "Foyers",
     "Haushalte"
+  ],
+  "В группе отправьте /start и нажмите «Привязать этот чат».": [
+    "У групі надішліть /start і натисніть «Привязать этот чат».",
+    "Dans le groupe, envoyez /start puis appuyez sur « Привязать этот чат ».",
+    "Sende in der Gruppe /start und tippe auf «Привязать этот чат»."
+  ],
+  "В личном чате @Domovskii_bot выберите этот дом: {0}.": [
+    "В особистому чаті з @Domovskii_bot виберіть цей дім: {0}.",
+    "Dans la conversation privée avec @Domovskii_bot, sélectionnez ce foyer : {0}.",
+    "Wähle im privaten Chat mit @Domovskii_bot diesen Haushalt: {0}."
+  ],
+  "Валюта по умолчанию — CHF. Её можно изменить в настройках дома.": [
+    "Валюта за замовчуванням — CHF. Її можна змінити в налаштуваннях дому.",
+    "La devise par défaut est le CHF. Vous pouvez la modifier dans les réglages du foyer.",
+    "Die Standardwährung ist CHF. Du kannst sie in den Haushaltseinstellungen ändern."
+  ],
+  "Ваш дом в Домовом": [
+    "Ваш дім у Домовому",
+    "Votre foyer dans Домовой",
+    "Dein Haushalt in Домовой"
+  ],
+  "Ваше приглашение": [
+    "Ваше запрошення",
+    "Votre invitation",
+    "Deine Einladung"
+  ],
+  "Взнос зачтён": [
+    "Внесок зараховано",
+    "Contribution validée",
+    "Einzahlung bestätigt"
+  ],
+  "Взнос отклонён": [
+    "Внесок відхилено",
+    "Contribution refusée",
+    "Einzahlung abgelehnt"
+  ],
+  "Возвращённый расход нельзя изменить или удалить.": [
+    "Відшкодовану витрату не можна змінити або видалити.",
+    "Une dépense remboursée ne peut être ni modifiée ni supprimée.",
+    "Eine erstattete Ausgabe kann nicht geändert oder gelöscht werden."
+  ],
+  "Войти по приглашению": [
+    "Увійти за запрошенням",
+    "Rejoindre sur invitation",
+    "Mit Einladung beitreten"
+  ],
+  "Вставьте ссылку или код от жильцов. Сначала покажем, в какой дом вы входите.": [
+    "Вставте посилання або код від мешканців. Спочатку покажемо, до якого дому ви приєднуєтеся.",
+    "Collez le lien ou le code reçu des membres. Nous vous montrerons d’abord le foyer que vous allez rejoindre.",
+    "Füge den Link oder Code der Mitglieder ein. Zuerst zeigen wir dir, welchem Haushalt du beitrittst."
+  ],
+  "Вступить в дом": [
+    "Приєднатися до дому",
+    "Rejoindre le foyer",
+    "Haushalt beitreten"
+  ],
+  "Вы уже участник этого дома.": [
+    "Ви вже учасник цього дому.",
+    "Vous faites déjà partie de ce foyer.",
+    "Du bist bereits Mitglied dieses Haushalts."
+  ],
+  "Выделили приглашение — скопируйте его": [
+    "Запрошення виділено — скопіюйте його",
+    "L’invitation est sélectionnée ; copiez-la",
+    "Die Einladung ist markiert. Kopiere sie."
+  ],
+  "Готовая ссылка для входа в этот дом.": [
+    "Готове посилання для приєднання до цього дому.",
+    "Un lien prêt à partager pour rejoindre ce foyer.",
+    "Ein fertiger Link, um diesem Haushalt beizutreten."
+  ],
+  "Действия": [
+    "Дії",
+    "Actions",
+    "Aktionen"
+  ],
+  "Добавьте @Domovskii_bot в вашу группу Telegram.": [
+    "Додайте @Domovskii_bot до вашої групи Telegram.",
+    "Ajoutez @Domovskii_bot à votre groupe Telegram.",
+    "Füge @Domovskii_bot zu deiner Telegram-Gruppe hinzu."
+  ],
+  "Дом готов": [
+    "Дім готовий",
+    "Votre foyer est prêt",
+    "Dein Haushalt ist bereit"
+  ],
+  "Другое приглашение": [
+    "Інше запрошення",
+    "Autre invitation",
+    "Andere Einladung"
+  ],
+  "Если ссылка попала не тому человеку, замените её. У жильцов сохранится доступ.": [
+    "Якщо посилання потрапило не тій людині, замініть його. Мешканці збережуть доступ.",
+    "Si le lien est arrivé à la mauvaise personne, remplacez-le. Les membres conserveront leur accès.",
+    "Ersetze den Link, wenn ihn die falsche Person erhalten hat. Die Mitglieder behalten ihren Zugang."
+  ],
+  "Закрыть операцию": [
+    "Закрити операцію",
+    "Fermer l’écriture",
+    "Buchung schliessen"
+  ],
+  "Закрыть приглашение": [
+    "Закрити запрошення",
+    "Fermer l’invitation",
+    "Einladung schliessen"
+  ],
+  "Заменить приглашение": [
+    "Замінити запрошення",
+    "Remplacer l’invitation",
+    "Einladung ersetzen"
+  ],
+  "Изменение этой записи недоступно с вашими правами.": [
+    "Ваші права не дозволяють змінювати цей запис.",
+    "Vos droits ne permettent pas de modifier cette écriture.",
+    "Deine Berechtigungen erlauben es nicht, diesen Eintrag zu ändern."
+  ],
+  "Изменить взнос": [
+    "Змінити внесок",
+    "Modifier la contribution",
+    "Einzahlung ändern"
+  ],
+  "Как вы хотите начать?": [
+    "Як ви хочете почати?",
+    "Comment souhaitez-vous commencer ?",
+    "Wie möchtest du beginnen?"
+  ],
+  "Когда": [
+    "Коли",
+    "Date",
+    "Datum"
+  ],
+  "Личные данные разных домов не смешиваются.": [
+    "Особисті дані різних домів залишаються окремими.",
+    "Les données personnelles des différents foyers restent séparées.",
+    "Die persönlichen Daten verschiedener Haushalte bleiben getrennt."
+  ],
+  "Можно сразу записывать расходы. Остальное — когда удобно.": [
+    "Можна одразу записувати витрати. Решта — коли буде зручно.",
+    "Vous pouvez déjà saisir vos dépenses. Le reste peut attendre.",
+    "Du kannst sofort Ausgaben erfassen. Alles Weitere erledigst du, wenn es passt."
+  ],
+  "Назад": [
+    "Назад",
+    "Retour",
+    "Zurück"
+  ],
+  "Начать общий учёт и пригласить остальных": [
+    "Почати спільний облік і запросити інших",
+    "Commencer le suivi commun et inviter les autres",
+    "Gemeinsame Finanzen erfassen und die anderen einladen"
+  ],
+  "Обновить приглашение": [
+    "Оновити запрошення",
+    "Renouveler l’invitation",
+    "Einladung erneuern"
+  ],
+  "Общий чат подключён": [
+    "Спільний чат підключено",
+    "Le groupe est connecté",
+    "Gruppenchat verbunden"
+  ],
+  "Общий чат — по желанию": [
+    "Спільний чат — за бажанням",
+    "Groupe de discussion facultatif",
+    "Gruppenchat ist optional"
+  ],
+  "Один дом — общий учёт для вас и тех, с кем вы живёте. Жильцов можно позвать позже.": [
+    "Один дім — спільний облік для вас і тих, з ким ви живете. Мешканців можна запросити пізніше.",
+    "Un foyer réunit votre suivi financier et celui des personnes avec qui vous vivez. Vous pourrez les inviter plus tard.",
+    "Ein Haushalt bietet eine gemeinsame Finanzübersicht für dich und deine Mitbewohner. Du kannst sie später einladen."
+  ],
+  "Операция": [
+    "Операція",
+    "Écriture",
+    "Buchung"
+  ],
+  "Операция удалена": [
+    "Операцію видалено",
+    "Écriture supprimée",
+    "Buchung gelöscht"
+  ],
+  "Открываем дом": [
+    "Відкриваємо дім",
+    "Ouverture du foyer",
+    "Haushalt wird geöffnet"
+  ],
+  "Открыть дом": [
+    "Відкрити дім",
+    "Ouvrir le foyer",
+    "Haushalt öffnen"
+  ],
+  "Открыть запись": [
+    "Відкрити запис",
+    "Ouvrir l’écriture",
+    "Eintrag öffnen"
+  ],
+  "Отправьте приглашение будущему жильцу. Ссылка откроет бота и поможет войти в дом.": [
+    "Надішліть запрошення майбутньому мешканцю. Посилання відкриє бота й допоможе приєднатися до дому.",
+    "Envoyez l’invitation au futur membre. Le lien ouvrira le bot pour l’aider à rejoindre le foyer.",
+    "Sende die Einladung dem künftigen Mitglied. Der Link öffnet den Bot und hilft beim Beitritt zum Haushalt."
+  ],
+  "Первый расход": [
+    "Перша витрата",
+    "Première dépense",
+    "Erste Ausgabe"
+  ],
+  "Поделиться": [
+    "Поділитися",
+    "Partager",
+    "Teilen"
+  ],
+  "Подключить группу может владелец или участник с правом менять настройки дома.": [
+    "Підключити групу може власник або учасник із правом змінювати налаштування дому.",
+    "Le créateur ou un membre autorisé à modifier les réglages du foyer peut connecter le groupe.",
+    "Der Haushaltsadmin oder ein Mitglied mit Berechtigung zum Ändern der Haushaltseinstellungen kann die Gruppe verbinden."
+  ],
+  "Подтверждение": [
+    "Підтвердження",
+    "Confirmation",
+    "Bestätigung"
+  ],
+  "После вступления вы увидите общий учёт и дела дома.": [
+    "Після приєднання ви побачите спільний облік і справи дому.",
+    "Après avoir rejoint le foyer, vous verrez ses comptes et ses tâches communes.",
+    "Nach dem Beitritt siehst du die gemeinsamen Finanzen und Aufgaben des Haushalts."
+  ],
+  "Пригласить": [
+    "Запросити",
+    "Inviter",
+    "Einladen"
+  ],
+  "Пригласить жильцов": [
+    "Запросити мешканців",
+    "Inviter des membres",
+    "Mitglieder einladen"
+  ],
+  "Приглашение скопировано": [
+    "Запрошення скопійовано",
+    "Invitation copiée",
+    "Einladung kopiert"
+  ],
+  "Присоединиться к дому, где уже живут ваши соседи": [
+    "Приєднатися до дому, де вже є ваші сусіди",
+    "Rejoindre le foyer déjà créé par vos colocataires",
+    "Dem bestehenden Haushalt deiner Mitbewohner beitreten"
+  ],
+  "Проверить подключение": [
+    "Перевірити підключення",
+    "Vérifier la connexion",
+    "Verbindung prüfen"
+  ],
+  "Проверить приглашение": [
+    "Перевірити запрошення",
+    "Vérifier l’invitation",
+    "Einladung prüfen"
+  ],
+  "Продолжить": [
+    "Продовжити",
+    "Continuer",
+    "Weiter"
+  ],
+  "Сайт уже работает. Группу Telegram подключают только для общих уведомлений.": [
+    "Сайт уже працює. Групу Telegram підключають лише для спільних сповіщень.",
+    "Le site fonctionne déjà. Le groupe Telegram sert uniquement aux notifications communes.",
+    "Die Website funktioniert bereits. Die Telegram-Gruppe ist nur für gemeinsame Benachrichtigungen nötig."
+  ],
+  "Скопировать приглашение": [
+    "Скопіювати запрошення",
+    "Copier l’invitation",
+    "Einladung kopieren"
+  ],
+  "Скрыть подсказки": [
+    "Приховати підказки",
+    "Masquer les conseils",
+    "Hinweise ausblenden"
+  ],
+  "Сначала выберите дом этой операции.": [
+    "Спочатку виберіть дім цієї операції.",
+    "Sélectionnez d’abord le foyer de cette écriture.",
+    "Wähle zuerst den Haushalt dieser Buchung."
+  ],
+  "Создать свой дом": [
+    "Створити свій дім",
+    "Créer mon foyer",
+    "Eigenen Haushalt erstellen"
+  ],
+  "Ссылка-приглашение": [
+    "Посилання-запрошення",
+    "Lien d’invitation",
+    "Einladungslink"
+  ],
+  "Статус": [
+    "Статус",
+    "Statut",
+    "Status"
+  ],
+  "У меня есть приглашение": [
+    "У мене є запрошення",
+    "J’ai une invitation",
+    "Ich habe eine Einladung"
+  ],
+  "Уведомления можно отправлять в общий чат. Выберите нужные каналы ниже.": [
+    "Сповіщення можна надсилати до спільного чату. Виберіть потрібні канали нижче.",
+    "Les notifications peuvent être envoyées dans le groupe. Choisissez les canaux souhaités ci-dessous.",
+    "Benachrichtigungen können an den Gruppenchat gesendet werden. Wähle unten die gewünschten Kanäle."
+  ],
+  "Удалить {0} за {1}? Остаток пересчитается. Восстановить запись будет нельзя.": [
+    "Видалити {0} за {1}? Залишок буде перераховано. Відновити запис буде неможливо.",
+    "Supprimer l’écriture de {0} du {1} ? Le solde sera recalculé. Cette suppression est irréversible.",
+    "Buchung über {0} vom {1} löschen? Der Kassenstand wird neu berechnet. Die Buchung kann nicht wiederhergestellt werden."
+  ],
+  "Удалить операцию?": [
+    "Видалити операцію?",
+    "Supprimer l’écriture ?",
+    "Buchung löschen?"
+  ],
+  "Это запись другого жильца. У вас нет права изменять или удалять её.": [
+    "Це запис іншого мешканця. У вас немає права змінювати або видаляти його.",
+    "Cette écriture appartient à un autre membre. Vous n’avez pas le droit de la modifier ou de la supprimer.",
+    "Dieser Eintrag gehört einem anderen Mitglied. Du darfst ihn nicht ändern oder löschen."
+  ],
+  "Этот взнос уже рассмотрен. Изменить или удалить его может участник с правом подтверждать взносы.": [
+    "Цей внесок уже розглянуто. Змінити або видалити його може учасник із правом підтверджувати внески.",
+    "Cette contribution a déjà été traitée. Seul un membre autorisé à valider les contributions peut la modifier ou la supprimer.",
+    "Diese Einzahlung wurde bereits geprüft. Nur ein Mitglied mit Berechtigung zum Bestätigen von Einzahlungen darf sie ändern oder löschen."
+  ],
+  "Свой ожидающий взнос можно изменить самостоятельно. Для остальных взносов нужно право подтверждения.": [
+    "Власний внесок, що очікує підтвердження, можна змінити самостійно. Для інших внесків потрібне право підтвердження.",
+    "Vous pouvez modifier votre propre contribution en attente. Pour les autres contributions, le droit de validation est nécessaire.",
+    "Deine eigene ausstehende Einzahlung kannst du selbst ändern. Für andere Einzahlungen brauchst du die Berechtigung zur Bestätigung."
+  ],
+  "Взнос не найден в этом доме": [
+    "Внесок не знайдено в цьому домі",
+    "Contribution introuvable dans ce foyer",
+    "Einzahlung in diesem Haushalt nicht gefunden"
+  ],
+  "Взнос уже изменили или подтвердили. Обновите историю и откройте его заново.": [
+    "Внесок уже змінено або підтверджено. Оновіть історію та відкрийте його знову.",
+    "Cette contribution a déjà été modifiée ou validée. Actualisez l’historique et rouvrez-la.",
+    "Diese Einzahlung wurde bereits geändert oder bestätigt. Aktualisiere den Verlauf und öffne sie erneut."
+  ],
+  "Взнос или ваши права изменились во время сохранения. Обновите историю.": [
+    "Внесок або ваші права змінилися під час збереження. Оновіть історію.",
+    "La contribution ou vos droits ont changé pendant l’enregistrement. Actualisez l’historique.",
+    "Die Einzahlung oder deine Berechtigungen haben sich während des Speicherns geändert. Aktualisiere den Verlauf."
+  ],
+  "Взнос уже изменили или подтвердили. Обновите историю перед удалением.": [
+    "Внесок уже змінено або підтверджено. Оновіть історію перед видаленням.",
+    "Cette contribution a déjà été modifiée ou validée. Actualisez l’historique avant de la supprimer.",
+    "Diese Einzahlung wurde bereits geändert oder bestätigt. Aktualisiere den Verlauf vor dem Löschen."
+  ],
+  "Взнос или ваши права изменились во время удаления. Обновите историю.": [
+    "Внесок або ваші права змінилися під час видалення. Оновіть історію.",
+    "La contribution ou vos droits ont changé pendant la suppression. Actualisez l’historique.",
+    "Die Einzahlung oder deine Berechtigungen haben sich während des Löschens geändert. Aktualisiere den Verlauf."
+  ],
+  "Приглашение недействительно. Попросите новое у жильцов дома.": [
+    "Запрошення недійсне. Попросіть нове в мешканців дому.",
+    "Cette invitation n’est plus valide. Demandez-en une nouvelle aux membres du foyer.",
+    "Diese Einladung ist ungültig. Bitte die Mitglieder des Haushalts um eine neue."
+  ],
+  "Операция не найдена в этом доме": [
+    "Операцію не знайдено в цьому домі",
+    "Écriture introuvable dans ce foyer",
+    "Buchung in diesem Haushalt nicht gefunden"
+  ],
+  "Выберите вашу группу по кнопке выше.": [
+    "Виберіть вашу групу за допомогою кнопки вище.",
+    "Choisissez votre groupe avec le bouton ci-dessus.",
+    "Wähle deine Gruppe über die Schaltfläche oben."
+  ],
+  "Выбрать группу в Telegram": [
+    "Вибрати групу в Telegram",
+    "Choisir le groupe dans Telegram",
+    "Gruppe in Telegram wählen"
+  ],
+  "Для входа откройте приложение кнопкой в личном чате @Domovskii_bot.": [
+    "Для входу відкрийте застосунок кнопкою в особистому чаті з @Domovskii_bot.",
+    "Pour vous connecter, ouvrez l’application avec le bouton dans votre conversation privée avec @Domovskii_bot.",
+    "Öffne zum Anmelden die App über die Schaltfläche im privaten Chat mit @Domovskii_bot."
+  ],
+  "Нажмите «Привязать этот чат», затем вернитесь сюда.": [
+    "Натисніть «Привязать этот чат», а потім поверніться сюди.",
+    "Appuyez sur « Привязать этот чат », puis revenez ici.",
+    "Tippe auf «Привязать этот чат» und kehre danach hierher zurück."
+  ],
+  "Открыть бота в Telegram": [
+    "Відкрити бота в Telegram",
+    "Ouvrir le bot dans Telegram",
+    "Bot in Telegram öffnen"
+  ],
+  "Проверьте название дома в сообщении бота: {0}.": [
+    "Перевірте назву дому в повідомленні бота: {0}.",
+    "Vérifiez le nom du foyer dans le message du bot : {0}.",
+    "Prüfe den Haushaltsnamen in der Nachricht des Bots: {0}."
+  ],
+  "Сумма должна быть положительной и не превышать допустимый предел": [
+    "Сума має бути додатною й не перевищувати дозволену межу",
+    "Le montant doit être positif et ne pas dépasser la limite autorisée",
+    "Der Betrag muss positiv sein und darf den zulässigen Höchstbetrag nicht überschreiten"
+  ],
+  "Взнос не найден": [
+    "Внесок не знайдено",
+    "Contribution introuvable",
+    "Einzahlung nicht gefunden"
+  ],
+  "Этот взнос уже решён": [
+    "Цей внесок уже розглянуто",
+    "Cette contribution a déjà été traitée",
+    "Diese Einzahlung wurde bereits geprüft"
+  ],
+  "Взнос изменился. Обновите список и проверьте сумму, дату и месяц перед решением.": [
+    "Внесок змінився. Оновіть список і перевірте суму, дату та місяць перед рішенням.",
+    "La contribution a changé. Actualisez la liste et vérifiez le montant, la date et le mois avant de prendre une décision.",
+    "Die Einzahlung hat sich geändert. Aktualisiere die Liste und prüfe Betrag, Datum und Monat, bevor du entscheidest."
+  ],
+  "Взнос или ваши права изменились. Обновите список перед подтверждением.": [
+    "Внесок або ваші права змінилися. Оновіть список перед підтвердженням.",
+    "La contribution ou vos droits ont changé. Actualisez la liste avant de valider.",
+    "Die Einzahlung oder deine Berechtigungen haben sich geändert. Aktualisiere die Liste vor der Bestätigung."
+  ],
+  "Неизвестный тип траты": [
+    "Невідомий тип витрати",
+    "Type de dépense inconnu",
+    "Unbekannte Ausgabenart"
+  ],
+  "Трата не найдена": [
+    "Витрату не знайдено",
+    "Dépense introuvable",
+    "Ausgabe nicht gefunden"
+  ],
+  "Эта трата и так из котла": [
+    "Цю витрату вже сплачено зі спільної каси",
+    "Cette dépense a déjà été payée avec la caisse commune",
+    "Diese Ausgabe wurde bereits aus der gemeinsamen Kasse bezahlt"
+  ],
+  "Трату уже изменили. Обновите историю и проверьте сумму возврата.": [
+    "Витрату вже змінено. Оновіть історію та перевірте суму відшкодування.",
+    "Cette dépense a déjà été modifiée. Actualisez l’historique et vérifiez le montant à rembourser.",
+    "Diese Ausgabe wurde bereits geändert. Aktualisiere den Verlauf und prüfe den Erstattungsbetrag."
+  ],
+  "Эта трата уже возвращена": [
+    "Цю витрату вже відшкодовано",
+    "Cette dépense a déjà été remboursée",
+    "Diese Ausgabe wurde bereits erstattet"
+  ],
+  "Трата изменилась. Обновите историю и проверьте возврат.": [
+    "Витрата змінилася. Оновіть історію та перевірте відшкодування.",
+    "La dépense a changé. Actualisez l’historique et vérifiez le remboursement.",
+    "Die Ausgabe hat sich geändert. Aktualisiere den Verlauf und prüfe die Erstattung."
+  ],
+  "Название категории не может быть пустым": [
+    "Назва категорії не може бути порожньою",
+    "Le nom de la catégorie ne peut pas être vide",
+    "Der Kategoriename darf nicht leer sein"
+  ],
+  "Такая категория уже есть": [
+    "Така категорія вже існує",
+    "Cette catégorie existe déjà",
+    "Diese Kategorie gibt es bereits"
+  ],
+  "Категория не найдена": [
+    "Категорію не знайдено",
+    "Catégorie introuvable",
+    "Kategorie nicht gefunden"
+  ],
+  "В этой категории уже есть траты — категорию не удалить": [
+    "У цій категорії вже є витрати — її не можна видалити",
+    "Cette catégorie contient déjà des dépenses et ne peut pas être supprimée",
+    "Diese Kategorie enthält bereits Ausgaben und kann nicht gelöscht werden"
   ]
 };
   const languages = { ru: 'ru-RU', uk: 'uk-UA', fr: 'fr-CH', de: 'de-CH' };
@@ -2011,7 +2486,7 @@ window.DomovoyI18n = (() => {
   }
   document.addEventListener('input', event => {
     const form = event.target.closest('form');
-    if (form) form.dataset.dirty = 'true';
+    if (form && form.id !== 'transaction-form') form.dataset.dirty = 'true';
   });
   for (const select of document.querySelectorAll('[data-language]')) {
     select.value = language;

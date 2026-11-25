@@ -21,6 +21,8 @@ from infrastructure.db import db
 from infrastructure.schema import _pg_statement, _upgrade_telegram_ids
 from services import cleaning, households, money, notify, reports, scheduler, settings
 from services.households import DomainError
+from services import web_contributions
+from core.transaction_versions import contribution_version
 
 
 @pytest.fixture
@@ -63,6 +65,49 @@ def test_negative_balance_format(kop, text):
 def test_excessively_long_amount_has_readable_error():
     with pytest.raises(AmountError):
         parse_amount("9" * 5000)
+
+
+@pytest.mark.parametrize("confirm", [True, False])
+@pytest.mark.parametrize("site", [None, "https://example.invalid/predvestnik/_h/private-entry/"])
+async def test_legacy_decision_button_never_resolves_changed_contribution(
+    house, telegram, state, monkeypatch, confirm, site,
+):
+    contribution = await money.declare_contribution(house["id"], 200, 10000, "2026-10-20")
+    await web_contributions.edit(house["id"], 200, contribution["id"], {
+        "amount": "200", "date": "2026-10-20", "month": "2026-10",
+    }, contribution_version(contribution))
+    # Старое уведомление может относиться к другому дому, чем текущий выбор бота.
+    other = await households.create_house(100, "Хозяин", "Другой активный дом")
+    await repo.users.set_active_house(100, other)
+    monkeypatch.setattr(money_handlers, "public_url", lambda: site)
+    await money_handlers.resolve_contribution(
+        callback(telegram, f"cres:{contribution['id']}:{int(confirm)}"), state,
+    )
+    current = await repo.money.get_contribution(contribution["id"])
+    assert current["status"] == "declared" and current["amount_kop"] == 20000
+    assert (await money.pot_balance(house["id"]))["balance"] == 0
+    edits = [call.args[1] for call in telegram.session.make_request.await_args_list
+             if call.args[1].__api_method__ == "editMessageText"]
+    assert len(edits) == 1 and "Взнос мог измениться" in edits[0].text
+    buttons = [button for row in edits[0].reply_markup.inline_keyboard for button in row]
+    if site:
+        assert len(buttons) == 1 and buttons[0].web_app.url == f"{site}?house={house['id']}"
+    else:
+        assert len(buttons) == 1 and buttons[0].callback_data == cb.menu()
+    assert all(not button.callback_data or not button.callback_data.startswith("cres:") for button in buttons)
+
+
+async def test_legacy_decision_button_does_not_reveal_site_to_unprivileged_member(
+    house, telegram, state, monkeypatch,
+):
+    contribution = await money.declare_contribution(house["id"], 200, 10000, "2026-10-20")
+    monkeypatch.setattr(money_handlers, "public_url", lambda: "https://example.invalid/private/")
+    await money_handlers.resolve_contribution(
+        callback(telegram, f"cres:{contribution['id']}:1", user_id=200), state,
+    )
+    methods = [call.args[1] for call in telegram.session.make_request.await_args_list]
+    assert methods and all(method.__api_method__ == "answerCallbackQuery" for method in methods)
+    assert (await repo.money.get_contribution(contribution["id"]))["status"] == "declared"
 
 
 async def test_report_with_negative_balance_and_only_pending_contributions(house):

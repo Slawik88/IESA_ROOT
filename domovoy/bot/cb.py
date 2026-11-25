@@ -57,9 +57,6 @@ def balance() -> str:
 def pending() -> str:
     return "pend"
 
-def contribution_resolve(contribution_id: int, confirm: bool) -> str:
-    return f"cres:{contribution_id}:{1 if confirm else 0}"
-
 def expenses_list() -> str:
     return "exps"
 
@@ -129,8 +126,8 @@ def settings_categories() -> str:
 def settings_category_delete(category_id: int) -> str:
     return f"st_cat_del:{category_id}"
 
-def settings_bind_chat() -> str:
-    return "st_chat"
+def settings_bind_chat(house_id: int | None = None) -> str:
+    return "st_chat" if house_id is None else f"st_chat:{house_id}"
 
 def settings_invite() -> str:
     return "st_invite"

@@ -1,9 +1,9 @@
 'use strict';
 
-window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, showView, initialName = '' }) => {
+window.createHouseWorkspace = ({ api, post, notice, refresh, confirmAction, onHouseChanged, showView, initialName = '' }) => {
   const { t, locale } = window.DomovoyI18n;
   const $ = id => document.getElementById(id);
-  let context = null, panel = null, generation = 0;
+  let context = null, panel = null, generation = 0, inviteGeneration = 0;
   const titles = { people: t("Люди и приглашения"), schedule: t("График уборки"), money: t("Деньги и категории"), notifications: t("Мои уведомления"), settings: t("Настройки дома"), add: t("Ещё один дом") };
   const weekdays = [t("Понедельник"), t("Вторник"), t("Среда"), t("Четверг"), t("Пятница"), t("Суббота"), t("Воскресенье")];
   const node = (tag, text, cls) => {
@@ -111,50 +111,115 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
   }
 
   function renderMembership(container) {
-    container.replaceChildren();
-    const choice = section(t("Добавить дом"), t("Создайте дом или войдите по приглашению. Данные разных домов не смешиваются."));
-    const actions = node('div', undefined, 'payment-switch membership-choices');
-    const target = node('div');
-    const choose = joining => {
-      [...actions.children].forEach((item, index) => item.setAttribute('aria-pressed', String(Boolean(index) === joining)));
-      target.replaceChildren();
-      const display = input(t("Ваше имя в доме"), { value: context?.members.find(member => member.tg_id === context.actor)?.display_name || initialName, maxLength: 32 });
-      const key = input(joining ? t("Код или ссылка приглашения") : t("Название дома"), { maxLength: joining ? 2048 : 32, placeholder: joining ? t("Вставьте приглашение") : t("Например, Дом на Садовой") });
-      target.append(form([key.wrapper, display.wrapper], joining ? t("Присоединиться") : t("Создать дом"), async () => {
-        const result = await post(joining ? 'houses/join' : 'houses', joining
-          ? { invite_token: key.control.value.trim(), display_name: display.control.value.trim() }
-          : { name: key.control.value.trim(), display_name: display.control.value.trim() });
-        await onHouseChanged(result.house_id);
-        notice(joining ? result.joined ? t("Вы вступили в дом") : t("Вы уже живёте в этом доме")
-          : result.created ? t("Дом создан") : t("Открыли ваш существующий дом"));
-      }));
+    let step = 0;
+    const draft = { name: context?.members.find(member => member.tg_id === context.actor)?.display_name || initialName, house: '', invite: '' };
+    const field = (key, label, options) => {
+      const result = input(label, { value: draft[key], ...options });
+      result.control.oninput = () => { draft[key] = result.control.value; };
+      return result;
     };
-    actions.append(button(t("Новый дом"), () => choose(false)), button(t("Приглашение"), () => choose(true)));
-    choice.append(actions);
-    container.append(choice, target);
-    choose(false);
+    const startStep = title => {
+      step++;
+      const heading = node('h2', title);
+      heading.tabIndex = -1;
+      container.replaceChildren(button(t("Назад"), choices, 'back-link'), heading);
+      heading.focus({ preventScroll: true });
+    };
+    const completed = async (result, joining) => {
+      await onHouseChanged(result.house_id, { welcome: true });
+      notice(joining ? t("Вы вступили в дом") : t("Дом создан"));
+    };
+    const join = () => {
+      startStep(t("Войти по приглашению"));
+      container.append(node('p', t("Вставьте ссылку или код от жильцов. Сначала покажем, в какой дом вы входите."), 'subtle'));
+      const key = field('invite', t("Код или ссылка приглашения"), { maxLength: 2048, placeholder: t("Вставьте приглашение") });
+      key.control.autocomplete = 'off';
+      container.append(form([key.wrapper], t("Проверить приглашение"), async () => {
+        const version = step;
+        const result = await post('invitations/preview', { invite_token: draft.invite.trim() });
+        if (version !== step || !container.isConnected) return;
+        startStep(t("Ваше приглашение"));
+        const found = node('div', undefined, 'invited-house');
+        found.append(node('span', t("Дом"), 'eyebrow'), node('h3', result.name), node('p', result.already_member ? t("Вы уже участник этого дома.") : t("После вступления вы увидите общий учёт и дела дома."), 'subtle'));
+        const display = field('name', t("Ваше имя в доме"), { maxLength: 32 });
+        container.append(found, form([display.wrapper], result.already_member ? t("Открыть дом") : t("Вступить в дом"), async () => {
+          await completed(await post('houses/join', { invite_token: draft.invite.trim(), display_name: draft.name.trim() }), true);
+        }), button(t("Другое приглашение"), join, 'text-button'));
+      }));
+      key.control.focus();
+    };
+    const create = () => {
+      startStep(t("Создать свой дом"));
+      container.append(node('p', t("Один дом — общий учёт для вас и тех, с кем вы живёте. Жильцов можно позвать позже."), 'subtle'));
+      const name = field('house', t("Название дома"), { maxLength: 32, placeholder: t("Например, Дом на Садовой") });
+      const display = field('name', t("Ваше имя в доме"), { maxLength: 32 });
+      container.append(form([name.wrapper, display.wrapper, node('p', t("Валюта по умолчанию — CHF. Её можно изменить в настройках дома."), 'subtle')], t("Создать дом"), async () => {
+        await completed(await post('houses', { name: draft.house.trim(), display_name: draft.name.trim() }), false);
+      }));
+      name.control.focus();
+    };
+    const choices = () => {
+      step++;
+      container.replaceChildren();
+      const list = node('div', undefined, 'membership-choices');
+      for (const [title, description, work] of [
+        [t("У меня есть приглашение"), t("Присоединиться к дому, где уже живут ваши соседи"), join],
+        [t("Создать свой дом"), t("Начать общий учёт и пригласить остальных"), create],
+      ]) {
+        const choice = button('', work, 'membership-choice');
+        choice.append(node('strong', title), node('span', description));
+        list.append(choice);
+      }
+      container.append(list, node('p', t("Личные данные разных домов не смешиваются."), 'membership-note'));
+    };
+    choices();
   }
+
+  async function invite() {
+    const data = context, version = ++inviteGeneration;
+    if (!data) return;
+    const content = $('invite-content');
+    content.replaceChildren(node('p', t("Открываем…"), 'subtle'));
+    if (!$('invite-dialog').open) $('invite-dialog').showModal();
+    window.dispatchEvent(new Event('domovoy:modalchange'));
+    const render = result => {
+      content.replaceChildren(node('h3', data.house.name), node('p', t("Отправьте приглашение будущему жильцу. Ссылка откроет бота и поможет войти в дом."), 'panel-note'));
+      const field = input(result.share_url ? t("Ссылка-приглашение") : t("Код приглашения"), { value: result.share_url || result.invite_token, required: false });
+      field.control.readOnly = true;
+      field.control.onclick = () => field.control.select();
+      content.append(field.wrapper);
+      const copy = async () => {
+        try { await navigator.clipboard.writeText(field.control.value); notice(t("Приглашение скопировано")); }
+        catch { field.control.focus(); field.control.select(); notice(t("Выделили приглашение — скопируйте его")); }
+      };
+      content.append(button(t("Скопировать приглашение"), copy, 'full'));
+      if (result.share_url && navigator.share) content.append(button(t("Поделиться"), async () => {
+        try { await navigator.share({ title: t("Приглашение в дом"), url: result.share_url }); }
+        catch (error) { if (error.name !== 'AbortError') await copy(); }
+      }, 'secondary full'));
+      const details = node('details', undefined, 'invite-options');
+      details.append(node('summary', t("Обновить приглашение")), node('p', t("Если ссылка попала не тому человеку, замените её. У жильцов сохранится доступ."), 'subtle'), button(t("Заменить приглашение"), async () => {
+        if (!await confirmAction(t("Создать новый код? Старые приглашения перестанут работать. Жильцы останутся в доме."))) return;
+        const changed = await post(`${base(data)}/invite/rotate`);
+        if (version === inviteGeneration && current(data)) render(changed);
+      }));
+      content.append(details);
+    };
+    try {
+      const result = await api(`${base(data)}/invite`);
+      if (version === inviteGeneration && current(data)) render(result);
+    } catch (error) {
+      if (version === inviteGeneration) content.replaceChildren(node('p', window.DomovoyI18n.error(error.message), 'error'), button(t("Попробовать ещё раз"), invite));
+    }
+  }
+
+  $('invite-dialog').addEventListener('close', () => { inviteGeneration++; });
 
   function renderPeople(container, data) {
     if (data.permissions.manage_members) {
-      const invite = section(t("Пригласить соседей"), t("Отправьте код человеку, с которым живёте. Он сможет вступить в этот дом на сайте."));
-      invite.append(button(t("Показать приглашение"), async () => {
-        const result = await api(`${base(data)}/invite`);
-        if (!current(data)) return;
-        const field = input(t("Код приглашения"), { value: result.invite_token, required: false });
-        field.control.readOnly = true;
-        const actions = node('div', undefined, 'file-row');
-        actions.append(button(t("Скопировать код"), async () => {
-          try { await navigator.clipboard.writeText(field.control.value); notice(t("Код скопирован")); }
-          catch { field.control.focus(); field.control.select(); notice(t("Выделили код — скопируйте его")); }
-        }), button(t("Обновить код"), async () => {
-          if (!window.confirm(t("Создать новый код? Старые приглашения перестанут работать. Жильцы останутся в доме."))) return;
-          const changed = await post(`${base(data)}/invite/rotate`);
-          if (current(data)) field.control.value = changed.invite_token;
-        }));
-        invite.replaceChildren(node('h3', t("Приглашение в дом")), node('p', t("Делитесь только с будущими жильцами."), 'subtle'), field.wrapper, actions);
-      }));
-      container.append(invite);
+      const invitation = section(t("Пригласить соседей"), t("Готовая ссылка для входа в этот дом."));
+      invitation.append(button(t("Пригласить жильцов"), invite));
+      container.append(invitation);
     }
     const people = section(t("Жильцы"));
     for (const member of data.members) {
@@ -175,7 +240,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
           label.append(control, description);
           control.onchange = async () => {
             const wanted = control.checked;
-            if (!window.confirm(t("{0} «{1}» для {2}?", [wanted ? t("Разрешить") : t("Запретить"), t(definition.label), member.display_name]))) { control.checked = !wanted; return; }
+            if (!await confirmAction(t("{0} «{1}» для {2}?", [wanted ? t("Разрешить") : t("Запретить"), t(definition.label), member.display_name]))) { control.checked = !wanted; return; }
             control.disabled = true;
             try {
               await post(`${base(data)}/members/${member.tg_id}/permissions/${definition.code}`, { granted: wanted });
@@ -238,7 +303,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
             if (current(data) && generation === panelVersion) await loadDays();
           }));
           if (data.permissions.close_others_days) actions.append(button(t("Пропустить"), async () => {
-            if (!window.confirm(t("Отметить день {0} для {1} как пропущенный?", [date, day.display_name]))) return;
+            if (!await confirmAction(t("Отметить день {0} для {1} как пропущенный?", [date, day.display_name]))) return;
             await post(`${base(data)}/cleaning/${day.id}/cancel`);
             await refresh();
             if (current(data) && generation === panelVersion) await loadDays();
@@ -276,7 +341,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     item.append(form([field.wrapper], t("Сохранить"), async () => {
       const selected = definition.kind === 'bool' ? field.control.value === 'true'
         : typeof definition.default === 'number' ? Number(field.control.value) : field.control.value;
-      if (definition.key === 'currency' && selected !== savedValue && !window.confirm(t("Изменить обозначение валюты у всех записей дома? Суммы останутся прежними — пересчёта по курсу не будет."))) {
+      if (definition.key === 'currency' && selected !== savedValue && !await confirmAction(t("Изменить обозначение валюты у всех записей дома? Суммы останутся прежними — пересчёта по курсу не будет."))) {
         field.control.value = String(savedValue);
         return;
       }
@@ -306,7 +371,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
       const row = node('div', undefined, 'row');
       row.append(node('span', category.name));
       if (data.permissions.manage_categories) row.append(button(t("Убрать"), async () => {
-        if (!window.confirm(t("Убрать категорию «{0}»?", [category.name]))) return;
+        if (!await confirmAction(t("Убрать категорию «{0}»?", [category.name]))) return;
         await post(`${base(data)}/categories/${category.id}/delete`);
         await updateCategories();
       }, 'text-button'));
@@ -328,8 +393,32 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
 
   function renderNotifications(container, data) {
     container.append(node('p', t("Это только ваши настройки. Уведомления приходят в личный чат или общий чат дома, если он подключён."), 'panel-note'));
-    if (!data.house.chat_bound) container.append(node('p', t("Общий чат пока не подключён. Чтобы получать сообщения сейчас, выбирайте «Личный чат»."), 'panel-note'));
+    renderChatConnection(container, data);
     for (const definition of data.notify_setting_definitions) container.append(settingRow(data, definition, data.notify_settings[definition.key], true));
+  }
+
+  function renderChatConnection(container, data) {
+    const chat = section(data.house.chat_bound ? t("Общий чат подключён") : t("Общий чат — по желанию"));
+    if (data.house.chat_bound) chat.append(node('p', t("Уведомления можно отправлять в общий чат. Выберите нужные каналы ниже."), 'subtle'));
+    else {
+      chat.append(node('p', t("Сайт уже работает. Группу Telegram подключают только для общих уведомлений."), 'subtle'));
+      chat.append(node('p', t("Пока группа не подключена, уведомления приходят в личный чат."), 'subtle'));
+      if (data.permissions.manage_house_settings) {
+        const steps = node('ol', undefined, 'connection-steps');
+        if (data.house.chat_connect_url) {
+          const link = node('a', t("Выбрать группу в Telegram"), 'button-link');
+          link.href = data.house.chat_connect_url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          chat.append(link);
+          steps.append(node('li', t("Выберите вашу группу по кнопке выше.")), node('li', t("Проверьте название дома в сообщении бота: {0}.", [data.house.name])), node('li', t("Нажмите «Привязать этот чат», затем вернитесь сюда.")));
+        } else {
+          steps.append(node('li', t("В личном чате @Domovskii_bot выберите этот дом: {0}.", [data.house.name])), node('li', t("Добавьте @Domovskii_bot в вашу группу Telegram.")), node('li', t("В группе отправьте /start и нажмите «Привязать этот чат».")));
+        }
+        chat.append(steps, button(t("Проверить подключение"), () => open('notifications')));
+      } else chat.append(node('p', t("Подключить группу может владелец или участник с правом менять настройки дома."), 'subtle'));
+    }
+    container.append(chat);
   }
 
   function renderSettings(container, data) {
@@ -357,7 +446,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
     if (data.profile.can_leave) {
       const leave = node('div', undefined, 'danger-zone');
       leave.append(node('h3', t("Выйти из дома")), node('p', t("Доступ к данным этого дома закроется. Старые записи сохранятся у жильцов."), 'subtle'), button(t("Выйти из дома"), async () => {
-        if (!window.confirm(t("Выйти из «{0}»? Вы потеряете доступ к этому дому.", [data.house.name]))) return;
+        if (!await confirmAction(t("Выйти из «{0}»? Вы потеряете доступ к этому дому.", [data.house.name]))) return;
         await post(`${base(data)}/leave`);
         await onHouseChanged(null);
       }, 'danger'));
@@ -375,7 +464,7 @@ window.createHouseWorkspace = ({ api, post, notice, refresh, onHouseChanged, sho
   });
 
   return {
-    open, home,
+    open, home, invite,
     reset() { context = null; home(); },
     back() { if (!panel) return false; home(); return true; },
     showOnboarding() { renderMembership($('onboarding')); },

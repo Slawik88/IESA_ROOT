@@ -1,6 +1,8 @@
 """
 bot/dispatcher.py — сборка диспетчера: порядок роутеров важен.
 """
+import re
+
 from aiogram import BaseMiddleware, Dispatcher, Router
 from aiogram.fsm.storage.memory import MemoryStorage, SimpleEventIsolation
 
@@ -15,7 +17,8 @@ class PrivateCallbacks(BaseMiddleware):
         if event.message is None:
             await event.answer("Откройте меню в личке у бота через /start", show_alert=True)
             return
-        if event.message.chat.type != "private" and event.data != cb.settings_bind_chat():
+        can_bind = event.data == cb.settings_bind_chat() or re.fullmatch(r"st_chat:[1-9][0-9]{0,18}", event.data or "")
+        if event.message.chat.type != "private" and not can_bind:
             await event.answer("Откройте меню в личке у бота через /start", show_alert=True)
             return
         return await handler(event, data)

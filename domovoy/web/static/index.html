@@ -42,7 +42,14 @@
 </svg>
 <a class="skip" href="#main">К содержимому</a>
 <main id="main">
-  <section id="gate" class="gate"><label class="language-choice"><span class="sr-only">Язык</span><select data-language aria-label="Язык"><option value="ru">RU</option><option value="uk">UKR</option><option value="fr">FR</option><option value="de">DE</option></select></label><span class="gate-mark" aria-hidden="true"><svg><use href="#i-home"/></svg></span><h1>Вход в приложение</h1><p id="gate-text">Откройте эту страницу из личного чата, где вы получили ссылку.</p><div id="onboarding"></div></section>
+  <section id="gate" class="gate">
+    <label class="language-choice"><span class="sr-only">Язык</span><select data-language aria-label="Язык"><option value="ru">RU</option><option value="uk">UKR</option><option value="fr">FR</option><option value="de">DE</option></select></label>
+    <span class="gate-mark" aria-hidden="true"><svg><use href="#i-home"/></svg></span>
+    <h1 id="gate-title" tabindex="-1">Вход в приложение</h1>
+    <p id="gate-text">Для входа откройте приложение кнопкой в личном чате @Domovskii_bot.</p>
+    <a id="open-telegram" class="button-link" href="https://t.me/Domovskii_bot" target="_blank" rel="noopener noreferrer">Открыть бота в Telegram</a>
+    <div id="onboarding"></div><button id="retry-connection" class="secondary" hidden>Попробовать ещё раз</button>
+  </section>
   <div id="workspace" hidden>
     <header class="app-header">
       <div class="brand"><span class="brand-mark" aria-hidden="true"><svg><use href="#i-brand"/></svg></span><span id="brand"></span></div>
@@ -50,7 +57,8 @@
     </header>
     <p id="connection" class="connection" role="status" hidden>Нет сети. Ваш ввод останется в форме. Попробуйте сохранить, когда связь вернётся.</p>
     <section id="home-view" class="view" aria-labelledby="home-title">
-      <div class="page-heading home-heading"><div><p id="today" class="eyebrow"></p><h1 id="home-title" tabindex="-1"></h1></div></div>
+      <div class="page-heading home-heading"><div><p id="today" class="eyebrow"></p><h1 id="home-title" tabindex="-1"></h1></div><button id="quick-invite" class="text-button" hidden>Пригласить</button></div>
+      <section id="house-setup" class="setup-card" hidden aria-labelledby="setup-title"><div class="section-title"><h2 id="setup-title">Дом готов</h2><button id="dismiss-setup" class="icon-button" aria-label="Скрыть подсказки">×</button></div><p class="subtle">Можно сразу записывать расходы. Остальное — когда удобно.</p><div class="setup-actions"><button id="setup-invite" class="secondary">Пригласить жильцов</button><button id="setup-expense" class="secondary">Первый расход</button></div></section>
       <div class="home-layout">
         <div class="money-overview">
         <section class="balance" aria-label="Деньги дома">
@@ -107,6 +115,7 @@
 <dialog id="filter-dialog" aria-labelledby="filter-title"><div class="section-title"><h2 id="filter-title">Найти нужное</h2><button id="close-filters" class="icon-button" aria-label="Закрыть фильтры">×</button></div><div class="filters"><label class="check-label"><input id="all-months" type="checkbox">За всё время</label><button id="month-today" class="text-button">Текущий месяц</button><label>Тип записи<select id="filter-kind"><option value="all">Все записи</option><option value="expense">Расходы</option><option value="contribution">Взносы</option></select></label><label>Кто<select id="filter-member"><option value="">Все жильцы</option></select></label><label>Категория<select id="filter-category"><option value="">Все категории</option></select></label><label>Откуда деньги<select id="filter-mode"><option value="all">Любой источник</option><option value="house">Из общего котла</option><option value="personal">За свои</option><option value="waiting_return">Ждёт возврата</option></select></label><label>Порядок<select id="filter-sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="largest">Сначала крупные</option><option value="smallest">Сначала небольшие</option></select></label></div><button id="apply-filters" class="full">Показать записи</button></dialog>
 <dialog id="transaction-dialog" aria-labelledby="form-title"><form id="transaction-form"><fieldset id="transaction-fields">
   <div class="section-title"><h2 id="form-title"></h2><button type="button" class="icon-button" id="close-form" aria-label="Закрыть форму">×</button></div>
+  <p id="form-house" class="form-context"></p>
   <label class="amount-label">Сумма<span class="amount-input"><input id="tx-amount" inputmode="decimal" autocomplete="off" required placeholder="0,00"><span id="form-currency"></span></span></label>
   <div id="expense-fields">
     <fieldset class="payment-field"><legend>Откуда деньги</legend><input id="tx-mode" type="hidden" value="house"><div class="payment-switch"><button type="button" data-payment="house" aria-pressed="true"><svg aria-hidden="true"><use href="#i-wallet"/></svg>Из котла</button><button type="button" data-payment="personal" aria-pressed="false"><svg aria-hidden="true"><use href="#i-people"/></svg>За свои</button></div><p id="payment-hint" class="subtle" hidden>Дом будет должен вам эту сумму.</p></fieldset>
@@ -114,11 +123,15 @@
     <label class="description-label">На что <span class="sr-only">необязательно</span><textarea id="tx-description" maxlength="200" rows="1" placeholder="Например, продукты к ужину"></textarea></label>
     <label class="check-label receipt-after-save"><input id="tx-add-receipt" type="checkbox">После сохранения добавить чек</label>
   </div>
-  <details id="date-details" class="date-details"><summary id="date-summary">Сегодня · изменить дату</summary><div class="disclosure-content"><label>Когда была операция<input id="tx-date" type="date" required></label><div class="date-shortcuts"><button type="button" class="secondary" id="date-today">Сегодня</button><button type="button" class="secondary" id="date-yesterday">Вчера</button></div><label id="tx-month-label">За какой месяц взнос<input id="tx-month" type="month" required></label></div></details>
+  <label id="tx-month-label">За какой месяц взнос<input id="tx-month" type="month" required></label>
+  <details id="date-details" class="date-details"><summary id="date-summary">Сегодня · изменить дату</summary><div class="disclosure-content"><label>Когда была операция<input id="tx-date" type="date" required></label><div class="date-shortcuts"><button type="button" class="secondary" id="date-today">Сегодня</button><button type="button" class="secondary" id="date-yesterday">Вчера</button></div></div></details>
   <p id="form-error" class="error" role="alert" tabindex="-1"></p>
   <details class="form-extras"><summary>Заполнить из недавнего</summary><div id="quick-repeat" class="quick-repeat" hidden></div><div id="quick-amounts" class="quick-amounts" aria-label="Недавние суммы"></div><p class="subtle">Черновик хранится до перезагрузки приложения.</p><button id="discard-draft" class="text-button danger" type="button">Удалить черновик</button><p class="subtle" id="save-hint"></p></details>
   <div class="form-save"><button id="save-transaction" class="full" type="submit">Записать расход</button><button id="save-another" class="text-button full" type="submit">Сохранить и записать ещё</button></div>
 </fieldset></form></dialog>
+<dialog id="entry-dialog" aria-labelledby="entry-dialog-title"><div class="section-title"><h2 id="entry-dialog-title">Операция</h2><button class="icon-button" data-close="entry-dialog" aria-label="Закрыть операцию">×</button></div><div id="entry-content"></div></dialog>
+<dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description"><h2 id="confirm-title">Подтверждение</h2><p id="confirm-description" class="panel-note"></p><div class="confirm-actions"><button id="confirm-cancel" class="secondary">Отмена</button><button id="confirm-accept">Продолжить</button></div></dialog>
+<dialog id="invite-dialog" aria-labelledby="invite-title"><div class="section-title"><h2 id="invite-title">Пригласить жильцов</h2><button class="icon-button" data-close="invite-dialog" aria-label="Закрыть приглашение">×</button></div><div id="invite-content"></div></dialog>
 <dialog id="receipt-dialog" aria-labelledby="receipt-title"><div class="section-title"><h2 id="receipt-title">Чеки к расходу</h2><button class="icon-button" data-close="receipt-dialog" aria-label="Закрыть чеки">×</button></div><div id="receipt-content"></div></dialog>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 </body>

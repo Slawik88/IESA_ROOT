@@ -1,10 +1,14 @@
 """HTTP-адаптер управления домом; авторизацию обеспечивает общий middleware."""
 
+import asyncio
 import json
+import re
 from typing import Any
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Request
+from aiogram.exceptions import TelegramAPIError
+from loguru import logger
 from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
 
 from core.constants import MAX_CATEGORY_NAME_LEN, MAX_HOUSE_NAME_LEN, MAX_MEMBER_NAME_LEN
@@ -12,6 +16,7 @@ from services import web_households
 from services.households import DomainError
 
 router = APIRouter(prefix="/api")
+SHARE_LOOKUP_TIMEOUT_SECONDS = 3
 
 
 class CreateHouse(BaseModel):
@@ -22,6 +27,10 @@ class CreateHouse(BaseModel):
 class JoinHouse(BaseModel):
     invite_token: StrictStr = Field(min_length=1, max_length=2048)
     display_name: StrictStr = Field(min_length=1, max_length=MAX_MEMBER_NAME_LEN)
+
+
+class InvitationPreview(BaseModel):
+    invite_token: StrictStr = Field(min_length=1, max_length=2048)
 
 
 class Profile(BaseModel):
@@ -81,9 +90,17 @@ async def join(request: Request, payload: JoinHouse):
     return await web_households.join_house(*actor_profile(request), payload.invite_token, payload.display_name)
 
 
+@router.post("/invitations/preview")
+async def preview_invitation(request: Request, payload: InvitationPreview):
+    return await web_households.preview_invitation(request.state.actor, payload.invite_token)
+
+
 @router.get("/houses/{house_id}/management")
 async def management(request: Request, house_id: int, month: str | None = None):
-    return await web_households.management(house_id, request.state.actor, month)
+    result = await web_households.management(house_id, request.state.actor, month)
+    username = await _bot_username(request) if result["permissions"]["manage_house_settings"] else None
+    result["house"]["chat_connect_url"] = f"https://t.me/{username}?startgroup=house_{house_id}" if username else None
+    return result
 
 
 @router.post("/houses/{house_id}/settings/{key}")
@@ -112,12 +129,34 @@ async def notification(request: Request, house_id: int, key: str, payload: Notif
 
 @router.get("/houses/{house_id}/invite")
 async def invite(request: Request, house_id: int):
-    return await web_households.invite(house_id, request.state.actor)
+    invitation = await web_households.invite(house_id, request.state.actor)
+    return {**invitation, "share_url": await _share_url(request, invitation["invite_token"])}
 
 
 @router.post("/houses/{house_id}/invite/rotate")
 async def rotate_invite(request: Request, house_id: int):
-    return await web_households.invite(house_id, request.state.actor, rotate=True)
+    invitation = await web_households.invite(house_id, request.state.actor, rotate=True)
+    return {**invitation, "share_url": await _share_url(request, invitation["invite_token"])}
+
+
+async def _share_url(request: Request, token: str) -> str | None:
+    username = await _bot_username(request)
+    return f"https://t.me/{username}?start=join_{token}" if username else None
+
+
+async def _bot_username(request: Request) -> str | None:
+    bot = getattr(request.app.state, "telegram_bot", None)
+    if bot is None:
+        return None
+    try:
+        profile = await asyncio.wait_for(bot.me(), timeout=SHARE_LOOKUP_TIMEOUT_SECONDS)
+    except (TelegramAPIError, TimeoutError) as exc:
+        logger.warning("Ссылка приглашения пока недоступна: {}", type(exc).__name__)
+        return None
+    username = profile.username
+    if not isinstance(username, str) or re.fullmatch(r"[A-Za-z0-9_]{5,32}", username) is None:
+        return None
+    return username
 
 
 @router.post("/houses/{house_id}/members/{target}/permissions/{code}")

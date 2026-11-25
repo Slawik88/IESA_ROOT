@@ -37,7 +37,3 @@ def test_keyboards_with_data():
     markup = kb.schedule_editor_keyboard(
         [{"tg_id": 1, "display_name": "Аня"}], {1: None}, picked_tg=1)
     assert any(b.callback_data == cb.schedule_pick(1, 3) for row in markup.inline_keyboard for b in row)
-
-    pending = kb.pending_keyboard(
-        [{"id": 5, "display_name": "Борис", "amount_kop": 300000}], "₽")
-    assert any("Борис" in b.text for row in pending.inline_keyboard for b in row)

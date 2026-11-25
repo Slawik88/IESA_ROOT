@@ -2,10 +2,7 @@
 from infrastructure.db import db, now_utc
 
 
-async def all_rows(house_id: int) -> list:
-    async with db.acquire() as conn:
-        return await conn.fetch(
-            """
+_ROWS_SQL = """
             SELECT 'expense' AS kind, e.id AS id, e.tg_id, m.display_name,
                    e.spent_on AS date, SUBSTR(e.spent_on, 1, 7) AS month,
                    e.amount_kop, c.name AS category, e.mode, 'confirmed' AS status,
@@ -25,10 +22,20 @@ async def all_rows(house_id: int) -> list:
             LEFT JOIN money_import_items i ON i.house_id = c.house_id
                  AND i.kind = 'contribution' AND i.target_id = c.id
             WHERE c.house_id = ?
-            ORDER BY date DESC, kind, id DESC
-            """, house_id, house_id,
-        )
+"""
 
+
+async def all_rows(house_id: int) -> list:
+    async with db.acquire() as conn:
+        return await conn.fetch(_ROWS_SQL + " ORDER BY date DESC, kind, id DESC", house_id, house_id)
+
+
+async def get_row(house_id: int, kind: str, transaction_id: int):
+    async with db.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT * FROM (" + _ROWS_SQL + ") AS ledger WHERE kind = ? AND id = ?",
+            house_id, house_id, kind, transaction_id,
+        )
 
 async def imported_keys(house_id: int) -> dict[str, str]:
     async with db.acquire() as conn:

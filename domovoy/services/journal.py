@@ -2,7 +2,8 @@
 from dataclasses import dataclass
 
 from core.constants import JOURNAL_SEARCH_LIMIT, QUICK_TRANSACTION_LIMIT, WEB_HOME_RECENT_LIMIT, WEB_JOURNAL_PAGE_SIZE
-from core.transaction_versions import expense_version
+from core.transaction_versions import expense_version, contribution_version
+from core.transaction_permissions import can_change_contribution
 from infrastructure.repositories import transactions
 from services import households
 from services.households import DomainError
@@ -58,15 +59,37 @@ def filter_rows(rows: list, query: JournalQuery) -> list:
     return result
 
 
+async def decorate_rows(house_id: int, actor: int, source_rows: list) -> list[dict]:
+    await households.require_member(house_id, actor)
+    rows = [dict(row) for row in source_rows]
+    manage_all = await households.can(house_id, actor, "manage_all_expenses")
+    can_confirm = await households.can(house_id, actor, "confirm_contributions")
+    for row in rows:
+        row["house_id"] = house_id
+        if row["kind"] == "expense":
+            row["can_edit"] = not row["reimbursed"] and (row["tg_id"] == actor or manage_all)
+            row["version"] = expense_version(row)
+            reason = "reimbursed_expense" if row["reimbursed"] else "other_author"
+        else:
+            row["can_edit"] = can_change_contribution(row["tg_id"], row["status"], actor, can_confirm)
+            row["version"] = contribution_version(row)
+            reason = "resolved_contribution" if row["status"] != "declared" else "other_author"
+        row["can_delete"] = row["can_edit"]
+        row["read_only_reason"] = None if row["can_edit"] else reason
+    return rows
+
+
+async def transaction(house_id: int, actor: int, kind: str, transaction_id: int) -> dict:
+    await households.require_member(house_id, actor)
+    row = await transactions.get_row(house_id, kind, transaction_id)
+    if row is None:
+        raise DomainError("Операция не найдена в этом доме")
+    return (await decorate_rows(house_id, actor, [row]))[0]
+
+
 async def view(house_id: int, actor: int, query: JournalQuery, page: int = 0) -> dict:
     await households.require_member(house_id, actor)
-    all_rows = [dict(row) for row in await transactions.all_rows(house_id)]
-    manage_all = await households.can(house_id, actor, "manage_all_expenses")
-    for row in all_rows:
-        row["house_id"] = house_id
-        row["can_edit"] = (row["kind"] == "expense" and not row["reimbursed"]
-                           and (row["tg_id"] == actor or manage_all))
-        row["version"] = expense_version(row) if row["kind"] == "expense" else None
+    all_rows = await decorate_rows(house_id, actor, await transactions.all_rows(house_id))
     selected = filter_rows(all_rows, query)
     page = max(0, min(page, max(0, (len(selected) - 1) // WEB_JOURNAL_PAGE_SIZE)))
     summary = {"expenses": 0, "contributions": 0, "pending": 0, "waiting_return": 0}

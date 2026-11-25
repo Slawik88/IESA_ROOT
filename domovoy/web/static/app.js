@@ -7,11 +7,11 @@
   const app = {
     state: null, house: null, month: '', page: 0, allMonths: false,
     draft: null, drafts: new Map(), saving: false, importPayload: null,
-    importVersion: 0, loadVersion: 0, houseListVersion: 0, searchTimer: null, noticeTimer: null,
-    showAllChores: false, view: 'home', filterSnapshot: null,
+    importVersion: 0, loadVersion: 0, houseListVersion: 0, searchTimer: null, noticeTimer: null, noticeTarget: null,
+    showAllChores: false, view: 'home', filterSnapshot: null, setupHouse: null, dialogs: [],
     filters: { kind: 'all', member: '', category: '', mode: 'all', sort: 'newest' },
   };
-  const houseUI = window.createHouseWorkspace({ api, post, notice, refresh, onHouseChanged: loadHouses, showView,
+  const houseUI = window.createHouseWorkspace({ api, post, notice, refresh, confirmAction, onHouseChanged: loadHouses, showView,
     initialName: tg?.initDataUnsafe?.user?.first_name || '' });
   const receiptUI = window.createReceiptWorkspace({ api, post, notice, refresh });
   window.addEventListener('domovoy:modalchange', syncBackButton);
@@ -82,7 +82,10 @@
   }
 
   function syncBackButton() {
-    if (document.querySelector('dialog[open]') || app.view !== 'home') tg?.BackButton?.show();
+    const open = [...document.querySelectorAll('dialog[open]')];
+    app.dialogs = app.dialogs.filter(dialog => dialog.open);
+    for (const dialog of open) if (!app.dialogs.includes(dialog)) app.dialogs.push(dialog);
+    if (open.length || app.view !== 'home') tg?.BackButton?.show();
     else tg?.BackButton?.hide();
   }
 
@@ -100,11 +103,50 @@
     return app.draft?.editId ? t("Сохранить изменения") : app.draft?.kind === 'contribution' ? t("Внести деньги") : t("Записать расход");
   }
 
-  function notice(text) {
-    $('notice').textContent = text;
-    $('notice').hidden = false;
+  function notice(text, next = null) {
+    if (app.noticeTarget) app.noticeTarget.hidden = true;
+    const dialog = document.activeElement?.closest('dialog[open]') || app.dialogs.filter(item => item.open).at(-1);
+    let target = $('notice');
+    if (dialog) {
+      target = dialog.querySelector('[data-notice]');
+      if (!target) {
+        target = node('div', undefined, 'dialog-notice');
+        target.dataset.notice = '';
+        target.role = 'status';
+        target.setAttribute('aria-live', 'polite');
+        const heading = dialog.querySelector('.section-title');
+        if (heading) heading.after(target); else dialog.prepend(target);
+        const message = target;
+        dialog.addEventListener('close', () => { message.hidden = true; });
+      }
+    }
+    app.noticeTarget = target;
+    target.replaceChildren(node('span', text));
+    if (next) target.append(action(next.label, async () => {
+      clearTimeout(app.noticeTimer);
+      target.hidden = true;
+      await next.work();
+    }));
+    target.hidden = false;
+    if (dialog) target.scrollIntoView({ block: 'nearest' });
     clearTimeout(app.noticeTimer);
-    app.noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 6000);
+    app.noticeTimer = setTimeout(() => { target.hidden = true; }, next ? 15000 : 6000);
+  }
+
+  function confirmAction(description, { title = t("Подтверждение"), label = t("Продолжить"), danger = false } = {}) {
+    const dialog = $('confirm-dialog');
+    if (dialog.open) return Promise.resolve(false);
+    $('confirm-title').textContent = title;
+    $('confirm-description').textContent = description;
+    $('confirm-accept').textContent = label;
+    $('confirm-accept').classList.toggle('destructive', danger);
+    dialog.returnValue = '';
+    return new Promise(resolve => {
+      dialog.addEventListener('close', () => { syncBackButton(); resolve(dialog.returnValue === 'confirm'); }, { once: true });
+      dialog.showModal();
+      $('confirm-cancel').focus();
+      syncBackButton();
+    });
   }
 
   async function api(path, options = {}) {
@@ -132,7 +174,14 @@
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
     try { await work(); }
-    catch (error) { notice(window.DomovoyI18n.error(error.message) || t("Нет соединения. Введённые данные сохранены в форме.")); }
+    catch (error) {
+      notice(window.DomovoyI18n.error(error.message) || t("Нет соединения. Введённые данные сохранены в форме."), app.state ? {
+        label: t("Обновить данные"), work: async () => {
+          $('entry-dialog').close();
+          await refresh();
+        },
+      } : null);
+    }
     finally {
       button.disabled = false;
       button.removeAttribute('aria-busy');
@@ -217,7 +266,7 @@
     for (const entry of app.state.pending) {
       const item = row(entry.display_name, t("За {0}", [dateLabel(`${entry.month}-01`, { month: 'long', year: 'numeric' })]), amount(entry.amount_kop));
       for (const [label, confirm] of [[t("Принять"), true], [t("Отклонить"), false]]) item.append(action(label, async () => {
-        await post(`houses/${app.house}/contributions/${entry.id}`, { confirm });
+        await post(`houses/${app.house}/contributions/${entry.id}`, { confirm, version: entry.version });
         await refresh();
       }));
       $('pending').append(item);
@@ -321,46 +370,93 @@
     const contribution = entry.kind === 'contribution';
     const status = { declared: t("ждёт подтверждения"), rejected: t("отклонён"), confirmed: t("зачтён") }[entry.status];
     const title = contribution ? t("Взнос") : entry.description || entry.category || t("Расход");
-    const detail = contribution ? status : entry.mode === 'personal'
-      ? (entry.reimbursed ? t("за свои · возвращено") : t("за свои · ждёт возврата")) : t("из котла");
-    const item = node('details', undefined, `entry${contribution ? ' incoming' : ''}`);
-    const heading = node('summary');
+    const item = node('article', undefined, `entry${contribution ? ' incoming' : ''}`);
+    const heading = node('button', undefined, 'entry-heading');
+    heading.type = 'button';
+    heading.setAttribute('aria-haspopup', 'dialog');
+    heading.onclick = () => openEntry(entry);
     const content = node('span', undefined, 'row-content');
     const shortStatus = contribution && entry.status !== 'confirmed' ? `${status} · `
       : !contribution && entry.mode === 'personal' ? t("за свои · ") : '';
     content.append(node('span', title, 'entry-title'), node('span', `${shortStatus}${dateLabel(entry.date)} · ${entry.display_name || t("Жилец")}`, 'meta'));
     const glyph = node('span', undefined, 'entry-icon');
     glyph.append(icon(contribution ? 'wallet' : categoryIcon(entry.category)));
-    heading.append(glyph, content,
-      node('span', `${contribution ? entry.status === 'confirmed' ? '+' : '' : '−'}${amount(entry.amount_kop)}`, 'sum'));
-    const expanded = node('div', undefined, 'entry-detail');
-    expanded.append(node('p', `${entry.category ? `${entry.category} · ` : ''}${detail}${contribution ? t(" · за {0}", [entry.month]) : ''}`));
-    if (entry.description) expanded.append(node('p', entry.description));
-    const actions = node('div', undefined, 'row-actions');
-    actions.append(action(t("Повторить"), () => openForm(entry.kind, entry)));
-    if (entry.can_edit) actions.append(action(t("Изменить"), () => openForm('expense', entry, true)));
-    if (!contribution) actions.append(action(t("Чеки"), async () => { const loading = receiptUI.open(app.house, entry); syncBackButton(); await loading; }));
+    const right = node('span', undefined, 'entry-right');
+    right.append(node('span', `${contribution ? entry.status === 'confirmed' ? '+' : '' : '−'}${amount(entry.amount_kop)}`, 'sum'), node('span', t("Действия"), 'entry-action-label'));
+    heading.append(glyph, content, right);
+    item.append(heading);
+    return item;
+  }
+
+  function openEntry(entry) {
+    const house = app.house, contribution = entry.kind === 'contribution';
+    const content = $('entry-content');
+    $('entry-dialog-title').textContent = contribution ? t("Взнос") : t("Расход");
+    content.replaceChildren(node('p', amount(entry.amount_kop), 'entry-amount'));
+    if (entry.description) content.append(node('p', entry.description, 'entry-description'));
+    const facts = node('dl', undefined, 'entry-facts');
+    const fact = (label, value) => { facts.append(node('dt', label), node('dd', value)); };
+    fact(t("Дом"), app.state.house.name);
+    fact(t("Когда"), dateLabel(entry.date, { day: 'numeric', month: 'long', year: 'numeric' }));
+    fact(t("Кто"), entry.display_name || t("Жилец"));
+    if (contribution) {
+      fact(t("За какой месяц взнос"), dateLabel(`${entry.month}-01`, { month: 'long', year: 'numeric' }));
+      fact(t("Статус"), { declared: t("ждёт подтверждения"), rejected: t("отклонён"), confirmed: t("зачтён") }[entry.status]);
+    } else {
+      fact(t("Откуда деньги"), entry.mode === 'personal' ? entry.reimbursed ? t("за свои · возвращено") : t("за свои · ждёт возврата") : t("Из котла"));
+      if (entry.category) fact(t("Категория"), entry.category);
+    }
+    content.append(facts);
+    const actions = node('div', undefined, 'entry-actions');
+    const change = work => { $('entry-dialog').close(); return work(); };
+    if (entry.can_edit) {
+      const edit = action(t("Изменить"), () => change(() => openForm(entry.kind, entry, true)));
+      edit.className = 'full';
+      actions.append(edit);
+    } else {
+      const reasons = {
+        reimbursed_expense: t("Возвращённый расход нельзя изменить или удалить."),
+        resolved_contribution: t("Этот взнос уже рассмотрен. Изменить или удалить его может участник с правом подтверждать взносы."),
+        other_author: t("Это запись другого жильца. У вас нет права изменять или удалять её."),
+      };
+      content.append(node('p', reasons[entry.read_only_reason] || t("Изменение этой записи недоступно с вашими правами."), 'panel-note'));
+    }
+    actions.append(action(t("Повторить"), () => change(() => openForm(entry.kind, entry))));
+    if (!contribution) actions.append(action(t("Чеки"), async () => {
+      $('entry-dialog').close();
+      const loading = receiptUI.open(house, entry); syncBackButton(); await loading;
+    }));
+    if (contribution && entry.status === 'declared' && app.state.permissions.confirm_contributions) {
+      for (const [label, confirm] of [[t("Принять"), true], [t("Отклонить"), false]]) actions.append(action(label, async () => {
+        await post(`houses/${house}/contributions/${entry.id}`, { confirm, version: entry.version });
+        $('entry-dialog').close();
+        await refresh();
+        notice(confirm ? t("Взнос зачтён") : t("Взнос отклонён"));
+      }));
+    }
     if (!contribution && entry.mode === 'personal' && !entry.reimbursed && app.state.permissions.confirm_contributions) {
       actions.append(action(t("Вернуть из котла"), async () => {
-        if (!window.confirm(t("Отметить возврат {0} для {1}? Сумма спишется из котла.", [amount(entry.amount_kop), entry.display_name]))) return;
-        await post(`houses/${app.house}/expenses/${entry.id}/reimburse`, { version: entry.version });
+        if (!await confirmAction(t("Отметить возврат {0} для {1}? Сумма спишется из котла.", [amount(entry.amount_kop), entry.display_name]), { label: t("Вернуть из котла") })) return;
+        await post(`houses/${house}/expenses/${entry.id}/reimburse`, { version: entry.version });
+        $('entry-dialog').close();
         await refresh();
         notice(t("Возврат отмечен"));
       }));
     }
-    if (entry.can_edit) {
+    if (entry.can_delete ?? entry.can_edit) {
       const remove = action(t("Удалить"), async () => {
-        if (!window.confirm(t("Удалить расход {0} за {1}? Остаток пересчитается. Вернуть запись кнопкой отмены будет нельзя.", [amount(entry.amount_kop), dateLabel(entry.date)]))) return;
-        await post(`houses/${app.house}/expenses/${entry.id}/delete`, { version: entry.version });
+        if (!await confirmAction(t("Удалить {0} за {1}? Остаток пересчитается. Восстановить запись будет нельзя.", [amount(entry.amount_kop), dateLabel(entry.date)]), { title: t("Удалить операцию?"), label: t("Удалить"), danger: true })) return;
+        await post(`houses/${house}/${contribution ? 'contributions' : 'expenses'}/${entry.id}/delete`, { version: entry.version });
+        $('entry-dialog').close();
         await refresh();
-        notice(t("Расход удалён"));
+        notice(t("Операция удалена"));
       });
-      remove.classList.add('danger');
+      remove.classList.add('danger', 'entry-remove');
       actions.append(remove);
     }
-    expanded.append(actions);
-    item.append(heading, expanded);
-    return item;
+    content.append(actions);
+    if (!$('entry-dialog').open) $('entry-dialog').showModal();
+    syncBackButton();
   }
 
   function renderPager() {
@@ -391,6 +487,9 @@
     $('gate').hidden = true;
     $('workspace').hidden = false;
     $('onboarding').replaceChildren();
+    $('quick-invite').hidden = !data.permissions.manage_members;
+    $('house-setup').hidden = app.setupHouse !== data.house.id;
+    $('setup-invite').hidden = !data.permissions.manage_members;
     $('balance').textContent = amount(data.balance.balance, false);
     $('balance-currency').textContent = data.currency;
     $('balance-in').textContent = amount(data.balance.confirmed_total);
@@ -432,7 +531,8 @@
     });
     const hasContent = app.draft.amount.trim() || app.draft.description.trim() || app.draft.category_id
       || app.draft.mode === 'personal' || app.draft.date !== app.state.today || app.draft.addReceipt;
-    if (hasContent) app.drafts.set(app.draft.request_id, { ...app.draft });
+    const changed = !app.draft.original || Object.keys(app.draft.original).some(key => app.draft[key] !== app.draft.original[key]);
+    if (hasContent && changed) app.drafts.set(app.draft.request_id, { ...app.draft });
     else app.drafts.delete(app.draft.request_id);
     updateDateSummary();
     $('save-another').hidden = !!app.draft.editId || app.draft.addReceipt;
@@ -441,10 +541,15 @@
   }
 
   function showDraft(draft) {
+    if (draft.editId && !draft.original) draft = { ...draft, original: {
+      amount: draft.amount, date: draft.date, month: draft.month, mode: draft.mode,
+      category_id: draft.category_id, description: draft.description, addReceipt: !!draft.addReceipt,
+    } };
     app.draft = { ...draft };
     $('transaction-form').reset();
     $('form-error').textContent = '';
-    $('form-title').textContent = draft.editId ? t("Изменить расход") : draft.kind === 'expense' ? t("Записать расход") : t("Внести деньги");
+    $('form-title').textContent = draft.editId ? draft.kind === 'expense' ? t("Изменить расход") : t("Изменить взнос") : draft.kind === 'expense' ? t("Записать расход") : t("Внести деньги");
+    $('form-house').textContent = `${app.state.house.name} · ${app.state.currency}`;
     $('form-currency').textContent = app.state.currency;
     $('save-transaction').textContent = saveLabel();
     $('date-details').open = draft.date !== app.state.today || (draft.kind === 'contribution' && draft.month !== app.state.today.slice(0, 7));
@@ -502,7 +607,7 @@
       if (unfinished) return showDraft(unfinished);
     }
     if (edit) {
-      const unfinished = [...app.drafts.values()].find(draft => draft.house === app.house && draft.editId === seed.id);
+      const unfinished = [...app.drafts.values()].find(draft => draft.house === app.house && draft.kind === kind && draft.editId === seed.id);
       if (unfinished) return showDraft(unfinished);
     }
     showDraft({ request_id: crypto.randomUUID(), house: app.house, kind,
@@ -538,7 +643,7 @@
     const payload = { ...saved, month: saved.kind === 'expense' ? saved.date.slice(0, 7) : saved.month,
       description: saved.kind === 'expense' ? saved.description : '' };
     try {
-      const path = saved.editId ? `houses/${saved.house}/expenses/${saved.editId}/edit` : `houses/${saved.house}/transactions`;
+      const path = saved.editId ? `houses/${saved.house}/${saved.kind === 'expense' ? 'expenses' : 'contributions'}/${saved.editId}/edit` : `houses/${saved.house}/transactions`;
       const result = await post(path, payload);
       app.drafts.delete(saved.request_id);
       app.draft = null;
@@ -554,8 +659,15 @@
         showDraft({ ...saved, request_id: crypto.randomUUID(), amount: '', date: app.state.today,
           month: app.state.today.slice(0, 7), editId: null, version: null });
       }
+      const id = saved.editId || result.id;
       notice(refreshed ? (saved.editId ? t("Изменения сохранены") : result.status === 'declared' ? t("Взнос ждёт подтверждения") : t("Запись сохранена"))
-        : t("Запись сохранена. Список пока не обновился — нажмите «Обновить»."));
+        : t("Запись сохранена. Список пока не обновился — нажмите «Обновить»."), !another && !saved.addReceipt && id ? {
+          label: t("Открыть запись"), work: async () => {
+            if (app.house !== saved.house) return notice(t("Сначала выберите дом этой операции."));
+            const entry = await api(`houses/${saved.house}/transactions/${saved.kind}/${id}`);
+            openEntry(entry);
+          },
+        } : null);
       if (saved.kind === 'expense' && saved.addReceipt && app.house === saved.house && (saved.editId || result.id)) {
         void receiptUI.open(saved.house, { id: saved.editId || result.id, description: saved.description })
           .catch(error => notice(window.DomovoyI18n.error(error.message) || t("Расход сохранён, но чеки не открылись.")));
@@ -604,6 +716,8 @@
     app.houseListVersion++;
     $('house-switch-dialog').close();
     app.house = Number($('house').value);
+    try { localStorage.setItem('domovoy.last-house', String(app.house)); }
+    catch { /* Selection still works when storage is blocked. */ }
     app.importVersion++;
     app.importPayload = null;
     app.page = 0;
@@ -614,14 +728,20 @@
     resetFilters();
     $('workspace').hidden = true;
     $('gate').hidden = false;
+    $('gate-title').textContent = t("Открываем дом");
     $('gate-text').textContent = t("Открываю выбранный дом…");
+    $('retry-connection').hidden = true;
     $('import-preview').hidden = true;
     $('import-file').value = '';
-    try { await refresh(); }
-    catch (error) { $('gate-text').textContent = window.DomovoyI18n.error(error.message); }
+    try {
+      await refresh();
+    } catch (error) {
+      $('gate-text').textContent = window.DomovoyI18n.error(error.message);
+      $('retry-connection').hidden = false;
+    }
   }
 
-  async function loadHouses(selected) {
+  async function loadHouses(selected, { welcome = false } = {}) {
     const version = ++app.houseListVersion;
     const data = await api('houses');
     if (version !== app.houseListVersion) return;
@@ -632,12 +752,19 @@
       app.state = null;
       $('workspace').hidden = true;
       $('gate').hidden = false;
-      $('gate-text').textContent = t("Создайте пространство для своего дома или присоединитесь к соседям.");
+      $('gate-title').textContent = t("Ваш дом в Домовом");
+      $('gate-text').textContent = t("Как вы хотите начать?");
+      $('retry-connection').hidden = true;
       houseUI.reset();
       houseUI.showOnboarding();
       return;
     }
+    if (!data.houses.some(house => house.id === selected)) {
+      try { selected = Number(localStorage.getItem('domovoy.last-house')); }
+      catch { /* Fall back to the first accessible house. */ }
+    }
     if (data.houses.some(house => house.id === selected)) $('house').value = selected;
+    if (welcome) app.setupHouse = Number($('house').value);
     await changeHouse();
   }
 
@@ -716,13 +843,21 @@
   $('transaction-form').oninput = rememberDraft;
   $('transaction-form').onsubmit = submit;
   tg?.BackButton?.onClick(() => {
-    if ($('transaction-dialog').open) closeForm();
-    else if (document.querySelector('dialog[open]')) { document.querySelector('dialog[open]').close(); syncBackButton(); }
+    const dialog = document.activeElement?.closest('dialog[open]') || app.dialogs.filter(item => item.open).at(-1);
+    if (dialog?.id === 'transaction-dialog') closeForm();
+    else if (dialog) { dialog.close(); syncBackButton(); }
     else if (app.view === 'more' && houseUI.back()) $('more-title').focus();
     else showView('home');
   });
   document.querySelectorAll('[data-close]').forEach(button => { button.onclick = () => $(button.dataset.close).close(); });
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', syncBackButton));
+  $('confirm-cancel').onclick = () => $('confirm-dialog').close();
+  $('confirm-accept').onclick = () => $('confirm-dialog').close('confirm');
+  $('retry-connection').onclick = () => busy($('retry-connection'), () => loadHouses(app.house));
+  $('quick-invite').onclick = () => houseUI.invite();
+  $('setup-invite').onclick = () => houseUI.invite();
+  $('setup-expense').onclick = () => openForm('expense');
+  $('dismiss-setup').onclick = () => { app.setupHouse = null; $('house-setup').hidden = true; };
   $('balance-info').onclick = () => { $('balance-dialog').showModal(); syncBackButton(); };
   $('open-house').onclick = () => { $('house-switch-dialog').showModal(); syncBackButton(); };
   document.querySelectorAll('[data-payment]').forEach(button => { button.onclick = () => { $('tx-mode').value = button.dataset.payment; rememberDraft(); }; });
@@ -807,6 +942,7 @@
 
   (async () => {
     if (!initData) return;
+    $('open-telegram').hidden = true;
     tg?.ready();
     tg?.expand();
     try {
@@ -815,8 +951,18 @@
         context = JSON.parse(sessionStorage.getItem('domovoy.language-context') || 'null');
         sessionStorage.removeItem('domovoy.language-context');
       } catch { /* No saved navigation context. */ }
-      await loadHouses(Number.isSafeInteger(context?.house) && context.house > 0 ? context.house : undefined);
+      const url = new URL(location.href), hinted = Number(url.searchParams.get('house'));
+      const selected = Number.isSafeInteger(hinted) && hinted > 0 ? hinted
+        : Number.isSafeInteger(context?.house) && context.house > 0 ? context.house : undefined;
+      await loadHouses(selected);
+      if (url.searchParams.has('house')) {
+        url.searchParams.delete('house');
+        history.replaceState(null, '', url);
+      }
       if (app.state && ['home', 'journal', 'more'].includes(context?.view)) showView(context.view, false);
-    } catch (error) { $('gate-text').textContent = window.DomovoyI18n.error(error.message); }
+    } catch (error) {
+      $('gate-text').textContent = window.DomovoyI18n.error(error.message);
+      $('retry-connection').hidden = false;
+    }
   })();
 })();
