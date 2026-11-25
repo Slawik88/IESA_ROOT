@@ -193,6 +193,12 @@ class World(BotApiMixin):
             data["entities"] = stored.entities
         if stored.topic_id:
             data.update(message_thread_id=stored.topic_id, is_topic_message=True)
+        widget = self.widgets.get((stored.chat_id, stored.message_id))
+        if widget is not None:
+            data.pop("text", None)
+            data.pop("entities", None)
+            data["widget"] = {key: value for key, value in widget.items() if key not in ("allow_queries", "caption")}
+            data["caption"] = widget.get("caption", "")
         return data
 
     def _dump_markup(self, markup: Any) -> dict | None:

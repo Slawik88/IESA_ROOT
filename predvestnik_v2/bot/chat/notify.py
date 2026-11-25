@@ -355,7 +355,8 @@ async def _open_pets(call: CallbackQuery, db) -> None:
         return
     await pet_chat.expire(db, call.from_user.id)
     text, kb = await pets.render(db, call.from_user.id, chat.id, {"screen": "home"})
-    await call.message.answer(text, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)
+    from bot.widget_cards import send
+    await send(call.bot, db, call.from_user.id, "pets", text, reply_markup=kb)
     await call.answer()
 
 
@@ -375,7 +376,8 @@ async def slash_notify(message: Message, db) -> None:
         return
     await dm_push.confirm_contact(db, message.from_user.id)
     text, kb = await settings_view(db, message.from_user.id)
-    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+    from bot.widget_cards import reply
+    await reply(message, db, "notify", text, as_reply=False, parse_mode="HTML", reply_markup=kb)
 
 
 @slash_router.message(SlashCommand("plan"), F.chat.type == "private")
@@ -384,4 +386,5 @@ async def slash_plan(message: Message, db) -> None:
         return
     await dm_push.confirm_contact(db, message.from_user.id)
     text, kb = await plan_view(db, message.from_user.id)
-    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+    from bot.widget_cards import reply
+    await reply(message, db, "plan", text, as_reply=False, parse_mode="HTML", reply_markup=kb)

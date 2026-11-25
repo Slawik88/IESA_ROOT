@@ -39,7 +39,7 @@ async def send_remote(bot, db, connection: dict, partner: Chat, *, screen: str =
     rid = await service.remote_for(db, connection["id"], partner.id, _name(partner))
     found = await service.remote(db, rid, connection["user_id"])
     text, markup = await (_games_view(db, found) if screen == "games" else _main_view(db, found))
-    await chat.to_owner(bot, connection, text, reply_markup=markup)
+    await chat.to_owner(bot, connection, text, widget_feature="business", db=db, reply_markup=markup)
 
 
 async def _main_view(db, found: dict) -> tuple[str, InlineKeyboardMarkup]:
@@ -163,7 +163,7 @@ async def on_remote(call: CallbackQuery, bot, db) -> None:
         await _edit(msg, *(await _chat_settings_view(db, found)))
     elif action == "glob":
         text, markup = _global_view(await service.global_settings(db, connection["user_id"]))
-        await chat.to_owner(bot, connection, text, reply_markup=markup)
+        await chat.to_owner(bot, connection, text, widget_feature="business", db=db, reply_markup=markup)
     elif not await service.chat_enabled(db, connection["id"], chat_id):
         await call.answer("В этой переписке я выключен.", show_alert=True)
         return
@@ -247,7 +247,7 @@ async def cmd_business(ctx: Ctx) -> None:
         await ctx.reply("💼 Настройки бота в переписках — в личке со мной: напиши там «бизнес».")
         return
     text, markup = _global_view(await service.global_settings(ctx.db, ctx.user_id))
-    await ctx.message.answer(text + "\n\nПодключить меня к своим перепискам: «Настройки Telegram → Telegram для бизнеса → Чат-боты» "
+    await ctx.reply(text + "\n\nПодключить меня к своим перепискам: «Настройки Telegram → Telegram для бизнеса → Чат-боты» "
                                     "(нужен Telegram Premium).", parse_mode="HTML", reply_markup=markup)
 
 

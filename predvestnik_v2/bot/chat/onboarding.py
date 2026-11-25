@@ -684,7 +684,8 @@ async def dm_start(message: Message, bot: Bot, db, payload: str = "") -> None:
             return
     await _welcome_picture(bot, message.from_user)
     text, kb = home_screen(username, _miniapp())
-    await message.answer(text, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)
+    from bot.widget_cards import reply
+    await reply(message, db, "home", text, as_reply=False, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)
     if message.from_user:
         _dm_hint_at[message.from_user.id] = time.monotonic()   # меню только что показали: «привет» следом не повторит его
 
@@ -740,7 +741,8 @@ async def slash_help(message: Message, db) -> None:
     if message.from_user is None or await _quiet(message, db):
         return
     private = message.chat.type == "private"
-    await message.answer(help_mod.main_text(private), parse_mode="HTML",
+    from bot.widget_cards import reply
+    await reply(message, db, "help", help_mod.main_text(private), as_reply=False, parse_mode="HTML",
                          reply_markup=help_mod.main_keyboard(message.from_user.id, private))
 
 

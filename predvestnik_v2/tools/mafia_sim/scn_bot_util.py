@@ -11,7 +11,7 @@ from tools.mafia_sim.harness import Harness, SimUser  # noqa: E402
 from tools.mafia_sim.registry import ok  # noqa: E402
 from tools.mafia_sim.world import StoredMessage, parse_html  # noqa: E402
 
-OUTGOING = {"SendMessage", "SendPhoto", "SendAnimation", "SendDocument", "EditMessageText", "EditMessageCaption"}
+OUTGOING = {"SendMessage", "SendWidget", "SendPhoto", "SendAnimation", "SendDocument", "EditMessageText", "EditMessageCaption"}
 
 
 def plain(params: dict) -> str:
@@ -23,7 +23,21 @@ async def say(h: Harness, user: SimUser, chat: int, text: str, **kw) -> list[tup
     """The player writes ``text``; returns the (method, params) of everything the bot sent in reply."""
     start = len(h.world.calls)
     await h.say(user, chat, text, **kw)
-    return [(n, p) for n, p in h.world.calls[start:] if n in OUTGOING]
+    result = []
+    for name, params in h.world.calls[start:]:
+        if name not in OUTGOING:
+            continue
+        if name == "SendWidget":
+            import json
+            state = json.loads(params.get("chat_data") or "{}")
+            if state.get("k"):
+                for key, widget in h.world.widgets.items():
+                    saved = json.loads(widget.get("chat_data") or "{}")
+                    if saved.get("k") == state["k"]:
+                        params = {**params, "text": h.world.messages[key].text, "parse_mode": None}
+                        break
+        result.append((name, params))
+    return result
 
 
 def said(sent: list[tuple[str, dict]]) -> str:

@@ -3,6 +3,7 @@ from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
 from bot.chat import account, achievements, admin_chat, admin_help, article, business, business_remote, pair_cards, cosmetics, family, games, help, mafia, members, migration, moderation, notify, onboarding, pets, profile, promo, purge, rank_commands, report_cards, reports, sanctions, ship, site, streak, star_dust, tags, tickets, top, transfer, vip, warps, word_chain  # noqa: F401
+from bot.chat import widgets  # noqa: F401,E402
 from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat import mafia_online  # noqa: F401,E402  (отдельный режим, локальная команда без изменений)
 from bot.chat import inactive  # noqa: F401,E402

@@ -318,6 +318,11 @@ async def send_card(ctx: Ctx, target: Target, is_group: bool) -> None:
     chat_id = ctx.message.chat.id
     look = await skins_chat.safe_card_look(ctx.db, target.user_id, chat_id)
     text = await card(ctx.db, chat_id, target, ctx.user_id, is_group, look)
+    if not is_group:
+        from services.widget_cards import enabled
+        if await enabled(ctx.db, ctx.user_id):
+            await ctx.reply(text)
+            return
     await send_media_card(ctx, text, target.user_id, chat_id if is_group else None, look, target.name or "", target.username)
 
 

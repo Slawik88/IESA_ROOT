@@ -498,7 +498,8 @@ async def dm_exchange_confirms_the_quote_and_casino_rejects_an_old_day(h: Harnes
         await say(h, user, user.id, "бот обменять зарники 3")
         message = last_message(h, user.id, "30 Моры")
         rejected = await h.click(other, other.id, message, "Подтвердить обмен")
-        ok("устарело" in rejected.text, "a quote is signed for its original player")
+        ok("устарело" in rejected.text or "меню больше недоступно" in rejected.text,
+           "a foreign quote is refused before any exchange")
         await say(h, user, user.id, "бот обменять зарники 4")
         expired_message = last_message(h, user.id, "40 Моры")
         with patch("bot.chat.notify.time.time", return_value=datetime.now(timezone.utc).timestamp() + 301):

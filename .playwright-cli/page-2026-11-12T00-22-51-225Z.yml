@@ -1,0 +1,12 @@
+- generic [active] [ref=f1e1]:
+  - heading "План дня" [level=3] [ref=f1e2]
+  - generic [ref=f1e3]:
+    - generic [ref=f1e4]: План дня
+    - generic [ref=f1e6]: Задания 3 / 10
+    - generic [ref=f1e9]: Питомцы 1 / 4
+    - generic [ref=f1e12]: Опыт 120 / 300
+    - generic [ref=f1e15]: Забери награды кнопками под карточкой.
+  - generic [ref=f1e16]:
+    - button "‹ Назад" [disabled] [ref=f1e17]
+    - button "1 / 1" [ref=f1e18]
+    - button "Далее ›" [disabled] [ref=f1e19]

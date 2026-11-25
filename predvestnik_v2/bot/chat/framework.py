@@ -87,6 +87,10 @@ class Ctx:
     async def reply(self, text: str, **kw):
         kw.setdefault("parse_mode", "HTML")
         kw.setdefault("disable_web_page_preview", True)
+        from core.widget_cards import COMMANDS
+        if feature := COMMANDS.get(self.command.name):
+            from bot.widget_cards import reply
+            return await reply(self.message, self.db, feature, text, **kw)
         return await self.message.reply(text, **kw)
 
 

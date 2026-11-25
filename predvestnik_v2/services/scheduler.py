@@ -70,7 +70,13 @@ async def _account_deletion_tick(db) -> None:
     await daily_tick(db)
 
 
+async def _widget_cards_gc(db) -> None:
+    from infrastructure.repositories.widget_cards import cleanup
+    await cleanup(db)
+
+
 _DAILY_JOBS = (
+    ("widget cards GC", _widget_cards_gc),
     ("analytics GC", _analytics_gc),
     ("account deletion tick", _account_deletion_tick),
 )

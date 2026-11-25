@@ -54,7 +54,7 @@ async def cmd_games(ctx: Ctx) -> None:
         f"К возврату: <b>{recovery['refundable_mora']:g} 🪙</b>."
         if recovery["active_count"] else ""
     )
-    await ctx.message.answer(
+    await ctx.reply(
         "🎮 <b>Игры Предвестника</b>\n"
         "🔔 <b>Ритм</b> — бесконечный забег на реакцию.\n"
         "💣 <b>Сапёр</b> — логическая игра с тремя сложностями и таблицами лидеров.\n"
@@ -85,7 +85,7 @@ async def cmd_rhythm(ctx: Ctx) -> None:
         return
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="🎮 Открыть Центр Предвестника", url=miniapp_url("games"))]])
-    await ctx.message.answer(
+    await ctx.reply(
         "◌ <b>РИТМ</b>\n\n"
         "Нажимай нужную руну вовремя: чем дольше держишься, тем больше очков. Играть можно в приложении, в «Играх».\n"
         "Каждые 20 нажатий забег замирает, и ты выбираешь один из трёх даров. Таблица лидеров идёт сезонами, сезон длится примерно месяц.\n\n"
@@ -127,7 +127,7 @@ async def cmd_pass(ctx: Ctx) -> None:
     view = await league_pass.status(ctx.db, user_id=ctx.user_id)
     url = miniapp_url("pass")
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🎫 Открыть Пропуск", url=url)]]) if url else None
-    await ctx.message.answer(render_pass(view), reply_markup=kb, parse_mode="HTML")
+    await ctx.reply(render_pass(view), reply_markup=kb, parse_mode="HTML")
 
 
 # ── Квесты ────────────────────────────────────────────────────────────────────
@@ -180,4 +180,4 @@ async def cmd_quests(ctx: Ctx) -> None:
     await ensure_tables(ctx.db)
     view = await quests_v1.overview(ctx.db, user_id=ctx.user_id, vip_active=await is_vip_active(ctx.db, ctx.user_id))
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🧭 Открыть квесты", url=miniapp_url("quests"))]])
-    await ctx.message.answer(render_quest_overview(view), reply_markup=kb, parse_mode="HTML")
+    await ctx.reply(render_quest_overview(view), reply_markup=kb, parse_mode="HTML")

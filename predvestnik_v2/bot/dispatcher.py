@@ -70,6 +70,8 @@ def build_dispatcher(delivery: PollingDelivery | None = None) -> Dispatcher:
     if delivery is not None:
         dp.update.middleware(delivery.admit)
     dp.update.middleware(widget_query_middleware)   # после учёта доставки: повтор того же запроса не обработается дважды
+    from bot.widget_cards import CardCallbacks
+    dp.update.middleware(CardCallbacks())
     dp.update.middleware(measure_update_delivery)
     dp.errors.register(note_handler_error)
     dp.include_router(main_router)
@@ -80,6 +82,8 @@ def attach_outbound(session, *, throttle: bool = True, delivery: PollingDelivery
     """Outbound middlewares of the bot client, outermost first: give back the idle DB connection, then wait
     for the Telegram send slot. The simulator passes throttle=False (its Telegram has no rate limit)."""
     session.middleware(DbReleaseMiddleware())
+    from bot.widget_cards import CardEdits
+    session.middleware(CardEdits())
     if delivery is not None:
         session.middleware(delivery)
     if throttle:

@@ -262,9 +262,11 @@ async def _mark_deleted_without_market_obligations(db, user_id: int) -> bool:
 # Every other table must exist: a missing one fails the whole finalization.
 _OPTIONAL_FINALIZE_TABLES = frozenset({"global_skin_v1_selection", "global_skin_v1_owned", "support_reports", "dm_tickets",
                                        "business_connections", "business_settings", "business_usage", "business_partner_optout",
-                                       "business_remotes", "pair_games"})
+                                       "business_remotes", "pair_games", "widget_card_views", "widget_card_preferences"})
 
 _FINALIZE_STEPS = [
+    ("widget_card_views", "DELETE FROM widget_card_views WHERE owner_id = ?"),
+    ("widget_card_preferences", "DELETE FROM widget_card_preferences WHERE user_id = ?"),
     ("pets", "DELETE FROM pets WHERE owner_id = ?"),
     ("inventory", "DELETE FROM inventory WHERE user_id = ?"),
     ("support_reports", "DELETE FROM support_reports WHERE user_id = ?"),

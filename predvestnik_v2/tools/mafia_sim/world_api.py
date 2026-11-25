@@ -101,7 +101,8 @@ class BotApiMixin:
         chat_data, public_data = self._widget_state(params, "chat_data"), self._widget_state(params, "public_data")
         data = self._m_SendMessage({**params, "text": caption}) if caption else self._store_captionless(params)
         widget = {"html": source, **({"chat_data": chat_data} if chat_data else {}), **({"public_data": public_data} if public_data else {})}
-        self.widgets[(chat_id, data["message_id"])] = {**widget, "allow_queries": bool(params.get("allow_queries"))}
+        self.widgets[(chat_id, data["message_id"])] = {**widget, "caption": caption,
+                                                     "allow_queries": bool(params.get("allow_queries"))}
         data.pop("text", None)
         data.pop("entities", None)
         return {**data, "widget": widget, **({"caption": caption} if caption else {})}
@@ -145,6 +146,16 @@ class BotApiMixin:
         return [self._m_SendPhoto({**params, "caption": getattr(item, "caption", None) or "·"}) for item in params["media"]]
 
     def _m_EditMessageCaption(self, params: dict) -> dict:
+        key = (int(params["chat_id"]), int(params["message_id"]))
+        if key in self.widgets:
+            caption = str(params.get("caption") or "")
+            plain, _ = self._visible(caption, params.get("parse_mode"))
+            if len(plain.encode("utf-16-le")) // 2 > 1024:
+                raise TgError(400, "Bad Request: message caption is too long")
+            if self.widgets[key].get("caption") == caption:
+                raise TgError(400, "Bad Request: message is not modified")
+            self.widgets[key]["caption"] = caption
+            return self._message_json(self.messages[key])
         return self._m_EditMessageText({**params, "text": params.get("caption")})
 
     def _m_DeleteMessages(self, params: dict) -> bool:

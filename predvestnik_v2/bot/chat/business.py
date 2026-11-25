@@ -117,9 +117,13 @@ async def on_business_message(message: Message, bot, db) -> None:
 
 # ── ответы ──────────────────────────────────────────────────────────────────
 
-async def to_owner(bot, connection: dict, text: str, **extra) -> bool:
+async def to_owner(bot, connection: dict, text: str, *, widget_feature=None, db=None, **extra) -> bool:
     try:
-        await bot.send_message(connection["user_chat_id"], text, parse_mode="HTML", **extra)
+        if widget_feature and db is not None and connection["user_chat_id"] == connection["user_id"]:
+            from bot.widget_cards import send
+            await send(bot, db, connection["user_id"], widget_feature, text, **extra)
+        else:
+            await bot.send_message(connection["user_chat_id"], text, parse_mode="HTML", **extra)
         return True
     except TelegramAPIError as exc:
         logger.info(f"business: owner DM {connection['user_id']} not delivered: {exc}")

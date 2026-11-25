@@ -1,0 +1,19 @@
+<style>
+#lines{display:flex;flex-direction:column;gap:5px;margin:8px 0}
+.line{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.35}
+.meter{height:5px;border-radius:5px;background:var(--s);margin-top:4px}
+.fill{height:5px;border-radius:5px;background:var(--a)}
+#pages{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#pages button{margin:0;min-width:64px;min-height:44px}#page{font-size:12px;color:var(--h)}
+</style>
+<h3 id="title"></h3><div id="lines"></div>
+<div id="pages"><button id="prev">‹ Назад</button><button id="page">Обновить</button><button id="next">Далее ›</button></div>
+<div id="m"></div>
+<script>
+var KEY="card",LIVE=0,AR=-1,AQ=0,ATT=0,AV=-1;
+function draw(s){$("title").textContent=s.t||"Предвестник";var box=$("lines");box.textContent="";(s.l||[]).forEach(function(text){var line=document.createElement("div");line.className="line";line.textContent=text.replace(/\n$/,"")||" ";var match=text.match(/(\d+)\s*(?:\/|из)\s*(\d+)/);if(match&&+match[2]>0&&+match[1]<=+match[2]){var track=document.createElement("div"),fill=document.createElement("div");track.className="meter";fill.className="fill";fill.style.width=Math.round(+match[1]/+match[2]*100)+"%";track.appendChild(fill);line.appendChild(track)}box.appendChild(line)});$("page").textContent=(+(s.p||0)+1)+" / "+(s.n||1);$("prev").disabled=!s.p;$("next").disabled=+(s.p||0)+1>=+(s.n||1);acknowledge()}
+function turn(delta){return ask("card:p:"+S.k+":"+Math.max(0,(+S.p||0)+delta)+":"+S.r,1)}
+function acknowledge(){if(!T||!S.k||AR===S.r||Q||AQ)return;if(AV!==S.r){AV=S.r;ATT=0}if(ATT>=2)return;AQ=1;turn(0).then(function(o){AQ=0;if(!o||o.e){ATT++;if(ATT<2)setTimeout(acknowledge,1000)}else acknowledge()})}
+function afterReply(o,d){if(o&&!o.e&&o.r===+d.split(":")[4])AR=o.r;if(!AQ)acknowledge()}
+function start(){$("prev").onclick=function(){turn(-1)};$("next").onclick=function(){turn(1)};$("page").onclick=function(){turn(0)};acknowledge();if(T)T.onEvent("chatDataChanged",acknowledge)}
+</script>

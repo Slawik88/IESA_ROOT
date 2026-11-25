@@ -70,7 +70,11 @@ async def widget_query_middleware(handler, event: Update, data: dict):
         query = WidgetQuery.model_validate(raw)
         from services import widgets
         async with asyncio.timeout(rules.WORK_BUDGET_SEC):
-            text, state = await widgets.answer(data["db"], query)
+            if query.data.startswith("card:"):
+                from services import widget_cards
+                text = await widget_cards.answer(data["db"], query, bot.id)
+            else:
+                text, state = await widgets.answer(data["db"], query)
         if query.chat is not None and query.message_id is not None:
             target = (query.chat.id, query.message_id)
     except TimeoutError as exc:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib
 import itertools
+import json
 import pkgutil
 import time
 from dataclasses import dataclass
@@ -57,6 +58,8 @@ class Harness(UpdateFeeds):
         self.chats: list[int] = []
         self.users_made: list[SimUser] = []
         self.run_tag = "000000"   # per-run unique text for things the database keeps forever (payment charge ids)
+        self._rendered_cards: dict[tuple, int] = {}
+        self.auto_render_cards = True
 
     # ── lifecycle ───────────────────────────────────────────────────────────
     async def open(self) -> "Harness":
@@ -153,6 +156,30 @@ class Harness(UpdateFeeds):
         from aiogram.types import Update
         update = Update.model_validate({"update_id": next(self._ids), **payload}, context={"bot": self.bot})
         await self.dp.feed_update(self.bot, update)
+        if "widget_query" not in payload and self.auto_render_cards:
+            await self.render_cards()
+
+    async def render_cards(self) -> None:
+        """A supported client draws each card, then reads its pages through real widget queries.
+
+        StoredMessage.text is the visible content for scenario assertions. Callback payloads
+        still carry widget/caption, never this synthetic combined page text.
+        """
+        for key, widget in list(self.world.widgets.items()):
+            state = json.loads(widget.get("chat_data") or "{}")
+            if not state.get("k") or self._rendered_cards.get(key) == state.get("r"):
+                continue
+            user = next((user for user in self.users_made if user.id == key[0]), None)
+            if user is None:
+                continue
+            content = []
+            for page in range(state["n"]):
+                result = await self.widget_query(user, key[1], f"card:p:{state['k']}:{page}:{state['r']}")
+                answer = json.loads(result["data"])
+                assert "e" not in answer, answer
+                content.extend(answer["l"])
+            self.world.messages[key].text = "".join(content)
+            self._rendered_cards[key] = state["r"]
 
     async def say(self, user: SimUser, chat_id: int, text: str, *, topic: int | None = None,
                   forum: bool = True, anonymous: bool = False, reply_to: StoredMessage | None = None) -> int:

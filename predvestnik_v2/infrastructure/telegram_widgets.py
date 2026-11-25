@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from aiogram.methods.base import TelegramMethod
-from aiogram.types import InlineKeyboardMarkup, Message
+from aiogram.types import InlineKeyboardMarkup, Message, ReplyParameters
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -32,6 +32,7 @@ class SendWidget(TelegramMethod[Message]):
     disable_notification: bool | None = None
     message_thread_id: int | None = None
     reply_markup: InlineKeyboardMarkup | None = None
+    reply_parameters: ReplyParameters | None = None
 
 
 class EditMessageWidgetData(TelegramMethod[bool]):
